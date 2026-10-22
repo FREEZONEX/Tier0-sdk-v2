@@ -9,7 +9,7 @@ import { getEnvVar } from '../runtime-env.js';
 import { createBootstrap, type DataEnvironment, type EnsureState, type Logger } from './bootstrap.js';
 import { createDataCall } from './call.js';
 import { assertAtomicBatch, Collection, toDoc, type UnsRecord, type WithMeta } from './collection.js';
-import { currentDataSubject } from './context.js';
+import { currentDataSubject, currentSignal } from './context.js';
 import { MAX_COLLECTIONS, type CollectionDefinition } from './define.js';
 import { DataError } from './error.js';
 import { validateStepData, validateUpdate } from './schema.js';
@@ -68,7 +68,7 @@ export interface TransactResult {
   results: TransactResultItem[];
 }
 
-/** Credentials as for `createClient`; `transportTimeoutMs` defaults to 15 s here, the UNS statement timeout. */
+/** Credentials as for `createClient`; `transportTimeoutMs` (per attempt) defaults to 25 s here, see DEFAULT_DATA_TIMEOUT_MS. */
 export interface DataClientConfig extends ClientConfig {
   collections: readonly CollectionDefinition[];
   /** Defaults to "deployed" when NODE_ENV is production, otherwise "preview". */
@@ -112,6 +112,7 @@ export function createDataClient(config: DataClientConfig): DataClient {
     resolve: (target: CollectionDefinition | string) => bootstrap.resolve(lookup(target)),
     recover: bootstrap.recover,
     subject: currentDataSubject,
+    signal: currentSignal,
   };
   const handles = new Map<CollectionDefinition, Collection<object>>();
 
@@ -151,10 +152,14 @@ export function createDataClient(config: DataClientConfig): DataClient {
     const expected = options.dryRun ? 'validated' : 'committed';
     if (result.status !== expected) {
       const failed = results.filter((item) => item.error);
+      // A sync transaction should only fail whole; map the rest of the Outcome statuses anyway.
+      const execution = result.status === 'unknown' ? 'unknown' : result.status === 'partiallyCommitted' ? 'committed' : 'rolledBack';
       throw new DataError({
         message: `Transaction ${result.status}: ${failed.map((item) => `${item.opId} ${JSON.stringify(item.error)}`).join('; ') || 'no step committed'}`,
-        status: 409,
+        status: execution === 'unknown' ? 503 : 409,
         code: 'TRANSACTION_FAILED',
+        execution,
+        attempts: 1,
         details: { status: result.status, results },
       });
     }
@@ -185,7 +190,7 @@ export function createDataClient(config: DataClientConfig): DataClient {
         ...(options.dryRun ? { dryRun: true } : {}),
         ...(options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : {}),
       },
-      { dataSubject: currentDataSubject() },
+      { dataSubject: currentDataSubject(), signal: currentSignal() },
     );
   }
 

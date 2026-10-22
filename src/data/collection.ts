@@ -73,6 +73,8 @@ export interface CollectionRuntime {
   recover<R>(fn: () => Promise<R>, options?: { retry?: boolean }): Promise<R>;
   /** Data subject of the request being served. */
   subject(): string | undefined;
+  /** Abort signal of the request being served. */
+  signal(): AbortSignal | undefined;
 }
 
 /** Rejects batches UNS would refuse, before anything is sent. */
@@ -217,16 +219,58 @@ function idsInOrder(ids: Record<string, string> | undefined): string[] {
     .map(([, id]) => id);
 }
 
-function assertNoWriteErrors(result: WriteResult, operation: string, committed: Record<string, number> = {}) {
+/**
+ * Atomic batches pass no `committed` counts: their write errors rolled the
+ * whole batch back. Non-atomic runs pass their cumulative counts; `details`
+ * then has the shape `partialWrite` uses.
+ */
+function assertNoWriteErrors(result: WriteResult, operation: string, committed?: Record<string, number>) {
   if (result.writeErrors && result.writeErrors.length > 0) {
-    const counts = Object.entries(committed).map(([name, value]) => `${name}=${value}`).join(', ');
+    const counts = Object.entries(committed ?? {}).map(([name, value]) => `${name}=${value}`).join(', ');
+    const changed = committed !== undefined && Object.values(committed).some((value) => value > 0);
     throw new DataError({
       message: `${operation} stopped on ${result.writeErrors.length} write error(s)${counts ? `; already committed: ${counts}` : ''}.`,
       status: 409,
       code: 'WRITE_ERRORS',
-      details: { writeErrors: result.writeErrors, committed },
+      execution: changed ? 'committed' : 'rolledBack',
+      attempts: 1,
+      details: committed
+        ? { ...committed, status: changed ? 'partiallyCommitted' : 'failed', hasMore: Boolean(result.hasMore), resumeAfter: result.resumeAfter ?? null, writeErrors: result.writeErrors }
+        : { writeErrors: result.writeErrors },
     });
   }
+}
+
+/**
+ * A non-atomic run failed after some writes committed: on an earlier page, or
+ * within the failed page (UNS then answers `execution: "committed"` with the
+ * page's partial result as `data`). Like UNS, the error keeps its code and is
+ * `committed` with `retry.safe: false`; `details` is the cumulative result
+ * of the whole call in the shape of a success (`matchedCount` …, `status:
+ * "partiallyCommitted"`, `hasMore`, `resumeAfter`). Continue by passing
+ * `resumeAfter` back; repeating the call would apply `$inc` / `$push` twice.
+ */
+function partialWrite(operation: string, totals: Record<string, number>, resumeAfter: string | undefined, cause: DataError): DataError {
+  const counts = Object.entries(totals).map(([name, value]) => `${name}=${value}`).join(', ');
+  const writeErrors = Array.isArray(cause.details.writeErrors) ? { writeErrors: cause.details.writeErrors } : {};
+  return new DataError({
+    message:
+      `${operation} committed ${counts} and then failed: ${cause.message} ` +
+      (resumeAfter
+        ? `Continue with { resumeAfter: details.resumeAfter }${cause.outcomeUnknown ? ' after checking the failed page, whose outcome is unknown' : ''}; do not repeat the whole call.`
+        : 'Read back what changed before writing again; do not repeat the whole call.'),
+    status: cause.status,
+    code: cause.code,
+    reason: cause.reason,
+    upstreamStatus: cause.upstreamStatus,
+    requestId: cause.requestId,
+    // Earlier writes took effect; the failed page too, perhaps, when its outcome is unknown.
+    execution: cause.outcomeUnknown ? 'unknown' : 'committed',
+    retry: { safe: false },
+    attempts: cause.attempts,
+    details: { ...totals, status: 'partiallyCommitted', hasMore: true, resumeAfter: resumeAfter ?? null, ...writeErrors },
+    cause,
+  });
 }
 
 export class Collection<T extends object = Record<string, unknown>, TInput extends object = T> {
@@ -252,7 +296,11 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
 
   private async send<R>(operation: UnsV2OperationName, body: Record<string, unknown>, options: CallOptions = {}): Promise<R> {
     const collectionId = await this.runtime.resolve(this.definition);
-    return this.runtime.call<R>(operation, { collectionId, ...compact(body) }, { dataSubject: this.runtime.subject(), ...options });
+    return this.runtime.call<R>(operation, { collectionId, ...compact(body) }, {
+      dataSubject: this.runtime.subject(),
+      signal: this.runtime.signal(),
+      ...options,
+    });
   }
 
   /* ---------------------------------- reads --------------------------------- */
@@ -433,32 +481,55 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
   /**
    * Updates every match like Mongo's updateMany: documents commit one by one
    * (not atomically), following `resumeAfter` until every match is processed.
-   * A failure stops the run and reports the counts already committed. For
-   * all-or-nothing multi-document changes use `data.transact` (≤200 items).
+   * A failure after some documents committed keeps its code but is
+   * `execution: "committed"`, with the cumulative counts and
+   * `details.resumeAfter`; pass that back as `resumeAfter` to continue
+   * instead of repeating the call. For all-or-nothing multi-document changes
+   * use `data.transact` (≤200 items).
    */
   async updateMany(
     filter: Filter,
     update: Update,
-    options: Pick<UpdateOptions, 'arrayFilters'> = {},
+    options: Pick<UpdateOptions, 'arrayFilters'> & { resumeAfter?: string } = {},
   ): Promise<{ matchedCount: number; modifiedCount: number }> {
     const validated = validateUpdate(this.definition, update);
     let matchedCount = 0;
     let modifiedCount = 0;
-    let resumeAfter: string | undefined;
-    do {
-      const result: WriteResult = await this.post<WriteResult>('recordUpdateMany', {
-        filter,
-        update: validated,
-        arrayFilters: options.arrayFilters,
-        atomic: false,
-        resumeAfter,
-      });
+    await this.writeEach('updateMany', 'recordUpdateMany', { filter, update: validated, arrayFilters: options.arrayFilters }, options.resumeAfter, (result) => {
       matchedCount += result.matchedCount ?? 0;
       modifiedCount += result.modifiedCount ?? 0;
-      assertNoWriteErrors(result, 'updateMany', { matchedCount, modifiedCount });
+      return { matchedCount, modifiedCount };
+    });
+    return { matchedCount, modifiedCount };
+  }
+
+  /** Runs a non-atomic many-write page by page; see updateMany for failures. */
+  private async writeEach(
+    name: string,
+    operation: UnsV2OperationName,
+    body: Record<string, unknown>,
+    from: string | undefined,
+    add: (result: WriteResult) => Record<string, number>,
+  ): Promise<void> {
+    let resumeAfter = from;
+    let committed: Record<string, number> | undefined;
+    do {
+      let result: WriteResult;
+      try {
+        result = await this.post<WriteResult>(operation, { ...body, atomic: false, resumeAfter });
+      } catch (error) {
+        if (!(error instanceof DataError)) throw error;
+        // UNS reports what the failed page itself committed, with where to continue.
+        const page = error.execution === 'committed' ? (error.details as WriteResult) : undefined;
+        const totals = page ? add(page) : committed;
+        // Nothing of this call took effect: the page's own error tells the truth.
+        if (!totals || !Object.values(totals).some((value) => value > 0)) throw error;
+        throw partialWrite(name, totals, page ? (page.resumeAfter ?? undefined) : resumeAfter, error);
+      }
+      committed = add(result);
+      assertNoWriteErrors(result, name, committed);
       resumeAfter = result.hasMore && result.resumeAfter ? result.resumeAfter : undefined;
     } while (resumeAfter);
-    return { matchedCount, modifiedCount };
   }
 
   /**
@@ -493,17 +564,15 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
 
   /**
    * Soft-deletes every match, one document at a time like Mongo's deleteMany
-   * (not atomic), following `resumeAfter`; requires `uns.delete` on the App key.
+   * (not atomic), following `resumeAfter`; requires `uns.delete` on the App
+   * key. Failures after committed deletes report them as updateMany does.
    */
-  async deleteMany(filter: Filter): Promise<{ deletedCount: number }> {
+  async deleteMany(filter: Filter, options: { resumeAfter?: string } = {}): Promise<{ deletedCount: number }> {
     let deletedCount = 0;
-    let resumeAfter: string | undefined;
-    do {
-      const result: WriteResult = await this.post<WriteResult>('recordDeleteMany', { filter, atomic: false, resumeAfter });
+    await this.writeEach('deleteMany', 'recordDeleteMany', { filter }, options.resumeAfter, (result) => {
       deletedCount += result.deletedCount ?? 0;
-      assertNoWriteErrors(result, 'deleteMany', { deletedCount });
-      resumeAfter = result.hasMore && result.resumeAfter ? result.resumeAfter : undefined;
-    } while (resumeAfter);
+      return { deletedCount };
+    });
     return { deletedCount };
   }
 

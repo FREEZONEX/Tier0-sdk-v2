@@ -57,7 +57,8 @@ export class CloudTransport {
     this.#unsV2AppDataSubject = subject;
   }
 
-  async postText(path: string, body: string, options: RequestOptions = {}): Promise<{ text: string; status: number; ok: boolean }> {
+  /** `retryAfter`: the raw `Retry-After` header, for answers without a UNS error body. */
+  async postText(path: string, body: string, options: RequestOptions = {}): Promise<{ text: string; status: number; ok: boolean; retryAfter?: string }> {
     options.signal?.throwIfAborted();
     const client = this.resolveClient();
     const url = `${client.getBaseURL()}${path}`;
@@ -122,7 +123,8 @@ export class CloudTransport {
         reader.releaseLock();
         reader = undefined;
       }
-      return { text: chunks.join(''), status: response.status, ok: response.ok };
+      const retryAfter = response.headers.get('retry-after') ?? undefined;
+      return { text: chunks.join(''), status: response.status, ok: response.ok, ...(retryAfter === undefined ? {} : { retryAfter }) };
     };
     try {
       const deadline = new Promise<never>((_resolve, reject) => {

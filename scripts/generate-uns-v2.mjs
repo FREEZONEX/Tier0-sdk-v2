@@ -125,6 +125,14 @@ const includeDependencies = value => {
   for (const nested of Object.values(value)) includeDependencies(nested);
 };
 while (dependencyQueue.length) includeDependencies(dependencyQueue.pop());
+// Whether a request carries the optional idempotency key the receipt store deduplicates on.
+const acceptsIdempotencyKey = (schema, seen = new Set()) => {
+  if (!schema || typeof schema !== 'object') return false;
+  const name = refName(schema.$ref);
+  if (name) return !seen.has(name) && (seen.add(name), acceptsIdempotencyKey(manifest.schemas[name], seen));
+  if (Object.hasOwn(schema.properties || {}, 'idempotencyKey')) return true;
+  return (schema.allOf || []).some(part => acceptsIdempotencyKey(part, seen));
+};
 const literal = value => JSON.stringify(value);
 const union = values => [...new Set(values.filter(Boolean))].join(' | ') || 'never';
 
@@ -215,7 +223,7 @@ function codecFor(schema) {
 const schemaTypes = Object.entries(exportedSchemas).map(([name, schema]) =>
   `export type ${name} = ${typeFor(schema)};`).join('\n\n');
 const operationRows = publicOperations.map(operation =>
-  `  ${JSON.stringify(operation.name)}: { path: ${JSON.stringify(`/openapi/v2${operation.path}`)}, pathParams: ${JSON.stringify(operation.pathParams || [])}, request: ${JSON.stringify(requestType(operation))}, response: ${JSON.stringify(responseType(operation))}, mutation: ${JSON.stringify(Boolean(operation.mutation))}, scope: ${JSON.stringify(operation.scope)} },`).join('\n');
+  `  ${JSON.stringify(operation.name)}: { path: ${JSON.stringify(`/openapi/v2${operation.path}`)}, pathParams: ${JSON.stringify(operation.pathParams || [])}, request: ${JSON.stringify(requestType(operation))}, response: ${JSON.stringify(responseType(operation))}, mutation: ${JSON.stringify(Boolean(operation.mutation))}, idempotencyKey: ${JSON.stringify(Boolean(operation.mutation) && acceptsIdempotencyKey(manifest.schemas[requestType(operation)]))}, scope: ${JSON.stringify(operation.scope)} },`).join('\n');
 const operationTypes = publicOperations.map(operation =>
   `  ${JSON.stringify(operation.name)}: { request: ${requestType(operation)}; response: ${responseType(operation)} };`).join('\n');
 const operationMethods = publicOperations.map(operation =>

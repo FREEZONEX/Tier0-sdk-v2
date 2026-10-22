@@ -43,13 +43,13 @@ export async function nextOrderNumber() {
 
 每次调用都使用平台注入的 App Key。处理业务请求时，数据层还会转发网关签发的员工断言（`X-Tier0-App-Data-Subject`），让 UNS 的数据规则与记录租约作用于该员工。集合 ensure 与种子写入以 App 身份执行。
 
-App 的请求入口用 `runWithRequestContext(request.headers, next)` 打开请求上下文；脱离请求的工作（定时器、队列、发出即不管的后续任务）放进 `runAsApp(() => ...)`，这些调用不带员工身份；员工身份下取得的租约不能由这类 App 级工作释放。断言格式由 SDK 校验（三段 base64url），格式不合法时调用在发出请求前失败。
+App 的请求入口用 `runWithRequestContext(request, next)` 打开请求上下文（传 `Request` 本身：调用方断开时，还在排队的数据调用不再发出，进行中的被取消；只传 `request.headers` 则没有取消）；脱离请求的工作（定时器、队列、发出即不管的后续任务）放进 `runAsApp(() => ...)`，这些调用不带员工身份；员工身份下取得的租约不能由这类 App 级工作释放。断言格式由 SDK 校验（三段 base64url），格式不合法时调用在发出请求前失败。
 
 ```ts
 import { currentDataSubject, runAsApp, runWithRequestContext } from '@tier0/sdk-v2/data';
 
 export function handleRequest<T>(request: Request, next: () => Promise<T>): Promise<T> {
-  return runWithRequestContext(request.headers, next);
+  return runWithRequestContext(request, next);
 }
 
 export function scheduleFollowUp(task: () => Promise<void>) {

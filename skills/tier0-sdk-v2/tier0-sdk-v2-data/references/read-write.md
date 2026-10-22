@@ -59,13 +59,38 @@ export async function addNote(id: string, notes: string, revision: number) {
 | 调用 | 上限 | 原子 |
 | --- | --- | --- |
 | `insertMany`、`bulkWrite`、`data.transact` | 每次 ≤200 项，超过在发送前抛 `BATCH_LIMIT_EXCEEDED` | 是，全部或全不 |
-| `updateMany`、`deleteMany` | 无上限，翻页处理所有匹配 | 否，逐条提交；失败抛 `WRITE_ERRORS` 并报告已提交的数量 |
+| `updateMany`、`deleteMany` | 无上限，翻页处理所有匹配 | 否，逐条提交；已有提交后失败时错误保留原 `code`，`execution: 'committed'`、`retry.safe: false`，`details` 是累计结果（`matchedCount` 等、`status: 'partiallyCommitted'`、续做位置 `resumeAfter`） |
 
 超过 200 条按 200 分块写入（循环分块即可），每块用固定 `_id` 或独立 `idempotencyKey`，重试不会重复。多条文档必须一起成功或失败时，用一次 `data.transact`（≤200 步），不要用 `updateMany`。不要在循环里逐条调用数据层：读用一次 `$in`，写用 `insertMany` / `updateMany` / `bulkWrite` 或 `data.transact`。
 
+### 非原子批量中途失败
+
+`updateMany` / `deleteMany` 已经提交了一部分后失败时（`execution === 'committed'`），不要整体重做：`$inc`、`$push` 这类更新会把已提交的记录再改一次。把 `details.resumeAfter` 传回去，从失败处继续：
+
+```ts
+import { DataError, type Collection } from '@tier0/sdk-v2/data';
+
+export async function bumpAll(items: Collection<{ status: string; views: number }>) {
+  let resumeAfter: string | undefined;
+  for (let round = 0; round < 3; round += 1) {
+    try {
+      return await items.updateMany({ status: 'OPEN' }, { $inc: { views: 1 } }, { resumeAfter });
+    } catch (error) {
+      // 只续做已证明部分提交、且给了续做位置的失败；结局未知的那一页要先核对。
+      const next = error instanceof DataError && error.execution === 'committed' ? error.details.resumeAfter : undefined;
+      if (typeof next !== 'string') throw error;
+      resumeAfter = next;
+    }
+  }
+  throw new Error('updateMany kept failing');
+}
+```
+
+`execution === 'unknown'` 时失败的那一页可能已经部分生效，续做前先核对。
+
 ## 过滤
 
-支持 `$eq $ne $gt $gte $lt $lte $in $nin $exists $all $size $elemMatch $not $and $or $nor` 和 `$contains`。`$contains` 是子串匹配（1–256 字节，无通配符和正则），只对 ASCII 字母忽略大小写；缺失、null、非字符串值不匹配；只能用于声明为字符串的字段，用在数组或数字字段上返回 `INVALID_REQUEST`。它不能使用索引，大集合上可能触发 15 秒语句超时（`QUERY_TIMEOUT`），要和有索引的条件一起用。`$in` 最多 200 个值，排序最多 4 个字段（`toSortPairs` 也导出给自定义查询转换使用）。
+支持 `$eq $ne $gt $gte $lt $lte $in $nin $exists $all $size $elemMatch $not $and $or $nor` 和 `$contains`。`$contains` 是子串匹配（1–256 字节，无通配符和正则），只对 ASCII 字母忽略大小写；缺失、null、非字符串值不匹配；只能用于声明为字符串的字段，用在数组或数字字段上返回 `INVALID_REQUEST`。它不能使用索引，大集合上可能触发 10 秒执行超时（`QUERY_TIMEOUT`），要和有索引的条件一起用。`$in` 最多 200 个值，排序最多 4 个字段（`toSortPairs` 也导出给自定义查询转换使用）。
 
 ## 校验
 
