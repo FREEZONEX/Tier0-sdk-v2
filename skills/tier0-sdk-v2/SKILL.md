@@ -1,6 +1,6 @@
 ---
 name: tier0-sdk-v2
-description: 使用 @tier0/sdk-v2 开发或迁移 Tier0 云端 TypeScript/JavaScript 应用，按 Source、Stream、UNS、通知与系统能力选择入口，处理配置、身份和框架集成。
+description: 使用 @tier0/sdk-v2 开发或迁移 Tier0 云端 TypeScript/JavaScript 应用：Source 数据源、Stream 处理程序、UNS 集合与记录、App 自有数据（@tier0/sdk-v2/data）、通知、文件存储、MQTT、成员、系统身份与能力、Controls 和 Agent，按任务进入对应子 Skill，并处理配置、身份和框架集成。
 ---
 
 # Tier0 SDK v2 应用集成
@@ -11,17 +11,17 @@ description: 使用 @tier0/sdk-v2 开发或迁移 Tier0 云端 TypeScript/JavaSc
 
 | 用户要做什么 | SDK 入口 | 深入说明 |
 | --- | --- | --- |
-| 连接外部系统、维护采集源、检查连接和影响范围 | `client.source` | [Source](../tier0-sdk-v2-source/SKILL.md) |
-| 编写处理程序、配置源绑定、校验和发布、查运行记录 | `client.stream` | [Stream](../tier0-sdk-v2-stream/SKILL.md) |
-| 集合、目录、Topic、业务记录、历史采样与事务 | `client.uns` | [UNS](../tier0-sdk-v2-uns/SKILL.md) |
-| App 自有业务数据：声明集合、Mongo 风格读写与事务 | `@tier0/sdk-v2/data` | [App 数据](../tier0-sdk-v2-data/SKILL.md) |
-| 站内信、Web/Desktop 提醒、手机推送 | `client.notifications` | [通知](../tier0-sdk-v2-notifications/SKILL.md) |
-| 当前凭证、平台信息、功能是否就绪 | `client.system`、`client.capabilities` | [系统](../tier0-sdk-v2-system/SKILL.md) |
-| 附件、头像、导入导出、生成报告 | `client.files` | [文件](../tier0-sdk-v2-files/SKILL.md) |
-| 实时主题订阅/发布 | `@tier0/sdk-v2/mq`、`client.mqttAuth` | [MQTT](../tier0-sdk-v2-mq/SKILL.md) |
-| Workspace 收件人/成员检索、App 可用成员 | `client.members` | [成员](../tier0-sdk-v2-members/SKILL.md) |
-| 调用已发布的 Control | `client.controls` | [Controls](../tier0-sdk-v2-controls/SKILL.md) |
-| Agent 作业、运行、分析结果和卡片 | `client.agent` | [Agent](../tier0-sdk-v2-agent/SKILL.md) |
+| 连接外部系统、维护采集源、检查连接和影响范围 | `client.source` | [Source](tier0-sdk-v2-source/SKILL.md) |
+| 编写处理程序、配置源绑定、校验和发布、查运行记录 | `client.stream` | [Stream](tier0-sdk-v2-stream/SKILL.md) |
+| 集合、目录、Topic、业务记录、历史采样与事务 | `client.uns` | [UNS](tier0-sdk-v2-uns/SKILL.md) |
+| App 自有业务数据：声明集合、Mongo 风格读写与事务 | `@tier0/sdk-v2/data` | [App 数据](tier0-sdk-v2-data/SKILL.md) |
+| 站内信、Web/Desktop 提醒、手机推送 | `client.notifications` | [通知](tier0-sdk-v2-notifications/SKILL.md) |
+| 当前凭证、平台信息、功能是否就绪 | `client.system`、`client.capabilities` | [系统](tier0-sdk-v2-system/SKILL.md) |
+| 附件、头像、导入导出、生成报告 | `client.files` | [文件](tier0-sdk-v2-files/SKILL.md) |
+| 实时主题订阅/发布 | `@tier0/sdk-v2/mq`、`client.mqttAuth` | [MQTT](tier0-sdk-v2-mq/SKILL.md) |
+| Workspace 收件人/成员检索、App 可用成员 | `client.members` | [成员](tier0-sdk-v2-members/SKILL.md) |
+| 调用已发布的 Control | `client.controls` | [Controls](tier0-sdk-v2-controls/SKILL.md) |
+| Agent 作业、运行、分析结果和卡片 | `client.agent` | [Agent](tier0-sdk-v2-agent/SKILL.md) |
 
 每个领域 Skill 可单独使用，无需先加载本文件。Source → Stream → UNS 是接入、处理与数据存储三个领域；不是要求每个数据读取场景都创建一套流水线。通知和系统能力独立于这条链路。
 

@@ -193,11 +193,11 @@
     "skills": [
       {
         "name": "tier0-sdk-v2-source",
-        "path": "./skills/tier0-sdk-v2-source"
+        "path": "./skills/tier0-sdk-v2/tier0-sdk-v2-source"
       },
       {
         "name": "tier0-sdk-v2-stream",
-        "path": "./skills/tier0-sdk-v2-stream"
+        "path": "./skills/tier0-sdk-v2/tier0-sdk-v2-stream"
       },
       {
         "name": "tier0-sdk-v2",
@@ -205,39 +205,39 @@
       },
       {
         "name": "tier0-sdk-v2-uns",
-        "path": "./skills/tier0-sdk-v2-uns"
+        "path": "./skills/tier0-sdk-v2/tier0-sdk-v2-uns"
       },
       {
         "name": "tier0-sdk-v2-files",
-        "path": "./skills/tier0-sdk-v2-files"
+        "path": "./skills/tier0-sdk-v2/tier0-sdk-v2-files"
       },
       {
         "name": "tier0-sdk-v2-notifications",
-        "path": "./skills/tier0-sdk-v2-notifications"
+        "path": "./skills/tier0-sdk-v2/tier0-sdk-v2-notifications"
       },
       {
         "name": "tier0-sdk-v2-mq",
-        "path": "./skills/tier0-sdk-v2-mq"
+        "path": "./skills/tier0-sdk-v2/tier0-sdk-v2-mq"
       },
       {
         "name": "tier0-sdk-v2-members",
-        "path": "./skills/tier0-sdk-v2-members"
+        "path": "./skills/tier0-sdk-v2/tier0-sdk-v2-members"
       },
       {
         "name": "tier0-sdk-v2-system",
-        "path": "./skills/tier0-sdk-v2-system"
+        "path": "./skills/tier0-sdk-v2/tier0-sdk-v2-system"
       },
       {
         "name": "tier0-sdk-v2-controls",
-        "path": "./skills/tier0-sdk-v2-controls"
+        "path": "./skills/tier0-sdk-v2/tier0-sdk-v2-controls"
       },
       {
         "name": "tier0-sdk-v2-agent",
-        "path": "./skills/tier0-sdk-v2-agent"
+        "path": "./skills/tier0-sdk-v2/tier0-sdk-v2-agent"
       },
       {
         "name": "tier0-sdk-v2-data",
-        "path": "./skills/tier0-sdk-v2-data"
+        "path": "./skills/tier0-sdk-v2/tier0-sdk-v2-data"
       }
     ]
   }
