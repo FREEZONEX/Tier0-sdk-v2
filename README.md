@@ -41,7 +41,7 @@ const capabilities = await tier0.capabilities.discover();
 | `tier0.agent` | `analyses`、`canvases`、`cards`、`jobs`、`jobRuns`、`library`、`nodes`、`relations`、`results` |
 | `tier0.capabilities` | 当前凭证可见的能力发现；就绪状态由服务端判断 |
 | `tier0.controls` | Control 发现、描述、执行及结果未知错误 |
-| `tier0.api` | 50 个普通 OpenAPI 的完整生成接口；通常优先使用上面的领域入口 |
+| `tier0.api` | 51 个普通 OpenAPI 的完整生成接口；通常优先使用上面的领域入口 |
 | `@tier0/sdk-v2/mq` | MQTT WebSocket 客户端与 broker 地址工具；不进入根入口依赖图 |
 | `@tier0/sdk-v2/source` | `createSourceClient()`，独立 Source 客户端 |
 | `@tier0/sdk-v2/stream` | `createStreamClient()`，独立 Stream 客户端 |
@@ -53,7 +53,7 @@ const capabilities = await tier0.capabilities.discover();
 
 ## Source、Stream 与 UNS 分域
 
-Source 负责连接外部系统，Stream 负责处理与运行，UNS 负责命名空间与业务数据。共用底层 98 个公开生成操作，业务入口按领域组织；Control 使用 `tier0.controls` 的专属契约。
+Source 负责连接外部系统，Stream 负责处理与运行，UNS 负责命名空间与业务数据。共用底层 106 个公开生成操作，业务入口按领域组织；Control 使用 `tier0.controls` 的专属契约。
 
 ```ts
 const sources = await tier0.source.documents.list({ page: 1, size: 20 });
@@ -81,7 +81,7 @@ await tier0.uns.recordFind(
 );
 ```
 
-实际集合 ID 和有效权限从平台配置/数据上下文取得。SDK 中存在创建集合的方法，不表示 App 数据 Key 有管理权限；后台内部管理接口不导出到公开 SDK。
+实际集合 ID 和有效权限从平台配置/数据上下文取得。管理操作中，App 凭证只能调用本 App 集合的 `appCollectionsEnsure` / `appCollectionsSchemaReplace` / `appCollectionsArchive` / `appCollectionsRestore`；SDK 中存在 `collectionCreate` 等其他管理方法，不表示 App 凭证有对应权限。App 数据授权 `appDataPolicyGet` / `appDataPolicyUpdate` 需要当前 Builder 会话或 full_access 个人/Agent Key，运行时 App 凭证不能管理授权。Core-only 后台接口不导出到公开 SDK。
 
 UNS 保留 `{ code, msg, requestId, data }` 完整响应。普通 v1 包装接口返回已解包的 `data`，通知/Control/能力发现返回服务端直接对象。业务错误即使 HTTP 为 200 也会抛出 `ApiError`。
 
@@ -165,7 +165,7 @@ Vue 由 `execute()` 显式执行，后发请求的结果优先；取消不表示
 
 ## 契约更新与验证
 
-上游：`FREEZONEX/Tier0-Backend`，固定提交 `1e93620522caa47869d67e9aea1491a8cda71fa5`。`contracts/upstream.json` 记录来源和 SHA-256。
+上游：`FREEZONEX/Tier0-Backend`，固定提交 `fb35598ae8404e1a64bdc8a500341f12aeff2744`。`contracts/upstream.json` 记录来源和 SHA-256。
 
 ```sh
 npm ci

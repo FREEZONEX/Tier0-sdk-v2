@@ -328,7 +328,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
     expect(received.slice(start)).toHaveLength(1);
     expect(received[start].path).toBe('/openapi/v2/uns/streams/sample/test');
     const core = rawClient() as unknown as { call(name: string, request: unknown): Promise<unknown> };
-    for (const name of ['graph', 'sourceCredentialCreate', 'sourceIngressGet', 'sourceIngressRotate', 'appDataPolicyGet', 'appDataPolicyUpdate', 'hostedAppControlPolicyGet', 'hostedAppControlPolicyUpdate']) {
+    for (const name of ['graph', 'sourceCredentialCreate', 'sourceIngressGet', 'sourceIngressRotate', 'hostedAppControlPolicyGet', 'hostedAppControlPolicyUpdate']) {
       expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(false);
       await expect(core.call(name, {})).rejects.toThrow('unknown UNS v2 operation');
     }
@@ -336,12 +336,12 @@ describe('UNS v2 localhost HTTP fixture', () => {
       expect(Object.hasOwn(UNS_V2_CODEC_SCHEMAS, name)).toBe(false);
     }
     expect(UNS_V2_CONTRACT_PROVENANCE.version).toBe('4.0.0');
-    expect(UNS_V2_CONTRACT_PROVENANCE.cloudContractRevision).toBe('cloud-source-impact/1+app-create-capability/1+data/3+collection-namespace/1+http-acquisition/2+app-data/2+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1');
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('1e93620522caa47869d67e9aea1491a8cda71fa5');
+    expect(UNS_V2_CONTRACT_PROVENANCE.cloudContractRevision).toBe('cloud-source-impact/1+app-create-capability/1+data/3+collection-namespace/1+http-acquisition/2+app-collection/2+app-data/2+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/1');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('fb35598ae8404e1a64bdc8a500341f12aeff2744');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(UNS_V2_CONTRACT_PROVENANCE.sourceDerivedContractSHA256).toBe(UNS_V2_CONTRACT_PROVENANCE.hashes.contract);
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(98);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(113);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(106);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(119);
     expect(received.slice(start)).toHaveLength(1);
   });
 

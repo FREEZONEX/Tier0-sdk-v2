@@ -7,7 +7,7 @@ import ts from 'typescript';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const spec = JSON.parse(readFileSync(resolve(root, 'contracts/openapi-v1.source.json'), 'utf8'));
 const check = process.argv.includes('--check');
-const excluded = { '/gw/reload': 'Internal gateway maintenance.', '/openapi/v1/launchpad/{projectName}/getMembers': 'Project member API is retiring; no appId OpenAPI has landed in the pinned Backend.' };
+const excluded = { '/gw/reload': 'Internal gateway maintenance.' };
 const schemas = spec.components.schemas;
 const infoSource = readFileSync(resolve(root, 'contracts/info.source.proto'), 'utf8').match(/message OpenapiInfoResp\s*\{([^}]+)\}/)?.[1];
 if (!infoSource) throw new Error('Missing OpenapiInfoResp contract');
