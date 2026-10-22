@@ -31,7 +31,7 @@ beforeAll(async () => {
 afterAll(async () => { server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); });
 const config = () => ({ apiHost, apiKey: 'transport-fixture-key', transportTimeoutMs: 2000 });
 
-describe('all 98 UNS v2 public operations reach their upstream route', () => {
+describe('all 106 UNS v2 public operations reach their upstream route', () => {
   for (const [name, operation] of Object.entries(UNS_V2_OPERATIONS)) {
     it(name, async () => {
       observed.length = 0;
@@ -63,11 +63,11 @@ function flatten(object: object, prefix = ''): Record<string, Method> {
   return result;
 }
 
-describe('all 50 v1 generated methods reach their upstream route', () => {
+describe('all 51 v1 generated methods reach their upstream route', () => {
   it('matches the complete public method inventory', () => {
     expect(Object.keys(flatten(createClient(config()).api)).sort()).toEqual(Object.keys(OPENAPI_OPERATIONS).sort());
-    expect(Object.keys(OPENAPI_OPERATIONS)).toHaveLength(50);
-    expect(Object.keys(UNS_V2_OPERATIONS)).toHaveLength(98);
+    expect(Object.keys(OPENAPI_OPERATIONS)).toHaveLength(51);
+    expect(Object.keys(UNS_V2_OPERATIONS)).toHaveLength(106);
   });
   for (const [name, operation] of Object.entries(OPENAPI_OPERATIONS)) {
     it(name, async () => {
