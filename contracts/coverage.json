@@ -1,8 +1,7 @@
 {
   "v1PublicPaths": 51,
   "v1Excluded": {
-    "/gw/reload": "Internal gateway maintenance.",
-    "/openapi/v1/launchpad/{projectName}/getMembers": "Project member API is retiring; no appId OpenAPI has landed in the pinned Backend."
+    "/gw/reload": "Internal gateway maintenance."
   },
   "v2PublicOperations": 100
 }

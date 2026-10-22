@@ -31,6 +31,8 @@ export interface UnsV2ErrorInfo {
   repair?: string;
   reason?: string;
   queryId?: string;
+  /** The error envelope's `data`, verbatim; stable access codes such as `data.reason` live here. */
+  data?: unknown;
 }
 
 /** Server advice is exposed verbatim. The SDK never acts on it or retries a request. */
@@ -48,6 +50,7 @@ export class UnsV2Error extends Error implements UnsV2ErrorInfo {
   readonly repair?: string;
   readonly reason?: string;
   readonly queryId?: string;
+  readonly data?: unknown;
 
   constructor(message: string, info: UnsV2ErrorInfo) {
     super(message);
@@ -107,6 +110,7 @@ function errorInfo(value: unknown, status: number, operation: UnsV2OperationName
     repair: typeof value.error.repair === 'string' ? value.error.repair : undefined,
     reason: typeof value.error.reason === 'string' ? value.error.reason : undefined,
     queryId: typeof value.error.queryId === 'string' ? value.error.queryId : undefined,
+    data: value.data ?? undefined,
   };
 }
 

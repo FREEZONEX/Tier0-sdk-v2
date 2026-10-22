@@ -50,15 +50,22 @@ describe('Backend App UNS access contract without generic record audit', () => {
   });
 
   it('keeps App credentials outside generic management while preserving owned-collection lifecycle and Core-only boundaries', () => {
+    const appCollectionLifecycle = ['appCollectionsArchive', 'appCollectionsEnsure', 'appCollectionsRestore', 'appCollectionsSchemaReplace'];
     const management = manifest.operations.filter(item => item.minPermission >= 3 || item.permission.includes('manage'));
-    expect(management.length).toBeGreaterThan(0);
+    expect(management.filter(item => item.appAllowed).map(item => item.name).sort()).toEqual(appCollectionLifecycle);
     for (const item of management) {
       expect(item.appAllowed, item.name).toBe(['appCollectionsEnsure', 'appCollectionsSchemaReplace', 'appCollectionsArchive', 'appCollectionsRestore'].includes(item.name));
       expect(item.permissionAnyOf.some(permission => permission.includes('manage')), item.name).toBe(false);
     }
+    for (const name of appCollectionLifecycle) {
+      expect(operation(name)).toMatchObject({ appAllowed: true, permission: 'uns.write', minPermission: 3 });
+      expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(true);
+    }
     // Generic workspace SDK methods remain available; their presence grants no App authority.
     expect(operation('metadataInsertOne').appAllowed).toBe(false);
     expect(Object.hasOwn(UNS_V2_OPERATIONS, 'metadataInsertOne')).toBe(true);
+    expect(operation('appCollectionsList').appAllowed).toBe(false);
+    expect(Object.hasOwn(UNS_V2_OPERATIONS, 'appCollectionsList')).toBe(true);
     for (const name of ['metadata', 'metaBatchExecute', 'metaBatchValidate', 'directoryCreate', 'directoryGet',
       'directoryList', 'directoryUpdate', 'directoryDelete', 'topicCreate', 'topicGet', 'topicList', 'topicUpdate',
       'topicDelete', 'collectionCreate', 'collectionGet', 'collectionList', 'collectionUpdate',

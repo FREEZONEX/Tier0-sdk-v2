@@ -294,4 +294,21 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     expect(result.options[0]).toMatchObject({ value: '9007199254740993', label: '未命名成员' });
     finished();
   });
+
+  it('lists App members by explicit appId and branches unavailable access lists by code', async () => {
+    const path = '/openapi/v1/apps/access-members/list';
+    steps = [
+      { path, check: body => expect(body).toEqual({ appId: 'app-1', page: 1, size: 20 }),
+        data: { appId: 'app-1', published: 1, allActiveMembers: 2, roles: [], total: 1, page: 1, size: 20,
+          list: [{ userId: '42', email: 'a@example.com', grantedAt: 1700000050000, roles: [{ roleId: 'r-1', roleKey: 'operator', roleName: 'Operator', sources: [{ type: 'direct' }] }] }] } },
+      { path, raw: JSON.stringify({ code: 3003016, msg: 'App access list cannot be determined' }) },
+      { path, raw: JSON.stringify({ code: 3003017, msg: 'App access list is temporarily unavailable' }) },
+    ];
+    const { appMembers } = example('members', 'app-members');
+    const result = await appMembers(1, client, 'app-1');
+    expect(result.list).toEqual([{ userId: '42', label: 'a@example.com', roles: ['Operator'] }]);
+    await expect(appMembers(1, client, 'app-1')).rejects.toThrow('重新部署 App');
+    await expect(appMembers(1, client, 'app-1')).rejects.toThrow('稍后重试');
+    finished();
+  });
 });
