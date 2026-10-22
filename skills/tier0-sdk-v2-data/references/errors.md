@@ -38,6 +38,7 @@ export function toResponse(error: unknown): Response {
 | `DATA_NOT_CONFIGURED` (503) | 缺少 TIER0_API_HOST / TIER0_API_KEY（或 apiHost / apiKey） |
 | `DATA_TIMEOUT` (503) | UNS 未在超时内应答（默认 15 秒，`transportTimeoutMs` 可调）；写入时 `outcomeUnknown` 为 true |
 | `DATA_UNREACHABLE` (503) | 连不上数据服务；网关地址只在原始错误里，不进 message |
+| `HTTP_502` / `HTTP_503` / `HTTP_504` (503) | 网关在滚动发布、Pod 重启时未经 UNS 直接返回；可重试，写入时 `outcomeUnknown` 为 true |
 | `DATA_BAD_RESPONSE` (502) | UNS 应答不符合契约 |
 | `BATCH_LIMIT_EXCEEDED` (400) | 原子批量超过 200 项，未发送 |
 | `WRITE_ERRORS` (409) | 批量写入中途失败；`details.committed` 是已提交的数量 |

@@ -53,7 +53,7 @@ function mockUns(routes: Record<string, Reply | Reply[]>) {
     if (!queue) return new Response(JSON.stringify(failure(404, 'NOT_FOUND', null, `no mock for ${path}`).body), { status: 404 });
     const next = queue.length > 1 ? queue.shift()! : queue[0];
     const reply = typeof next === 'function' ? next(entry) : next;
-    return new Response(JSON.stringify(reply.body), { status: reply.status ?? 200 });
+    return new Response(typeof reply.body === 'string' ? reply.body : JSON.stringify(reply.body), { status: reply.status ?? 200 });
   }) as typeof globalThis.fetch;
   return { fetch, sent, calls: (path: string) => sent.filter(entry => entry.path === path) };
 }
@@ -206,6 +206,23 @@ describe('transport', () => {
     expect(await failed(unconfigured.ensure())).toMatchObject({ code: 'DATA_NOT_CONFIGURED', status: 503 });
     const keyless = createDataClient({ collections: [orders], apiHost: 'http://gw.local', logger: silent });
     expect(await failed(keyless.ensure())).toMatchObject({ code: 'DATA_NOT_CONFIGURED' });
+  });
+
+  it('treats unenveloped 502/503/504 from the gateway as retryable unavailability', async () => {
+    const html = (status: number) => ({ status, body: `<html><body>${status} Service Temporarily Unavailable</body></html>` });
+    const ensure = await failed(client(mockUns({ [ENSURE]: html(503) })).ensure());
+    expect(ensure).toMatchObject({ code: 'HTTP_503', status: 503, upstreamStatus: 503, retryable: true, outcomeUnknown: true });
+    expect(ensure.message).toMatch(/write outcome is unknown/);
+
+    const read = await failed(client(mockUns({ [ENSURE]: BOTH_UNCHANGED, '/uns/collections/c-orders/records:count': html(502) })).collection(orders).countDocuments());
+    expect(read).toMatchObject({ code: 'HTTP_502', status: 503, upstreamStatus: 502, retryable: true, outcomeUnknown: false });
+
+    const legacy = await failed(client(mockUns({ [ENSURE]: { status: 504, body: { code: 504, msg: 'gateway timeout' } } })).ensure());
+    expect(legacy).toMatchObject({ code: 'HTTP_504', status: 503, retryable: true });
+
+    // UNS v2 answers other errors with its envelope; an unenveloped one stays a bad response.
+    const unenveloped = await failed(client(mockUns({ [ENSURE]: { status: 401, body: { code: 401, msg: 'unauthorized' } } })).ensure());
+    expect(unenveloped).toMatchObject({ code: 'DATA_BAD_RESPONSE', status: 502, retryable: false });
   });
 
   it('marks a timed-out write as outcome unknown', async () => {

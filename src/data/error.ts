@@ -1,8 +1,11 @@
 /**
- * Every failure of a data call is a `DataError`. The SDK's UNS client does the
- * HTTP exchange; its `UnsV2Error` (kept as `cause`) is translated here, and the
- * data layer raises its own codes (BATCH_LIMIT_EXCEEDED, WRITE_ERRORS, ...).
- * `status` is the HTTP status the App should answer its own caller with.
+ * Runtime failures of a data call, missing credentials included, are a
+ * `DataError`. The SDK's UNS client does the HTTP exchange; its `UnsV2Error`
+ * (kept as `cause`) is translated here, and the data layer raises its own codes
+ * (BATCH_LIMIT_EXCEEDED, WRITE_ERRORS, ...). `status` is the HTTP status the App
+ * should answer its own caller with. Writes that fail validation throw
+ * `ZodError`; programming or platform errors, such as invalid client options or
+ * a malformed data subject from the gateway, throw `TypeError`.
  */
 import { UnsV2OutcomeUnknownError, type UnsV2Error } from '../uns-v2/client.js';
 
@@ -124,6 +127,21 @@ function isObject(value: unknown): value is Record<string, unknown> {
 /** Translates a failed UNS call of the SDK client. */
 export function toDataError(error: UnsV2Error): DataError {
   const outcomeUnknown = error instanceof UnsV2OutcomeUnknownError;
+  // An ingress or load balancer answers 502/503/504 without the UNS envelope during
+  // rolling releases and pod restarts: retryable, like any unavailable upstream.
+  // UNS v2 routes answer every other error with the envelope (401/403/429 included),
+  // so other unenveloped responses stay DATA_BAD_RESPONSE.
+  if (error.code === 'UNS_V2_PROTOCOL_ERROR' && (error.status === 502 || error.status === 503 || error.status === 504)) {
+    return new DataError({
+      message: `The Tier0 data gateway answered ${error.operation} with HTTP ${error.status}; retry shortly${outcomeUnknown ? ' (the write outcome is unknown)' : ''}.`,
+      status: 503,
+      code: `HTTP_${error.status}`,
+      upstreamStatus: error.status,
+      retryable: true,
+      outcomeUnknown,
+      cause: error,
+    });
+  }
   const transport = TRANSPORT_FAILURES[error.code];
   if (transport) {
     return new DataError({
