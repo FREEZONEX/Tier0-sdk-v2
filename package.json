@@ -105,6 +105,20 @@
         "default": "./dist/cjs/data/index.js"
       }
     },
+    "./data/define": {
+      "browser": {
+        "types": "./dist/esm/data/declarations.d.ts",
+        "default": "./dist/esm/data/declarations.js"
+      },
+      "import": {
+        "types": "./dist/esm/data/declarations.d.ts",
+        "default": "./dist/esm/data/declarations.js"
+      },
+      "require": {
+        "types": "./dist/cjs/data/declarations.d.ts",
+        "default": "./dist/cjs/data/declarations.js"
+      }
+    },
     "./react": {
       "import": {
         "types": "./dist/esm/react.d.ts",

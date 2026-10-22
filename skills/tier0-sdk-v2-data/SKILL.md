@@ -7,7 +7,7 @@ description: 使用 @tier0/sdk-v2/data 在 App 服务端声明并读写本 App �
 
 `@tier0/sdk-v2/data` 是 App 自有业务数据的服务端入口：用 `defineCollection` 声明集合，`createDataClient` 在首次访问时一次性 ensure 全部声明，然后用 Mongo 驱动风格的集合句柄读写 UNS 记录。没有 SQL、ORM、连接串或迁移步骤；Preview 与部署后的 App 共用同一批集合和记录。
 
-只在服务端代码（业务 service）里使用；入口依赖 Node 内置模块，浏览器打包会直接失败。需要 `zod` 4。底层调用 SDK 生成的 UNS 操作（`appCollectionsEnsure`、`recordFind`、`recordTransactionExecute` 等），凭证读取平台注入的 TIER0_API_HOST / TIER0_API_KEY。
+数据读写只在服务端代码（业务 service）里用 `@tier0/sdk-v2/data`：该入口依赖 Node 内置模块，浏览器打包会直接失败。组件和 route 的客户端代码只能从 `@tier0/sdk-v2/data/define` 取集合声明和类型（`defineCollection`、`Doc`、`NewDoc` 等），它不加载数据运行时，可以进浏览器包。需要 `zod` 4。底层调用 SDK 生成的 UNS 操作（`appCollectionsEnsure`、`recordFind`、`recordTransactionExecute` 等），凭证读取平台注入的 TIER0_API_HOST / TIER0_API_KEY。
 
 ## 按任务加载参考
 
@@ -23,7 +23,8 @@ description: 使用 @tier0/sdk-v2/data 在 App 服务端声明并读写本 App �
 
 ```ts
 import { z } from 'zod';
-import { createDataClient, defineCollection, type Doc } from '@tier0/sdk-v2/data';
+import { createDataClient } from '@tier0/sdk-v2/data';
+import { defineCollection, type Doc } from '@tier0/sdk-v2/data/define';
 
 export const workOrders = defineCollection({
   alias: 'work_orders',
@@ -48,7 +49,7 @@ export async function releasedOrders(): Promise<WorkOrder[]> {
 
 ## 核心约束
 
-1. 全部集合在一个 `collections` 列表里声明（每个 App 最多 64 个），只建一个进程级 client；不要手动 ensure、不要在 import 时访问数据、不要自建“已初始化”标记。
+1. 声明文件只从 `@tier0/sdk-v2/data/define` 导入，客户端代码可以安全引用它；全部集合在一个 `collections` 列表里声明（每个 App 最多 64 个），只建一个进程级 client；不要手动 ensure、不要在 import 时访问数据、不要自建“已初始化”标记。
 2. 集合 Schema 是存储 Schema：只能用可存储的 Zod 子集，输入规则（格式、长度、默认值、transform）放在 API 入参 Schema。
 3. 写入前按声明严格校验，未知字段、类型错误、未声明的更新路径直接抛 `ZodError`；读取不做严格解析，旧版本写入的字段、新枚举值或缺字段都可能出现。
 4. `insertMany` / `bulkWrite` / `transact` 每次最多 200 项且原子；`updateMany` / `deleteMany` 逐条提交、非原子。

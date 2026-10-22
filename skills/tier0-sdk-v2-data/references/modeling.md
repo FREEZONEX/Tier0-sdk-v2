@@ -1,10 +1,10 @@
 # 声明集合与建模
 
-`defineCollection({ alias, schema, indexes?, description?, seed? })` 返回冻结的声明；全部声明放进一个数组传给 `createDataClient({ collections })`。alias 在 App 内唯一、不区分大小写，匹配 `^[A-Za-z][A-Za-z0-9_-]{0,62}$`。
+`defineCollection({ alias, schema, indexes?, description?, seed? })` 返回冻结的声明；全部声明放进一个数组传给 `createDataClient({ collections })`。声明文件从 `@tier0/sdk-v2/data/define` 导入：它不含数据运行时，组件和 route 也能引用这些声明与 `Doc` 类型。alias 在 App 内唯一、不区分大小写，匹配 `^[A-Za-z][A-Za-z0-9_-]{0,62}$`。
 
 ```ts
 import { z } from 'zod';
-import { defineCollection, type Doc } from '@tier0/sdk-v2/data';
+import { defineCollection, type Doc } from '@tier0/sdk-v2/data/define';
 
 export const customers = defineCollection({
   alias: 'customers',

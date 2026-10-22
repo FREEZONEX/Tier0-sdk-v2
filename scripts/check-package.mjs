@@ -53,9 +53,13 @@ import { createClient, type Tier0Client } from '@tier0/sdk-v2';
 import { Tier0MQClient } from '@tier0/sdk-v2/mq';
 import { createSourceClient } from '@tier0/sdk-v2/source';
 import { createStreamClient } from '@tier0/sdk-v2/stream';
-import { createDataClient, defineCollection, type Doc } from '@tier0/sdk-v2/data';
+import { createDataClient, type Doc } from '@tier0/sdk-v2/data';
+import { compileCollection, defineCollection, type Doc as DeclaredDoc } from '@tier0/sdk-v2/data/define';
 import { z } from 'zod';
 const orders = defineCollection({ alias: 'orders', schema: z.object({ code: z.string() }) });
+const declared: DeclaredDoc<typeof orders> | undefined = undefined;
+void declared;
+void compileCollection(orders);
 const order: Promise<Doc<typeof orders> | null> = createDataClient({ collections: [orders] }).collection(orders).findOne({ code: 'A' });
 void order;
 const client: Tier0Client = createClient({ apiHost: 'https://fixture.invalid' });
@@ -66,9 +70,11 @@ client.mqttAuth.delete({ id: 9007199254740993n });
 void Tier0MQClient;
 `);
 run([resolve(root, 'node_modules/typescript/bin/tsc'), '--noEmit', '--strict', '--skipLibCheck', '--module', 'NodeNext', '--target', 'ES2022', 'consumer.mts', 'consumer.cts'], consumer);
-for (const subpath of ['', '/source', '/stream', '/mq', '/react', '/vue']) {
+for (const subpath of ['', '/source', '/stream', '/mq', '/react', '/vue', '/data/define']) {
   const result = await build({ absWorkingDir: consumer, stdin: { contents: `export * from '@tier0/sdk-v2${subpath}';`, resolveDir: consumer }, bundle: true, platform: 'browser', format: 'esm', write: false, metafile: true, logLevel: 'silent' });
   if (!subpath && Object.keys(result.metafile.inputs).some(path => /node_modules[\\/](mqtt|react|vue|zod)[\\/]|cloud-server|[\\/]data[\\/]/.test(path))) throw new Error('Root entry loads an optional browser/server dependency');
+  if (subpath === '/data/define' && (Object.keys(result.metafile.inputs).some(path => /^node:|[\\/]data[\\/](context|bootstrap|call|client|collection|error)\.js$/.test(path)) ||
+      result.outputFiles.some(file => file.text.includes('AsyncLocalStorage')))) throw new Error('@tier0/sdk-v2/data/define loads the server data runtime');
 }
 // The data layer is server-only: a browser bundle must fail on its Node built-ins instead of shipping it.
 const dataBundle = await build({ absWorkingDir: consumer, stdin: { contents: `export * from '@tier0/sdk-v2/data';`, resolveDir: consumer }, bundle: true, platform: 'browser', format: 'esm', write: false, logLevel: 'silent' }).then(() => 'bundled', () => 'rejected');
