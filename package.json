@@ -94,6 +94,16 @@
         "default": "./dist/cjs/cloud-server.js"
       }
     },
+    "./data": {
+      "import": {
+        "types": "./dist/esm/data/index.d.ts",
+        "default": "./dist/esm/data/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/data/index.d.ts",
+        "default": "./dist/cjs/data/index.js"
+      }
+    },
     "./react": {
       "import": {
         "types": "./dist/esm/react.d.ts",
@@ -134,7 +144,8 @@
   "peerDependencies": {
     "@tanstack/react-query": "^5.0.0",
     "react": ">=18.0.0",
-    "vue": "^3.4.0"
+    "vue": "^3.4.0",
+    "zod": "^4.0.0"
   },
   "peerDependenciesMeta": {
     "@tanstack/react-query": {
@@ -144,6 +155,9 @@
       "optional": true
     },
     "vue": {
+      "optional": true
+    },
+    "zod": {
       "optional": true
     }
   },
@@ -157,7 +171,8 @@
     "openapi-typescript": "^7.0.0",
     "vitest": "^4.1.7",
     "esbuild": "^0.25.0",
-    "yaml": "^2.8.0"
+    "yaml": "^2.8.0",
+    "zod": "^4.0.0"
   },
   "agents": {
     "skills": [
@@ -204,6 +219,10 @@
       {
         "name": "tier0-sdk-v2-agent",
         "path": "./skills/tier0-sdk-v2-agent"
+      },
+      {
+        "name": "tier0-sdk-v2-data",
+        "path": "./skills/tier0-sdk-v2-data"
       }
     ]
   }

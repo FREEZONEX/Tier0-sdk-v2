@@ -48,6 +48,7 @@ const capabilities = await tier0.capabilities.discover();
 | `@tier0/sdk-v2/react` | `useTier0Query()`、`useTier0Mutation()`，需要 React 和 TanStack Query |
 | `@tier0/sdk-v2/vue` | `useTier0Request()`，需要 Vue 3 |
 | `@tier0/sdk-v2/server` | `createCloudAppRequestVerifier()`，仅服务端加载 `node:crypto` |
+| `@tier0/sdk-v2/data` | App 数据层：`defineCollection()` 声明集合、`createDataClient()` 首次访问时 ensure，Mongo 风格读写、原子批量与 `transact`、员工数据主体透传；仅服务端，需要 `zod` 4 |
 
 不保留 UNS v1、旧 Flow、`getCurrentProjectId()`、project 成员查询或 `/gw/reload`。Workspace 成员不等于能使用某个 App 的成员，不可用前者在客户端猜测 App 权限。
 
@@ -65,7 +66,7 @@ Source/Stream 仍保留 `{ code, msg, requestId, data }` 响应以及 `UnsV2Erro
 
 从最初提交迁移：`uns.sourceList` → `source.list`；`uns.sourceDocumentGet` → `source.documents.get`；`uns.streamProgramDeploy` → `stream.programs.deploy`；`uns.streamDocumentValidate` → `stream.documents.validate`。这些管理方法已移出主入口的 `uns`。底层 `createUnsV2Client()` 仍提供完整生成契约供契约工具使用；数据专用客户端可用 `createUnsDataClient()`。
 
-随包提供 11 个可独立发现的 Skill，包含完整流程、参数边界、错误处理与可类型检查的示例：[入口](skills/tier0-sdk-v2/SKILL.md)、[Source](skills/tier0-sdk-v2-source/SKILL.md)、[Stream](skills/tier0-sdk-v2-stream/SKILL.md)、[UNS](skills/tier0-sdk-v2-uns/SKILL.md)、[通知](skills/tier0-sdk-v2-notifications/SKILL.md)、[系统](skills/tier0-sdk-v2-system/SKILL.md)、[文件](skills/tier0-sdk-v2-files/SKILL.md)、[MQTT](skills/tier0-sdk-v2-mq/SKILL.md)、[成员](skills/tier0-sdk-v2-members/SKILL.md)、[Controls](skills/tier0-sdk-v2-controls/SKILL.md)、[Agent](skills/tier0-sdk-v2-agent/SKILL.md)。复杂流程的参考文档随 Skill 一起打包。
+随包提供 12 个可独立发现的 Skill，包含完整流程、参数边界、错误处理与可类型检查的示例：[入口](skills/tier0-sdk-v2/SKILL.md)、[Source](skills/tier0-sdk-v2-source/SKILL.md)、[Stream](skills/tier0-sdk-v2-stream/SKILL.md)、[UNS](skills/tier0-sdk-v2-uns/SKILL.md)、[通知](skills/tier0-sdk-v2-notifications/SKILL.md)、[系统](skills/tier0-sdk-v2-system/SKILL.md)、[文件](skills/tier0-sdk-v2-files/SKILL.md)、[MQTT](skills/tier0-sdk-v2-mq/SKILL.md)、[成员](skills/tier0-sdk-v2-members/SKILL.md)、[Controls](skills/tier0-sdk-v2-controls/SKILL.md)、[Agent](skills/tier0-sdk-v2-agent/SKILL.md)、[App 数据](skills/tier0-sdk-v2-data/SKILL.md)。复杂流程的参考文档随 Skill 一起打包。
 
 ## UNS 数据访问
 
