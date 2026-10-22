@@ -3280,13 +3280,13 @@
           }
         }
       },
-      "SdkappsAccessMembersListRequest": {
+      "SdkmembersListAppRequest": {
         "$ref": "#/components/schemas/AppAccessMembersListReq"
       },
-      "SdkappsAccessMembersListData": {
+      "SdkmembersListAppData": {
         "$ref": "#/components/schemas/AppAccessMembersListResp"
       },
-      "SdkappsAccessMembersListWire": {
+      "SdkmembersListAppWire": {
         "type": "object",
         "required": [
           "code",
@@ -3301,7 +3301,7 @@
             "type": "string"
           },
           "data": {
-            "$ref": "#/components/schemas/SdkappsAccessMembersListData"
+            "$ref": "#/components/schemas/SdkmembersListAppData"
           }
         }
       },
@@ -4619,7 +4619,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SdkappsAccessMembersListWire"
+                  "$ref": "#/components/schemas/SdkmembersListAppWire"
                 }
               }
             },

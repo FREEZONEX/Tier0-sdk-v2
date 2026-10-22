@@ -1940,12 +1940,12 @@ export interface components {
             msg: string;
             data: components["schemas"]["SdkagentResultsPinData"];
         };
-        SdkappsAccessMembersListRequest: components["schemas"]["AppAccessMembersListReq"];
-        SdkappsAccessMembersListData: components["schemas"]["AppAccessMembersListResp"];
-        SdkappsAccessMembersListWire: {
+        SdkmembersListAppRequest: components["schemas"]["AppAccessMembersListReq"];
+        SdkmembersListAppData: components["schemas"]["AppAccessMembersListResp"];
+        SdkmembersListAppWire: {
             code: number | bigint;
             msg: string;
-            data: components["schemas"]["SdkappsAccessMembersListData"];
+            data: components["schemas"]["SdkmembersListAppData"];
         };
         SdkassetsFilesPrepareUploadRequest: components["schemas"]["AssetFileUploadReq"];
         SdkassetsFilesPrepareUploadData: components["schemas"]["AssetFileUploadResp"];
@@ -2774,7 +2774,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SdkappsAccessMembersListWire"];
+                    "application/json": components["schemas"]["SdkmembersListAppWire"];
                 };
             };
         };

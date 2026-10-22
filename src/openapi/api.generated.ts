@@ -302,15 +302,15 @@ export const OPENAPI_OPERATIONS = {
     "requestSchema": "V1_SdkagentResultsPinRequest",
     "responseSchema": "V1_SdkagentResultsPinWire"
   },
-  "appsAccessMembersList": {
-    "name": "appsAccessMembersList",
+  "membersListApp": {
+    "name": "membersListApp",
     "method": "POST",
     "path": "/openapi/v1/apps/access-members/list",
     "pathParams": [],
     "mode": "envelope",
     "readonly": true,
-    "requestSchema": "V1_SdkappsAccessMembersListRequest",
-    "responseSchema": "V1_SdkappsAccessMembersListWire"
+    "requestSchema": "V1_SdkmembersListAppRequest",
+    "responseSchema": "V1_SdkmembersListAppWire"
   },
   "assetsFilesPrepareUpload": {
     "name": "assetsFilesPrepareUpload",
@@ -564,10 +564,9 @@ export function createOpenAPI(http: HttpClient) {
       "pin": (body: components['schemas']["SdkagentResultsPinRequest"], options?: RequestOptions) => http.operation<components['schemas']["SdkagentResultsPinData"]>(OPENAPI_OPERATIONS["agentResultsPin"], { body }, options),
     },
   },
-  "apps": {
-    "accessMembers": {
-      "list": (body: components['schemas']["SdkappsAccessMembersListRequest"], options?: RequestOptions) => http.operation<components['schemas']["SdkappsAccessMembersListData"]>(OPENAPI_OPERATIONS["appsAccessMembersList"], { body }, options),
-    },
+  "members": {
+    "listApp": (body: components['schemas']["SdkmembersListAppRequest"], options?: RequestOptions) => http.operation<components['schemas']["SdkmembersListAppData"]>(OPENAPI_OPERATIONS["membersListApp"], { body }, options),
+    "listWorkspace": (body?: components['schemas']["SdkmembersListWorkspaceRequest"], options?: RequestOptions) => http.operation<components['schemas']["SdkmembersListWorkspaceData"]>(OPENAPI_OPERATIONS["membersListWorkspace"], { body }, options),
   },
   "assets": {
     "files": {
@@ -603,9 +602,6 @@ export function createOpenAPI(http: HttpClient) {
   "notifications": {
     "get": (body: components['schemas']["SdknotificationsGetRequest"], options?: RequestOptions) => http.operation<components['schemas']["SdknotificationsGetData"]>(OPENAPI_OPERATIONS["notificationsGet"], { body }, options),
     "send": (body: components['schemas']["SdknotificationsSendRequest"], options?: RequestOptions) => http.operation<components['schemas']["SdknotificationsSendData"]>(OPENAPI_OPERATIONS["notificationsSend"], { body }, options),
-  },
-  "members": {
-    "listWorkspace": (body?: components['schemas']["SdkmembersListWorkspaceRequest"], options?: RequestOptions) => http.operation<components['schemas']["SdkmembersListWorkspaceData"]>(OPENAPI_OPERATIONS["membersListWorkspace"], { body }, options),
   },
 };
 }

@@ -1,4 +1,4 @@
-import { createClient, type Tier0Client, type components } from '../../src/index.js';
+import { createClient, getCurrentAppId, type Tier0Client, type components } from '../../src/index.js';
 import { useTier0Query, useTier0Mutation } from '../../src/react.js';
 import { useTier0Request } from '../../src/vue.js';
 const sdk: Tier0Client = createClient({ apiHost: 'https://api.example.invalid', apiKey: 'placeholder' });
@@ -16,8 +16,15 @@ const info = sdk.system.info();
 info.then(value => { const broker: string | undefined = value.mqttBroker; void broker; });
 // @ts-expect-error retired project/flow APIs are not public
 sdk.flow.list();
-// @ts-expect-error app-member endpoint has not landed
-sdk.members.listApp({ appId: 'app' });
+sdk.members.listApp({ appId: getCurrentAppId(), roleKeys: ['operator'], page: 1, size: 20 }).then(page => {
+  const member = page.list[0];
+  const userId: string = member.userId;
+  const sourceType: string = member.roles[0].sources[0].type;
+  void userId;
+  void sourceType;
+});
+// @ts-expect-error appId is explicit; the SDK never reads APP_ID implicitly
+sdk.members.listApp({});
 // @ts-expect-error desktop is not an independent notification channel
 const invalid: components['schemas']['SendNotificationReq'] = { recipientUserId: '1', title: 'x', content: 'x', type: 'x', idempotencyKey: 'x', channels: ['desktop'] };
 useTier0Query(sdk, ['orders'], (c, signal) => c.uns.recordFind({ collectionId: 'orders' }, { signal }));

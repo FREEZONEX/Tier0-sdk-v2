@@ -65,6 +65,26 @@ describe('new architecture v1 on a real HTTP fixture', () => {
     expect('launchpad' in sdk().api).toBe(false);
     expect('flow' in sdk()).toBe(false);
   });
+  it('lists App access members by explicit appId and rejects undetermined lists as 503', async () => {
+    const source = { type: 'group', groupId: 'g-1', groupName: 'Line A' };
+    respond = res => json(res, { code: 200, msg: '', data: {
+      appId: 'app-1', published: 1, productionVersionId: 'v-1', allActiveMembers: 2,
+      roles: [{ roleId: 'r-1', roleKey: 'operator', roleName: 'Operator', status: 'active', memberCount: 1 }],
+      list: [{ userId: '42', userName: 'alice', grantedAt: 1700000050000, roles: [{ roleId: 'r-1', roleKey: 'operator', roleName: 'Operator', sources: [source] }] }],
+      total: 1, page: 1, size: 20,
+    } });
+    const request = { appId: 'app-1', roleKeys: ['operator'], grantedAtStart: 1700000000000, page: 1, size: 20 };
+    const page = await sdk().members.listApp(request);
+    expect(received[0]).toMatchObject({ method: 'POST', url: '/openapi/v1/apps/access-members/list' });
+    expect(JSON.parse(received[0].body)).toEqual(request);
+    expect(page.list[0]).toMatchObject({ userId: '42', grantedAt: 1700000050000 });
+    expect(page.list[0].roles[0].sources).toEqual([source]);
+    expect('apps' in sdk().api).toBe(false);
+    for (const code of [3003016, 3003017]) {
+      respond = res => json(res, { code, msg: 'App access list is unavailable' }, 503);
+      await expect(sdk().members.listApp({ appId: 'app-1' })).rejects.toMatchObject({ status: 503, code });
+    }
+  });
   it('encodes path and query values once', async () => {
     respond = res => json(res, { code: 200, msg: '', data: { fileUrl: 'https://storage.invalid/f' } });
     await sdk().files.url({ filePath: 'folder/a & #%2F.pdf', expiredSec: 30 });

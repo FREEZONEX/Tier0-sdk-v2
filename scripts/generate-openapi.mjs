@@ -36,6 +36,7 @@ for (const [path, item] of Object.entries(spec.paths)) {
     if (parts[0] === 'auth') parts[0] = 'system';
     if (parts[0] === 'info') parts.splice(0, 1, 'system', 'info');
     if (parts[0] === 'platform') parts.splice(0, 2, 'members', 'listWorkspace');
+    if (parts.join('/') === 'apps/accessMembers/list') parts.splice(0, 3, 'members', 'listApp');
     if (parts.join('/') === 'assets/files') parts.push('prepareUpload');
     const name = parts.map((p, i) => i ? p[0].toUpperCase() + p.slice(1) : p).join('');
     if (operations.some(o => o.name === name)) throw new Error(`Duplicate SDK method: ${name}`);
@@ -56,7 +57,7 @@ for (const [path, item] of Object.entries(spec.paths)) {
     schemas[wireName] = mode === 'envelope' ? { type: 'object', required: ['code', 'msg', 'data'], properties: { code: { type: 'integer' }, msg: { type: 'string' }, data: ref(responseName) } } : ref(responseName);
     // Normalize the published schema to the actual JSON response; never double-wrap direct APIs.
     if (mode !== 'download') op.responses['200'].content['application/json'].schema = ref(wireName);
-    const readonly = method === 'get' || ['whoami', 'info', 'get', 'list', 'listWorkspace', 'discover', 'describe'].includes(parts.at(-1));
+    const readonly = method === 'get' || ['whoami', 'info', 'get', 'list', 'listWorkspace', 'listApp', 'discover', 'describe'].includes(parts.at(-1));
     const operation = { name, method: method.toUpperCase(), path, pathParams, mode, readonly,
       requestSchema: body ? `V1_${requestName}` : undefined, responseSchema: `V1_${wireName}` };
     operations.push(operation);
