@@ -55,3 +55,4 @@ export async function releasedOrders(): Promise<WorkOrder[]> {
 4. `insertMany` / `bulkWrite` / `transact` 每次最多 200 项且原子；`updateMany` / `deleteMany` 逐条提交、非原子。
 5. 按 `DataError.code` 与 `reason`（`data.reason`）分支，不匹配 message 文本；`status` 是 App 应回给自己调用方的 HTTP 状态。
 6. `schema:replace`、`archive`、`restore` 是 worker 通过 tier0 MCP 的显式操作，不在运行时代码里调用。
+7. 调用策略由数据层负责：每次调用从开始算最多 25 秒（排队、重试都算在内），每进程最多 6 个并发数据请求（其余排队，超时或业务请求中止时不再发出），UNS 标记 `retry.safe` 的失败（过载 429、暂时不可用 503、已回滚的写入冲突等）按 `retry.afterMs` 自动重试最多 2 次。每次写入调用自动带一个新的幂等键并在重试中复用，不需要手写；只有“同一业务意图跨多次调用只生效一次”（如按订单号预留库存）才显式传 `idempotencyKey`。不要在外面再包一层重试循环。

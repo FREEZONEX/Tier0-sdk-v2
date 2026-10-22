@@ -65,7 +65,7 @@ export function toResponse(error: unknown): Response {
 | `UPSERT_REQUIRES_UNIQUE_INDEX` | upsert 过滤条件缺少 `_id` 或已就绪唯一索引的全部字段 |
 | `DUPLICATE_KEY` (409) | 唯一索引拒绝该值；restore 时表示与活动记录冲突、未恢复任何记录 |
 | `VERSION_CONFLICT` (409) | 记录在读取后已变化；重新读取后用新 revision 重试 |
-| `OVERLOADED` (429) | 本 workspace 的数据请求超过并发份额，`retry.afterMs` 后可重试（数据层已自动重试）；页面读取合并成一次 `queryBatch`，不要逐条循环调用 |
+| `OVERLOADED` (429) | 本 workspace 的数据请求超过并发份额，`retry.afterMs` 后可重试（数据层已自动重试）；页面读取要合并（`$in`、`findPage`、`countBy`），不要逐条循环调用 |
 | `APP_NOT_READY` (503) | App 刚导入，平台仍在准备；数据层已自动重试，稍后再试 |
 | `DEPENDENCY_UNAVAILABLE` (503) | 平台鉴权依赖暂不可用，稍后重试 |
 | `CREDENTIAL_CHANGED` (409 → 503) | App Key 在请求执行期间被修改，写入已回滚；网关已自动重试一次 |
