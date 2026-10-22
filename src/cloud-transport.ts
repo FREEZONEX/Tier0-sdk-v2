@@ -16,6 +16,8 @@ export interface CloudTransportConfig {
 }
 
 export const DEFAULT_CLOUD_TRANSPORT_TIMEOUT_MS = 60_000;
+/** Header carrying `unsV2AppDataSubject`; the trusted App Gateway sets it on each business request. */
+export const UNS_V2_APP_DATA_SUBJECT_HEADER = 'X-Tier0-App-Data-Subject';
 export const UNS_V2_MAX_REQUEST_BYTES = 16 << 20;
 export const UNS_V2_MAX_RESPONSE_BYTES = 20 << 20;
 
@@ -67,7 +69,7 @@ export class CloudTransport {
         !path.startsWith('/openapi/v2/uns/controls/') &&
         path !== '/openapi/v2/uns/streams/runtime/capabilities/get' &&
         this.#unsV2AppDataSubject !== undefined) {
-      headers['X-Tier0-App-Data-Subject'] = this.#unsV2AppDataSubject;
+      headers[UNS_V2_APP_DATA_SUBJECT_HEADER] = this.#unsV2AppDataSubject;
     }
     if (key) {
       headers.Authorization = `Bearer ${key}`;
