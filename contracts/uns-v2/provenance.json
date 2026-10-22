@@ -1,10 +1,10 @@
 {
   "repository": "FREEZONEX/Tier0-Backend",
-  "revision": "1e93620522caa47869d67e9aea1491a8cda71fa5",
+  "revision": "8d9fe632e958811778041398c4c3454a28c494bc",
   "version": "4.0.0",
   "source": "service/unssvr/internal/domain/unsv2/contract_generated.go#ContractJSON",
-  "cloudRevision": "1e93620522caa47869d67e9aea1491a8cda71fa5",
-  "cloudContractRevision": "cloud-source-impact/1+app-create-capability/1+data/3+collection-namespace/1+http-acquisition/2+app-data/2+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1",
+  "cloudRevision": "8d9fe632e958811778041398c4c3454a28c494bc",
+  "cloudContractRevision": "cloud-source-impact/1+app-create-capability/1+data/3+collection-namespace/1+http-acquisition/2+app-collection/2+metadata/1+app-data/2+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/1",
   "resolvedCloudContract": true,
   "enterpriseBase": {
     "repository": "FREEZONEX/Tier0-Enterprise-New",
@@ -13,5 +13,5 @@
     "source": "backend/internal/domain/unsv2/contract_generated.go",
     "note": "Reviewed Enterprise wire contract imported as editable Cloud contract source; regenerate all adapters with scripts/generate-uns-v2.mjs."
   },
-  "sourceDerivedContractSHA256": "c2793bc8a48a06b9091fe97a47264727a58c9805a486b9afcd1eaafaa708ee91"
+  "sourceDerivedContractSHA256": "a69d361890d384d7aca79a5af132645e4ccaf63abf2b883fe2ffe3f4399e84c7"
 }

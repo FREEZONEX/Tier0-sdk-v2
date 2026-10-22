@@ -69,12 +69,12 @@ const missingIndexPath: IndexSpec = { unique: true };
 // @ts-expect-error Single and composite declarations are mutually exclusive.
 const ambiguousIndexPath: IndexSpec = { path: 'serial', paths: ['serial'] };
 void [singleIndex, compositeIndex, missingIndexPath, ambiguousIndexPath];
-const request: UnsV2Request<'directoryGet'> = { id: 'directory-1' };
-type DirectoryGetResponse = UnsV2Response<'directoryGet'>;
+const request: UnsV2Request<'metadataFindOne'> = { kind: 'directory', filter: { _id: 'directory-1' } };
+type MetadataFindOneResponse = UnsV2Response<'metadataFindOne'>;
 const exactInt64: PlatformV2UsersListReq = { page: 9_223_372_036_854_775_807n };
 const exactBusinessNumber: UnsV2JSONValue = new UnsV2RawNumber('1.0000000000000001');
 void [list, jobs, transaction, sources, deployment, scopedSamples, sourceState, sourceDelete, sourceImpact, sourceHistory, documentValidation,
-  observations, streamObservation, runs, operation, request, exactInt64, exactBusinessNumber, null as DirectoryGetResponse | null];
+  observations, streamObservation, runs, operation, request, exactInt64, exactBusinessNumber, null as MetadataFindOneResponse | null];
 
 // @ts-expect-error core-only graph has no Gateway route and is not exposed by the SDK.
 client.uns.graph({ queries: [] });
@@ -85,7 +85,7 @@ client.source.ingress.get({ id: '101' });
 // @ts-expect-error Ingress rotation is Core-only and has no public Gateway route.
 client.source.ingress.rotate({ id: '101' });
 // @ts-expect-error identity and workspace binding cannot be supplied through list request DTOs.
-client.uns.directoryList({ workspaceId: 'other-workspace' });
+client.uns.metadataFind({ workspaceId: 'other-workspace' });
 // @ts-expect-error Source mutations must carry an explicitly reviewed confirmation.
 client.source.delete({ dryRun: false, items: [{ id: '101', expectedRevision: 2 }] });
 
@@ -101,11 +101,11 @@ client.uns.recordAuditAdminList({ collectionId: 'orders', recordId: 'order-1' })
 const removedAuditOperation: UnsV2OperationName = 'recordAuditList';
 // @ts-expect-error Removed admin audit operations have no request DTO.
 type RemovedAdminAuditRequest = UnsV2Request<'recordAuditAdminList'>;
-const auditCollection: UnsV2Request<'collectionUpdate'> = { dryRun: true,
-  items: [{ id: 'orders', expectedRevision: 1,
-    // @ts-expect-error Collection audit configuration has been removed.
-    audit: { enabled: true, historyRead: true } }] };
-void [removedAuditOperation, auditCollection, null as RemovedAdminAuditRequest | null];
+// @ts-expect-error Replaced collection mutations are no longer exposed alongside metadata CRUD.
+client.uns.collectionUpdate({ dryRun: true, items: [] });
+// @ts-expect-error The retired metadata batch route must not remain callable.
+client.uns.metaBatchExecute({ items: [] });
+void [removedAuditOperation, null as RemovedAdminAuditRequest | null];
 // @ts-expect-error Retired Cloud batch-query route must not silently map to another contract.
 client.uns.records({ queries: [] });
 // @ts-expect-error Retired recordCreate is replaced by explicit recordInsertOne/Many operations.

@@ -302,6 +302,16 @@ export const OPENAPI_OPERATIONS = {
     "requestSchema": "V1_SdkagentResultsPinRequest",
     "responseSchema": "V1_SdkagentResultsPinWire"
   },
+  "appsAccessMembersList": {
+    "name": "appsAccessMembersList",
+    "method": "POST",
+    "path": "/openapi/v1/apps/access-members/list",
+    "pathParams": [],
+    "mode": "envelope",
+    "readonly": true,
+    "requestSchema": "V1_SdkappsAccessMembersListRequest",
+    "responseSchema": "V1_SdkappsAccessMembersListWire"
+  },
   "assetsFilesPrepareUpload": {
     "name": "assetsFilesPrepareUpload",
     "method": "POST",
@@ -552,6 +562,11 @@ export function createOpenAPI(http: HttpClient) {
       "get": (body?: components['schemas']["SdkagentResultsGetRequest"], options?: RequestOptions) => http.operation<components['schemas']["SdkagentResultsGetData"]>(OPENAPI_OPERATIONS["agentResultsGet"], { body }, options),
       "list": (body: components['schemas']["SdkagentResultsListRequest"], options?: RequestOptions) => http.operation<components['schemas']["SdkagentResultsListData"]>(OPENAPI_OPERATIONS["agentResultsList"], { body }, options),
       "pin": (body: components['schemas']["SdkagentResultsPinRequest"], options?: RequestOptions) => http.operation<components['schemas']["SdkagentResultsPinData"]>(OPENAPI_OPERATIONS["agentResultsPin"], { body }, options),
+    },
+  },
+  "apps": {
+    "accessMembers": {
+      "list": (body: components['schemas']["SdkappsAccessMembersListRequest"], options?: RequestOptions) => http.operation<components['schemas']["SdkappsAccessMembersListData"]>(OPENAPI_OPERATIONS["appsAccessMembersList"], { body }, options),
     },
   },
   "assets": {

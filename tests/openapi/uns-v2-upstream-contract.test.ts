@@ -22,14 +22,14 @@ const operation = (name: string) => manifest.operations.find(item => item.name =
 
 describe('Backend App UNS access contract without generic record audit', () => {
   it('pins the exact upstream commit and all generator inputs', () => {
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('1e93620522caa47869d67e9aea1491a8cda71fa5');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('8d9fe632e958811778041398c4c3454a28c494bc');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     for (const [key, file] of Object.entries({ contract: 'contract.json', cloudSupport: 'cloud-support.json', manifest: 'manifest.json', provenance: 'provenance.json', registry: 'registry_generated.go' })) {
       expect(UNS_V2_CONTRACT_PROVENANCE.hashes[key as keyof typeof UNS_V2_CONTRACT_PROVENANCE.hashes]).toBe(
         createHash('sha256').update(read(file)).digest('hex')
       );
     }
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(98);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(100);
     expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(113);
   });
 
@@ -49,17 +49,27 @@ describe('Backend App UNS access contract without generic record audit', () => {
     expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(true);
   });
 
-  it('keeps App credentials outside every management operation and preserves Core-only policy boundaries', () => {
+  it('keeps App credentials outside generic management while preserving owned-collection lifecycle and Core-only boundaries', () => {
     const management = manifest.operations.filter(item => item.minPermission >= 3 || item.permission.includes('manage'));
     expect(management.length).toBeGreaterThan(0);
     for (const item of management) {
-      expect(item.appAllowed, item.name).toBe(false);
+      expect(item.appAllowed, item.name).toBe(['appCollectionsEnsure', 'appCollectionsSchemaReplace', 'appCollectionsArchive', 'appCollectionsRestore'].includes(item.name));
       expect(item.permissionAnyOf.some(permission => permission.includes('manage')), item.name).toBe(false);
     }
     // Generic workspace SDK methods remain available; their presence grants no App authority.
-    expect(operation('collectionCreate').appAllowed).toBe(false);
-    expect(Object.hasOwn(UNS_V2_OPERATIONS, 'collectionCreate')).toBe(true);
-    for (const name of ['appDataPolicyGet', 'appDataPolicyUpdate', 'hostedAppControlPolicyGet', 'hostedAppControlPolicyUpdate']) {
+    expect(operation('metadataInsertOne').appAllowed).toBe(false);
+    expect(Object.hasOwn(UNS_V2_OPERATIONS, 'metadataInsertOne')).toBe(true);
+    for (const name of ['metadata', 'metaBatchExecute', 'metaBatchValidate', 'directoryCreate', 'directoryGet',
+      'directoryList', 'directoryUpdate', 'directoryDelete', 'topicCreate', 'topicGet', 'topicList', 'topicUpdate',
+      'topicDelete', 'collectionCreate', 'collectionGet', 'collectionList', 'collectionUpdate',
+      'collectionArchive', 'collectionRestore', 'collectionSchemaUpdate', 'topicViewUpdate']) {
+      expect(Object.hasOwn(UNS_V2_OPERATIONS, name), name).toBe(false);
+    }
+    for (const name of ['appDataPolicyGet', 'appDataPolicyUpdate']) {
+      expect(operation(name)).toMatchObject({ appAllowed: false, coreOnly: false, permission: 'uns.write', minPermission: 3 });
+      expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(true);
+    }
+    for (const name of ['hostedAppControlPolicyGet', 'hostedAppControlPolicyUpdate']) {
       expect(operation(name)).toMatchObject({ appAllowed: false, coreOnly: true, permission: 'workspace.api.manage', minPermission: 3 });
       expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(false);
     }

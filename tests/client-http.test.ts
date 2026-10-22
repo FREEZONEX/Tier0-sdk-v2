@@ -113,7 +113,7 @@ describe('new architecture v1 on a real HTTP fixture', () => {
     expect(calls).toBe(1);
   });
   it('keeps retired and internal routes outside the generated SDK', () => {
-    expect(Object.values(OPENAPI_OPERATIONS)).toHaveLength(50);
+    expect(Object.values(OPENAPI_OPERATIONS)).toHaveLength(51);
     for (const op of Object.values(OPENAPI_OPERATIONS)) {
       expect(op.path).not.toMatch(/\/gw\/|\/uns\/|\/flow\/|\/launchpad\//);
     }

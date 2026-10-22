@@ -53,7 +53,7 @@ const capabilities = await tier0.capabilities.discover();
 
 ## Source、Stream 与 UNS 分域
 
-Source 负责连接外部系统，Stream 负责处理与运行，UNS 负责命名空间与业务数据。共用底层 98 个公开生成操作，业务入口按领域组织；Control 使用 `tier0.controls` 的专属契约。
+Source 负责连接外部系统，Stream 负责处理与运行，UNS 负责命名空间与业务数据。公开操作由固定的上游契约生成，业务入口按领域组织；Control 使用 `tier0.controls` 的专属契约。目录、Topic、集合基础 CRUD 统一使用 `metadata*`，查询、批量操作、软删除及恢复见 UNS Skill。
 
 ```ts
 const sources = await tier0.source.documents.list({ page: 1, size: 20 });
@@ -165,7 +165,7 @@ Vue 由 `execute()` 显式执行，后发请求的结果优先；取消不表示
 
 ## 契约更新与验证
 
-上游：`FREEZONEX/Tier0-Backend`，固定提交 `1e93620522caa47869d67e9aea1491a8cda71fa5`。`contracts/upstream.json` 记录来源和 SHA-256。
+上游：`FREEZONEX/Tier0-Backend`，固定提交 `8d9fe632e958811778041398c4c3454a28c494bc`。`contracts/upstream.json` 记录来源和 SHA-256。
 
 ```sh
 npm ci

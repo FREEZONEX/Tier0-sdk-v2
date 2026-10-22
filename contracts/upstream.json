@@ -1,14 +1,14 @@
 {
   "repository": "FREEZONEX/Tier0-Backend",
-  "revision": "1e93620522caa47869d67e9aea1491a8cda71fa5",
+  "revision": "8d9fe632e958811778041398c4c3454a28c494bc",
   "inputs": {
     "contracts/openapi-v1.source.json": {
       "path": "service/gwsvr/internal/handler/swaggerui/swagger.json",
-      "sha256": "e66f134450423332c446cb014ca989a077853dfac2fb9f886555bef5198c576b"
+      "sha256": "59e09129666b52a71abec7ee38ed0d224c128f51026efbbcee45d3051460f4b9"
     },
     "contracts/openapi-v2.source.json": {
       "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
-      "sha256": "e2c13ec681d69265baaa2d70e50d104722c779fcaab6190efac3f0a93e27f42f"
+      "sha256": "cefe6cb40dc495dc4707f5389c7f425c46ffe2a763ce3a8f9ad604c20c2a7de5"
     },
     "contracts/info.source.proto": {
       "path": "service/unssvr/proto/openapi.proto",
@@ -16,19 +16,19 @@
     },
     "contracts/uns-v2/contract.json": {
       "path": "service/unssvr/internal/domain/unsv2/contract_generated.go#ContractJSON",
-      "sha256": "c2793bc8a48a06b9091fe97a47264727a58c9805a486b9afcd1eaafaa708ee91"
+      "sha256": "a69d361890d384d7aca79a5af132645e4ccaf63abf2b883fe2ffe3f4399e84c7"
     },
     "contracts/uns-v2/manifest.json": {
       "path": "share/unscontract/manifest.json",
-      "sha256": "74591dd5931faea3ea0342feeae2a4fbfe128f126298e818b9f9fed1a1548f5e"
+      "sha256": "407467d7f912110dd3dc96573bc37c225a110c2d9a3abb56040ca5ee2ac048bd"
     },
     "contracts/uns-v2/cloud-support.json": {
       "path": "share/unscontract/cloud-support.json",
-      "sha256": "af25a142462a9d6d475704a136dfb82624ef075f21a8d670b1f8073c82795380"
+      "sha256": "bdb354d70914db2d30eda36c3700ef7e6e1e3ae908a48c8ab3488f15e751cd06"
     },
     "contracts/uns-v2/registry_generated.go": {
       "path": "share/unscontract/registry_generated.go",
-      "sha256": "500bf3922a2527dfd2801f32202cb2cd4e62f51ab138ef79b18678425fafc173"
+      "sha256": "a448646deb5cf463c1746b1e778bc8ac4d4846d64c37813a0b7ca31f40b67d01"
     }
   }
 }

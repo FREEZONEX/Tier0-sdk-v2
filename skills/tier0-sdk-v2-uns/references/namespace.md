@@ -1,75 +1,38 @@
-# 目录和 Topic
+# 目录、Topic 与元数据事务
 
-目录组织资源，Topic 是集合的 records/fields 视图，不是旧架构 Metric。增删改查使用 client.uns 的 directory*/topic*。
+目录、Topic、Collection 使用同一套 metadata* 方法，通过 kind 指定类型。Source/Stream 的启停、连接和发布仍使用各自专用生命周期接口；不允许把系统任务、凭据或发布历史当作普通元数据修改。
 
-| 操作 | 目录 | Topic | 关键参数 |
-| --- | --- | --- | --- |
-| 创建 | directoryCreate | topicCreate | dryRun、items；名称必填，Topic 另需 viewMode |
-| 查询 | directoryList/Get | topicList/Get | list 的 page/size/search/archived；get 的 id |
-| 改元数据 | directoryUpdate | topicUpdate | items[].id、expectedRevision、name/description/parentId |
-| 归档 | directoryArchive | topicArchive | items[].id、expectedRevision |
-| 恢复 | directoryRestore | topicRestore | 归档对象的 id 和当前 revision |
-| 改字段映射 | — | topicBindingsUpdate | 按 Topic 字段绑定契约 |
+| 场景 | 方法 |
+| --- | --- |
+| 单条/批量新增 | metadataInsertOne / metadataInsertMany |
+| 单条/批量条件更新 | metadataUpdateOne / metadataUpdateMany |
+| 更新并读取原子结果 | metadataFindOneAndUpdate / metadataFindOneAndReplace |
+| 同 kind 混合写入 | metadataBulkWrite |
+| 跨 kind、有依赖的组合操作 | metadataTransact |
+| 软删除并返回原对象 | metadataFindOneAndDelete |
+| 按明确 ID 批量恢复 | metadataRestore |
 
-创建/更新/归档/恢复均返回 Outcome；检查 committed、results[].error。目录/Topic 的删除语义是归档，不存在 directoryDelete/topicDelete。parentId=null 表示根；更新时省略则保持原位置。归档不能自行扩展成递归清空所有后代或关联集合。
-
-## 创建目录和集合视图
-
-以下函数独立调用；不要把创建目录后创建 Topic 说成一个原子事务。collectionId 先从集合查询取得。
+普通写操作只指定一个 kind。insertMany/updateMany/deleteMany/restore 固定原子执行；bulkWrite 默认 atomic=true，原子批次不接受 ordered=false。bulkWrite 显式 atomic=false 时 ordered=true 遇错停止，false 继续，并检查 results/errors。批次最多 200 项。不要给所有对象套一个相同 expectedRevision：需要逐项版本检查时在 bulkWrite 中分别提供。
 
 ```ts
 import { createClient, type Tier0Client } from '@tier0/sdk-v2';
 
-export async function createDirectory(
-  id: string, name: string, intentKey: string, client: Tier0Client = createClient(),
-) {
-  const receipt = await client.uns.directoryCreate({
-    dryRun: false, mode: 'sync', allowPartial: false, idempotencyKey: intentKey,
-    items: [{ id, name, parentId: null }],
-  });
-  if (receipt.data.status !== 'committed' || receipt.data.results?.some(item => item.error)) {
-    return { state: 'unconfirmed' as const, receipt };
-  }
-  return { state: 'committed' as const, receipt, current: (await client.uns.directoryGet({ id })).data };
-}
-export async function createRecordTopic(
-  id: string, name: string, collectionId: string, parentId: string, intentKey: string,
+export async function createDirectoryAndTopic(
+  directoryId: string, topicId: string, collectionId: string, intentKey: string,
   client: Tier0Client = createClient(),
 ) {
-  const receipt = await client.uns.topicCreate({
-    dryRun: false, mode: 'sync', allowPartial: false, idempotencyKey: intentKey,
-    items: [{ id, name, viewMode: 'records', collectionId, parentId }],
-  });
-  if (receipt.data.status !== 'committed' || receipt.data.results?.some(item => item.error)) {
-    return { state: 'unconfirmed' as const, receipt };
-  }
-  return { state: 'committed' as const, receipt, current: (await client.uns.topicGet({ id })).data };
-}
-```
-
-## 修改与归档 Topic
-
-```ts
-import { createClient, type Tier0Client } from '@tier0/sdk-v2';
-
-export async function renameTopic(
-  id: string, name: string, intentKey: string, client: Tier0Client = createClient(),
-) {
-  const current = await client.uns.topicGet({ id });
-  return client.uns.topicUpdate({
-    dryRun: false, mode: 'sync', allowPartial: false, idempotencyKey: intentKey,
-    items: [{ id, name, expectedRevision: current.data.revision }],
-  });
-}
-export async function archiveTopic(
-  id: string, intentKey: string, client: Tier0Client = createClient(),
-) {
-  const current = await client.uns.topicGet({ id });
-  return client.uns.topicArchive({
-    dryRun: false, mode: 'sync', allowPartial: false, idempotencyKey: intentKey,
-    items: [{ id, expectedRevision: current.data.revision }],
+  return client.uns.metadataTransact({
+    idempotencyKey: intentKey,
+    operations: [
+      { opId: 'directory', action: 'insertOne', kind: 'directory', id: directoryId,
+        data: { name: '设备目录', parentId: null } },
+      { opId: 'topic', action: 'insertOne', kind: 'topic', id: topicId, dependsOn: ['directory'],
+        data: { name: '设备视图', parentId: { ref: 'directory' }, viewMode: 'records', collectionId } },
+    ],
   });
 }
 ```
 
-调用后检查 Outcome；修改后 get 核对名称，归档后 topicList({archived:true}) 遍历核对 ID。目录使用对应 directoryGet/Update/Archive；恢复从归档列表取得当前修订再 Restore，最后 get 核对。不要把 Topic 归档解释成底层 Record 已删除。
+transact 始终原子，结果通过 opId 对应输入；dryRun=true 校验，不预留 ID 或名称。正式执行仍重新检查。创建结果引用仅用于契约支持的关系字段，不能把任意字符串或脚本当引用。
+
+名称、父目录、Schema、引用与权限由服务端校验。移动不改变对象 ID；删除目录不隐式清空后代；删除 Topic 不删除所引用的 Collection。引用查询仍使用 references 专用方法。

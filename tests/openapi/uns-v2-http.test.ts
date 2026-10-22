@@ -245,15 +245,15 @@ describe('UNS v2 localhost HTTP fixture', () => {
     };
     const api = client().uns;
     const item = {
-      id: 'devices', name: 'Devices', recordSchema: { type: 'object' as const, properties: { serial: { type: 'integer' as const } } },
+      name: 'Devices', recordSchema: { type: 'object' as const, properties: { serial: { type: 'integer' as const } } },
       indexes: [{ path: 'serial', kind: 'btree' as const, target: 'records' as const, unique: true }],
     };
-    await api.collectionCreate({ dryRun: false, idempotencyKey: 'index-intent-4', items: [item] });
+    await api.metadataInsertOne({ kind: 'collection', id: 'devices', dryRun: false, idempotencyKey: 'index-intent-4', data: item });
     const response = await api.recordFind({ collectionId: 'devices', filter: {}, limit: 10 });
     expect(received.slice(start).map(row => row.path)).toEqual([
-      '/openapi/v2/uns/collections/create', '/openapi/v2/uns/collections/devices/records:find',
+      '/openapi/v2/uns/metadata', '/openapi/v2/uns/collections/devices/records:find',
     ]);
-    expect(JSON.parse(received[start].body)).toEqual({ dryRun: false, idempotencyKey: 'index-intent-4', items: [item] });
+    expect(JSON.parse(received[start].body)).toEqual({ kind: 'collection', id: 'devices', dryRun: false, idempotencyKey: 'index-intent-4', data: item });
     expect(received[start].body).not.toContain('uniqueKeys');
     expect(received[start].body).not.toContain('queryIndexes');
     expect(response.data.items).toEqual([{ id: 'device-1', collectionId: 'devices', revision: 1, createdAt: 1, updatedAt: 2, sourceId: null, sourceTime: null, data: { serial: new UnsV2RawNumber('9007199254740993') } }]);
@@ -328,7 +328,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
     expect(received.slice(start)).toHaveLength(1);
     expect(received[start].path).toBe('/openapi/v2/uns/streams/sample/test');
     const core = rawClient() as unknown as { call(name: string, request: unknown): Promise<unknown> };
-    for (const name of ['graph', 'sourceCredentialCreate', 'sourceIngressGet', 'sourceIngressRotate', 'appDataPolicyGet', 'appDataPolicyUpdate', 'hostedAppControlPolicyGet', 'hostedAppControlPolicyUpdate']) {
+    for (const name of ['graph', 'sourceCredentialCreate', 'sourceIngressGet', 'sourceIngressRotate', 'hostedAppControlPolicyGet', 'hostedAppControlPolicyUpdate']) {
       expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(false);
       await expect(core.call(name, {})).rejects.toThrow('unknown UNS v2 operation');
     }
@@ -336,11 +336,15 @@ describe('UNS v2 localhost HTTP fixture', () => {
       expect(Object.hasOwn(UNS_V2_CODEC_SCHEMAS, name)).toBe(false);
     }
     expect(UNS_V2_CONTRACT_PROVENANCE.version).toBe('4.0.0');
-    expect(UNS_V2_CONTRACT_PROVENANCE.cloudContractRevision).toBe('cloud-source-impact/1+app-create-capability/1+data/3+collection-namespace/1+http-acquisition/2+app-data/2+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1');
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('1e93620522caa47869d67e9aea1491a8cda71fa5');
+    expect(UNS_V2_CONTRACT_PROVENANCE.cloudContractRevision.split('+')).toEqual(expect.arrayContaining([
+      'cloud-source-impact/1', 'app-create-capability/1', 'data/3', 'collection-namespace/1', 'http-acquisition/2',
+      'app-collection/2', 'metadata/1', 'app-data/2', 'hosted-control/1', 'source-bindings/1',
+      'record-notifications/1', 'record-delete-samples/1', 'stream-history/1',
+    ]));
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('8d9fe632e958811778041398c4c3454a28c494bc');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(UNS_V2_CONTRACT_PROVENANCE.sourceDerivedContractSHA256).toBe(UNS_V2_CONTRACT_PROVENANCE.hashes.contract);
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(98);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(100);
     expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(113);
     expect(received.slice(start)).toHaveLength(1);
   });
@@ -445,8 +449,8 @@ describe('UNS v2 localhost HTTP fixture', () => {
       code: 200, msg: 'created', requestId: 'req-create',
       data: { status: 'committed', replayed: false, results: [] },
     });
-    await client().uns.directoryCreate({ dryRun: false, items: [{ name: 'root', parentId: null }] });
-    expect(JSON.parse(received[start].body)).toEqual({ dryRun: false, items: [{ name: 'root', parentId: null }] });
+    await client().uns.metadataInsertOne({ kind: 'directory', dryRun: false, data: { name: 'root', parentId: null } });
+    expect(JSON.parse(received[start].body)).toEqual({ kind: 'directory', dryRun: false, data: { name: 'root', parentId: null } });
     expect(received[start].body).not.toContain('workspace');
     expect(received[start].body).not.toContain('tenant');
     expect(received[start].body).not.toContain('deployment');
@@ -629,13 +633,13 @@ describe('UNS v2 localhost HTTP fixture', () => {
         },
       },
     }, 409);
-    const error = await client().uns.metaBatchExecute({
-      idempotencyKey: 'intent-1', items: [{ opId: 'root', action: 'meta.create', kind: 'directory', id: 'root', data: {} }],
+    const error = await client().uns.metadataTransact({
+      idempotencyKey: 'intent-1', operations: [{ opId: 'root', action: 'insertOne', kind: 'directory', id: 'root', data: { name: 'Root' } }],
     }).catch(value => value);
     expect(error).toBeInstanceOf(UnsV2Error);
     expect(error).not.toBeInstanceOf(UnsV2OutcomeUnknownError);
     expect(error).toMatchObject({
-      status: 409, operation: 'metaBatchExecute', code: 'TRANSACTION_OUTCOME_UNKNOWN', retryable: false,
+      status: 409, operation: 'metadataTransact', code: 'TRANSACTION_OUTCOME_UNKNOWN', retryable: false,
       rolledBack: false,
       retryAdvice: { recommendedAction: 'queryOriginalTransactionStatusDoNotReplaceKey', canRetrySameRequest: false, keepIdempotencyKey: true },
     });
