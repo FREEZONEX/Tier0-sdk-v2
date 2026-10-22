@@ -18,10 +18,18 @@
  *   deadline from its start. A call that runs out of time or is aborted
  *   while it waits in line leaves the queue and is never sent
  *   (`DATA_OVERLOADED` / `DATA_ABORTED`, `execution: notStarted`).
+ *
+ * `openStream` opens one `records:subscribe` event stream for `data.subscribe`,
+ * which owns reconnects.
  */
 import { randomUUID } from 'node:crypto';
 import { HttpClient, type ClientConfig } from '../openapi/client.js';
-import { UnsV2ClientCore, UnsV2Error } from '../uns-v2/client.js';
+import {
+  UnsV2ClientCore,
+  UnsV2Error,
+  type UnsV2RecordSubscribeRequest,
+  type UnsV2SubscriptionEvent,
+} from '../uns-v2/client.js';
 import { UNS_V2_OPERATIONS, type UnsV2OperationName, type UnsV2Request } from '../uns-v2/generated.js';
 import { DataError, toDataError } from './error.js';
 
@@ -44,6 +52,15 @@ export interface CallOptions {
 
 /** Sends one operation and resolves with the envelope's `data`. */
 export type DataCall = <T>(operation: UnsV2OperationName, request: Record<string, unknown>, options?: CallOptions) => Promise<T>;
+
+/**
+ * Opens one `records:subscribe` stream (outside the concurrency gate: it is
+ * long-lived and holds no UNS connection while it waits). Failures are DataErrors.
+ */
+export type DataOpenStream = (
+  request: UnsV2RecordSubscribeRequest,
+  options: CallOptions & { lastEventId?: string; signal: AbortSignal },
+) => AsyncGenerator<UnsV2SubscriptionEvent>;
 
 /** Why a waiter left the queue without a slot. */
 class Abandoned extends Error {}
@@ -115,10 +132,12 @@ function pause(ms: number, signal: AbortSignal): Promise<boolean> {
   });
 }
 
-export function createDataCall(config: ClientConfig): DataCall {
+export function createDataTransport(config: ClientConfig): { call: DataCall; openStream: DataOpenStream } {
   const http = new HttpClient(config);
   const resolve = () => http;
   const timeoutMs = config.transportTimeoutMs ?? DEFAULT_DATA_TIMEOUT_MS;
+  const transport = { transportTimeoutMs: timeoutMs };
+  const app = new UnsV2ClientCore(resolve, transport);
 
   function assertConfigured() {
     let problem: string | undefined;
@@ -136,6 +155,10 @@ export function createDataCall(config: ClientConfig): DataCall {
       });
     }
   }
+
+  // The SDK binds a data subject to one client; App-level calls use the shared one without it.
+  const coreFor = (dataSubject: string | undefined) =>
+    dataSubject ? new UnsV2ClientCore(resolve, { ...transport, unsV2AppDataSubject: dataSubject }) : app;
 
   async function call<T>(operation: UnsV2OperationName, request: Record<string, unknown>, options: CallOptions = {}): Promise<T> {
     assertConfigured();
@@ -192,5 +215,17 @@ export function createDataCall(config: ClientConfig): DataCall {
     }
   }
 
-  return call;
+  async function* openStream(
+    request: UnsV2RecordSubscribeRequest,
+    options: CallOptions & { lastEventId?: string; signal: AbortSignal },
+  ): AsyncGenerator<UnsV2SubscriptionEvent> {
+    assertConfigured();
+    try {
+      yield* coreFor(options.dataSubject).subscribeRecords(request, options);
+    } catch (error) {
+      throw error instanceof UnsV2Error ? toDataError(error) : error;
+    }
+  }
+
+  return { call, openStream };
 }

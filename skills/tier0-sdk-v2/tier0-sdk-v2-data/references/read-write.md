@@ -105,3 +105,33 @@ export async function bumpAll(items: Collection<{ status: string; views: number 
 ## 校验
 
 写入前按声明严格校验：未知字段、类型错误、未声明的更新路径抛 `ZodError`（HTTP 400 语义）。读取不严格解析：记录可能含其他代码版本写入的字段、新的枚举值，或缺少后来新增的字段。枚举渲染要有兜底标签，后加的字段按可能缺失处理。
+
+## 订阅变更
+
+`data.subscribe(...)` 返回已提交变更的异步迭代器（UNS `records:subscribe`，服务端推送）：断线、超时、服务端结束都自动续传（`Last-Event-ID`），刷新页面不需要轮询。事件只有标识，不带业务数据，收到后按需重新读取。
+
+```ts
+import { z } from 'zod';
+import { createDataClient, defineCollection, runAsApp, type SubscriptionEvent } from '@tier0/sdk-v2/data';
+
+const tickets = defineCollection({ alias: 'tickets', schema: z.object({ title: z.string(), status: z.enum(['OPEN', 'DONE']) }) });
+const data = createDataClient({ collections: [tickets] });
+
+/** 一个进程一条 App 级订阅，在进程内扇出给浏览器。 */
+export async function pumpChanges(send: (event: SubscriptionEvent) => void, signal: AbortSignal) {
+  await runAsApp(async () => {
+    for await (const event of data.subscribe({ collections: [tickets], signal })) {
+      // reset：续传位置失效或访问范围变化，浏览器应重新读取当前数据。
+      send(event);
+    }
+  });
+}
+```
+
+- 事件：`{ type: 'change', eventId, collection（alias）, collectionId, change: 'record' | 'delete', recordId, revision, occurredAt, restricted }`、集合级通知 `{ type: 'change', …, change: 'collection', restricted: true }`（没有 `recordId` / `revision`），或 `{ type: 'reset', reason, message? }`。心跳与重连在 SDK 内部处理；迭代抛出 `DataError` 表示不能再重试（如 403），正常结束只有 `signal` 中止或跳出循环。
+- 事件按写入事务的顺序到达，不是提交顺序，同一记录的 revision 可能乱序。SDK 已丢弃 revision 不大于该记录已投递 revision 的非 `delete` 变更；`delete` 一律投递（迟到的也投递），并清除该记录的 revision（同一 ID 再写入时可能从 1 开始）。收到事件后按 `recordId` 重新读取，不要用事件顺序推断记录的最终状态。
+- `reset`：`CURSOR_EXPIRED`（续传位置已被清理、游标无法解开或租户库已迁移）或 `SCOPE_CHANGED`（访问范围变化，例如集合不再可读）。重新读取当前数据；SDK 随后不带续传位置重新订阅。
+- `restricted: true`：该集合有员工数据规则。以 App 身份打开的订阅能看到所有记录的变更，所以默认把这类变更换成集合级通知，可以直接转发给任何员工的浏览器，浏览器再通过受规则约束的接口重新读取。只有不转发给浏览器的服务端逻辑才传 `restricted: 'record'` 拿完整事件（转发前仍须逐个经 `redactRestricted`）。
+- 默认订阅全部已声明的集合（最多 64 个）；`recordIds`（最多 100 个）只能配一个集合。
+- 订阅不占数据请求的并发名额，但每个租户的订阅数有上限（超出时 SDK 按 429 自动退避重连）：一个服务端进程只开一条订阅，在进程内扇出，不要每个浏览器连接开一条。App 刚导入还没就绪（`APP_NOT_READY`）时订阅会一直等待，不会结束。
+- 变更保留 24 小时；`lastEventId` 太旧时收到 `reset`。`lastEventId` 必须是收到过的事件 ID（可见 ASCII），否则调用时直接抛 `TypeError`。

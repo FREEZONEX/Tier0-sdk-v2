@@ -15,6 +15,8 @@ export type { DataEnvironment, EnsureConflict, EnsureNote, EnsureResult, EnsureS
 export { MAX_ATOMIC_ITEMS } from './collection.js';
 export type { BulkOperation, CappedCount, Collection, Cursor, FindOneAndOptions, FindOptions, FindPageOptions, Projection, Update, UpdateOptions, WithMeta } from './collection.js';
 export { currentDataSubject, runAsApp, runWithRequestContext } from './context.js';
+export { redactRestricted, SUBSCRIBE_IDLE_TIMEOUT_MS } from './subscribe.js';
+export type { ChangeEvent, CollectionChange, RecordChange, SubscribeOptions, SubscriptionEvent } from './subscribe.js';
 export { ACCESS_REASONS, DataError } from './error.js';
 export * from './declarations.js';
 export { toSortPairs } from './sort.js';

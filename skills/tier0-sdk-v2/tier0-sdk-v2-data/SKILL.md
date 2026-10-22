@@ -1,6 +1,6 @@
 ---
 name: tier0-sdk-v2-data
-description: 使用 @tier0/sdk-v2/data 在 App 服务端声明并读写本 App 的 UNS 集合：Zod 建模与种子、Mongo 风格读写、原子批量与事务、员工数据主体、Schema 演进和错误码处理。
+description: 使用 @tier0/sdk-v2/data 在 App 服务端声明并读写本 App 的 UNS 集合：Zod 建模、种子与 TTL、Mongo 风格读写、带总数分页与分组计数、原子批量与事务、变更订阅、员工数据主体、Schema 演进和错误码处理。
 ---
 
 # App 数据层
@@ -14,7 +14,7 @@ description: 使用 @tier0/sdk-v2/data 在 App 服务端声明并读写本 App �
 | 用户任务 | 参考 |
 | --- | --- |
 | 声明集合、选字段类型、索引、种子数据、文档建模 | [建模](references/modeling.md) |
-| 查询、分页、聚合、写入、批量与原子性 | [读写](references/read-write.md) |
+| 查询、分页、聚合、写入、批量与原子性、订阅变更 | [读写](references/read-write.md) |
 | 状态流转、并发编辑、跨文档不变量、计数器、员工身份与后台任务 | [一致性与身份](references/consistency.md) |
 | 加字段、改类型、改描述、收窄 Schema | [Schema 演进](references/schema-evolution.md) |
 | DataError 字段、UNS 错误码与处理 | [错误码](references/errors.md) |

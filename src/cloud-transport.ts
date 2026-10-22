@@ -145,6 +145,80 @@ export class CloudTransport {
     }
   }
 
+  /**
+   * Opens a server-sent event stream (GET, `Accept: text/event-stream`
+   * exactly, as the gateway requires). The deadline covers the response
+   * headers, and a non-stream body; a response that is not an event stream
+   * is read whole (bounded like any UNS v2 response) and returned as `text`.
+   * An open stream belongs to the caller: `close()` ends it and drops the
+   * link to `signal`, which also ends it.
+   */
+  async getEventStream(path: string, options: { lastEventId?: string; signal?: AbortSignal } = {}):
+    Promise<{ status: number; stream: ReadableStream<Uint8Array>; close(): void } | { status: number; text: string }> {
+    options.signal?.throwIfAborted();
+    const client = this.resolveClient();
+    const url = `${client.getBaseURL()}${path}`;
+    const key = client.getApiKey();
+    const headers: Record<string, string> = { Accept: 'text/event-stream' };
+    if (path.startsWith('/openapi/v2/uns/') && this.#unsV2AppDataSubject !== undefined) {
+      headers[UNS_V2_APP_DATA_SUBJECT_HEADER] = this.#unsV2AppDataSubject;
+    }
+    if (options.lastEventId !== undefined) headers['Last-Event-ID'] = options.lastEventId;
+    if (key) {
+      headers.Authorization = `Bearer ${key}`;
+      headers['X-API-Key'] = key;
+    }
+    const controller = new AbortController();
+    const onAbort = () => controller.abort();
+    const close = () => {
+      options.signal?.removeEventListener('abort', onAbort);
+      controller.abort();
+    };
+    options.signal?.addEventListener('abort', onAbort, { once: true });
+    let expired = false;
+    const timer = setTimeout(() => { expired = true; controller.abort(); }, this.timeoutMs);
+    const failure = (kind: Failure, status?: number) =>
+      new CloudTransportError(expired ? 'TRANSPORT_TIMEOUT' : controller.signal.aborted ? 'TRANSPORT_ABORTED' : kind, status);
+    let response: Response;
+    try {
+      response = await client.getFetch()(url, { method: 'GET', headers, redirect: 'manual', signal: controller.signal });
+    } catch {
+      clearTimeout(timer);
+      close();
+      throw failure('TRANSPORT_ERROR');
+    }
+    const type = response.headers.get('content-type') ?? '';
+    if (response.status === 200 && /^text\/event-stream\b/i.test(type) && response.body) {
+      clearTimeout(timer);
+      return { status: response.status, stream: response.body, close };
+    }
+    try {
+      if (!response.body) return { status: response.status, text: '' };
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8', { fatal: true });
+      const chunks: string[] = [];
+      let size = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        size += value.byteLength;
+        if (size > this.unsV2MaxResponseBytes) {
+          await reader.cancel().catch(() => undefined);
+          throw new CloudTransportError('PROTOCOL_ERROR', response.status);
+        }
+        chunks.push(decoder.decode(value, { stream: true }));
+      }
+      chunks.push(decoder.decode());
+      return { status: response.status, text: chunks.join('') };
+    } catch (error) {
+      if (error instanceof CloudTransportError) throw error;
+      throw failure('PROTOCOL_ERROR', response.status);
+    } finally {
+      clearTimeout(timer);
+      close();
+    }
+  }
+
   async post(path: string, body: unknown): Promise<{ value: unknown; status: number; ok: boolean }> {
     const client = this.resolveClient();
     const url = `${client.getBaseURL()}${path}`;

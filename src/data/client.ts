@@ -7,10 +7,11 @@ import type { z } from 'zod';
 import type { ClientConfig } from '../openapi/client.js';
 import { getEnvVar } from '../runtime-env.js';
 import { createBootstrap, type DataEnvironment, type EnsureState, type Logger } from './bootstrap.js';
-import { createDataCall } from './call.js';
+import { createDataTransport } from './call.js';
 import { assertAtomicBatch, Collection, toDoc, type UnsRecord, type WithMeta } from './collection.js';
 import { currentDataSubject, currentSignal } from './context.js';
 import { MAX_COLLECTIONS, type CollectionDefinition } from './define.js';
+import { createSubscribe, type SubscribeOptions, type SubscriptionEvent } from './subscribe.js';
 import { DataError } from './error.js';
 import { validateStepData, validateUpdate } from './schema.js';
 import { toSortPairs, type Filter, type Sort } from './sort.js';
@@ -88,12 +89,21 @@ export interface DataClient {
    * sent at once.
    */
   transact(steps: readonly TransactStep[], options?: { dryRun?: boolean; idempotencyKey?: string }): Promise<TransactResult>;
+  /**
+   * Committed record changes of declared collections (all by default), as
+   * one async iterable that reconnects and resumes by itself; see
+   * `SubscribeOptions`. Events carry identities only; changes in collections
+   * with employee data rules arrive as collection-level notices unless
+   * `restricted: "record"` is asked for. Open it inside a request to watch as
+   * that employee, or in `runAsApp` for one App-wide stream a server fans out.
+   */
+  subscribe(options?: SubscribeOptions): AsyncIterable<SubscriptionEvent>;
   /** Ensures every declaration now (normally lazy on first access). */
   ensure(): Promise<EnsureState>;
 }
 
 export function createDataClient(config: DataClientConfig): DataClient {
-  const call = createDataCall(config);
+  const { call, openStream } = createDataTransport(config);
   const environment = config.environment ?? (getEnvVar('NODE_ENV') === 'production' ? 'deployed' : 'preview');
   const declared = [...config.collections];
   if (declared.length > MAX_COLLECTIONS) {
@@ -194,5 +204,14 @@ export function createDataClient(config: DataClientConfig): DataClient {
     );
   }
 
-  return { collection: collection as DataClient['collection'], transact, ensure: bootstrap.ensure };
+  const subscribe = createSubscribe({
+    openStream,
+    ensure: bootstrap.ensure,
+    rebuild: bootstrap.rebuild,
+    lookup,
+    declared,
+    subject: currentDataSubject,
+  });
+
+  return { collection: collection as DataClient['collection'], transact, subscribe, ensure: bootstrap.ensure };
 }

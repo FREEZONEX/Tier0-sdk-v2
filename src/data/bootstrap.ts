@@ -358,5 +358,5 @@ export function createBootstrap(config: BootstrapConfig) {
     return id;
   }
 
-  return { ensure, resolve, recover };
+  return { ensure, resolve, recover, rebuild };
 }

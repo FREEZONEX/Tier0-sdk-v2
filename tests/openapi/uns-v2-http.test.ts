@@ -842,10 +842,89 @@ describe('UNS v2 localhost HTTP fixture', () => {
 });
 
 
-describe('records:subscribe in the generated contract', () => {
+describe('records:subscribe over the isolated HTTP transport', () => {
+  const frame = (event: string, data: unknown, id?: string) => `${id ? `id: ${id}\n` : ''}event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  const change = { eventId: 'p-2', collectionId: 'orders', recordId: 'o-1', revision: 4, change: 'delete', occurredAt: 1700000000000, restricted: true };
+
   it('is a GET stream outside the generated POST methods', () => {
     expect(Object.keys(UNS_V2_OPERATIONS)).not.toContain('recordSubscribe');
     expect(Object.keys(UNS_V2_OPERATIONS)).not.toContain('recordChangesPoll');
     expect(UNS_V2_STREAM_OPERATIONS.recordSubscribe.path).toBe('/openapi/v2/uns/records:subscribe');
+  });
+
+  it('sends repeated query parameters, Last-Event-ID and the data subject, then parses frames until the server closes', async () => {
+    const start = received.length;
+    respond = (_req, res) => {
+      res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      res.write(frame('heartbeat', { at: 1 }, 'p-1'));
+      res.write(frame('change', change, 'p-2'));
+      res.end(frame('reset', { reason: 'SCOPE_CHANGED' }));
+    };
+    const proof = 'gateway.subject.signature';
+    const events = [];
+    for await (const event of rawClient({ unsV2AppDataSubject: proof }).subscribeRecords({ collectionIds: ['orders'], recordIds: ['o-1', 'o-2'] }, { lastEventId: 'p-0' })) {
+      events.push(event);
+    }
+    expect(events).toEqual([{ type: 'heartbeat', eventId: 'p-1' }, { type: 'change', ...change }, { type: 'reset', reason: 'SCOPE_CHANGED' }]);
+    const sent = received[start];
+    expect(sent.method).toBe('GET');
+    expect(sent.path).toBe('/openapi/v2/uns/records:subscribe?collectionIds=orders&recordIds=o-1&recordIds=o-2');
+    expect(sent.headers.accept).toBe('text/event-stream');
+    expect(sent.headers['last-event-id']).toBe('p-0');
+    expect(sent.headers['x-tier0-app-data-subject']).toBe(proof);
+  });
+
+  it.each([[429, 'OVERLOADED', true], [403, 'FORBIDDEN', false]])('raises a %s/%s refusal as a read error with its retry advice', async (status, code, safe) => {
+    respond = (_req, res) => send(res, { code: status, msg: code, requestId: 'sub', data: null,
+      error: { code, details: [], execution: 'notStarted', retry: safe ? { safe, afterMs: 500 } : { safe } } }, status);
+    const error = await rawClient().subscribeRecords({ collectionIds: ['orders'] }).next().catch(value => value);
+    expect(error).toBeInstanceOf(UnsV2Error);
+    expect(error).not.toBeInstanceOf(UnsV2OutcomeUnknownError);
+    expect(error).toMatchObject({ status, code, operation: 'recordSubscribe', execution: 'notStarted', retry: { safe } });
+  });
+
+  it('treats a malformed change frame as a protocol error safe to reconnect', async () => {
+    respond = (_req, res) => {
+      res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      res.end(frame('change', { ...change, restricted: undefined }, 'p-2'));
+    };
+    const error = await rawClient().subscribeRecords({ collectionIds: ['orders'] }).next().catch(value => value);
+    expect(error).toMatchObject({ name: 'UnsV2Error', code: 'UNS_V2_PROTOCOL_ERROR', retry: { safe: true } });
+  });
+
+  it('rejects requests over the contract limits before connecting, and lists no collection for all', async () => {
+    const start = received.length;
+    await expect(rawClient().subscribeRecords({ collectionIds: Array.from({ length: 65 }, (_, i) => `c${i}`) }).next()).rejects.toThrow(/1–64 collections/);
+    await expect(rawClient().subscribeRecords({ collectionIds: ['a', 'b'], recordIds: ['r'] }).next()).rejects.toThrow(/exactly one collection/);
+    await expect(rawClient().subscribeRecords({ recordIds: ['r'] }).next()).rejects.toThrow(/exactly one collection/);
+    expect(received.length).toBe(start);
+    respond = (_req, res) => { res.writeHead(200, { 'Content-Type': 'text/event-stream' }); res.end(); };
+    for await (const _event of rawClient().subscribeRecords({})) void _event;
+    expect(received[start].path).toBe('/openapi/v2/uns/records:subscribe');
+  });
+
+  it('ends a stream whose line never ends as a protocol error', async () => {
+    respond = (_req, res) => {
+      res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      res.end('x'.repeat((1 << 20) + 10));
+    };
+    await expect(rawClient().subscribeRecords({ collectionIds: ['orders'] }).next()).rejects.toMatchObject({ code: 'UNS_V2_PROTOCOL_ERROR', retry: { safe: true } });
+  });
+
+  it('releases its abort listener when the stream ends', async () => {
+    respond = (_req, res) => { res.writeHead(200, { 'Content-Type': 'text/event-stream' }); res.end(frame('heartbeat', { at: 1 }, 'p-1')); };
+    const controller = new AbortController();
+    const added: unknown[] = [];
+    const removed: unknown[] = [];
+    const signal = controller.signal;
+    const add = signal.addEventListener.bind(signal);
+    const remove = signal.removeEventListener.bind(signal);
+    signal.addEventListener = ((type: string, listener: EventListener, opts?: AddEventListenerOptions) => { added.push(listener); add(type, listener, opts); }) as typeof signal.addEventListener;
+    signal.removeEventListener = ((type: string, listener: EventListener) => { removed.push(listener); remove(type, listener); }) as typeof signal.removeEventListener;
+    for (let round = 0; round < 3; round += 1) {
+      for await (const _event of rawClient().subscribeRecords({ collectionIds: ['orders'] }, { signal })) void _event;
+    }
+    expect(added.length).toBeGreaterThan(0);
+    expect(added.every(listener => removed.includes(listener))).toBe(true);
   });
 });
