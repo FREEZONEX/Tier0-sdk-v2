@@ -1,0 +1,379 @@
+import mqtt from 'mqtt';
+import type { MqttClient, IClientOptions } from 'mqtt';
+import { getEnvVar } from '../runtime-env.js';
+import { DEFAULT_WSS_PORT, isBrowserHttps, parseMqttBroker, toWebSocketUrl } from './broker.js';
+import type { MQTTConfig, MQTTEventMap } from './types.js';
+
+/**
+ * 消息回调。公开类型保持 `void` 返回，以兼容 async handler、`push()` 简写等
+ * 既有写法；运行时额外识别返回值：handler 返回严格的 `false` 视为下游停滞
+ * （背压），SDK 会统计连续背压次数，配合 MQTTConfig.maxBackpressuredDeliveries
+ * 可在阈值内自动移除订阅。
+ */
+export type TopicHandler = (topic: string, payload: string) => void;
+
+function parseWorkspaceIDFromApiKey(apiKey: string): string | undefined {
+  // Match the backend's sk-<type>-ws<base36>_<secret> contract, not only
+  // service keys. Other workspace-encoded keys use the same MQTT identity.
+  const match = /^sk-[^-]+-ws([0-9a-zA-Z]+)_.+$/.exec(apiKey.trim());
+  if (!match) return undefined;
+
+  // Keep the int64 workspace ID exact; parseInt can round IDs above 2^53.
+  let workspaceID = 0n;
+  for (const digit of match[1]) {
+    workspaceID = workspaceID * 36n + BigInt(parseInt(digit, 36));
+    if (workspaceID > 9223372036854775807n) return undefined;
+  }
+  return workspaceID > 0n ? workspaceID.toString() : undefined;
+}
+
+function generateRandomString(length = 8): string {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+interface Subscription {
+  topic: string;
+  handler: TopicHandler;
+  /** handler 连续返回 false（背压）的次数，正常返回时清零。 */
+  backpressuredCount?: number;
+}
+
+export class Tier0MQClient {
+  private client: MqttClient | null = null;
+  private config: MQTTConfig;
+  private explicitClientId: boolean;
+  private explicitUsername: boolean;
+  private listeners: { [K in keyof MQTTEventMap]?: Array<MQTTEventMap[K]> } = {};
+  private subscriptions: Subscription[] = [];
+  private connectingPromise: Promise<void> | null = null;
+  private _connected = false;
+
+  constructor(config?: MQTTConfig) {
+    this.explicitClientId = config?.clientId !== undefined;
+    this.explicitUsername = config?.username !== undefined;
+    const envHost = getEnvVar('TIER0_MQTT_HOST');
+    const envPort = getEnvVar('TIER0_MQTT_PORT');
+
+    const host = config?.host || envHost || '';
+    const port = config?.port || parseInt(envPort || '8084') || 8084;
+    const password = config?.password || getEnvVar('TIER0_API_KEY') || '';
+
+    // 从 apiKey 解析 workspaceID，自动生成 clientId 和 username
+    const workspaceID = config?.clientId && config?.username
+      ? undefined
+      : parseWorkspaceIDFromApiKey(password);
+
+    const autoClientId = workspaceID
+      ? `${workspaceID}&${generateRandomString(8)}`
+      : undefined;
+    const autoUsername = workspaceID
+      ? `${workspaceID}&open`
+      : undefined;
+
+    this.config = {
+      host,
+      port,
+      clientId: config?.clientId || autoClientId,
+      username: config?.username || autoUsername,
+      password,
+      keepAlive: config?.keepAlive ?? 60,
+      reconnectPeriod: config?.reconnectPeriod ?? 5000,
+      connectTimeout: config?.connectTimeout ?? 30000,
+      clean: config?.clean ?? true,
+      ...config,
+    };
+  }
+
+  private get mqttUrl(): string {
+    const { host, port, secure } = this.config;
+    if (!host) {
+      throw new Error(
+        'MQTT host is required. Provide it via MQTTConfig or TIER0_MQTT_HOST environment variable.'
+      );
+    }
+    const normalizedHost = host.trim().replace(/\/+$/, '');
+    if (/^wss?:\/\//i.test(normalizedHost)) {
+      const url = toWebSocketUrl(normalizedHost);
+      if (!url) throw new TypeError('Invalid MQTT WebSocket URL');
+      return url;
+    }
+    // 裸 host（可含端口）：按运行环境自适应 ws/wss
+    const endpoint = parseMqttBroker(normalizedHost);
+    const hostname = endpoint?.hostname ?? normalizedHost;
+    // 裸 host:port 和 ws(s) URL 的端口按 WebSocket 端口处理；
+    // tcp/mqtt/mqtts 的端口是 TCP 端口（如 1883），wss 下不能沿用，回退到配置的 port
+    const effectivePort =
+      !endpoint?.scheme || endpoint.scheme === 'ws' || endpoint.scheme === 'wss'
+        ? endpoint?.port ?? port
+        : port;
+    const useSecure = secure ?? (isBrowserHttps() || effectivePort === DEFAULT_WSS_PORT);
+    return `${useSecure ? 'wss' : 'ws'}://${hostname}:${effectivePort}/mqtt`;
+  }
+
+  // 内部确保已连接（懒连接）
+  private async ensureConnected(): Promise<void> {
+    if (this._connected) return;
+    if (this.connectingPromise) return this.connectingPromise;
+
+    void this.mqttUrl;
+    if (!this.config.password || !this.config.username || !this.config.clientId) {
+      throw new Error('Tier0 SDK v2: provide a workspace-encoded API key or explicit MQTT username, clientId and password.');
+    }
+
+    this.connectingPromise = this.doConnect();
+    return this.connectingPromise;
+  }
+
+  private doConnect(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const options: IClientOptions = {
+        clientId: this.config.clientId,
+        username: this.config.username,
+        password: this.config.password,
+        keepalive: this.config.keepAlive,
+        reconnectPeriod: this.config.reconnectPeriod,
+        connectTimeout: this.config.connectTimeout,
+        clean: this.config.clean,
+      };
+
+      this.client = mqtt.connect(this.mqttUrl, options);
+
+      this.client.on('connect', () => {
+        this._connected = true;
+        this.connectingPromise = null;
+        this.emit('connect');
+        // 断连重连后自动恢复所有订阅
+        this.resubscribeAll();
+        resolve();
+      });
+
+      this.client.on('error', (err) => {
+        this.emit('error', err);
+        this.connectingPromise = null;
+        reject(err);
+      });
+
+      this.client.on('disconnect', () => {
+        this._connected = false;
+        this.emit('disconnect');
+      });
+
+      this.client.on('close', () => {
+        this._connected = false;
+      });
+
+      this.client.on(
+        'message',
+        (topic: string, payload: Buffer, _packet: mqtt.IPublishPacket) => {
+          const payloadStr = payload.toString();
+          // 复制一份快照：handler 触发背压自动退订时会重建 this.subscriptions
+          this.subscriptions.slice().forEach((sub) => {
+            if (this.topicMatch(sub.topic, topic)) {
+              try {
+                // 公开类型为 void 返回（兼容 async/简写 handler），运行时仅识别严格的 false
+                const accepted = (
+                  sub.handler as (t: string, p: string) => unknown
+                )(topic, payloadStr);
+                if (accepted === false) {
+                  sub.backpressuredCount = (sub.backpressuredCount ?? 0) + 1;
+                  const limit = this.config.maxBackpressuredDeliveries ?? 0;
+                  if (limit > 0 && sub.backpressuredCount >= limit) {
+                    this.unsubscribe(sub.topic, sub.handler);
+                    this.emit('subscriptionDropped', {
+                      topic: sub.topic,
+                      reason: `handler 连续 ${sub.backpressuredCount} 次返回背压（false），已按 maxBackpressuredDeliveries=${limit} 自动退订`,
+                    });
+                  }
+                } else {
+                  sub.backpressuredCount = 0;
+                }
+              } catch (e) {
+                this.emit('error', e as Error);
+              }
+            }
+          });
+        }
+      );
+    });
+  }
+
+  // 显式连接（需要等待连接完成时使用）
+  async connect(config?: MQTTConfig): Promise<void> {
+    if (config) {
+      const previousPassword = this.config.password;
+      this.config = { ...this.config, ...config };
+      if (config.clientId !== undefined) this.explicitClientId = true;
+      if (config.username !== undefined) this.explicitUsername = true;
+      // A connect-time key may belong to a different workspace. Preserve only
+      // caller-supplied identity fields, not values derived from the previous key.
+      if (config.password !== undefined && config.password !== previousPassword) {
+        const workspaceID = parseWorkspaceIDFromApiKey(config.password);
+        if (!this.explicitClientId) {
+          this.config.clientId = workspaceID ? workspaceID + '&' + generateRandomString(8) : undefined;
+        }
+        if (!this.explicitUsername) this.config.username = workspaceID ? workspaceID + '&open' : undefined;
+      }
+    }
+    return this.ensureConnected();
+  }
+
+  // 订阅 topic，内部 qos 固定为 1，handler 接收 (topic, payload)
+  // 无需先调用 connect()，自动处理连接
+  subscribe(topic: string, handler: TopicHandler): void {
+    // 避免重复注册同一 topic 的同一 handler
+    const exists = this.subscriptions.some(
+      (s) => s.topic === topic && s.handler === handler
+    );
+    if (exists) {
+      return;
+    }
+
+    this.subscriptions.push({ topic, handler });
+
+    if (this._connected && this.client) {
+      this.client.subscribe(topic, { qos: 1 as 0 | 1 | 2 }, (err) => {
+        if (err) {
+          this.emit('error', err);
+          // 订阅失败时回滚
+          this.subscriptions = this.subscriptions.filter(
+            (s) => !(s.topic === topic && s.handler === handler)
+          );
+        }
+      });
+    } else {
+      // 未连接时触发懒连接，连接成功后 resubscribeAll 会自动 subscribe
+      this.ensureConnected().catch((err) => this.emit('error', err));
+    }
+  }
+
+  // 取消订阅：如果提供了 handler 则仅移除该 handler，否则移除该 topic 下所有 handler
+  unsubscribe(topic: string, handler?: TopicHandler): void {
+    if (handler) {
+      this.subscriptions = this.subscriptions.filter(
+        (s) => !(s.topic === topic && s.handler === handler)
+      );
+    } else {
+      this.subscriptions = this.subscriptions.filter((s) => s.topic !== topic);
+    }
+
+    if (!this.client) return;
+
+    // 如果该 topic 下已无任何 handler，则向 broker 发送 unsubscribe
+    const stillHasHandler = this.subscriptions.some((s) => s.topic === topic);
+    if (!stillHasHandler) {
+      this.client.unsubscribe(topic, (err) => {
+        if (err) {
+          this.emit('error', err);
+        }
+      });
+    }
+  }
+
+  // 发布消息，无需先调用 connect()，内部自动处理连接
+  async publish(
+    topic: string,
+    payload: string | object,
+    options?: { qos?: number; retain?: boolean }
+  ): Promise<void> {
+    await this.ensureConnected();
+
+    const message =
+      typeof payload === 'string' ? payload : JSON.stringify(payload);
+    this.client!.publish(topic, message, {
+      qos: (options?.qos ?? 0) as 0 | 1 | 2,
+      retain: options?.retain ?? false,
+    });
+  }
+
+  disconnect(): void {
+    if (!this.client) return;
+
+    this.client.end(true, () => {
+      this.emit('disconnect');
+    });
+    this.client = null;
+    this._connected = false;
+    this.connectingPromise = null;
+    this.subscriptions = [];
+  }
+
+  on<K extends keyof MQTTEventMap>(event: K, handler: MQTTEventMap[K]): void {
+    if (!this.listeners[event]) {
+      this.listeners[event] = [];
+    }
+    this.listeners[event]!.push(handler);
+  }
+
+  off<K extends keyof MQTTEventMap>(event: K, handler: MQTTEventMap[K]): void {
+    const handlers = this.listeners[event];
+    if (!handlers) return;
+    const idx = handlers.indexOf(handler);
+    if (idx !== -1) {
+      handlers.splice(idx, 1);
+    }
+  }
+
+  private emit<K extends keyof MQTTEventMap>(
+    event: K,
+    ...args: Parameters<MQTTEventMap[K]>
+  ): void {
+    const handlers = this.listeners[event];
+    if (!handlers) return;
+    handlers.forEach((h) => (h as any)(...args));
+  }
+
+  // 断连后自动重新订阅所有已注册的 topic
+  private resubscribeAll(): void {
+    if (!this.client) return;
+
+    // 按 topic 去重，每个 topic 只订阅一次
+    const uniqueTopics = Array.from(
+      new Set(this.subscriptions.map((s) => s.topic))
+    );
+    uniqueTopics.forEach((topic) => {
+      this.client!.subscribe(topic, { qos: 1 as 0 | 1 | 2 }, (err) => {
+        if (err) {
+          this.emit('error', err);
+        }
+      });
+    });
+  }
+
+  // 判断接收到的 topic 是否匹配订阅的 topic（支持通配符 # 和 +）
+  private topicMatch(subscribed: string, received: string): boolean {
+    const subParts = subscribed.split('/');
+    const recParts = received.split('/');
+
+    for (let i = 0; i < subParts.length; i++) {
+      const sp = subParts[i];
+      const rp = recParts[i];
+
+      if (sp === '#') {
+        // # 必须是最后一个层级，匹配后面所有
+        return true;
+      }
+      if (sp === '+') {
+        // + 匹配单个层级
+        continue;
+      }
+      if (sp !== rp) {
+        return false;
+      }
+    }
+
+    return subParts.length === recParts.length;
+  }
+
+  get isConnected(): boolean {
+    return this._connected;
+  }
+
+  get subscribedTopics(): string[] {
+    return Array.from(new Set(this.subscriptions.map((s) => s.topic)));
+  }
+}

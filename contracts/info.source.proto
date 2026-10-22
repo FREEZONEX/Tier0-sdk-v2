@@ -1,0 +1,224 @@
+//--------------------OpenAPI UNS--------------------
+syntax = "proto3";
+option go_package = "/uns";
+package uns;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/wrappers.proto";
+import "unsShare.proto";
+
+message OpenapiEmpty {}
+
+message OpenapiInfoReq {}
+
+message OpenapiInfoResp {
+  string name = 1;
+  string version = 2;
+  repeated string capabilities = 3;
+  string mqttBroker = 4;
+}
+
+message OpenapiVQT {
+  google.protobuf.Value value = 1;
+  string quality = 2;
+  int64 timeStamp = 3;
+}
+
+message OpenapiItemError {
+  int64 code = 1;
+  string message = 2;
+}
+
+message OpenapiReadReq {
+  repeated string topics = 1;
+  bool includeMetadata = 2;
+  reserved 3;
+  bool includeLeafValue = 4;
+}
+
+message OpenapiReadItem {
+  bool success = 1;
+  string topic = 2;
+  OpenapiVQT result = 3;
+  OpenapiItemError error = 4;
+  OpenapiNodeInfo metadata = 5;
+}
+
+message OpenapiReadResp {
+  bool success = 1;
+  repeated OpenapiReadItem results = 2;
+}
+
+message OpenapiWriteReq {
+  repeated OpenapiWriteItem writes = 1;
+  int64 qos = 2;
+  bool retain = 3;
+}
+
+message OpenapiWriteItem {
+  string topic = 1;
+  google.protobuf.Value value = 2;
+  reserved 3;
+  int64 timeStamp = 4;
+  string mode = 5;
+}
+
+message OpenapiWriteResult {
+  bool success = 1;
+  string topic = 2;
+  OpenapiItemError error = 3;
+}
+
+message OpenapiWriteResp {
+  bool success = 1;
+  repeated OpenapiWriteResult results = 2;
+}
+
+message OpenapiBrowseReq {
+  string path = 1;
+  int64 maxDepth = 2;
+  bool includeMetadata = 3;
+  bool includeLeafValue = 4;
+}
+
+message OpenapiBrowseResp {
+  repeated OpenapiNodeInfo tree = 1;
+}
+
+message OpenapiSearchReq {
+  string keyword = 1;
+  bool includeMetadata = 2;
+  PageInfo page = 3;
+  string topicType = 4;
+  string pathPrefix = 5;
+  bool includeLeafValue = 6;
+}
+
+message OpenapiSearchResp {
+  int64 total = 1;
+  repeated OpenapiNodeInfo objects = 2;
+  int64 page = 3;
+  int64 size = 4;
+}
+
+message OpenapiHistoryReq {
+  repeated string topics = 1;
+  int64 startTime = 2;
+  int64 endTime = 3;
+  OpenapiHistoryAggregation aggregation = 4;
+  PageInfo page = 5;
+  string countMode = 6;
+}
+
+message OpenapiHistoryAggregation {
+  string interval = 1;
+  string function = 2;
+  string field = 3;
+  repeated OpenapiHistoryAggregationField fields = 4;
+}
+
+message OpenapiHistoryAggregationField {
+  string name = 1;
+  string function = 2;
+}
+
+message OpenapiHistoryItem {
+  string topic = 1;
+  repeated OpenapiVQT values = 2;
+  OpenapiItemError error = 3;
+  HistoryQueryMeta meta = 4;
+}
+
+message OpenapiHistoryResp {
+  repeated OpenapiHistoryItem results = 1;
+  int64 page = 2;
+  int64 size = 3;
+  int64 total = 4;
+  bool totalExact = 5;
+}
+
+message OpenapiNodeInfo {
+  int64 id = 1;
+  string path = 2;
+  string name = 3;
+  string type = 4;
+  string topicType = 5;
+  string description = 6;
+  string displayName = 7;
+  map<string, string> extendProperties = 8;
+  repeated OpenapiSchemaField fields = 9;
+  repeated OpenapiNodeInfo children = 10;
+  string alias = 11;
+  int64 enableHistory = 12;
+  OpenapiVQT payload = 13;
+  reserved 14, 15;
+  reserved "bindFlowID", "bindEventFlowID";
+}
+
+message OpenapiSchemaField {
+  string name = 1;
+  string type = 2;
+  string unit = 3;
+}
+
+message OpenapiCreateReq {
+  repeated OpenapiNamespaceNode namespace = 1;
+}
+
+message OpenapiCreateResp {
+  bool success = 1;
+  repeated OpenapiCreateResult results = 2;
+}
+
+message OpenapiCreateResult {
+  bool success = 1;
+  string topic = 2;
+  OpenapiItemError error = 3;
+}
+
+message OpenapiNamespaceNode {
+  string name = 1;
+  string type = 2;
+  repeated OpenapiNamespaceNode children = 3;
+  string topicType = 4;
+  repeated OpenapiSchemaField fields = 5;
+  string description = 6;
+  string displayName = 7;
+  map<string, string> extendProperties = 8;
+  string alias = 9;
+  google.protobuf.BoolValue enableHistory = 10;
+}
+
+message OpenapiUpdateReq {
+  string path = 1;
+  string name = 2;
+  string description = 3;
+  string displayName = 4;
+  map<string, string> extendProperties = 5;
+  repeated OpenapiSchemaField fields = 6;
+  string alias = 7;
+  repeated string updateMask = 8;
+  google.protobuf.BoolValue enableHistory = 9;
+}
+
+message OpenapiDeleteReq {
+  repeated string topics = 1;
+  bool hardDelete = 2;
+}
+
+message OpenapiRestoreReq {
+  string path = 1;
+}
+
+service Openapi {
+  rpc info(OpenapiInfoReq) returns(OpenapiInfoResp);
+  rpc read(OpenapiReadReq) returns(OpenapiReadResp);
+  rpc write(OpenapiWriteReq) returns(OpenapiWriteResp);
+  rpc browse(OpenapiBrowseReq) returns(OpenapiBrowseResp);
+  rpc search(OpenapiSearchReq) returns(OpenapiSearchResp);
+  rpc history(OpenapiHistoryReq) returns(OpenapiHistoryResp);
+  rpc create(OpenapiCreateReq) returns(OpenapiCreateResp);
+  rpc update(OpenapiUpdateReq) returns(OpenapiEmpty);
+  rpc delete(OpenapiDeleteReq) returns(OpenapiEmpty);
+  rpc restore(OpenapiRestoreReq) returns(OpenapiEmpty);
+}

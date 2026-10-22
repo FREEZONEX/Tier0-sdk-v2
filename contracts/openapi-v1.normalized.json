@@ -1,0 +1,4982 @@
+{
+  "components": {
+    "schemas": {
+      "AgentAnalysisDispatchReq": {
+        "properties": {
+          "canvasId": {
+            "type": "string"
+          },
+          "cardId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "operationId": {
+            "type": "string"
+          },
+          "resultId": {
+            "type": "string"
+          },
+          "task": {}
+        },
+        "required": [
+          "operationId",
+          "kind",
+          "task"
+        ],
+        "type": "object"
+      },
+      "AgentAnalysisDispatchResp": {
+        "properties": {
+          "dispatchState": {
+            "type": "string"
+          },
+          "errorCode": {
+            "type": "string"
+          },
+          "errorMessage": {
+            "type": "string"
+          },
+          "runId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "runId",
+          "dispatchState",
+          "errorCode",
+          "errorMessage"
+        ],
+        "type": "object"
+      },
+      "AgentAnalysisGetReq": {
+        "properties": {
+          "runId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "runId"
+        ],
+        "type": "object"
+      },
+      "AgentAnalysisGetResp": {
+        "properties": {
+          "run": {
+            "$ref": "#/components/schemas/AgentJobRunRecord"
+          }
+        },
+        "required": [
+          "run"
+        ],
+        "type": "object"
+      },
+      "AgentCanvasListReq": {
+        "properties": {
+          "page": {
+            "type": "integer"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "size"
+        ],
+        "type": "object"
+      },
+      "AgentCanvasListResp": {
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/AgentCanvasRecord"
+            },
+            "type": "array"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "size",
+          "total",
+          "list"
+        ],
+        "type": "object"
+      },
+      "AgentCanvasRecord": {
+        "properties": {
+          "canvasId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "canvasId",
+          "sessionId",
+          "name",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "AgentCardDeleteReq": {
+        "properties": {
+          "canvasId": {
+            "type": "string"
+          },
+          "cardId": {
+            "type": "string"
+          },
+          "expectedCardSpec": {}
+        },
+        "required": [
+          "canvasId",
+          "cardId",
+          "expectedCardSpec"
+        ],
+        "type": "object"
+      },
+      "AgentCardDeleteResp": {
+        "properties": {
+          "cardId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "cardId"
+        ],
+        "type": "object"
+      },
+      "AgentCardGetReq": {
+        "properties": {
+          "canvasId": {
+            "type": "string"
+          },
+          "cardId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "canvasId",
+          "cardId"
+        ],
+        "type": "object"
+      },
+      "AgentCardGetResp": {
+        "properties": {
+          "canvasId": {
+            "type": "string"
+          },
+          "cardId": {
+            "type": "string"
+          },
+          "cardKey": {
+            "type": "string"
+          },
+          "cardSpec": {},
+          "updatedAt": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cardId",
+          "canvasId",
+          "cardKey",
+          "cardSpec",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "AgentCardListReq": {
+        "properties": {
+          "canvasId": {
+            "type": "string"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "size": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "canvasId",
+          "page",
+          "size"
+        ],
+        "type": "object"
+      },
+      "AgentCardListResp": {
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/AgentCardGetResp"
+            },
+            "type": "array"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "size",
+          "total",
+          "list"
+        ],
+        "type": "object"
+      },
+      "AgentCardUpdateReq": {
+        "properties": {
+          "canvasId": {
+            "type": "string"
+          },
+          "cardId": {
+            "type": "string"
+          },
+          "cardSpec": {},
+          "expectedCardSpec": {
+            "description": "读取到的完整原卡内容，变化时返回HTTP409"
+          },
+          "ord": {
+            "description": "画布内顺序：不传 = 不改（转调 unssvr 时补 -1），传了原样透传；用指针区分「没传」和「传 0」",
+            "type": "integer"
+          },
+          "position": {}
+        },
+        "required": [
+          "cardId",
+          "cardSpec",
+          "expectedCardSpec"
+        ],
+        "type": "object"
+      },
+      "AgentCardUpdateResp": {
+        "properties": {
+          "cardId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "cardId"
+        ],
+        "type": "object"
+      },
+      "AgentJobCreateReq": {
+        "properties": {
+          "cardId": {
+            "type": "string"
+          },
+          "cronExpr": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "integer"
+          },
+          "intervalSeconds": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "notify": {},
+          "scheduleKind": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "sourceBlockId": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "sourceName": {
+            "type": "string"
+          },
+          "sourceType": {
+            "type": "string"
+          },
+          "task": {},
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "scheduleKind",
+          "task",
+          "sourceType",
+          "sessionId"
+        ],
+        "type": "object"
+      },
+      "AgentJobGetResp": {
+        "properties": {
+          "job": {
+            "$ref": "#/components/schemas/AgentJobRecord"
+          }
+        },
+        "required": [
+          "job"
+        ],
+        "type": "object"
+      },
+      "AgentJobIDReq": {
+        "properties": {
+          "jobId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobId"
+        ],
+        "type": "object"
+      },
+      "AgentJobListReq": {
+        "properties": {
+          "cardId": {
+            "type": "string"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "search": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "sourceType": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "page",
+          "size"
+        ],
+        "type": "object"
+      },
+      "AgentJobListResp": {
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/AgentJobRecord"
+            },
+            "type": "array"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "size",
+          "total",
+          "list"
+        ],
+        "type": "object"
+      },
+      "AgentJobMutationResp": {
+        "properties": {
+          "jobId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobId"
+        ],
+        "type": "object"
+      },
+      "AgentJobRecord": {
+        "properties": {
+          "attentionReason": {
+            "type": "string"
+          },
+          "cardId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "integer"
+          },
+          "cronExpr": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "integer"
+          },
+          "intervalSeconds": {
+            "type": "integer"
+          },
+          "jobId": {
+            "type": "string"
+          },
+          "lastFiredAt": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "nextRunAt": {
+            "type": "integer"
+          },
+          "notify": {},
+          "orphanedAt": {
+            "type": "integer"
+          },
+          "scheduleKind": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "sourceBlockId": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "sourceName": {
+            "type": "string"
+          },
+          "sourceType": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "task": {},
+          "type": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "jobId",
+          "name",
+          "type",
+          "scheduleKind",
+          "cronExpr",
+          "intervalSeconds",
+          "expiresAt",
+          "task",
+          "status",
+          "attentionReason",
+          "lastFiredAt",
+          "nextRunAt",
+          "cardId",
+          "sourceType",
+          "sourceId",
+          "sessionId",
+          "sourceBlockId",
+          "sourceName",
+          "orphanedAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "AgentJobRunGetReq": {
+        "properties": {
+          "jobId": {
+            "type": "string"
+          },
+          "jobRunId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobId",
+          "jobRunId"
+        ],
+        "type": "object"
+      },
+      "AgentJobRunGetResp": {
+        "properties": {
+          "run": {
+            "$ref": "#/components/schemas/AgentJobRunRecord"
+          }
+        },
+        "required": [
+          "run"
+        ],
+        "type": "object"
+      },
+      "AgentJobRunListReq": {
+        "properties": {
+          "jobId": {
+            "type": "string"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobId",
+          "page",
+          "size"
+        ],
+        "type": "object"
+      },
+      "AgentJobRunListResp": {
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/AgentJobRunRecord"
+            },
+            "type": "array"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "size",
+          "total",
+          "list"
+        ],
+        "type": "object"
+      },
+      "AgentJobRunRecord": {
+        "properties": {
+          "dispatchState": {
+            "type": "string"
+          },
+          "errorCode": {
+            "type": "string"
+          },
+          "errorMessage": {
+            "type": "string"
+          },
+          "finishedAt": {
+            "type": "integer"
+          },
+          "firedAt": {
+            "type": "integer"
+          },
+          "jobId": {
+            "type": "string"
+          },
+          "jobRunId": {
+            "type": "string"
+          },
+          "resultId": {
+            "type": "string"
+          },
+          "resultSummary": {},
+          "severity": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "trigger": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobRunId",
+          "jobId",
+          "status",
+          "dispatchState",
+          "firedAt"
+        ],
+        "type": "object"
+      },
+      "AgentJobTriggerResp": {
+        "properties": {
+          "dispatchState": {
+            "type": "string"
+          },
+          "jobId": {
+            "type": "string"
+          },
+          "jobRunId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobId",
+          "jobRunId",
+          "dispatchState"
+        ],
+        "type": "object"
+      },
+      "AgentJobUpdateReq": {
+        "properties": {
+          "cardId": {
+            "type": "string"
+          },
+          "cronExpr": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "integer"
+          },
+          "intervalSeconds": {
+            "type": "integer"
+          },
+          "jobId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "notify": {},
+          "notifyEnabled": {
+            "description": "省略沿用原通知，1必须提供notify对象，2关闭通知且不提供notify",
+            "type": "integer"
+          },
+          "scheduleKind": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "sourceBlockId": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "sourceName": {
+            "type": "string"
+          },
+          "sourceType": {
+            "type": "string"
+          },
+          "task": {},
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobId"
+        ],
+        "type": "object"
+      },
+      "AgentLibraryCreateReq": {
+        "properties": {
+          "cardKey": {
+            "type": "string"
+          },
+          "cardSpec": {},
+          "sourceSessionId": {
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "cardKey",
+          "cardSpec"
+        ],
+        "type": "object"
+      },
+      "AgentLibraryGetReq": {
+        "properties": {
+          "libraryItemId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "libraryItemId"
+        ],
+        "type": "object"
+      },
+      "AgentLibraryGetResp": {
+        "properties": {
+          "item": {
+            "$ref": "#/components/schemas/AgentLibraryItem"
+          }
+        },
+        "required": [
+          "item"
+        ],
+        "type": "object"
+      },
+      "AgentLibraryItem": {
+        "properties": {
+          "cardKey": {
+            "type": "string"
+          },
+          "cardSpec": {},
+          "createdAt": {
+            "type": "integer"
+          },
+          "libraryItemId": {
+            "type": "string"
+          },
+          "sourceSessionId": {
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "updatedAt": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cardKey",
+          "cardSpec",
+          "tags",
+          "sourceSessionId",
+          "libraryItemId",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "AgentLibraryListReq": {
+        "properties": {
+          "page": {
+            "type": "integer"
+          },
+          "search": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "page",
+          "size"
+        ],
+        "type": "object"
+      },
+      "AgentLibraryListResp": {
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/AgentLibraryItem"
+            },
+            "type": "array"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "size",
+          "total",
+          "list"
+        ],
+        "type": "object"
+      },
+      "AgentLibraryMutationResp": {
+        "properties": {
+          "libraryItemId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "libraryItemId"
+        ],
+        "type": "object"
+      },
+      "AgentLibrarySnapshot": {
+        "properties": {
+          "cardKey": {
+            "type": "string"
+          },
+          "cardSpec": {},
+          "sourceSessionId": {
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "cardKey",
+          "cardSpec",
+          "tags",
+          "sourceSessionId"
+        ],
+        "type": "object"
+      },
+      "AgentLibraryUpdateReq": {
+        "properties": {
+          "cardSpec": {},
+          "expectedItem": {
+            "$ref": "#/components/schemas/AgentLibrarySnapshot"
+          },
+          "libraryItemId": {
+            "type": "string"
+          },
+          "sourceSessionId": {
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "libraryItemId",
+          "expectedItem",
+          "cardSpec"
+        ],
+        "type": "object"
+      },
+      "AgentNodeIndexSyncResp": {
+        "properties": {
+          "durationMs": {
+            "type": "integer"
+          },
+          "embedded": {
+            "type": "integer"
+          },
+          "pending": {
+            "type": "integer"
+          },
+          "skipped": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "embedded",
+          "skipped",
+          "durationMs",
+          "pending"
+        ],
+        "type": "object"
+      },
+      "AgentNodeSearchSemanticReq": {
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "topK": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "AgentNodeSearchSemanticResp": {
+        "properties": {
+          "hits": {
+            "items": {
+              "$ref": "#/components/schemas/AgentNodeSemanticHit"
+            },
+            "type": "array"
+          },
+          "indexedCount": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hits",
+          "indexedCount"
+        ],
+        "type": "object"
+      },
+      "AgentNodeSemanticHit": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number"
+          },
+          "summary": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "name",
+          "score",
+          "summary"
+        ],
+        "type": "object"
+      },
+      "AgentRelationInfo": {
+        "properties": {
+          "confidence": {
+            "type": "number"
+          },
+          "createdBy": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "relatedPath": {
+            "type": "string"
+          },
+          "relationType": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "path",
+          "relatedPath",
+          "relationType",
+          "source",
+          "confidence",
+          "note",
+          "createdBy",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "AgentRelationListReq": {
+        "properties": {
+          "limit": {
+            "type": "integer"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
+      "AgentRelationListResp": {
+        "properties": {
+          "relations": {
+            "items": {
+              "$ref": "#/components/schemas/AgentRelationInfo"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "relations"
+        ],
+        "type": "object"
+      },
+      "AgentRelationTeachReq": {
+        "properties": {
+          "note": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "relatedPath": {
+            "type": "string"
+          },
+          "relationType": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "relatedPath",
+          "relationType"
+        ],
+        "type": "object"
+      },
+      "AgentRelationTeachResp": {
+        "properties": {
+          "created": {
+            "type": "integer"
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "created"
+        ],
+        "type": "object"
+      },
+      "AgentResultCreateReq": {
+        "properties": {
+          "cardSpec": {},
+          "dataScope": {},
+          "images": {
+            "type": "array"
+          },
+          "missingData": {},
+          "operationId": {
+            "type": "string"
+          },
+          "resultSchemaVersion": {
+            "type": "integer"
+          },
+          "source": {
+            "$ref": "#/components/schemas/AgentResultSource"
+          },
+          "steps": {
+            "type": "array"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "tables": {
+            "type": "array"
+          },
+          "title": {
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "resultSchemaVersion",
+          "title",
+          "missingData",
+          "operationId",
+          "source"
+        ],
+        "type": "object"
+      },
+      "AgentResultCreateResp": {
+        "properties": {
+          "jobRunId": {
+            "type": "string"
+          },
+          "resultId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "resultId",
+          "jobRunId"
+        ],
+        "type": "object"
+      },
+      "AgentResultGetReq": {
+        "properties": {
+          "operationId": {
+            "description": "与resultId二选一，保存超时后按原编号查回，不重复保存",
+            "type": "string"
+          },
+          "resultId": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "AgentResultGetResp": {
+        "properties": {
+          "result": {
+            "$ref": "#/components/schemas/AgentStoredResult"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object"
+      },
+      "AgentResultListReq": {
+        "properties": {
+          "page": {
+            "type": "integer"
+          },
+          "platformSessionId": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "size"
+        ],
+        "type": "object"
+      },
+      "AgentResultListResp": {
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/AgentStoredResult"
+            },
+            "type": "array"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "size",
+          "total",
+          "list"
+        ],
+        "type": "object"
+      },
+      "AgentResultPinReq": {
+        "properties": {
+          "canvasId": {
+            "type": "string"
+          },
+          "position": {},
+          "resultId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "resultId",
+          "canvasId"
+        ],
+        "type": "object"
+      },
+      "AgentResultPinResp": {
+        "properties": {
+          "cardId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "cardId"
+        ],
+        "type": "object"
+      },
+      "AgentResultSource": {
+        "properties": {
+          "agentId": {
+            "type": "string"
+          },
+          "platformRunId": {
+            "type": "string"
+          },
+          "platformSessionId": {
+            "type": "string"
+          },
+          "platformUserId": {
+            "type": "string"
+          },
+          "skillVersion": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "platformSessionId",
+          "agentId"
+        ],
+        "type": "object"
+      },
+      "AgentStoredResult": {
+        "properties": {
+          "agentId": {
+            "type": "string"
+          },
+          "byteSize": {
+            "type": "integer"
+          },
+          "cardSpec": {},
+          "createdAt": {
+            "type": "integer"
+          },
+          "manifest": {},
+          "operationId": {
+            "type": "string"
+          },
+          "platformRunId": {
+            "type": "string"
+          },
+          "platformSessionId": {
+            "type": "string"
+          },
+          "resultId": {
+            "type": "string"
+          },
+          "skillVersion": {
+            "type": "string"
+          },
+          "sourceKind": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "resultId",
+          "operationId",
+          "sourceKind",
+          "platformSessionId",
+          "platformRunId",
+          "agentId",
+          "skillVersion",
+          "manifest",
+          "byteSize",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "AssetFileDeleteReq": {
+        "properties": {
+          "filePath": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "filePath"
+        ],
+        "type": "object"
+      },
+      "AssetFileDeleteResp": {
+        "properties": {
+          "deleted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "deleted"
+        ],
+        "type": "object"
+      },
+      "AssetFileMultipartAbortReq": {
+        "properties": {
+          "fileKey": {
+            "type": "string"
+          },
+          "uploadId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileKey",
+          "uploadId"
+        ],
+        "type": "object"
+      },
+      "AssetFileMultipartAbortResp": {
+        "properties": {
+          "aborted": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "aborted"
+        ],
+        "type": "object"
+      },
+      "AssetFileMultipartCompleteReq": {
+        "properties": {
+          "fileKey": {
+            "type": "string"
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/AssetFileMultipartPart"
+            },
+            "type": "array"
+          },
+          "uploadId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileKey",
+          "uploadId",
+          "parts"
+        ],
+        "type": "object"
+      },
+      "AssetFileMultipartCompleteResp": {
+        "properties": {
+          "expiresAt": {
+            "type": "integer"
+          },
+          "filePath": {
+            "type": "string"
+          },
+          "fileUrl": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "filePath",
+          "sizeBytes"
+        ],
+        "type": "object"
+      },
+      "AssetFileMultipartInitReq": {
+        "properties": {
+          "appInstanceId": {
+            "type": "string"
+          },
+          "bizId": {
+            "type": "string"
+          },
+          "business": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "partSize": {
+            "type": "integer"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "useBy": {
+            "type": "string"
+          },
+          "visibility": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileName",
+          "size"
+        ],
+        "type": "object"
+      },
+      "AssetFileMultipartInitResp": {
+        "properties": {
+          "expiresAt": {
+            "type": "integer"
+          },
+          "fileKey": {
+            "type": "string"
+          },
+          "filePath": {
+            "type": "string"
+          },
+          "partCount": {
+            "type": "integer"
+          },
+          "partSize": {
+            "type": "integer"
+          },
+          "uploadId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileKey",
+          "filePath",
+          "uploadId",
+          "partSize",
+          "partCount",
+          "expiresAt"
+        ],
+        "type": "object"
+      },
+      "AssetFileMultipartPart": {
+        "properties": {
+          "etag": {
+            "type": "string"
+          },
+          "partNumber": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "partNumber",
+          "etag"
+        ],
+        "type": "object"
+      },
+      "AssetFileMultipartPartUrl": {
+        "properties": {
+          "expiresAt": {
+            "type": "integer"
+          },
+          "partNumber": {
+            "type": "integer"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "partNumber",
+          "url",
+          "expiresAt"
+        ],
+        "type": "object"
+      },
+      "AssetFileMultipartPartUrlsReq": {
+        "properties": {
+          "fileKey": {
+            "type": "string"
+          },
+          "partNumbers": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "uploadId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileKey",
+          "uploadId",
+          "partNumbers"
+        ],
+        "type": "object"
+      },
+      "AssetFileMultipartPartUrlsResp": {
+        "properties": {
+          "partUrls": {
+            "items": {
+              "$ref": "#/components/schemas/AssetFileMultipartPartUrl"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "partUrls"
+        ],
+        "type": "object"
+      },
+      "AssetFileUploadReq": {
+        "properties": {
+          "appInstanceId": {
+            "type": "string"
+          },
+          "business": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "useBy": {
+            "type": "string"
+          },
+          "visibility": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileName",
+          "size"
+        ],
+        "type": "object"
+      },
+      "AssetFileUploadResp": {
+        "properties": {
+          "expiresAt": {
+            "type": "integer"
+          },
+          "fileId": {
+            "type": "integer"
+          },
+          "filePath": {
+            "type": "string"
+          },
+          "fileUrl": {
+            "type": "string"
+          },
+          "postFields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "先写入全部签名字段，再追加 file；policy 约束 key 和大小",
+            "type": "object"
+          },
+          "postUrl": {
+            "description": "预签名 POST 地址；multipart/form-data 上传",
+            "type": "string"
+          }
+        },
+        "required": [
+          "filePath",
+          "postUrl",
+          "postFields"
+        ],
+        "type": "object"
+      },
+      "AssetFileUrlResp": {
+        "properties": {
+          "expiresAt": {
+            "type": "integer"
+          },
+          "fileUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileUrl"
+        ],
+        "type": "object"
+      },
+      "AssetUploadReq": {
+        "properties": {
+          "business": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "isPublic": {
+            "type": "boolean"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "sizeBytes": {
+            "type": "integer"
+          },
+          "storageKey": {
+            "type": "string"
+          },
+          "useBy": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileName",
+          "sizeBytes"
+        ],
+        "type": "object"
+      },
+      "AssetUploadResp": {
+        "properties": {
+          "filePath": {
+            "type": "string"
+          },
+          "fileUrl": {
+            "type": "string"
+          },
+          "postFields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "先写入全部签名字段，再追加 file；policy 约束 key 和大小",
+            "type": "object"
+          },
+          "postUrl": {
+            "description": "预签名 POST 地址；multipart/form-data 上传",
+            "type": "string"
+          }
+        },
+        "required": [
+          "postUrl",
+          "postFields",
+          "filePath"
+        ],
+        "type": "object"
+      },
+      "AuthWhoamiResp": {
+        "properties": {
+          "apiKeyName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "keyPrefix": {
+            "type": "string"
+          },
+          "keyType": {
+            "type": "string"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "userID": {
+            "type": "integer"
+          },
+          "userName": {
+            "type": "string"
+          },
+          "workspaceID": {
+            "type": "integer"
+          },
+          "workspaceName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "userID",
+          "userName",
+          "email",
+          "workspaceID",
+          "workspaceName",
+          "apiKeyName",
+          "keyPrefix",
+          "permissions",
+          "roles",
+          "keyType"
+        ],
+        "type": "object"
+      },
+      "CapabilityDeprecation": {
+        "properties": {
+          "contract": {
+            "type": "string"
+          },
+          "replacement": {
+            "type": "string"
+          },
+          "sunsetAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "contract"
+        ],
+        "type": "object"
+      },
+      "CapabilityDiscoverResp": {
+        "properties": {
+          "apiContractVersions": {
+            "description": "openapi/v1",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "capabilities": {
+            "description": "只返回当前 Key 有授权摘要的已知能力，关闭的能力仍返回状态",
+            "items": {
+              "$ref": "#/components/schemas/PublicCapability"
+            },
+            "type": "array"
+          },
+          "contractVersion": {
+            "description": "本发现响应合同版本，与单个 Control 的冻结合同版本独立",
+            "type": "string"
+          },
+          "deprecations": {
+            "items": {
+              "$ref": "#/components/schemas/CapabilityDeprecation"
+            },
+            "type": "array"
+          },
+          "interpreterContractVersions": {
+            "description": "tier0-stream/v2 解释器合同，不是 npm 版本",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "product": {
+            "type": "string"
+          },
+          "productVersion": {
+            "description": "仅返回显式配置的可信产品发布版本，未配置时省略",
+            "type": "string"
+          },
+          "sdkContractVersions": {
+            "description": "control/v1 公共 SDK 合同，不是 npm 版本",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "product",
+          "contractVersion",
+          "apiContractVersions",
+          "interpreterContractVersions",
+          "sdkContractVersions",
+          "capabilities",
+          "deprecations"
+        ],
+        "type": "object"
+      },
+      "ControlDiscoverReq": {
+        "properties": {
+          "page": {
+            "description": "缺省为 1",
+            "type": "integer"
+          },
+          "search": {
+            "type": "string"
+          },
+          "size": {
+            "description": "缺省为 20",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "ControlDiscoverResp": {
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/PublicControl"
+            },
+            "type": "array"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "list"
+        ],
+        "type": "object"
+      },
+      "ControlInvokeReq": {
+        "properties": {
+          "idempotencyKey": {
+            "description": "解码后的 UTF-8 字节数最多 128；是否必填由冻结合同决定",
+            "type": "string"
+          },
+          "input": {}
+        },
+        "required": [
+          "input"
+        ],
+        "type": "object"
+      },
+      "ControlInvokeResp": {
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "contractVersion": {
+            "description": "实际执行使用的冻结合同版本",
+            "type": "string"
+          },
+          "replayed": {
+            "description": "true=幂等重放，false=首次执行",
+            "type": "boolean"
+          },
+          "result": {
+            "description": "合同定义的 JSON 结果，允许 null"
+          },
+          "runID": {
+            "description": "服务端返回的执行标识，不透明字符串",
+            "type": "string"
+          },
+          "status": {
+            "description": "服务端返回的终态，非 accepted/queued/pending/running",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "contractVersion",
+          "result",
+          "runID",
+          "status",
+          "replayed"
+        ],
+        "type": "object"
+      },
+      "GetNotificationReq": {
+        "properties": {
+          "messageId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "messageId"
+        ],
+        "type": "object"
+      },
+      "GetNotificationResp": {
+        "properties": {
+          "completedAt": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "errorCode": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "messageId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "messageId",
+          "type",
+          "status",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "MqttAuthCreateReq": {
+        "properties": {
+          "clientIDRandomSuffixEnabled": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "MqttAuthCreateResp": {
+        "properties": {
+          "clientID": {
+            "type": "string"
+          },
+          "clientIDRandomSuffixEnabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "clientID",
+          "username",
+          "password",
+          "clientIDRandomSuffixEnabled"
+        ],
+        "type": "object"
+      },
+      "MqttAuthDeleteReq": {
+        "properties": {
+          "id": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "MqttAuthDeleteResp": {
+        "properties": {
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "type": "object"
+      },
+      "NotificationSender": {
+        "properties": {
+          "id": {
+            "description": "app 必填=appId（agent-platform UUID）；other 可选；system 可选；字符集 [0-9a-zA-Z-]{1,128}",
+            "type": "string"
+          },
+          "meta": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Optional display metadata. The v2 SDK does not inject project context.",
+            "type": "object"
+          },
+          "name": {
+            "description": "人读显示名（接替废弃的 source），≤100字符",
+            "type": "string"
+          },
+          "type": {
+            "description": "枚举 app/other/system，缺省 other；system=平台内部服务，仅 usage_type=internal 的 API key 可用（否则 400），建信归 workspace 分组（System tab）",
+            "type": "string",
+            "enum": [
+              "app",
+              "other",
+              "system"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "PlatformGetMembersReq": {
+        "properties": {
+          "keyword": {
+            "type": "string"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "roleKey": {
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "statuses": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "updatedAtEnd": {
+            "type": "string"
+          },
+          "updatedAtStart": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "PlatformMemberResp": {
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "nickName": {
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/PlatformMemberRoleResp"
+            },
+            "type": "array"
+          },
+          "status": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "userName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "status",
+          "roles",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "PlatformMemberRoleResp": {
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "roleId": {
+            "type": "string"
+          },
+          "roleKey": {
+            "type": "string"
+          },
+          "roleName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "roleId",
+          "roleKey"
+        ],
+        "type": "object"
+      },
+      "PlatformMembersResp": {
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/PlatformMemberResp"
+            },
+            "type": "array"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "type": "object"
+      },
+      "PublicCapability": {
+        "properties": {
+          "allowed": {
+            "description": "当前 Key 的能力授权摘要，不替代具体 Control code 与读写权限检查",
+            "type": "boolean"
+          },
+          "availability": {
+            "description": "unavailable / unknown / available；不是设备在线或执行成功证明",
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "contractVersions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "enabled": {
+            "description": "仅发布、实现和 readiness 均满足时为 true",
+            "type": "boolean"
+          },
+          "releaseEnabled": {
+            "description": "公开发布开关与当前 Workspace 灰度的交集，不表示 runtime 就绪",
+            "type": "boolean"
+          },
+          "state": {
+            "description": "disabled / not_supported / unavailable / readiness_unknown / ready",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "releaseEnabled",
+          "enabled",
+          "allowed",
+          "state",
+          "availability",
+          "contractVersions"
+        ],
+        "type": "object"
+      },
+      "PublicControl": {
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "contractVersion": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "idempotency": {
+            "type": "string"
+          },
+          "inputSchema": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "name": {
+            "type": "string"
+          },
+          "outputSchema": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "sideEffect": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "timeoutMs": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "description",
+          "contractVersion",
+          "inputSchema",
+          "outputSchema",
+          "sideEffect",
+          "idempotency",
+          "timeoutMs",
+          "status"
+        ],
+        "type": "object"
+      },
+      "SendNotificationReq": {
+        "properties": {
+          "channels": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "web",
+                "mobile"
+              ]
+            },
+            "type": "array",
+            "description": "Omitted: web + mobile. Empty: inbox only. web includes Desktop."
+          },
+          "content": {
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "link": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "recipientUserId": {
+            "type": "string"
+          },
+          "sender": {
+            "$ref": "#/components/schemas/NotificationSender"
+          },
+          "source": {
+            "description": "已废弃：过渡期作 sender.name 别名（sender.name 优先），后续移除",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "recipientUserId",
+          "type",
+          "title",
+          "content",
+          "idempotencyKey"
+        ],
+        "type": "object"
+      },
+      "SendNotificationResp": {
+        "properties": {
+          "createdAt": {
+            "type": "string"
+          },
+          "messageId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "messageId",
+          "status",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "SdkInfoResponse": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mqttBroker": {
+            "type": "string"
+          }
+        }
+      },
+      "SdkagentAnalysesDispatchRequest": {
+        "$ref": "#/components/schemas/AgentAnalysisDispatchReq"
+      },
+      "SdkagentAnalysesDispatchData": {
+        "$ref": "#/components/schemas/AgentAnalysisDispatchResp"
+      },
+      "SdkagentAnalysesDispatchWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentAnalysesDispatchData"
+          }
+        }
+      },
+      "SdkagentAnalysesGetRequest": {
+        "$ref": "#/components/schemas/AgentAnalysisGetReq"
+      },
+      "SdkagentAnalysesGetData": {
+        "$ref": "#/components/schemas/AgentAnalysisGetResp"
+      },
+      "SdkagentAnalysesGetWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentAnalysesGetData"
+          }
+        }
+      },
+      "SdkagentCanvasesListRequest": {
+        "$ref": "#/components/schemas/AgentCanvasListReq"
+      },
+      "SdkagentCanvasesListData": {
+        "$ref": "#/components/schemas/AgentCanvasListResp"
+      },
+      "SdkagentCanvasesListWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentCanvasesListData"
+          }
+        }
+      },
+      "SdkagentCardsDeleteRequest": {
+        "$ref": "#/components/schemas/AgentCardDeleteReq"
+      },
+      "SdkagentCardsDeleteData": {
+        "$ref": "#/components/schemas/AgentCardDeleteResp"
+      },
+      "SdkagentCardsDeleteWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentCardsDeleteData"
+          }
+        }
+      },
+      "SdkagentCardsGetRequest": {
+        "$ref": "#/components/schemas/AgentCardGetReq"
+      },
+      "SdkagentCardsGetData": {
+        "$ref": "#/components/schemas/AgentCardGetResp"
+      },
+      "SdkagentCardsGetWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentCardsGetData"
+          }
+        }
+      },
+      "SdkagentCardsListRequest": {
+        "$ref": "#/components/schemas/AgentCardListReq"
+      },
+      "SdkagentCardsListData": {
+        "$ref": "#/components/schemas/AgentCardListResp"
+      },
+      "SdkagentCardsListWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentCardsListData"
+          }
+        }
+      },
+      "SdkagentCardsUpdateRequest": {
+        "$ref": "#/components/schemas/AgentCardUpdateReq"
+      },
+      "SdkagentCardsUpdateData": {
+        "$ref": "#/components/schemas/AgentCardUpdateResp"
+      },
+      "SdkagentCardsUpdateWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentCardsUpdateData"
+          }
+        }
+      },
+      "SdkagentJobRunsGetRequest": {
+        "$ref": "#/components/schemas/AgentJobRunGetReq"
+      },
+      "SdkagentJobRunsGetData": {
+        "$ref": "#/components/schemas/AgentJobRunGetResp"
+      },
+      "SdkagentJobRunsGetWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentJobRunsGetData"
+          }
+        }
+      },
+      "SdkagentJobRunsListRequest": {
+        "$ref": "#/components/schemas/AgentJobRunListReq"
+      },
+      "SdkagentJobRunsListData": {
+        "$ref": "#/components/schemas/AgentJobRunListResp"
+      },
+      "SdkagentJobRunsListWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentJobRunsListData"
+          }
+        }
+      },
+      "SdkagentJobsCreateRequest": {
+        "$ref": "#/components/schemas/AgentJobCreateReq"
+      },
+      "SdkagentJobsCreateData": {
+        "$ref": "#/components/schemas/AgentJobMutationResp"
+      },
+      "SdkagentJobsCreateWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentJobsCreateData"
+          }
+        }
+      },
+      "SdkagentJobsDeleteRequest": {
+        "$ref": "#/components/schemas/AgentJobIDReq"
+      },
+      "SdkagentJobsDeleteData": {
+        "$ref": "#/components/schemas/AgentJobMutationResp"
+      },
+      "SdkagentJobsDeleteWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentJobsDeleteData"
+          }
+        }
+      },
+      "SdkagentJobsGetRequest": {
+        "$ref": "#/components/schemas/AgentJobIDReq"
+      },
+      "SdkagentJobsGetData": {
+        "$ref": "#/components/schemas/AgentJobGetResp"
+      },
+      "SdkagentJobsGetWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentJobsGetData"
+          }
+        }
+      },
+      "SdkagentJobsListRequest": {
+        "$ref": "#/components/schemas/AgentJobListReq"
+      },
+      "SdkagentJobsListData": {
+        "$ref": "#/components/schemas/AgentJobListResp"
+      },
+      "SdkagentJobsListWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentJobsListData"
+          }
+        }
+      },
+      "SdkagentJobsPauseRequest": {
+        "$ref": "#/components/schemas/AgentJobIDReq"
+      },
+      "SdkagentJobsPauseData": {
+        "$ref": "#/components/schemas/AgentJobMutationResp"
+      },
+      "SdkagentJobsPauseWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentJobsPauseData"
+          }
+        }
+      },
+      "SdkagentJobsResumeRequest": {
+        "$ref": "#/components/schemas/AgentJobIDReq"
+      },
+      "SdkagentJobsResumeData": {
+        "$ref": "#/components/schemas/AgentJobMutationResp"
+      },
+      "SdkagentJobsResumeWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentJobsResumeData"
+          }
+        }
+      },
+      "SdkagentJobsTriggerRequest": {
+        "$ref": "#/components/schemas/AgentJobIDReq"
+      },
+      "SdkagentJobsTriggerData": {
+        "$ref": "#/components/schemas/AgentJobTriggerResp"
+      },
+      "SdkagentJobsTriggerWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentJobsTriggerData"
+          }
+        }
+      },
+      "SdkagentJobsUpdateRequest": {
+        "$ref": "#/components/schemas/AgentJobUpdateReq"
+      },
+      "SdkagentJobsUpdateData": {
+        "$ref": "#/components/schemas/AgentJobMutationResp"
+      },
+      "SdkagentJobsUpdateWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentJobsUpdateData"
+          }
+        }
+      },
+      "SdkagentLibraryCreateRequest": {
+        "$ref": "#/components/schemas/AgentLibraryCreateReq"
+      },
+      "SdkagentLibraryCreateData": {
+        "$ref": "#/components/schemas/AgentLibraryMutationResp"
+      },
+      "SdkagentLibraryCreateWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentLibraryCreateData"
+          }
+        }
+      },
+      "SdkagentLibraryDeleteRequest": {
+        "$ref": "#/components/schemas/AgentLibraryGetReq"
+      },
+      "SdkagentLibraryDeleteData": {
+        "$ref": "#/components/schemas/AgentLibraryMutationResp"
+      },
+      "SdkagentLibraryDeleteWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentLibraryDeleteData"
+          }
+        }
+      },
+      "SdkagentLibraryGetRequest": {
+        "$ref": "#/components/schemas/AgentLibraryGetReq"
+      },
+      "SdkagentLibraryGetData": {
+        "$ref": "#/components/schemas/AgentLibraryGetResp"
+      },
+      "SdkagentLibraryGetWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentLibraryGetData"
+          }
+        }
+      },
+      "SdkagentLibraryListRequest": {
+        "$ref": "#/components/schemas/AgentLibraryListReq"
+      },
+      "SdkagentLibraryListData": {
+        "$ref": "#/components/schemas/AgentLibraryListResp"
+      },
+      "SdkagentLibraryListWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentLibraryListData"
+          }
+        }
+      },
+      "SdkagentLibraryUpdateRequest": {
+        "$ref": "#/components/schemas/AgentLibraryUpdateReq"
+      },
+      "SdkagentLibraryUpdateData": {
+        "$ref": "#/components/schemas/AgentLibraryMutationResp"
+      },
+      "SdkagentLibraryUpdateWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentLibraryUpdateData"
+          }
+        }
+      },
+      "SdkagentNodesIndexSyncData": {
+        "$ref": "#/components/schemas/AgentNodeIndexSyncResp"
+      },
+      "SdkagentNodesIndexSyncWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentNodesIndexSyncData"
+          }
+        }
+      },
+      "SdkagentNodesSearchSemanticRequest": {
+        "$ref": "#/components/schemas/AgentNodeSearchSemanticReq"
+      },
+      "SdkagentNodesSearchSemanticData": {
+        "$ref": "#/components/schemas/AgentNodeSearchSemanticResp"
+      },
+      "SdkagentNodesSearchSemanticWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentNodesSearchSemanticData"
+          }
+        }
+      },
+      "SdkagentRelationsListRequest": {
+        "$ref": "#/components/schemas/AgentRelationListReq"
+      },
+      "SdkagentRelationsListData": {
+        "$ref": "#/components/schemas/AgentRelationListResp"
+      },
+      "SdkagentRelationsListWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentRelationsListData"
+          }
+        }
+      },
+      "SdkagentRelationsTeachRequest": {
+        "$ref": "#/components/schemas/AgentRelationTeachReq"
+      },
+      "SdkagentRelationsTeachData": {
+        "$ref": "#/components/schemas/AgentRelationTeachResp"
+      },
+      "SdkagentRelationsTeachWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentRelationsTeachData"
+          }
+        }
+      },
+      "SdkagentResultsCreateRequest": {
+        "$ref": "#/components/schemas/AgentResultCreateReq"
+      },
+      "SdkagentResultsCreateData": {
+        "$ref": "#/components/schemas/AgentResultCreateResp"
+      },
+      "SdkagentResultsCreateWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentResultsCreateData"
+          }
+        }
+      },
+      "SdkagentResultsGetRequest": {
+        "$ref": "#/components/schemas/AgentResultGetReq"
+      },
+      "SdkagentResultsGetData": {
+        "$ref": "#/components/schemas/AgentResultGetResp"
+      },
+      "SdkagentResultsGetWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentResultsGetData"
+          }
+        }
+      },
+      "SdkagentResultsListRequest": {
+        "$ref": "#/components/schemas/AgentResultListReq"
+      },
+      "SdkagentResultsListData": {
+        "$ref": "#/components/schemas/AgentResultListResp"
+      },
+      "SdkagentResultsListWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentResultsListData"
+          }
+        }
+      },
+      "SdkagentResultsPinRequest": {
+        "$ref": "#/components/schemas/AgentResultPinReq"
+      },
+      "SdkagentResultsPinData": {
+        "$ref": "#/components/schemas/AgentResultPinResp"
+      },
+      "SdkagentResultsPinWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkagentResultsPinData"
+          }
+        }
+      },
+      "SdkassetsFilesPrepareUploadRequest": {
+        "$ref": "#/components/schemas/AssetFileUploadReq"
+      },
+      "SdkassetsFilesPrepareUploadData": {
+        "$ref": "#/components/schemas/AssetFileUploadResp"
+      },
+      "SdkassetsFilesPrepareUploadWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkassetsFilesPrepareUploadData"
+          }
+        }
+      },
+      "SdkassetsFilesDeleteRequest": {
+        "$ref": "#/components/schemas/AssetFileDeleteReq"
+      },
+      "SdkassetsFilesDeleteData": {
+        "$ref": "#/components/schemas/AssetFileDeleteResp"
+      },
+      "SdkassetsFilesDeleteWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkassetsFilesDeleteData"
+          }
+        }
+      },
+      "SdkassetsFilesDownloadQuery": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string"
+          },
+          "responseContentDisposition": {
+            "allowEmptyValue": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "filePath"
+        ]
+      },
+      "SdkassetsFilesDownloadData": {},
+      "SdkassetsFilesDownloadWire": {
+        "$ref": "#/components/schemas/SdkassetsFilesDownloadData"
+      },
+      "SdkassetsFilesMultipartAbortRequest": {
+        "$ref": "#/components/schemas/AssetFileMultipartAbortReq"
+      },
+      "SdkassetsFilesMultipartAbortData": {
+        "$ref": "#/components/schemas/AssetFileMultipartAbortResp"
+      },
+      "SdkassetsFilesMultipartAbortWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkassetsFilesMultipartAbortData"
+          }
+        }
+      },
+      "SdkassetsFilesMultipartCompleteRequest": {
+        "$ref": "#/components/schemas/AssetFileMultipartCompleteReq"
+      },
+      "SdkassetsFilesMultipartCompleteData": {
+        "$ref": "#/components/schemas/AssetFileMultipartCompleteResp"
+      },
+      "SdkassetsFilesMultipartCompleteWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkassetsFilesMultipartCompleteData"
+          }
+        }
+      },
+      "SdkassetsFilesMultipartInitRequest": {
+        "$ref": "#/components/schemas/AssetFileMultipartInitReq"
+      },
+      "SdkassetsFilesMultipartInitData": {
+        "$ref": "#/components/schemas/AssetFileMultipartInitResp"
+      },
+      "SdkassetsFilesMultipartInitWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkassetsFilesMultipartInitData"
+          }
+        }
+      },
+      "SdkassetsFilesMultipartPartUrlsRequest": {
+        "$ref": "#/components/schemas/AssetFileMultipartPartUrlsReq"
+      },
+      "SdkassetsFilesMultipartPartUrlsData": {
+        "$ref": "#/components/schemas/AssetFileMultipartPartUrlsResp"
+      },
+      "SdkassetsFilesMultipartPartUrlsWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkassetsFilesMultipartPartUrlsData"
+          }
+        }
+      },
+      "SdkassetsFilesUrlQuery": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string"
+          },
+          "expiredSec": {
+            "allowEmptyValue": true,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "filePath"
+        ]
+      },
+      "SdkassetsFilesUrlData": {
+        "$ref": "#/components/schemas/AssetFileUrlResp"
+      },
+      "SdkassetsFilesUrlWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkassetsFilesUrlData"
+          }
+        }
+      },
+      "SdkassetsUploadRequest": {
+        "$ref": "#/components/schemas/AssetUploadReq"
+      },
+      "SdkassetsUploadData": {
+        "$ref": "#/components/schemas/AssetUploadResp"
+      },
+      "SdkassetsUploadWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkassetsUploadData"
+          }
+        }
+      },
+      "SdksystemWhoamiData": {
+        "$ref": "#/components/schemas/AuthWhoamiResp"
+      },
+      "SdksystemWhoamiWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdksystemWhoamiData"
+          }
+        }
+      },
+      "SdkcapabilitiesDiscoverData": {
+        "$ref": "#/components/schemas/CapabilityDiscoverResp"
+      },
+      "SdkcapabilitiesDiscoverWire": {
+        "$ref": "#/components/schemas/SdkcapabilitiesDiscoverData"
+      },
+      "SdkcontrolsDiscoverRequest": {
+        "$ref": "#/components/schemas/ControlDiscoverReq"
+      },
+      "SdkcontrolsDiscoverData": {
+        "$ref": "#/components/schemas/ControlDiscoverResp"
+      },
+      "SdkcontrolsDiscoverWire": {
+        "$ref": "#/components/schemas/SdkcontrolsDiscoverData"
+      },
+      "SdkcontrolsDescribeData": {
+        "$ref": "#/components/schemas/PublicControl"
+      },
+      "SdkcontrolsDescribeWire": {
+        "$ref": "#/components/schemas/SdkcontrolsDescribeData"
+      },
+      "SdkcontrolsInvokeRequest": {
+        "$ref": "#/components/schemas/ControlInvokeReq"
+      },
+      "SdkcontrolsInvokeData": {
+        "$ref": "#/components/schemas/ControlInvokeResp"
+      },
+      "SdkcontrolsInvokeWire": {
+        "$ref": "#/components/schemas/SdkcontrolsInvokeData"
+      },
+      "SdksystemInfoData": {
+        "$ref": "#/components/schemas/SdkInfoResponse"
+      },
+      "SdksystemInfoWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdksystemInfoData"
+          }
+        }
+      },
+      "SdkmqttAuthCreateRequest": {
+        "$ref": "#/components/schemas/MqttAuthCreateReq"
+      },
+      "SdkmqttAuthCreateData": {
+        "$ref": "#/components/schemas/MqttAuthCreateResp"
+      },
+      "SdkmqttAuthCreateWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkmqttAuthCreateData"
+          }
+        }
+      },
+      "SdkmqttAuthDeleteRequest": {
+        "$ref": "#/components/schemas/MqttAuthDeleteReq"
+      },
+      "SdkmqttAuthDeleteData": {
+        "$ref": "#/components/schemas/MqttAuthDeleteResp"
+      },
+      "SdkmqttAuthDeleteWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkmqttAuthDeleteData"
+          }
+        }
+      },
+      "SdknotificationsGetRequest": {
+        "$ref": "#/components/schemas/GetNotificationReq"
+      },
+      "SdknotificationsGetData": {
+        "$ref": "#/components/schemas/GetNotificationResp"
+      },
+      "SdknotificationsGetWire": {
+        "$ref": "#/components/schemas/SdknotificationsGetData"
+      },
+      "SdknotificationsSendRequest": {
+        "$ref": "#/components/schemas/SendNotificationReq"
+      },
+      "SdknotificationsSendData": {
+        "$ref": "#/components/schemas/SendNotificationResp"
+      },
+      "SdknotificationsSendWire": {
+        "$ref": "#/components/schemas/SdknotificationsSendData"
+      },
+      "SdkmembersListWorkspaceRequest": {
+        "$ref": "#/components/schemas/PlatformGetMembersReq"
+      },
+      "SdkmembersListWorkspaceData": {
+        "$ref": "#/components/schemas/PlatformMembersResp"
+      },
+      "SdkmembersListWorkspaceWire": {
+        "type": "object",
+        "required": [
+          "code",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SdkmembersListWorkspaceData"
+          }
+        }
+      }
+    }
+  },
+  "info": {
+    "title": "Tier0 OpenAPI",
+    "version": "v1"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/openapi/v1/agent/analyses/dispatch": {
+      "post": {
+        "description": "以operationId UUID派发本人即时refresh或rerun分析；同编号同请求仅读回原运行，不重复执行，需要uns:write和真实负责人身份",
+        "operationId": "openapi/V1/AgentAgentAnalysisDispatch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentAnalysisDispatchReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentAnalysesDispatchWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "按原操作编号派发即时分析"
+      }
+    },
+    "/openapi/v1/agent/analyses/get": {
+      "post": {
+        "description": "按runId仅读取当前负责人在工作区内的即时分析状态、错误和结果；无权读取其他人的运行，需要uns:read",
+        "operationId": "openapi/V1/AgentAgentAnalysisGet",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentAnalysisGetReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentAnalysesGetWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "读取本人即时分析运行和结果定位"
+      }
+    },
+    "/openapi/v1/agent/canvases/list": {
+      "post": {
+        "description": "仅列出当前工作区画布元数据，可按平台会话筛选；page、size必填，size为1至100，需要uns:read",
+        "operationId": "openapi/V1/AgentAgentCanvasList",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentCanvasListReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentCanvasesListWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "分页查找工作区画布"
+      }
+    },
+    "/openapi/v1/agent/cards/delete": {
+      "post": {
+        "description": "按画布和卡片行ID删除，expectedCardSpec须与当前完整原卡一致，否则返回409，需要uns:write",
+        "operationId": "openapi/V1/AgentAgentCardDelete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentCardDeleteReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentCardsDeleteWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "核对原卡后删除画布卡片"
+      }
+    },
+    "/openapi/v1/agent/cards/get": {
+      "post": {
+        "description": "按已认证工作空间、画布ID和卡片行ID读取完整CardSpec，供修改前核对原卡",
+        "operationId": "openapi/V1/AgentAgentCardGet",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentCardGetReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentCardsGetWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "读取完整画布卡片"
+      }
+    },
+    "/openapi/v1/agent/cards/list": {
+      "post": {
+        "description": "仅操作已认证工作区；查询需要uns:read，写操作需要uns:write。任务负责人来自API key真实用户；创建无自动重试。",
+        "operationId": "openapi/V1/AgentAgentCardList",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentCardListReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentCardsListWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "分页查找画布卡片"
+      }
+    },
+    "/openapi/v1/agent/cards/update": {
+      "post": {
+        "description": "沙箱 Agent 用 App key 改画布卡片，卡片必须属于 key 所在工作空间",
+        "operationId": "openapi/V1/AgentAgentCardUpdate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentCardUpdateReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentCardsUpdateWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "更新画布卡片"
+      }
+    },
+    "/openapi/v1/agent/job-runs/get": {
+      "post": {
+        "description": "仅任务负责人可用；触发返回运行编号和当前派发状态，不代表已执行成功，网络未知时禁止自动重试。",
+        "operationId": "openapi/V1/AgentAgentJobRunGet",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentJobRunGetReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentJobRunsGetWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "读取个人任务的一次运行"
+      }
+    },
+    "/openapi/v1/agent/job-runs/list": {
+      "post": {
+        "description": "仅任务负责人可用；触发返回运行编号和当前派发状态，不代表已执行成功，网络未知时禁止自动重试。",
+        "operationId": "openapi/V1/AgentAgentJobRunList",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentJobRunListReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentJobRunsListWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "分页读取个人任务运行历史"
+      }
+    },
+    "/openapi/v1/agent/jobs/create": {
+      "post": {
+        "description": "仅操作已认证工作区；查询需要uns:read，写操作需要uns:write。任务负责人来自API key真实用户；创建无自动重试。",
+        "operationId": "openapi/V1/AgentAgentJobCreate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentJobCreateReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentJobsCreateWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "创建业务定时任务"
+      }
+    },
+    "/openapi/v1/agent/jobs/delete": {
+      "post": {
+        "description": "仅操作已认证工作区；查询需要uns:read，写操作需要uns:write。任务负责人来自API key真实用户；创建无自动重试。",
+        "operationId": "openapi/V1/AgentAgentJobDelete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentJobIDReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentJobsDeleteWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "删除业务定时任务"
+      }
+    },
+    "/openapi/v1/agent/jobs/get": {
+      "post": {
+        "description": "仅操作已认证工作区；查询需要uns:read，写操作需要uns:write。任务负责人来自API key真实用户；创建无自动重试。",
+        "operationId": "openapi/V1/AgentAgentJobGet",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentJobIDReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentJobsGetWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "读取业务定时任务"
+      }
+    },
+    "/openapi/v1/agent/jobs/list": {
+      "post": {
+        "description": "仅操作已认证工作区；查询需要uns:read，写操作需要uns:write。任务负责人来自API key真实用户；创建无自动重试。",
+        "operationId": "openapi/V1/AgentAgentJobList",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentJobListReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentJobsListWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "分页查询业务定时任务"
+      }
+    },
+    "/openapi/v1/agent/jobs/pause": {
+      "post": {
+        "description": "仅操作已认证工作区；查询需要uns:read，写操作需要uns:write。任务负责人来自API key真实用户；创建无自动重试。",
+        "operationId": "openapi/V1/AgentAgentJobPause",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentJobIDReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentJobsPauseWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "暂停业务定时任务"
+      }
+    },
+    "/openapi/v1/agent/jobs/resume": {
+      "post": {
+        "description": "仅操作已认证工作区；查询需要uns:read，写操作需要uns:write。任务负责人来自API key真实用户；创建无自动重试。",
+        "operationId": "openapi/V1/AgentAgentJobResume",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentJobIDReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentJobsResumeWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "恢复业务定时任务"
+      }
+    },
+    "/openapi/v1/agent/jobs/trigger": {
+      "post": {
+        "description": "仅任务负责人可用；触发返回运行编号和当前派发状态，不代表已执行成功，网络未知时禁止自动重试。",
+        "operationId": "openapi/V1/AgentAgentJobTrigger",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentJobIDReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentJobsTriggerWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "手动触发个人任务一次"
+      }
+    },
+    "/openapi/v1/agent/jobs/update": {
+      "post": {
+        "description": "仅操作已认证工作区；查询需要uns:read，写操作需要uns:write。任务负责人来自API key真实用户；创建无自动重试。",
+        "operationId": "openapi/V1/AgentAgentJobUpdate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentJobUpdateReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentJobsUpdateWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "修改业务定时任务"
+      }
+    },
+    "/openapi/v1/agent/library/create": {
+      "post": {
+        "description": "创建当前工作区模板，同cardKey相同内容复用原条目，不同内容返回409；不会覆盖旧模板，需要uns:write",
+        "operationId": "openapi/V1/AgentAgentLibraryCreate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentLibraryCreateReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentLibraryCreateWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "存入卡片库，同键不同内容拒绝"
+      }
+    },
+    "/openapi/v1/agent/library/delete": {
+      "post": {
+        "description": "按已确认的库条目ID删除当前工作区模板，需要uns:write",
+        "operationId": "openapi/V1/AgentAgentLibraryDelete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentLibraryGetReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentLibraryDeleteWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "删除已定位的卡片库条目"
+      }
+    },
+    "/openapi/v1/agent/library/get": {
+      "post": {
+        "description": "按库条目ID读取完整模板、标签和来源会话，供修改前核对，需要uns:read",
+        "operationId": "openapi/V1/AgentAgentLibraryGet",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentLibraryGetReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentLibraryGetWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "读取卡片库完整原条目"
+      }
+    },
+    "/openapi/v1/agent/library/list": {
+      "post": {
+        "description": "分页查询当前工作区共享卡片模板，标签按任一匹配并可搜索标题，需要uns:read",
+        "operationId": "openapi/V1/AgentAgentLibraryList",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentLibraryListReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentLibraryListWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "分页查找卡片库"
+      }
+    },
+    "/openapi/v1/agent/library/update": {
+      "post": {
+        "description": "携带读取到的完整expectedItem更新模板，内容发生变化返回409；显式tags空数组清空标签，需要uns:write",
+        "operationId": "openapi/V1/AgentAgentLibraryUpdate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentLibraryUpdateReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentLibraryUpdateWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "核对完整原条目后更新卡片库"
+      }
+    },
+    "/openapi/v1/agent/nodes/index-sync": {
+      "post": {
+        "description": "对已认证工作区执行一次有界索引同步，需要uns:write；有模型调用和数据库写入副作用",
+        "operationId": "openapi/V1/AgentAgentNodeIndexSync",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentNodesIndexSyncWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "同步工作区节点语义索引"
+      }
+    },
+    "/openapi/v1/agent/nodes/search-semantic": {
+      "post": {
+        "description": "仅检索已认证工作区的节点索引，返回候选节点；需要uns:read，索引为空不自动同步",
+        "operationId": "openapi/V1/AgentAgentNodeSearchSemantic",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentNodeSearchSemanticReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentNodesSearchSemanticWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "语义检索工作区节点"
+      }
+    },
+    "/openapi/v1/agent/relations/list": {
+      "post": {
+        "description": "只读查询已认证工作区中指定节点的正反向关系，需要uns:read",
+        "operationId": "openapi/V1/AgentAgentRelationList",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentRelationListReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentRelationsListWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "查询节点关系"
+      }
+    },
+    "/openapi/v1/agent/relations/teach": {
+      "post": {
+        "description": "在已认证工作区保存用户明确确认的关系，同键更新备注，需要uns:write",
+        "operationId": "openapi/V1/AgentAgentRelationTeach",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentRelationTeachReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentRelationsTeachWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "保存用户确认的节点关系"
+      }
+    },
+    "/openapi/v1/agent/results/create": {
+      "post": {
+        "description": "沙箱 Agent 用 App key 提交结果清单 v1，按 operationId 幂等",
+        "operationId": "openapi/V1/AgentAgentResultCreate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentResultCreateReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentResultsCreateWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "写入 Agent 分析结果"
+      }
+    },
+    "/openapi/v1/agent/results/get": {
+      "post": {
+        "description": "仅读取已认证工作区内的结果，resultId或operationId必须且只能提供一个；原保存编号可用于回执丢失后的只读核查，返回完整manifest与CardSpec，需要uns:read",
+        "operationId": "openapi/V1/AgentAgentResultGet",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentResultGetReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentResultsGetWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "读取已保存的分析结果"
+      }
+    },
+    "/openapi/v1/agent/results/list": {
+      "post": {
+        "description": "按已认证工作区查询，可按平台会话过滤，page和size必填，size为1至100，需要uns:read",
+        "operationId": "openapi/V1/AgentAgentResultList",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentResultListReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentResultsListWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "分页查询已保存的分析结果"
+      }
+    },
+    "/openapi/v1/agent/results/pin": {
+      "post": {
+        "description": "仅固定已认证工作区内的结果，需要uns:write；含CardSpec时创建对应卡片，纯表图清单创建按resultId读取详情的引用卡。同结果同画布重试返回原卡，不覆盖后续修改。",
+        "operationId": "openapi/V1/AgentAgentResultPin",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentResultPinReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkagentResultsPinWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "将已保存结果钉到画布"
+      }
+    },
+    "/openapi/v1/assets/files": {
+      "post": {
+        "description": "SDK文件上传申请",
+        "operationId": "openapi/V1/AssetsAssetFileUpload",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssetFileUploadReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkassetsFilesPrepareUploadWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "SDK文件上传申请"
+      }
+    },
+    "/openapi/v1/assets/files/delete": {
+      "post": {
+        "description": "SDK删除文件",
+        "operationId": "openapi/V1/AssetsAssetFileDelete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssetFileDeleteReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkassetsFilesDeleteWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "SDK删除文件"
+      }
+    },
+    "/openapi/v1/assets/files/download": {
+      "get": {
+        "description": "SDK文件下载: 返回302重定向, Location头指向最终下载地址(private为预签名URL, public为长期有效直链), 无JSON body。安全提示: 客户端跟随302时不应向跨域目标转发x-api-key等自定义凭证头(SDK侧已按此实现)",
+        "operationId": "openapi/V1/AssetsAssetFileDownload",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "filePath",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "responseContentDisposition",
+            "schema": {
+              "allowEmptyValue": true,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "SDK文件下载"
+      }
+    },
+    "/openapi/v1/assets/files/multipart/abort": {
+      "post": {
+        "description": "SDK分片上传中止: 中止multipart任务清理残留parts并释放预占配额",
+        "operationId": "openapi/V1/AssetsAssetFileMultipartAbort",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssetFileMultipartAbortReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkassetsFilesMultipartAbortWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "SDK分片上传中止"
+      }
+    },
+    "/openapi/v1/assets/files/multipart/complete": {
+      "post": {
+        "description": "SDK分片上传完成: 服务端以ListParts真实大小做权威校验与差额补偿, temp转active",
+        "operationId": "openapi/V1/AssetsAssetFileMultipartComplete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssetFileMultipartCompleteReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkassetsFilesMultipartCompleteWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "SDK分片上传完成"
+      }
+    },
+    "/openapi/v1/assets/files/multipart/init": {
+      "post": {
+        "description": "SDK分片上传初始化: 大文件(>100MB)分片直传, 服务端创建multipart任务并预占配额, 返回uploadId/partSize/partCount",
+        "operationId": "openapi/V1/AssetsAssetFileMultipartInit",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssetFileMultipartInitReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkassetsFilesMultipartInitWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "SDK分片上传初始化"
+      }
+    },
+    "/openapi/v1/assets/files/multipart/part-urls": {
+      "post": {
+        "description": "SDK分片上传签发分片URL: 为指定分片签发预签名PUT URL(数据面直传对象存储), 支持断点续传",
+        "operationId": "openapi/V1/AssetsAssetFileMultipartPartUrls",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssetFileMultipartPartUrlsReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkassetsFilesMultipartPartUrlsWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "SDK分片上传签发分片URL"
+      }
+    },
+    "/openapi/v1/assets/files/url": {
+      "get": {
+        "description": "SDK获取文件URL",
+        "operationId": "openapi/V1/AssetsAssetFileUrl",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "filePath",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expiredSec",
+            "schema": {
+              "allowEmptyValue": true,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkassetsFilesUrlWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "SDK获取文件URL"
+      }
+    },
+    "/openapi/v1/assets/upload": {
+      "post": {
+        "operationId": "openapi/V1/UnsAssetUpload",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssetUploadReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkassetsUploadWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "assetUpload"
+      }
+    },
+    "/openapi/v1/auth/whoami": {
+      "post": {
+        "operationId": "openapi/V1/AuthWhoami",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdksystemWhoamiWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "whoami"
+      }
+    },
+    "/openapi/v1/capabilities/discover": {
+      "post": {
+        "description": "需要有效 Workspace API Key，Body 仅接受空 JSON 对象，最大 4KiB UTF-8 字节，不接受查询参数或 Workspace 覆盖。成功响应直接为 CapabilityDiscoverResp，不包裹 code/msg/data。能力由默认关闭的公开发布开关、Workspace FeatureGate、Key 显式授权共同裁决；执行启用还必须由 unssvr readiness RPC 确认 runtime 就绪且解释器合同匹配，不能由本地开关替代。readiness RPC 失败返回 503 CAPABILITY_UNAVAILABLE，不静默伪装为正常关闭。响应允许客户端忽略未知扩展字段；版本标签不表示设备 ACK 或 npm 包版本。错误直接返回 CapabilityErrorResp 和真实 HTTP 状态，不泄漏内部异常。",
+        "operationId": "openapi/V1/CapabilitiesCapabilityDiscover",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkcapabilitiesDiscoverWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "发现当前 Workspace 的公开能力与版本合同"
+      }
+    },
+    "/openapi/v1/controls/discover": {
+      "post": {
+        "description": "发现可见控制合同，只公开控制合同，不返回内部运行绑定",
+        "operationId": "openapi/V1/ControlsControlDiscover",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlDiscoverReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkcontrolsDiscoverWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "发现可见控制合同"
+      }
+    },
+    "/openapi/v1/controls/{controlCode}/describe": {
+      "post": {
+        "description": "读取公开控制合同，只公开控制合同，不返回内部运行绑定",
+        "operationId": "openapi/V1/ControlsControlDescribe",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "controlCode",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkcontrolsDescribeWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "读取公开控制合同"
+      }
+    },
+    "/openapi/v1/controls/{controlCode}/invoke": {
+      "post": {
+        "description": "按公开合同调用控制口；原始 body 为有效 UTF-8，最多 1MiB 字节；可选 idempotencyKey 解码后最多 128 UTF-8 字节，是否必填由冻结合同决定。返回 code、contractVersion、result、runID、status、replayed(boolean)，不返回内部运行绑定。结果未知返回 HTTP 504，errorCode=CONTROL_RESULT_UNKNOWN；未知内部错误返回 HTTP 500，errorCode=CONTROL_INTERNAL_ERROR，message 不泄漏内部异常",
+        "operationId": "openapi/V1/ControlsControlInvoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "controlCode",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ControlInvokeReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkcontrolsInvokeWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "按公开合同调用控制口"
+      }
+    },
+    "/openapi/v1/info": {
+      "post": {
+        "operationId": "openapi/V1/InfoInfo",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdksystemInfoWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "info"
+      }
+    },
+    "/openapi/v1/mqtt-auth/create": {
+      "post": {
+        "description": "创建与页面手动创建类型一致的普通 MQTT Auth。OpenAPI 的 password 字段仅在本次创建成功响应中返回一次，请立即安全保存；此 OpenAPI 不提供密码查询或再次返回能力。仅 full_access API Key 可调用。",
+        "operationId": "openapi/V1/MqttauthCreate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MqttAuthCreateReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkmqttAuthCreateWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "创建 MQTT Auth"
+      }
+    },
+    "/openapi/v1/mqtt-auth/delete": {
+      "post": {
+        "description": "幂等删除普通 MQTT Auth；不存在、已删除或非普通类型的 ID 均返回成功且不会删除 Flow、EdgeNode 等系统凭证。仅 full_access API Key 可调用。",
+        "operationId": "openapi/V1/MqttauthDelete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MqttAuthDeleteReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkmqttAuthDeleteWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "删除 MQTT Auth"
+      }
+    },
+    "/openapi/v1/notifications/get": {
+      "post": {
+        "description": "查询消息通知发送状态：按 messageId 查询，归属校验锚定发起请求的 API Key",
+        "operationId": "openapi/V1/NotificationsGetNotification",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetNotificationReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdknotificationsGetWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "查询消息通知发送状态"
+      }
+    },
+    "/openapi/v1/notifications/send": {
+      "post": {
+        "description": "发送消息通知：向 Key 所属 Workspace 内的用户发送站内信，并按需触发终端提醒（Web Push/移动推送）",
+        "operationId": "openapi/V1/NotificationsSendNotification",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendNotificationReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdknotificationsSendWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "发送消息通知"
+      }
+    },
+    "/openapi/v1/platform/getMembers": {
+      "post": {
+        "operationId": "openapi/V1/PlatformGetMembers",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformGetMembersReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdkmembersListWorkspaceWire"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "getMembers"
+      }
+    }
+  },
+  "x-date": "2026-10-21 05:15:43",
+  "x-description": "This is a goctl generated swagger file.",
+  "x-github": "https://github.com/zeromicro/go-zero",
+  "x-go-zero-doc": "https://go-zero.dev/",
+  "x-goctl-version": "1.10.1"
+}

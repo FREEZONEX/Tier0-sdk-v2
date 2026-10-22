@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true,
+    "paths": {
+      "@tier0/sdk-v2": [
+        "./src/index.ts"
+      ]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "tests/types/**/*.ts",
+    "tests/openapi/*.types.ts",
+    "examples/**/*.ts"
+  ]
+}

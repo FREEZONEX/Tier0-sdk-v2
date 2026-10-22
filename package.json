@@ -1,0 +1,194 @@
+{
+  "name": "@tier0/sdk-v2",
+  "version": "0.1.0",
+  "description": "Tier0 Cloud new-architecture SDK for TypeScript and JavaScript",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FREEZONEX/Tier0-sdk-v2.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "skills",
+    "README.md",
+    "LICENSE",
+    "NOTICE.md"
+  ],
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/index.d.ts",
+        "default": "./dist/cjs/index.js"
+      }
+    },
+    "./openapi": {
+      "import": {
+        "types": "./dist/esm/openapi/index.d.ts",
+        "default": "./dist/esm/openapi/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/openapi/index.d.ts",
+        "default": "./dist/cjs/openapi/index.js"
+      }
+    },
+    "./uns": {
+      "import": {
+        "types": "./dist/esm/uns-v2/index.d.ts",
+        "default": "./dist/esm/uns-v2/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/uns-v2/index.d.ts",
+        "default": "./dist/cjs/uns-v2/index.js"
+      }
+    },
+    "./files": {
+      "import": {
+        "types": "./dist/esm/files.d.ts",
+        "default": "./dist/esm/files.js"
+      },
+      "require": {
+        "types": "./dist/cjs/files.d.ts",
+        "default": "./dist/cjs/files.js"
+      }
+    },
+    "./mq": {
+      "import": {
+        "types": "./dist/esm/mq/index.d.ts",
+        "default": "./dist/esm/mq/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/mq/index.d.ts",
+        "default": "./dist/cjs/mq/index.js"
+      }
+    },
+    "./server": {
+      "import": {
+        "types": "./dist/esm/cloud-server.d.ts",
+        "default": "./dist/esm/cloud-server.js"
+      },
+      "require": {
+        "types": "./dist/cjs/cloud-server.d.ts",
+        "default": "./dist/cjs/cloud-server.js"
+      }
+    },
+    "./react": {
+      "import": {
+        "types": "./dist/esm/react.d.ts",
+        "default": "./dist/esm/react.js"
+      },
+      "require": {
+        "types": "./dist/cjs/react.d.ts",
+        "default": "./dist/cjs/react.js"
+      }
+    },
+    "./vue": {
+      "import": {
+        "types": "./dist/esm/vue.d.ts",
+        "default": "./dist/esm/vue.js"
+      },
+      "require": {
+        "types": "./dist/cjs/vue.d.ts",
+        "default": "./dist/cjs/vue.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "sync:contracts": "node scripts/sync-contracts.mjs",
+    "generate": "node scripts/generate-openapi.mjs && node scripts/generate-uns-v2.mjs",
+    "check:contracts": "node scripts/check-contracts.mjs && node scripts/generate-openapi.mjs --check && node scripts/generate-uns-v2.mjs --check",
+    "check:skills": "node scripts/check-skills.mjs",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.tests.json",
+    "build": "node scripts/build.mjs",
+    "test": "vitest run",
+    "check": "npm run check:contracts && npm run check:skills && npm run typecheck && npm test && npm run build && node scripts/check-package.mjs",
+    "prepack": "npm run check:contracts && npm run check:skills && npm run build",
+    "prepublishOnly": "npm run check"
+  },
+  "dependencies": {
+    "mqtt": "^5.3.0"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "^5.0.0",
+    "react": ">=18.0.0",
+    "vue": "^3.4.0"
+  },
+  "peerDependenciesMeta": {
+    "@tanstack/react-query": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@tanstack/react-query": "^5.0.0",
+    "react": "^19.0.0",
+    "vue": "^3.4.0",
+    "typescript": "~5.9.3",
+    "openapi-typescript": "^7.0.0",
+    "vitest": "^4.1.7",
+    "esbuild": "^0.25.0",
+    "yaml": "^2.8.0"
+  },
+  "agents": {
+    "skills": [
+      {
+        "name": "tier0-sdk-v2",
+        "path": "./skills/tier0-sdk-v2"
+      },
+      {
+        "name": "tier0-sdk-v2-uns",
+        "path": "./skills/tier0-sdk-v2-uns"
+      },
+      {
+        "name": "tier0-sdk-v2-files",
+        "path": "./skills/tier0-sdk-v2-files"
+      },
+      {
+        "name": "tier0-sdk-v2-notifications",
+        "path": "./skills/tier0-sdk-v2-notifications"
+      },
+      {
+        "name": "tier0-sdk-v2-mq",
+        "path": "./skills/tier0-sdk-v2-mq"
+      },
+      {
+        "name": "tier0-sdk-v2-members",
+        "path": "./skills/tier0-sdk-v2-members"
+      },
+      {
+        "name": "tier0-sdk-v2-system",
+        "path": "./skills/tier0-sdk-v2-system"
+      },
+      {
+        "name": "tier0-sdk-v2-controls",
+        "path": "./skills/tier0-sdk-v2-controls"
+      },
+      {
+        "name": "tier0-sdk-v2-agent",
+        "path": "./skills/tier0-sdk-v2-agent"
+      }
+    ]
+  }
+}

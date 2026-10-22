@@ -1,0 +1,3128 @@
+// Generated. Do not edit.
+import type { UnsV2RawNumber } from '../uns-v2/codec.js';
+export interface paths {
+    "/openapi/v1/agent/analyses/dispatch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 按原操作编号派发即时分析
+         * @description 以operationId UUID派发本人即时refresh或rerun分析；同编号同请求仅读回原运行，不重复执行，需要uns:write和真实负责人身份
+         */
+        post: operations["openapi/V1/AgentAgentAnalysisDispatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/analyses/get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 读取本人即时分析运行和结果定位
+         * @description 按runId仅读取当前负责人在工作区内的即时分析状态、错误和结果；无权读取其他人的运行，需要uns:read
+         */
+        post: operations["openapi/V1/AgentAgentAnalysisGet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/canvases/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 分页查找工作区画布
+         * @description 仅列出当前工作区画布元数据，可按平台会话筛选；page、size必填，size为1至100，需要uns:read
+         */
+        post: operations["openapi/V1/AgentAgentCanvasList"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/cards/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 核对原卡后删除画布卡片
+         * @description 按画布和卡片行ID删除，expectedCardSpec须与当前完整原卡一致，否则返回409，需要uns:write
+         */
+        post: operations["openapi/V1/AgentAgentCardDelete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/cards/get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 读取完整画布卡片
+         * @description 按已认证工作空间、画布ID和卡片行ID读取完整CardSpec，供修改前核对原卡
+         */
+        post: operations["openapi/V1/AgentAgentCardGet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/cards/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 分页查找画布卡片
+         * @description 仅操作已认证工作区；查询需要uns:read，写操作需要uns:write。任务负责人来自API key真实用户；创建无自动重试。
+         */
+        post: operations["openapi/V1/AgentAgentCardList"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/cards/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 更新画布卡片
+         * @description 沙箱 Agent 用 App key 改画布卡片，卡片必须属于 key 所在工作空间
+         */
+        post: operations["openapi/V1/AgentAgentCardUpdate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/job-runs/get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 读取个人任务的一次运行
+         * @description 仅任务负责人可用；触发返回运行编号和当前派发状态，不代表已执行成功，网络未知时禁止自动重试。
+         */
+        post: operations["openapi/V1/AgentAgentJobRunGet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/job-runs/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 分页读取个人任务运行历史
+         * @description 仅任务负责人可用；触发返回运行编号和当前派发状态，不代表已执行成功，网络未知时禁止自动重试。
+         */
+        post: operations["openapi/V1/AgentAgentJobRunList"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/jobs/create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 创建业务定时任务
+         * @description 仅操作已认证工作区；查询需要uns:read，写操作需要uns:write。任务负责人来自API key真实用户；创建无自动重试。
+         */
+        post: operations["openapi/V1/AgentAgentJobCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/jobs/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 删除业务定时任务
+         * @description 仅操作已认证工作区；查询需要uns:read，写操作需要uns:write。任务负责人来自API key真实用户；创建无自动重试。
+         */
+        post: operations["openapi/V1/AgentAgentJobDelete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/jobs/get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 读取业务定时任务
+         * @description 仅操作已认证工作区；查询需要uns:read，写操作需要uns:write。任务负责人来自API key真实用户；创建无自动重试。
+         */
+        post: operations["openapi/V1/AgentAgentJobGet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/jobs/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 分页查询业务定时任务
+         * @description 仅操作已认证工作区；查询需要uns:read，写操作需要uns:write。任务负责人来自API key真实用户；创建无自动重试。
+         */
+        post: operations["openapi/V1/AgentAgentJobList"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/jobs/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 暂停业务定时任务
+         * @description 仅操作已认证工作区；查询需要uns:read，写操作需要uns:write。任务负责人来自API key真实用户；创建无自动重试。
+         */
+        post: operations["openapi/V1/AgentAgentJobPause"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/jobs/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 恢复业务定时任务
+         * @description 仅操作已认证工作区；查询需要uns:read，写操作需要uns:write。任务负责人来自API key真实用户；创建无自动重试。
+         */
+        post: operations["openapi/V1/AgentAgentJobResume"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/jobs/trigger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 手动触发个人任务一次
+         * @description 仅任务负责人可用；触发返回运行编号和当前派发状态，不代表已执行成功，网络未知时禁止自动重试。
+         */
+        post: operations["openapi/V1/AgentAgentJobTrigger"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/jobs/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 修改业务定时任务
+         * @description 仅操作已认证工作区；查询需要uns:read，写操作需要uns:write。任务负责人来自API key真实用户；创建无自动重试。
+         */
+        post: operations["openapi/V1/AgentAgentJobUpdate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/library/create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 存入卡片库，同键不同内容拒绝
+         * @description 创建当前工作区模板，同cardKey相同内容复用原条目，不同内容返回409；不会覆盖旧模板，需要uns:write
+         */
+        post: operations["openapi/V1/AgentAgentLibraryCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/library/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 删除已定位的卡片库条目
+         * @description 按已确认的库条目ID删除当前工作区模板，需要uns:write
+         */
+        post: operations["openapi/V1/AgentAgentLibraryDelete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/library/get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 读取卡片库完整原条目
+         * @description 按库条目ID读取完整模板、标签和来源会话，供修改前核对，需要uns:read
+         */
+        post: operations["openapi/V1/AgentAgentLibraryGet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/library/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 分页查找卡片库
+         * @description 分页查询当前工作区共享卡片模板，标签按任一匹配并可搜索标题，需要uns:read
+         */
+        post: operations["openapi/V1/AgentAgentLibraryList"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/library/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 核对完整原条目后更新卡片库
+         * @description 携带读取到的完整expectedItem更新模板，内容发生变化返回409；显式tags空数组清空标签，需要uns:write
+         */
+        post: operations["openapi/V1/AgentAgentLibraryUpdate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/nodes/index-sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 同步工作区节点语义索引
+         * @description 对已认证工作区执行一次有界索引同步，需要uns:write；有模型调用和数据库写入副作用
+         */
+        post: operations["openapi/V1/AgentAgentNodeIndexSync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/nodes/search-semantic": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 语义检索工作区节点
+         * @description 仅检索已认证工作区的节点索引，返回候选节点；需要uns:read，索引为空不自动同步
+         */
+        post: operations["openapi/V1/AgentAgentNodeSearchSemantic"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/relations/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 查询节点关系
+         * @description 只读查询已认证工作区中指定节点的正反向关系，需要uns:read
+         */
+        post: operations["openapi/V1/AgentAgentRelationList"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/relations/teach": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 保存用户确认的节点关系
+         * @description 在已认证工作区保存用户明确确认的关系，同键更新备注，需要uns:write
+         */
+        post: operations["openapi/V1/AgentAgentRelationTeach"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/results/create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 写入 Agent 分析结果
+         * @description 沙箱 Agent 用 App key 提交结果清单 v1，按 operationId 幂等
+         */
+        post: operations["openapi/V1/AgentAgentResultCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/results/get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 读取已保存的分析结果
+         * @description 仅读取已认证工作区内的结果，resultId或operationId必须且只能提供一个；原保存编号可用于回执丢失后的只读核查，返回完整manifest与CardSpec，需要uns:read
+         */
+        post: operations["openapi/V1/AgentAgentResultGet"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/results/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 分页查询已保存的分析结果
+         * @description 按已认证工作区查询，可按平台会话过滤，page和size必填，size为1至100，需要uns:read
+         */
+        post: operations["openapi/V1/AgentAgentResultList"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/agent/results/pin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 将已保存结果钉到画布
+         * @description 仅固定已认证工作区内的结果，需要uns:write；含CardSpec时创建对应卡片，纯表图清单创建按resultId读取详情的引用卡。同结果同画布重试返回原卡，不覆盖后续修改。
+         */
+        post: operations["openapi/V1/AgentAgentResultPin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/assets/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * SDK文件上传申请
+         * @description SDK文件上传申请
+         */
+        post: operations["openapi/V1/AssetsAssetFileUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/assets/files/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * SDK删除文件
+         * @description SDK删除文件
+         */
+        post: operations["openapi/V1/AssetsAssetFileDelete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/assets/files/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * SDK文件下载
+         * @description SDK文件下载: 返回302重定向, Location头指向最终下载地址(private为预签名URL, public为长期有效直链), 无JSON body。安全提示: 客户端跟随302时不应向跨域目标转发x-api-key等自定义凭证头(SDK侧已按此实现)
+         */
+        get: operations["openapi/V1/AssetsAssetFileDownload"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/assets/files/multipart/abort": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * SDK分片上传中止
+         * @description SDK分片上传中止: 中止multipart任务清理残留parts并释放预占配额
+         */
+        post: operations["openapi/V1/AssetsAssetFileMultipartAbort"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/assets/files/multipart/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * SDK分片上传完成
+         * @description SDK分片上传完成: 服务端以ListParts真实大小做权威校验与差额补偿, temp转active
+         */
+        post: operations["openapi/V1/AssetsAssetFileMultipartComplete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/assets/files/multipart/init": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * SDK分片上传初始化
+         * @description SDK分片上传初始化: 大文件(>100MB)分片直传, 服务端创建multipart任务并预占配额, 返回uploadId/partSize/partCount
+         */
+        post: operations["openapi/V1/AssetsAssetFileMultipartInit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/assets/files/multipart/part-urls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * SDK分片上传签发分片URL
+         * @description SDK分片上传签发分片URL: 为指定分片签发预签名PUT URL(数据面直传对象存储), 支持断点续传
+         */
+        post: operations["openapi/V1/AssetsAssetFileMultipartPartUrls"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/assets/files/url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * SDK获取文件URL
+         * @description SDK获取文件URL
+         */
+        get: operations["openapi/V1/AssetsAssetFileUrl"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/assets/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** assetUpload */
+        post: operations["openapi/V1/UnsAssetUpload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/auth/whoami": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** whoami */
+        post: operations["openapi/V1/AuthWhoami"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/capabilities/discover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 发现当前 Workspace 的公开能力与版本合同
+         * @description 需要有效 Workspace API Key，Body 仅接受空 JSON 对象，最大 4KiB UTF-8 字节，不接受查询参数或 Workspace 覆盖。成功响应直接为 CapabilityDiscoverResp，不包裹 code/msg/data。能力由默认关闭的公开发布开关、Workspace FeatureGate、Key 显式授权共同裁决；执行启用还必须由 unssvr readiness RPC 确认 runtime 就绪且解释器合同匹配，不能由本地开关替代。readiness RPC 失败返回 503 CAPABILITY_UNAVAILABLE，不静默伪装为正常关闭。响应允许客户端忽略未知扩展字段；版本标签不表示设备 ACK 或 npm 包版本。错误直接返回 CapabilityErrorResp 和真实 HTTP 状态，不泄漏内部异常。
+         */
+        post: operations["openapi/V1/CapabilitiesCapabilityDiscover"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/controls/discover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 发现可见控制合同
+         * @description 发现可见控制合同，只公开控制合同，不返回内部运行绑定
+         */
+        post: operations["openapi/V1/ControlsControlDiscover"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/controls/{controlCode}/describe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 读取公开控制合同
+         * @description 读取公开控制合同，只公开控制合同，不返回内部运行绑定
+         */
+        post: operations["openapi/V1/ControlsControlDescribe"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/controls/{controlCode}/invoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 按公开合同调用控制口
+         * @description 按公开合同调用控制口；原始 body 为有效 UTF-8，最多 1MiB 字节；可选 idempotencyKey 解码后最多 128 UTF-8 字节，是否必填由冻结合同决定。返回 code、contractVersion、result、runID、status、replayed(boolean)，不返回内部运行绑定。结果未知返回 HTTP 504，errorCode=CONTROL_RESULT_UNKNOWN；未知内部错误返回 HTTP 500，errorCode=CONTROL_INTERNAL_ERROR，message 不泄漏内部异常
+         */
+        post: operations["openapi/V1/ControlsControlInvoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** info */
+        post: operations["openapi/V1/InfoInfo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/mqtt-auth/create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 创建 MQTT Auth
+         * @description 创建与页面手动创建类型一致的普通 MQTT Auth。OpenAPI 的 password 字段仅在本次创建成功响应中返回一次，请立即安全保存；此 OpenAPI 不提供密码查询或再次返回能力。仅 full_access API Key 可调用。
+         */
+        post: operations["openapi/V1/MqttauthCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/mqtt-auth/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 删除 MQTT Auth
+         * @description 幂等删除普通 MQTT Auth；不存在、已删除或非普通类型的 ID 均返回成功且不会删除 Flow、EdgeNode 等系统凭证。仅 full_access API Key 可调用。
+         */
+        post: operations["openapi/V1/MqttauthDelete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/notifications/get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 查询消息通知发送状态
+         * @description 查询消息通知发送状态：按 messageId 查询，归属校验锚定发起请求的 API Key
+         */
+        post: operations["openapi/V1/NotificationsGetNotification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/notifications/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 发送消息通知
+         * @description 发送消息通知：向 Key 所属 Workspace 内的用户发送站内信，并按需触发终端提醒（Web Push/移动推送）
+         */
+        post: operations["openapi/V1/NotificationsSendNotification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/openapi/v1/platform/getMembers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** getMembers */
+        post: operations["openapi/V1/PlatformGetMembers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+}
+export type webhooks = Record<string, never>;
+export interface components {
+    schemas: {
+        AgentAnalysisDispatchReq: {
+            canvasId?: string;
+            cardId?: string;
+            kind: string;
+            operationId: string;
+            resultId?: string;
+            task: unknown;
+        };
+        AgentAnalysisDispatchResp: {
+            dispatchState: string;
+            errorCode: string;
+            errorMessage: string;
+            runId: string;
+        };
+        AgentAnalysisGetReq: {
+            runId: string;
+        };
+        AgentAnalysisGetResp: {
+            run: components["schemas"]["AgentJobRunRecord"];
+        };
+        AgentCanvasListReq: {
+            page: number | bigint;
+            sessionId?: string;
+            size: number | bigint;
+        };
+        AgentCanvasListResp: {
+            list: components["schemas"]["AgentCanvasRecord"][];
+            page: number | bigint;
+            size: number | bigint;
+            total: number | bigint;
+        };
+        AgentCanvasRecord: {
+            canvasId: string;
+            createdAt: number | bigint;
+            name: string;
+            sessionId: string;
+            updatedAt: number | bigint;
+        };
+        AgentCardDeleteReq: {
+            canvasId: string;
+            cardId: string;
+            expectedCardSpec: unknown;
+        };
+        AgentCardDeleteResp: {
+            cardId: string;
+        };
+        AgentCardGetReq: {
+            canvasId: string;
+            cardId: string;
+        };
+        AgentCardGetResp: {
+            canvasId: string;
+            cardId: string;
+            cardKey: string;
+            cardSpec: unknown;
+            updatedAt: number | bigint;
+        };
+        AgentCardListReq: {
+            canvasId: string;
+            page: number | bigint;
+            size: number | bigint;
+        };
+        AgentCardListResp: {
+            list: components["schemas"]["AgentCardGetResp"][];
+            page: number | bigint;
+            size: number | bigint;
+            total: number | bigint;
+        };
+        AgentCardUpdateReq: {
+            canvasId?: string;
+            cardId: string;
+            cardSpec: unknown;
+            /** @description 读取到的完整原卡内容，变化时返回HTTP409 */
+            expectedCardSpec: unknown;
+            /** @description 画布内顺序：不传 = 不改（转调 unssvr 时补 -1），传了原样透传；用指针区分「没传」和「传 0」 */
+            ord?: number | bigint;
+            position?: unknown;
+        };
+        AgentCardUpdateResp: {
+            cardId: string;
+        };
+        AgentJobCreateReq: {
+            cardId?: string;
+            cronExpr?: string;
+            expiresAt?: number | bigint;
+            intervalSeconds?: number | bigint;
+            name: string;
+            notify?: unknown;
+            scheduleKind: string;
+            sessionId: string;
+            sourceBlockId?: string;
+            sourceId?: string;
+            sourceName?: string;
+            sourceType: string;
+            task: unknown;
+            type?: string;
+        };
+        AgentJobGetResp: {
+            job: components["schemas"]["AgentJobRecord"];
+        };
+        AgentJobIDReq: {
+            jobId: string;
+        };
+        AgentJobListReq: {
+            cardId?: string;
+            page: number | bigint;
+            search?: string;
+            size: number | bigint;
+            sourceId?: string;
+            sourceType?: string;
+            status?: string;
+            type?: string;
+        };
+        AgentJobListResp: {
+            list: components["schemas"]["AgentJobRecord"][];
+            page: number | bigint;
+            size: number | bigint;
+            total: number | bigint;
+        };
+        AgentJobMutationResp: {
+            jobId: string;
+        };
+        AgentJobRecord: {
+            attentionReason: string;
+            cardId: string;
+            createdAt: number | bigint;
+            cronExpr: string;
+            expiresAt: number | bigint;
+            intervalSeconds: number | bigint;
+            jobId: string;
+            lastFiredAt: number | bigint;
+            name: string;
+            nextRunAt: number | bigint;
+            notify?: unknown;
+            orphanedAt: number | bigint;
+            scheduleKind: string;
+            sessionId: string;
+            sourceBlockId: string;
+            sourceId: string;
+            sourceName: string;
+            sourceType: string;
+            status: string;
+            task: unknown;
+            type: string;
+            updatedAt: number | bigint;
+        };
+        AgentJobRunGetReq: {
+            jobId: string;
+            jobRunId: string;
+        };
+        AgentJobRunGetResp: {
+            run: components["schemas"]["AgentJobRunRecord"];
+        };
+        AgentJobRunListReq: {
+            jobId: string;
+            page: number | bigint;
+            size: number | bigint;
+            status?: string;
+        };
+        AgentJobRunListResp: {
+            list: components["schemas"]["AgentJobRunRecord"][];
+            page: number | bigint;
+            size: number | bigint;
+            total: number | bigint;
+        };
+        AgentJobRunRecord: {
+            dispatchState: string;
+            errorCode?: string;
+            errorMessage?: string;
+            finishedAt?: number | bigint;
+            firedAt: number | bigint;
+            jobId: string;
+            jobRunId: string;
+            resultId?: string;
+            resultSummary?: unknown;
+            severity?: string;
+            status: string;
+            trigger?: string;
+        };
+        AgentJobTriggerResp: {
+            dispatchState: string;
+            jobId: string;
+            jobRunId: string;
+        };
+        AgentJobUpdateReq: {
+            cardId?: string;
+            cronExpr?: string;
+            expiresAt?: number | bigint;
+            intervalSeconds?: number | bigint;
+            jobId: string;
+            name?: string;
+            notify?: unknown;
+            /** @description 省略沿用原通知，1必须提供notify对象，2关闭通知且不提供notify */
+            notifyEnabled?: number | bigint;
+            scheduleKind?: string;
+            sessionId?: string;
+            sourceBlockId?: string;
+            sourceId?: string;
+            sourceName?: string;
+            sourceType?: string;
+            task?: unknown;
+            type?: string;
+        };
+        AgentLibraryCreateReq: {
+            cardKey: string;
+            cardSpec: unknown;
+            sourceSessionId?: string;
+            tags?: string[];
+        };
+        AgentLibraryGetReq: {
+            libraryItemId: string;
+        };
+        AgentLibraryGetResp: {
+            item: components["schemas"]["AgentLibraryItem"];
+        };
+        AgentLibraryItem: {
+            cardKey: string;
+            cardSpec: unknown;
+            createdAt: number | bigint;
+            libraryItemId: string;
+            sourceSessionId: string;
+            tags: string[];
+            updatedAt: number | bigint;
+        };
+        AgentLibraryListReq: {
+            page: number | bigint;
+            search?: string;
+            size: number | bigint;
+            tags?: string[];
+        };
+        AgentLibraryListResp: {
+            list: components["schemas"]["AgentLibraryItem"][];
+            page: number | bigint;
+            size: number | bigint;
+            total: number | bigint;
+        };
+        AgentLibraryMutationResp: {
+            libraryItemId: string;
+        };
+        AgentLibrarySnapshot: {
+            cardKey: string;
+            cardSpec: unknown;
+            sourceSessionId: string;
+            tags: string[];
+        };
+        AgentLibraryUpdateReq: {
+            cardSpec: unknown;
+            expectedItem: components["schemas"]["AgentLibrarySnapshot"];
+            libraryItemId: string;
+            sourceSessionId?: string;
+            tags?: string[];
+        };
+        AgentNodeIndexSyncResp: {
+            durationMs: number | bigint;
+            embedded: number | bigint;
+            pending: number | bigint;
+            skipped: number | bigint;
+            total: number | bigint;
+        };
+        AgentNodeSearchSemanticReq: {
+            query: string;
+            topK?: number | bigint;
+        };
+        AgentNodeSearchSemanticResp: {
+            hits: components["schemas"]["AgentNodeSemanticHit"][];
+            indexedCount: number | bigint;
+        };
+        AgentNodeSemanticHit: {
+            name: string;
+            path: string;
+            score: number | UnsV2RawNumber;
+            summary: string;
+        };
+        AgentRelationInfo: {
+            confidence: number | UnsV2RawNumber;
+            createdBy: string;
+            id: string;
+            note: string;
+            path: string;
+            relatedPath: string;
+            relationType: string;
+            source: string;
+            updatedAt: number | bigint;
+        };
+        AgentRelationListReq: {
+            limit?: number | bigint;
+            path: string;
+        };
+        AgentRelationListResp: {
+            relations: components["schemas"]["AgentRelationInfo"][];
+        };
+        AgentRelationTeachReq: {
+            note?: string;
+            path: string;
+            relatedPath: string;
+            relationType: string;
+        };
+        AgentRelationTeachResp: {
+            created: number | bigint;
+            id: string;
+        };
+        AgentResultCreateReq: {
+            cardSpec?: unknown;
+            dataScope?: unknown;
+            images?: unknown[];
+            missingData: unknown;
+            operationId: string;
+            resultSchemaVersion: number | bigint;
+            source: components["schemas"]["AgentResultSource"];
+            steps?: unknown[];
+            summary?: string;
+            tables?: unknown[];
+            title: string;
+            warnings?: string[];
+        };
+        AgentResultCreateResp: {
+            jobRunId: string;
+            resultId: string;
+        };
+        AgentResultGetReq: {
+            /** @description 与resultId二选一，保存超时后按原编号查回，不重复保存 */
+            operationId?: string;
+            resultId?: string;
+        };
+        AgentResultGetResp: {
+            result: components["schemas"]["AgentStoredResult"];
+        };
+        AgentResultListReq: {
+            page: number | bigint;
+            platformSessionId?: string;
+            size: number | bigint;
+        };
+        AgentResultListResp: {
+            list: components["schemas"]["AgentStoredResult"][];
+            page: number | bigint;
+            size: number | bigint;
+            total: number | bigint;
+        };
+        AgentResultPinReq: {
+            canvasId: string;
+            position?: unknown;
+            resultId: string;
+        };
+        AgentResultPinResp: {
+            cardId: string;
+        };
+        AgentResultSource: {
+            agentId: string;
+            platformRunId?: string;
+            platformSessionId: string;
+            platformUserId?: string;
+            skillVersion?: string;
+        };
+        AgentStoredResult: {
+            agentId: string;
+            byteSize: number | bigint;
+            cardSpec?: unknown;
+            createdAt: number | bigint;
+            manifest: unknown;
+            operationId: string;
+            platformRunId: string;
+            platformSessionId: string;
+            resultId: string;
+            skillVersion: string;
+            sourceKind: string;
+        };
+        AssetFileDeleteReq: {
+            filePath: string;
+        };
+        AssetFileDeleteResp: {
+            deleted: boolean;
+        };
+        AssetFileMultipartAbortReq: {
+            fileKey: string;
+            uploadId: string;
+        };
+        AssetFileMultipartAbortResp: {
+            aborted: number | bigint;
+        };
+        AssetFileMultipartCompleteReq: {
+            fileKey: string;
+            parts: components["schemas"]["AssetFileMultipartPart"][];
+            uploadId: string;
+        };
+        AssetFileMultipartCompleteResp: {
+            expiresAt?: number | bigint;
+            filePath: string;
+            fileUrl?: string;
+            sizeBytes: number | bigint;
+        };
+        AssetFileMultipartInitReq: {
+            appInstanceId?: string;
+            bizId?: string;
+            business?: string;
+            contentType?: string;
+            fileName: string;
+            partSize?: number | bigint;
+            sessionId?: string;
+            size: number | bigint;
+            useBy?: string;
+            visibility?: string;
+        };
+        AssetFileMultipartInitResp: {
+            expiresAt: number | bigint;
+            fileKey: string;
+            filePath: string;
+            partCount: number | bigint;
+            partSize: number | bigint;
+            uploadId: string;
+        };
+        AssetFileMultipartPart: {
+            etag: string;
+            partNumber: number | bigint;
+        };
+        AssetFileMultipartPartUrl: {
+            expiresAt: number | bigint;
+            partNumber: number | bigint;
+            url: string;
+        };
+        AssetFileMultipartPartUrlsReq: {
+            fileKey: string;
+            partNumbers: (number | bigint)[];
+            uploadId: string;
+        };
+        AssetFileMultipartPartUrlsResp: {
+            partUrls: components["schemas"]["AssetFileMultipartPartUrl"][];
+        };
+        AssetFileUploadReq: {
+            appInstanceId?: string;
+            business?: string;
+            contentType?: string;
+            fileName: string;
+            sessionId?: string;
+            size: number | bigint;
+            useBy?: string;
+            visibility?: string;
+        };
+        AssetFileUploadResp: {
+            expiresAt?: number | bigint;
+            fileId?: number | bigint;
+            filePath: string;
+            fileUrl?: string;
+            /** @description 先写入全部签名字段，再追加 file；policy 约束 key 和大小 */
+            postFields: {
+                [key: string]: string;
+            };
+            /** @description 预签名 POST 地址；multipart/form-data 上传 */
+            postUrl: string;
+        };
+        AssetFileUrlResp: {
+            expiresAt?: number | bigint;
+            fileUrl: string;
+        };
+        AssetUploadReq: {
+            business?: string;
+            contentType?: string;
+            fileName: string;
+            isPublic?: boolean;
+            sha256?: string;
+            size?: number | bigint;
+            sizeBytes: number | bigint;
+            storageKey?: string;
+            useBy?: string;
+        };
+        AssetUploadResp: {
+            filePath: string;
+            fileUrl?: string;
+            /** @description 先写入全部签名字段，再追加 file；policy 约束 key 和大小 */
+            postFields: {
+                [key: string]: string;
+            };
+            /** @description 预签名 POST 地址；multipart/form-data 上传 */
+            postUrl: string;
+        };
+        AuthWhoamiResp: {
+            apiKeyName: string;
+            email: string;
+            keyPrefix: string;
+            keyType: string;
+            permissions: string[];
+            roles: string[];
+            userID: number | bigint;
+            userName: string;
+            workspaceID: number | bigint;
+            workspaceName: string;
+        };
+        CapabilityDeprecation: {
+            contract: string;
+            replacement?: string;
+            sunsetAt?: string;
+        };
+        CapabilityDiscoverResp: {
+            /** @description openapi/v1 */
+            apiContractVersions: string[];
+            /** @description 只返回当前 Key 有授权摘要的已知能力，关闭的能力仍返回状态 */
+            capabilities: components["schemas"]["PublicCapability"][];
+            /** @description 本发现响应合同版本，与单个 Control 的冻结合同版本独立 */
+            contractVersion: string;
+            deprecations: components["schemas"]["CapabilityDeprecation"][];
+            /** @description tier0-stream/v2 解释器合同，不是 npm 版本 */
+            interpreterContractVersions: string[];
+            product: string;
+            /** @description 仅返回显式配置的可信产品发布版本，未配置时省略 */
+            productVersion?: string;
+            /** @description control/v1 公共 SDK 合同，不是 npm 版本 */
+            sdkContractVersions: string[];
+        };
+        ControlDiscoverReq: {
+            /** @description 缺省为 1 */
+            page?: number | bigint;
+            search?: string;
+            /** @description 缺省为 20 */
+            size?: number | bigint;
+        };
+        ControlDiscoverResp: {
+            list: components["schemas"]["PublicControl"][];
+            total: number | bigint;
+        };
+        ControlInvokeReq: {
+            /** @description 解码后的 UTF-8 字节数最多 128；是否必填由冻结合同决定 */
+            idempotencyKey?: string;
+            input: unknown;
+        };
+        ControlInvokeResp: {
+            code: string;
+            /** @description 实际执行使用的冻结合同版本 */
+            contractVersion: string;
+            /** @description true=幂等重放，false=首次执行 */
+            replayed: boolean;
+            /** @description 合同定义的 JSON 结果，允许 null */
+            result: unknown;
+            /** @description 服务端返回的执行标识，不透明字符串 */
+            runID: string;
+            /** @description 服务端返回的终态，非 accepted/queued/pending/running */
+            status: string;
+        };
+        GetNotificationReq: {
+            messageId: string;
+        };
+        GetNotificationResp: {
+            completedAt?: string;
+            createdAt: string;
+            errorCode?: string;
+            message?: string;
+            messageId: string;
+            status: string;
+            type: string;
+        };
+        MqttAuthCreateReq: {
+            clientIDRandomSuffixEnabled?: boolean;
+            description?: string;
+            name: string;
+        };
+        MqttAuthCreateResp: {
+            clientID: string;
+            clientIDRandomSuffixEnabled: boolean;
+            id: number | bigint;
+            name: string;
+            password: string;
+            username: string;
+        };
+        MqttAuthDeleteReq: {
+            id: number | bigint;
+        };
+        MqttAuthDeleteResp: {
+            success: boolean;
+        };
+        NotificationSender: {
+            /** @description app 必填=appId（agent-platform UUID）；other 可选；system 可选；字符集 [0-9a-zA-Z-]{1,128} */
+            id?: string;
+            /** @description Optional display metadata. The v2 SDK does not inject project context. */
+            meta?: {
+                [key: string]: string;
+            };
+            /** @description 人读显示名（接替废弃的 source），≤100字符 */
+            name?: string;
+            /**
+             * @description 枚举 app/other/system，缺省 other；system=平台内部服务，仅 usage_type=internal 的 API key 可用（否则 400），建信归 workspace 分组（System tab）
+             * @enum {string}
+             */
+            type?: "app" | "other" | "system";
+        };
+        PlatformGetMembersReq: {
+            keyword?: string;
+            page?: number | bigint;
+            roleKey?: string;
+            roles?: string[];
+            size?: number | bigint;
+            statuses?: string[];
+            updatedAtEnd?: string;
+            updatedAtStart?: string;
+        };
+        PlatformMemberResp: {
+            email?: string;
+            nickName?: string;
+            roles: components["schemas"]["PlatformMemberRoleResp"][];
+            status: string;
+            updatedAt: string;
+            userId: string;
+            userName?: string;
+        };
+        PlatformMemberRoleResp: {
+            description?: string;
+            roleId: string;
+            roleKey: string;
+            roleName?: string;
+        };
+        PlatformMembersResp: {
+            list: components["schemas"]["PlatformMemberResp"][];
+            page: number | bigint;
+            size: number | bigint;
+            total: number | bigint;
+        };
+        PublicCapability: {
+            /** @description 当前 Key 的能力授权摘要，不替代具体 Control code 与读写权限检查 */
+            allowed: boolean;
+            /** @description unavailable / unknown / available；不是设备在线或执行成功证明 */
+            availability: string;
+            code: string;
+            contractVersions: string[];
+            /** @description 仅发布、实现和 readiness 均满足时为 true */
+            enabled: boolean;
+            /** @description 公开发布开关与当前 Workspace 灰度的交集，不表示 runtime 就绪 */
+            releaseEnabled: boolean;
+            /** @description disabled / not_supported / unavailable / readiness_unknown / ready */
+            state: string;
+        };
+        PublicControl: {
+            code: string;
+            contractVersion: string;
+            description: string;
+            idempotency: string;
+            inputSchema: {
+                [key: string]: unknown;
+            };
+            name: string;
+            outputSchema: {
+                [key: string]: unknown;
+            };
+            sideEffect: string;
+            status: string;
+            timeoutMs: number | bigint;
+        };
+        SendNotificationReq: {
+            /** @description Omitted: web + mobile. Empty: inbox only. web includes Desktop. */
+            channels?: ("web" | "mobile")[];
+            content: string;
+            idempotencyKey: string;
+            link?: string;
+            mode?: string;
+            recipientUserId: string;
+            sender?: components["schemas"]["NotificationSender"];
+            /** @description 已废弃：过渡期作 sender.name 别名（sender.name 优先），后续移除 */
+            source?: string;
+            title: string;
+            type: string;
+        };
+        SendNotificationResp: {
+            createdAt: string;
+            messageId: string;
+            status: string;
+        };
+        SdkInfoResponse: {
+            name?: string;
+            version?: string;
+            capabilities?: string[];
+            mqttBroker?: string;
+        };
+        SdkagentAnalysesDispatchRequest: components["schemas"]["AgentAnalysisDispatchReq"];
+        SdkagentAnalysesDispatchData: components["schemas"]["AgentAnalysisDispatchResp"];
+        SdkagentAnalysesDispatchWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentAnalysesDispatchData"];
+        };
+        SdkagentAnalysesGetRequest: components["schemas"]["AgentAnalysisGetReq"];
+        SdkagentAnalysesGetData: components["schemas"]["AgentAnalysisGetResp"];
+        SdkagentAnalysesGetWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentAnalysesGetData"];
+        };
+        SdkagentCanvasesListRequest: components["schemas"]["AgentCanvasListReq"];
+        SdkagentCanvasesListData: components["schemas"]["AgentCanvasListResp"];
+        SdkagentCanvasesListWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentCanvasesListData"];
+        };
+        SdkagentCardsDeleteRequest: components["schemas"]["AgentCardDeleteReq"];
+        SdkagentCardsDeleteData: components["schemas"]["AgentCardDeleteResp"];
+        SdkagentCardsDeleteWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentCardsDeleteData"];
+        };
+        SdkagentCardsGetRequest: components["schemas"]["AgentCardGetReq"];
+        SdkagentCardsGetData: components["schemas"]["AgentCardGetResp"];
+        SdkagentCardsGetWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentCardsGetData"];
+        };
+        SdkagentCardsListRequest: components["schemas"]["AgentCardListReq"];
+        SdkagentCardsListData: components["schemas"]["AgentCardListResp"];
+        SdkagentCardsListWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentCardsListData"];
+        };
+        SdkagentCardsUpdateRequest: components["schemas"]["AgentCardUpdateReq"];
+        SdkagentCardsUpdateData: components["schemas"]["AgentCardUpdateResp"];
+        SdkagentCardsUpdateWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentCardsUpdateData"];
+        };
+        SdkagentJobRunsGetRequest: components["schemas"]["AgentJobRunGetReq"];
+        SdkagentJobRunsGetData: components["schemas"]["AgentJobRunGetResp"];
+        SdkagentJobRunsGetWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentJobRunsGetData"];
+        };
+        SdkagentJobRunsListRequest: components["schemas"]["AgentJobRunListReq"];
+        SdkagentJobRunsListData: components["schemas"]["AgentJobRunListResp"];
+        SdkagentJobRunsListWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentJobRunsListData"];
+        };
+        SdkagentJobsCreateRequest: components["schemas"]["AgentJobCreateReq"];
+        SdkagentJobsCreateData: components["schemas"]["AgentJobMutationResp"];
+        SdkagentJobsCreateWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentJobsCreateData"];
+        };
+        SdkagentJobsDeleteRequest: components["schemas"]["AgentJobIDReq"];
+        SdkagentJobsDeleteData: components["schemas"]["AgentJobMutationResp"];
+        SdkagentJobsDeleteWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentJobsDeleteData"];
+        };
+        SdkagentJobsGetRequest: components["schemas"]["AgentJobIDReq"];
+        SdkagentJobsGetData: components["schemas"]["AgentJobGetResp"];
+        SdkagentJobsGetWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentJobsGetData"];
+        };
+        SdkagentJobsListRequest: components["schemas"]["AgentJobListReq"];
+        SdkagentJobsListData: components["schemas"]["AgentJobListResp"];
+        SdkagentJobsListWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentJobsListData"];
+        };
+        SdkagentJobsPauseRequest: components["schemas"]["AgentJobIDReq"];
+        SdkagentJobsPauseData: components["schemas"]["AgentJobMutationResp"];
+        SdkagentJobsPauseWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentJobsPauseData"];
+        };
+        SdkagentJobsResumeRequest: components["schemas"]["AgentJobIDReq"];
+        SdkagentJobsResumeData: components["schemas"]["AgentJobMutationResp"];
+        SdkagentJobsResumeWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentJobsResumeData"];
+        };
+        SdkagentJobsTriggerRequest: components["schemas"]["AgentJobIDReq"];
+        SdkagentJobsTriggerData: components["schemas"]["AgentJobTriggerResp"];
+        SdkagentJobsTriggerWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentJobsTriggerData"];
+        };
+        SdkagentJobsUpdateRequest: components["schemas"]["AgentJobUpdateReq"];
+        SdkagentJobsUpdateData: components["schemas"]["AgentJobMutationResp"];
+        SdkagentJobsUpdateWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentJobsUpdateData"];
+        };
+        SdkagentLibraryCreateRequest: components["schemas"]["AgentLibraryCreateReq"];
+        SdkagentLibraryCreateData: components["schemas"]["AgentLibraryMutationResp"];
+        SdkagentLibraryCreateWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentLibraryCreateData"];
+        };
+        SdkagentLibraryDeleteRequest: components["schemas"]["AgentLibraryGetReq"];
+        SdkagentLibraryDeleteData: components["schemas"]["AgentLibraryMutationResp"];
+        SdkagentLibraryDeleteWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentLibraryDeleteData"];
+        };
+        SdkagentLibraryGetRequest: components["schemas"]["AgentLibraryGetReq"];
+        SdkagentLibraryGetData: components["schemas"]["AgentLibraryGetResp"];
+        SdkagentLibraryGetWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentLibraryGetData"];
+        };
+        SdkagentLibraryListRequest: components["schemas"]["AgentLibraryListReq"];
+        SdkagentLibraryListData: components["schemas"]["AgentLibraryListResp"];
+        SdkagentLibraryListWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentLibraryListData"];
+        };
+        SdkagentLibraryUpdateRequest: components["schemas"]["AgentLibraryUpdateReq"];
+        SdkagentLibraryUpdateData: components["schemas"]["AgentLibraryMutationResp"];
+        SdkagentLibraryUpdateWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentLibraryUpdateData"];
+        };
+        SdkagentNodesIndexSyncData: components["schemas"]["AgentNodeIndexSyncResp"];
+        SdkagentNodesIndexSyncWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentNodesIndexSyncData"];
+        };
+        SdkagentNodesSearchSemanticRequest: components["schemas"]["AgentNodeSearchSemanticReq"];
+        SdkagentNodesSearchSemanticData: components["schemas"]["AgentNodeSearchSemanticResp"];
+        SdkagentNodesSearchSemanticWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentNodesSearchSemanticData"];
+        };
+        SdkagentRelationsListRequest: components["schemas"]["AgentRelationListReq"];
+        SdkagentRelationsListData: components["schemas"]["AgentRelationListResp"];
+        SdkagentRelationsListWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentRelationsListData"];
+        };
+        SdkagentRelationsTeachRequest: components["schemas"]["AgentRelationTeachReq"];
+        SdkagentRelationsTeachData: components["schemas"]["AgentRelationTeachResp"];
+        SdkagentRelationsTeachWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentRelationsTeachData"];
+        };
+        SdkagentResultsCreateRequest: components["schemas"]["AgentResultCreateReq"];
+        SdkagentResultsCreateData: components["schemas"]["AgentResultCreateResp"];
+        SdkagentResultsCreateWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentResultsCreateData"];
+        };
+        SdkagentResultsGetRequest: components["schemas"]["AgentResultGetReq"];
+        SdkagentResultsGetData: components["schemas"]["AgentResultGetResp"];
+        SdkagentResultsGetWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentResultsGetData"];
+        };
+        SdkagentResultsListRequest: components["schemas"]["AgentResultListReq"];
+        SdkagentResultsListData: components["schemas"]["AgentResultListResp"];
+        SdkagentResultsListWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentResultsListData"];
+        };
+        SdkagentResultsPinRequest: components["schemas"]["AgentResultPinReq"];
+        SdkagentResultsPinData: components["schemas"]["AgentResultPinResp"];
+        SdkagentResultsPinWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkagentResultsPinData"];
+        };
+        SdkassetsFilesPrepareUploadRequest: components["schemas"]["AssetFileUploadReq"];
+        SdkassetsFilesPrepareUploadData: components["schemas"]["AssetFileUploadResp"];
+        SdkassetsFilesPrepareUploadWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkassetsFilesPrepareUploadData"];
+        };
+        SdkassetsFilesDeleteRequest: components["schemas"]["AssetFileDeleteReq"];
+        SdkassetsFilesDeleteData: components["schemas"]["AssetFileDeleteResp"];
+        SdkassetsFilesDeleteWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkassetsFilesDeleteData"];
+        };
+        SdkassetsFilesDownloadQuery: {
+            filePath: string;
+            responseContentDisposition?: string;
+        };
+        SdkassetsFilesDownloadData: unknown;
+        SdkassetsFilesDownloadWire: components["schemas"]["SdkassetsFilesDownloadData"];
+        SdkassetsFilesMultipartAbortRequest: components["schemas"]["AssetFileMultipartAbortReq"];
+        SdkassetsFilesMultipartAbortData: components["schemas"]["AssetFileMultipartAbortResp"];
+        SdkassetsFilesMultipartAbortWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkassetsFilesMultipartAbortData"];
+        };
+        SdkassetsFilesMultipartCompleteRequest: components["schemas"]["AssetFileMultipartCompleteReq"];
+        SdkassetsFilesMultipartCompleteData: components["schemas"]["AssetFileMultipartCompleteResp"];
+        SdkassetsFilesMultipartCompleteWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkassetsFilesMultipartCompleteData"];
+        };
+        SdkassetsFilesMultipartInitRequest: components["schemas"]["AssetFileMultipartInitReq"];
+        SdkassetsFilesMultipartInitData: components["schemas"]["AssetFileMultipartInitResp"];
+        SdkassetsFilesMultipartInitWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkassetsFilesMultipartInitData"];
+        };
+        SdkassetsFilesMultipartPartUrlsRequest: components["schemas"]["AssetFileMultipartPartUrlsReq"];
+        SdkassetsFilesMultipartPartUrlsData: components["schemas"]["AssetFileMultipartPartUrlsResp"];
+        SdkassetsFilesMultipartPartUrlsWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkassetsFilesMultipartPartUrlsData"];
+        };
+        SdkassetsFilesUrlQuery: {
+            filePath: string;
+            expiredSec?: number | bigint;
+        };
+        SdkassetsFilesUrlData: components["schemas"]["AssetFileUrlResp"];
+        SdkassetsFilesUrlWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkassetsFilesUrlData"];
+        };
+        SdkassetsUploadRequest: components["schemas"]["AssetUploadReq"];
+        SdkassetsUploadData: components["schemas"]["AssetUploadResp"];
+        SdkassetsUploadWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkassetsUploadData"];
+        };
+        SdksystemWhoamiData: components["schemas"]["AuthWhoamiResp"];
+        SdksystemWhoamiWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdksystemWhoamiData"];
+        };
+        SdkcapabilitiesDiscoverData: components["schemas"]["CapabilityDiscoverResp"];
+        SdkcapabilitiesDiscoverWire: components["schemas"]["SdkcapabilitiesDiscoverData"];
+        SdkcontrolsDiscoverRequest: components["schemas"]["ControlDiscoverReq"];
+        SdkcontrolsDiscoverData: components["schemas"]["ControlDiscoverResp"];
+        SdkcontrolsDiscoverWire: components["schemas"]["SdkcontrolsDiscoverData"];
+        SdkcontrolsDescribeData: components["schemas"]["PublicControl"];
+        SdkcontrolsDescribeWire: components["schemas"]["SdkcontrolsDescribeData"];
+        SdkcontrolsInvokeRequest: components["schemas"]["ControlInvokeReq"];
+        SdkcontrolsInvokeData: components["schemas"]["ControlInvokeResp"];
+        SdkcontrolsInvokeWire: components["schemas"]["SdkcontrolsInvokeData"];
+        SdksystemInfoData: components["schemas"]["SdkInfoResponse"];
+        SdksystemInfoWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdksystemInfoData"];
+        };
+        SdkmqttAuthCreateRequest: components["schemas"]["MqttAuthCreateReq"];
+        SdkmqttAuthCreateData: components["schemas"]["MqttAuthCreateResp"];
+        SdkmqttAuthCreateWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkmqttAuthCreateData"];
+        };
+        SdkmqttAuthDeleteRequest: components["schemas"]["MqttAuthDeleteReq"];
+        SdkmqttAuthDeleteData: components["schemas"]["MqttAuthDeleteResp"];
+        SdkmqttAuthDeleteWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkmqttAuthDeleteData"];
+        };
+        SdknotificationsGetRequest: components["schemas"]["GetNotificationReq"];
+        SdknotificationsGetData: components["schemas"]["GetNotificationResp"];
+        SdknotificationsGetWire: components["schemas"]["SdknotificationsGetData"];
+        SdknotificationsSendRequest: components["schemas"]["SendNotificationReq"];
+        SdknotificationsSendData: components["schemas"]["SendNotificationResp"];
+        SdknotificationsSendWire: components["schemas"]["SdknotificationsSendData"];
+        SdkmembersListWorkspaceRequest: components["schemas"]["PlatformGetMembersReq"];
+        SdkmembersListWorkspaceData: components["schemas"]["PlatformMembersResp"];
+        SdkmembersListWorkspaceWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkmembersListWorkspaceData"];
+        };
+    };
+    responses: never;
+    parameters: never;
+    requestBodies: never;
+    headers: never;
+    pathItems: never;
+}
+export type $defs = Record<string, never>;
+export interface operations {
+    "openapi/V1/AgentAgentAnalysisDispatch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentAnalysisDispatchReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentAnalysesDispatchWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentAnalysisGet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentAnalysisGetReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentAnalysesGetWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentCanvasList": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentCanvasListReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentCanvasesListWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentCardDelete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentCardDeleteReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentCardsDeleteWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentCardGet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentCardGetReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentCardsGetWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentCardList": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentCardListReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentCardsListWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentCardUpdate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentCardUpdateReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentCardsUpdateWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentJobRunGet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentJobRunGetReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentJobRunsGetWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentJobRunList": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentJobRunListReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentJobRunsListWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentJobCreate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentJobCreateReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentJobsCreateWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentJobDelete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentJobIDReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentJobsDeleteWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentJobGet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentJobIDReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentJobsGetWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentJobList": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentJobListReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentJobsListWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentJobPause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentJobIDReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentJobsPauseWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentJobResume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentJobIDReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentJobsResumeWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentJobTrigger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentJobIDReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentJobsTriggerWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentJobUpdate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentJobUpdateReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentJobsUpdateWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentLibraryCreate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentLibraryCreateReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentLibraryCreateWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentLibraryDelete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentLibraryGetReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentLibraryDeleteWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentLibraryGet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentLibraryGetReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentLibraryGetWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentLibraryList": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentLibraryListReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentLibraryListWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentLibraryUpdate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentLibraryUpdateReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentLibraryUpdateWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentNodeIndexSync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentNodesIndexSyncWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentNodeSearchSemantic": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentNodeSearchSemanticReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentNodesSearchSemanticWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentRelationList": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentRelationListReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentRelationsListWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentRelationTeach": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentRelationTeachReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentRelationsTeachWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentResultCreate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentResultCreateReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentResultsCreateWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentResultGet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentResultGetReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentResultsGetWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentResultList": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentResultListReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentResultsListWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AgentAgentResultPin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentResultPinReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkagentResultsPinWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AssetsAssetFileUpload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssetFileUploadReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkassetsFilesPrepareUploadWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AssetsAssetFileDelete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssetFileDeleteReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkassetsFilesDeleteWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AssetsAssetFileDownload": {
+        parameters: {
+            query: {
+                filePath: string;
+                responseContentDisposition?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    "openapi/V1/AssetsAssetFileMultipartAbort": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssetFileMultipartAbortReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkassetsFilesMultipartAbortWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AssetsAssetFileMultipartComplete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssetFileMultipartCompleteReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkassetsFilesMultipartCompleteWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AssetsAssetFileMultipartInit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssetFileMultipartInitReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkassetsFilesMultipartInitWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AssetsAssetFileMultipartPartUrls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssetFileMultipartPartUrlsReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkassetsFilesMultipartPartUrlsWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AssetsAssetFileUrl": {
+        parameters: {
+            query: {
+                filePath: string;
+                expiredSec?: number | bigint;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkassetsFilesUrlWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/UnsAssetUpload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssetUploadReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkassetsUploadWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AuthWhoami": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdksystemWhoamiWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/CapabilitiesCapabilityDiscover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkcapabilitiesDiscoverWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/ControlsControlDiscover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ControlDiscoverReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkcontrolsDiscoverWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/ControlsControlDescribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                controlCode: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkcontrolsDescribeWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/ControlsControlInvoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                controlCode: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ControlInvokeReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkcontrolsInvokeWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/InfoInfo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdksystemInfoWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/MqttauthCreate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MqttAuthCreateReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkmqttAuthCreateWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/MqttauthDelete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MqttAuthDeleteReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkmqttAuthDeleteWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/NotificationsGetNotification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GetNotificationReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdknotificationsGetWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/NotificationsSendNotification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendNotificationReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdknotificationsSendWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/PlatformGetMembers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformGetMembersReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkmembersListWorkspaceWire"];
+                };
+            };
+        };
+    };
+}
