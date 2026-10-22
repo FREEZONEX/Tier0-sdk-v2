@@ -61,6 +61,10 @@ interface WriteResult {
   upsertedCount?: number;
   writeErrors?: unknown[];
   hasMore?: boolean;
+}
+
+/** A page of `updateMany` / `deleteMany`, the only writes that continue with `resumeAfter`. */
+interface ManyPage extends WriteResult {
   resumeAfter?: string | null;
 }
 
@@ -232,7 +236,7 @@ function idsInOrder(ids: Record<string, string> | undefined): string[] {
  * whole batch back. Non-atomic runs pass their cumulative counts; `details`
  * then has the shape `partialWrite` uses.
  */
-function assertNoWriteErrors(result: WriteResult, operation: string, committed?: Record<string, number>) {
+function assertNoWriteErrors(result: ManyPage, operation: string, committed?: Record<string, number>) {
   if (result.writeErrors && result.writeErrors.length > 0) {
     const counts = Object.entries(committed ?? {}).map(([name, value]) => `${name}=${value}`).join(', ');
     const changed = committed !== undefined && Object.values(committed).some((value) => value > 0);
@@ -543,13 +547,13 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
     let resumeAfter = from;
     let committed: Record<string, number> | undefined;
     do {
-      let result: WriteResult;
+      let result: ManyPage;
       try {
-        result = await this.post<WriteResult>(operation, { ...body, atomic: false, resumeAfter });
+        result = await this.post<ManyPage>(operation, { ...body, atomic: false, resumeAfter });
       } catch (error) {
         if (!(error instanceof DataError)) throw error;
         // UNS reports what the failed page itself committed, with where to continue.
-        const page = error.execution === 'committed' ? (error.details as WriteResult) : undefined;
+        const page = error.execution === 'committed' ? (error.details as ManyPage) : undefined;
         const totals = page ? add(page) : committed;
         // Nothing of this call took effect: the page's own error tells the truth.
         if (!totals || !Object.values(totals).some((value) => value > 0)) throw error;

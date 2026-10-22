@@ -2,8 +2,8 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Tier0 Cloud UNS OpenAPI v2",
-    "version": "4.0.0",
-    "description": "云端集合、业务数据、时序数据及数据源、处理流、控制接口。使用绑定工作空间的 API Key。\n\n### 公共错误\n各接口只展开成功结果；失败统一使用 default 响应。HTTP 状态码：401 未认证、403 无权限、404 对象不存在、409 状态或唯一键冲突、413 内容超限、422 参数或业务校验失败、500 服务端错误、503 暂不可用、504 查询超时。具体原因以 error.code 为准，定位及恢复信息由 details/retryAdvice 提供；额外诊断字段随实际错误返回。"
+    "version": "5.0.0",
+    "description": "云端集合、业务数据、时序数据及数据源、处理流、控制接口。使用绑定工作空间的 API Key。\n\n### 公共错误\n各接口只展开成功结果；失败统一使用 default 响应。HTTP 状态码：401 未认证、403 无权限或未开通、404 对象不存在、409 状态、版本、唯一键冲突或凭据已变化、413 内容超限、422 参数或业务校验失败、429 过载、500 服务端错误、503 暂不可用、504 查询超时。具体原因以 error.code 为准。error.execution 说明执行到哪一步：notStarted、rolledBack 可证明没有副作用，committed 表示已提交，unknown 只出现在写操作上、表示无法证明是否提交。error.retry.safe=true 时可原样重发（写入复用原幂等键），retry.afterMs 与 Retry-After 给出最短等待时间；safe=false 时先修正请求或恢复授权。"
   },
   "tags": [
     {
@@ -130,13 +130,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -203,13 +203,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -266,13 +266,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -392,13 +392,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -496,13 +496,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -618,13 +618,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -642,7 +642,7 @@
           "任务"
         ],
         "summary": "查询任务状态",
-        "description": "按 jobIds 查询异步任务的状态和结果；queries 中的 queryId 用于对应结果。",
+        "description": "按 jobIds 查询异步任务的状态和结果；queries 中的 queryId 用于对应结果。App 凭证不提交异步任务，也不可调用本接口。",
         "requestBody": {
           "required": true,
           "content": {
@@ -710,13 +710,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -794,13 +794,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -869,13 +869,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -1081,13 +1081,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -1243,13 +1243,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -1407,13 +1407,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -1568,13 +1568,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -1643,13 +1643,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -1707,13 +1707,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -1804,20 +1804,20 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
             }
           }
         },
-        "x-tier0-readonly": false,
+        "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
     },
@@ -1898,13 +1898,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -1978,20 +1978,20 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
             }
           }
         },
-        "x-tier0-readonly": false,
+        "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
     },
@@ -2067,13 +2067,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -2169,13 +2169,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -2244,13 +2244,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -2334,13 +2334,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -2429,13 +2429,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -2522,13 +2522,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -2624,13 +2624,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -2648,7 +2648,7 @@
           "时序数据"
         ],
         "summary": "追加采样",
-        "description": "为 URL 中 collectionId、recordId 指定的已有记录追加 items。每项 time 必填，表示采样发生时间（Unix 毫秒）；data 为采样业务数据，id、quality 可选。receivedAt 由服务端生成。dryRun=true 仅校验；默认整批原子提交，allowPartial=true 按项独立提交并返回各项结果。mode 选择 auto、sync 或 async；异步受理后通过 jobId 查询结果。",
+        "description": "为 URL 中 collectionId、recordId 指定的已有记录追加 items。每项 time 必填，表示采样发生时间（Unix 毫秒）；data 为采样业务数据，id、quality 可选。receivedAt 由服务端生成。dryRun=true 仅校验；默认整批原子提交，allowPartial=true 按项独立提交并返回各项结果。mode 选择 auto、sync 或 async；异步受理后通过 jobId 查询结果（App 凭证只能使用 auto/sync）。",
         "requestBody": {
           "required": true,
           "content": {
@@ -2777,13 +2777,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -2814,6 +2814,129 @@
         ],
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
+      }
+    },
+    "/uns/records:subscribe": {
+      "get": {
+        "operationId": "UnsV2RecordSubscribe",
+        "summary": "订阅记录变更（SSE）",
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SSE 事件流；每帧的 data 为 JSON。",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudRecordSubscribeFrame"
+                },
+                "example": "event: heartbeat\nid: c1\ndata: {\"at\":1792454400000}\n\nevent: change\nid: c2\ndata: {\"eventId\":\"c2\",\"collectionId\":\"work_orders\",\"recordId\":\"wo-1\",\"revision\":3,\"change\":\"record\",\"restricted\":false,\"occurredAt\":1792454401000}\n\n"
+              }
+            }
+          },
+          "default": {
+            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocCommonError"
+                },
+                "example": {
+                  "code": 422,
+                  "msg": "请求参数不合法",
+                  "requestId": "request-id",
+                  "data": null,
+                  "error": {
+                    "code": "INVALID_REQUEST",
+                    "reason": "filter.status must be a string",
+                    "details": [],
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "业务数据"
+        ],
+        "description": "GET，Accept 必须恰好为 text/event-stream。collectionIds 为重复查询参数，最多 64 个，省略表示当前主体有权读取的全部集合（App 凭据即本 App 授权的全部集合）；recordIds 最多 100 个，需要且只能配合一个集合；每个集合需要 record:read。连接建立后立即发送 heartbeat（id 为当前位置），之后每 15 秒一次；change 事件按提交顺序投递，只含 collectionId、recordId、revision、change（record/delete）、restricted 与 occurredAt，不含业务字段，收到后按 ID 重新读取。restricted=true 表示集合有员工数据规则，以 App 身份合并转发的服务端只能向浏览器转发集合级通知。断线后用最后的事件 id 作为 Last-Event-ID 续传；超出 24 小时保留期或授权范围缩小时发送 reset 并关闭连接，客户端重新读取后不带 Last-Event-ID 重新订阅。授权每 30 秒复核一次。连接数超限返回 429 OVERLOADED。",
+        "parameters": [
+          {
+            "name": "collectionIds",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "description": "订阅的集合，最多 64 个；每个集合都需要 record:read 授权。省略表示当前主体有权读取的全部集合（App 凭据即本 App 授权的全部集合），授权范围变化时发送 reset。",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "minItems": 1,
+              "maxItems": 64,
+              "uniqueItems": true,
+              "description": "订阅的集合，最多 64 个；每个集合都需要 record:read 授权。省略表示当前主体有权读取的全部集合（App 凭据即本 App 授权的全部集合），授权范围变化时发送 reset。"
+            }
+          },
+          {
+            "name": "recordIds",
+            "in": "query",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "description": "只订阅这些记录，最多 100 个；需要且只能配合一个 collectionId。",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "minItems": 1,
+              "maxItems": 100,
+              "uniqueItems": true,
+              "description": "只订阅这些记录，最多 100 个；需要且只能配合一个 collectionId。"
+            }
+          },
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "required": false,
+            "description": "上次收到的事件 id；省略时从当前位置开始。",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8192,
+              "description": "续传位置，即上次收到的事件 id（SSE Last-Event-ID）；省略时从当前位置开始。"
+            }
+          },
+          {
+            "name": "Accept",
+            "in": "header",
+            "required": true,
+            "description": "必须恰好为 text/event-stream。",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "text/event-stream"
+              ]
+            }
+          }
+        ],
+        "x-tier0-readonly": true,
+        "x-tier0-destructive": false,
+        "x-tier0-transport": "sse"
       }
     },
     "/uns/records:transact": {
@@ -3002,13 +3125,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -3018,7 +3141,7 @@
         "tags": [
           "业务数据"
         ],
-        "description": "在一个原子事务中执行跨集合 Record 操作，按 opId 关联结果，支持 dependsOn 和结果引用。dryRun=true 仅预检；mode 选择 auto、sync 或 async，异步受理后通过 jobId 查询结果。每个操作分别检查集合权限。",
+        "description": "在一个原子事务中执行跨集合 Record 操作，按 opId 关联结果，支持 dependsOn 和结果引用。dryRun=true 仅预检；mode 选择 auto、sync 或 async，异步受理后通过 jobId 查询结果（App 凭证只能使用 auto/sync）。每个操作分别检查集合权限。",
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -3072,9 +3195,22 @@
                   },
                   "cursor": {
                     "type": "string"
+                  },
+                  "count": {
+                    "$ref": "#/components/schemas/CloudRecordTotalOption"
                   }
                 },
-                "required": []
+                "required": [],
+                "allOf": [
+                  {
+                    "not": {
+                      "required": [
+                        "count",
+                        "cursor"
+                      ]
+                    }
+                  }
+                ]
               },
               "example": {}
             }
@@ -3113,6 +3249,10 @@
                       "nextCursor": null,
                       "nextPage": null,
                       "snapshotScope": "thisRequestOnly"
+                    },
+                    "total": {
+                      "count": 1,
+                      "capped": false
                     }
                   }
                 }
@@ -3133,13 +3273,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -3161,7 +3301,7 @@
             }
           }
         ],
-        "description": "在指定集合内按 filter 查询有效记录，支持 sort、projection 和 limit/cursor。返回 items 与 pageInfo；业务字段位于每条记录的 data 中。",
+        "description": "在指定集合内按 filter 查询有效记录，支持 sort、projection 和 limit/cursor。返回 items 与 pageInfo；业务字段位于每条记录的 data 中。第一页可带 count:{max} 在同一快照附带封顶总数 total:{count,capped}（默认上限 10000，最大 100000），续页 cursor 不可带 count。",
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -3186,9 +3326,17 @@
                 "properties": {
                   "filter": {
                     "$ref": "#/components/schemas/UnsV2DataFilter"
+                  },
+                  "maxCount": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100000,
+                    "default": 100000,
+                    "description": "计数上限；真实匹配数大于 maxCount 时返回 count=maxCount、capped=true，等于 maxCount 时 capped=false。"
                   }
                 },
-                "required": []
+                "required": [],
+                "description": "统计符合 filter 的有效记录数，最多数到 maxCount。"
               },
               "example": {}
             }
@@ -3207,7 +3355,8 @@
                   "msg": "success",
                   "requestId": "request-id",
                   "data": {
-                    "count": 1
+                    "count": 1,
+                    "capped": false
                   }
                 }
               }
@@ -3227,13 +3376,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -3255,7 +3404,7 @@
             }
           }
         ],
-        "description": "返回指定集合中符合 filter 的有效记录总数；成功结果为完整计数，超时返回错误。",
+        "description": "返回指定集合中符合 filter 的有效记录数，最多数到 maxCount（默认与最大 100000）；真实匹配数大于 maxCount 时返回 count=maxCount、capped=true，等于时 capped=false。",
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -3356,13 +3505,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -3422,6 +3571,9 @@
                   },
                   "page": {
                     "$ref": "#/components/schemas/UnsV2PipelinePage"
+                  },
+                  "count": {
+                    "$ref": "#/components/schemas/CloudRecordTotalOption"
                   }
                 },
                 "required": [
@@ -3434,6 +3586,21 @@
                         "page",
                         "limit"
                       ]
+                    }
+                  },
+                  {
+                    "not": {
+                      "required": [
+                        "count",
+                        "page"
+                      ],
+                      "properties": {
+                        "page": {
+                          "required": [
+                            "cursor"
+                          ]
+                        }
+                      }
                     }
                   }
                 ]
@@ -3488,13 +3655,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -3516,7 +3683,7 @@
             }
           }
         ],
-        "description": "对指定集合的有效记录执行 pipeline，支持过滤、投影、分组和排序。返回文档由 pipeline 决定；page 与 limit 互斥。",
+        "description": "对指定集合的有效记录执行 pipeline，支持过滤、投影、分组和排序。返回文档由 pipeline 决定；page 与 limit 互斥。第一页或 offset 页可带 count:{max} 在同一快照附带管线输出的封顶总数 total。",
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -3592,13 +3759,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -3757,13 +3924,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -3946,25 +4113,33 @@
             }
           },
           "default": {
-            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
+            "description": "失败响应。部分提交时 error.execution=committed、retry.safe=false，data 为累计结果。",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DocCommonError"
+                  "$ref": "#/components/schemas/DocUnsV2RecordInsertManyPartialError"
                 },
                 "example": {
-                  "code": 422,
-                  "msg": "请求参数不合法",
+                  "code": 503,
+                  "msg": "chunk failed after partial commit",
                   "requestId": "request-id",
-                  "data": null,
+                  "data": {
+                    "status": "partiallyCommitted",
+                    "replayed": false,
+                    "insertedCount": 1,
+                    "insertedIds": {
+                      "0": "r1"
+                    },
+                    "hasMore": true,
+                    "nextIndex": 100
+                  },
                   "error": {
-                    "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "code": "TEMPORARILY_UNAVAILABLE",
+                    "reason": "statement timeout in chunk 3",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
+                    "execution": "committed",
+                    "retry": {
+                      "safe": false
                     }
                   }
                 }
@@ -3987,7 +4162,7 @@
             }
           }
         ],
-        "description": "向指定集合新增 documents。atomic 控制整批原子性，ordered 控制遇到逐项失败时是否停止；insertedIds 以原始输入从 0 开始的索引关联 ID。dryRun=true 仅校验。",
+        "description": "向指定集合新增 documents。atomic 控制整批原子性，ordered 控制遇到逐项失败时是否停止；insertedIds 以原始输入从 0 开始的索引关联 ID。dryRun=true 仅校验。atomic=false 时按块 / 按项提交：只要有任一块或任一项已提交，失败响应的 error.execution=committed（部分提交）、retry.safe=false，错误信封 data 为与成功响应相同结构的累计结果（计数、insertedIds、writeErrors、hasMore、nextIndex，结局未知时另有 unknownUntil），nextIndex 是第一个未执行操作的零基序号；序号小于 nextIndex 且不在 writeErrors 里的操作都已提交；有 unknownUntil 时 [nextIndex, unknownUntil) 结局未知，带幂等键时用同一个键重试，不带键时只有带客户端 id 的新增与按 id 的替换 / 删除能先按 id 读取状态再续做，服务端生成 id 的新增、按 filter 选择目标的操作与 $inc 等增量更新无法核对，结局未知时不能安全续做（这类写入应始终带幂等键）；没有 unknownUntil 时从 nextIndex 续做是安全的；只有全部未提交时 execution 才是 rolledBack 或 notStarted。",
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -4145,13 +4320,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -4367,13 +4542,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -4542,13 +4717,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -4753,13 +4928,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -4914,13 +5089,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -5104,13 +5279,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -5294,25 +5469,31 @@
             }
           },
           "default": {
-            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
+            "description": "失败响应。部分提交时 error.execution=committed、retry.safe=false，data 为累计结果。",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DocCommonError"
+                  "$ref": "#/components/schemas/DocUnsV2RecordUpdateManyPartialError"
                 },
                 "example": {
-                  "code": 422,
-                  "msg": "请求参数不合法",
+                  "code": 503,
+                  "msg": "chunk failed after partial commit",
                   "requestId": "request-id",
-                  "data": null,
+                  "data": {
+                    "status": "partiallyCommitted",
+                    "replayed": false,
+                    "matchedCount": 1,
+                    "modifiedCount": 1,
+                    "hasMore": true,
+                    "resumeAfter": "r100"
+                  },
                   "error": {
-                    "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "code": "TEMPORARILY_UNAVAILABLE",
+                    "reason": "statement timeout in chunk 3",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
+                    "execution": "committed",
+                    "retry": {
+                      "safe": false
                     }
                   }
                 }
@@ -5335,7 +5516,7 @@
             }
           }
         ],
-        "description": "更新符合 filter 的记录，不支持 upsert。maxDocs 限制本轮处理数量，resumeAfter 用于继续；atomic、ordered 控制批量执行方式。dryRun=true 仅校验。",
+        "description": "更新符合 filter 的记录，不支持 upsert。maxDocs 限制本轮处理数量，resumeAfter 用于继续；atomic、ordered 控制批量执行方式。dryRun=true 仅校验。atomic=false 时按块 / 按项提交：只要有任一块或任一项已提交，失败响应的 error.execution=committed（部分提交）、retry.safe=false，错误信封 data 为与成功响应相同结构的累计结果（计数、insertedIds、writeErrors，可续做时含 hasMore/resumeAfter）；只有全部未提交时 execution 才是 rolledBack 或 notStarted。",
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -5477,25 +5658,30 @@
             }
           },
           "default": {
-            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
+            "description": "失败响应。部分提交时 error.execution=committed、retry.safe=false，data 为累计结果。",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DocCommonError"
+                  "$ref": "#/components/schemas/DocUnsV2RecordDeleteManyPartialError"
                 },
                 "example": {
-                  "code": 422,
-                  "msg": "请求参数不合法",
+                  "code": 503,
+                  "msg": "chunk failed after partial commit",
                   "requestId": "request-id",
-                  "data": null,
+                  "data": {
+                    "status": "partiallyCommitted",
+                    "replayed": false,
+                    "deletedCount": 1,
+                    "hasMore": true,
+                    "resumeAfter": "r100"
+                  },
                   "error": {
-                    "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "code": "TEMPORARILY_UNAVAILABLE",
+                    "reason": "statement timeout in chunk 3",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
+                    "execution": "committed",
+                    "retry": {
+                      "safe": false
                     }
                   }
                 }
@@ -5518,7 +5704,7 @@
             }
           }
         ],
-        "description": "软删除符合 filter 的记录，关联 Sample 在同一事务内物理删除，恢复 Record 不恢复 Sample。maxDocs 限制本轮处理数量，resumeAfter 用于继续；atomic、ordered 控制批量执行方式。dryRun=true 仅校验。",
+        "description": "软删除符合 filter 的记录，关联 Sample 在同一事务内物理删除，恢复 Record 不恢复 Sample。maxDocs 限制本轮处理数量，resumeAfter 用于继续；atomic、ordered 控制批量执行方式。dryRun=true 仅校验。atomic=false 时按块 / 按项提交：只要有任一块或任一项已提交，失败响应的 error.execution=committed（部分提交）、retry.safe=false，错误信封 data 为与成功响应相同结构的累计结果（计数、insertedIds、writeErrors，可续做时含 hasMore/resumeAfter）；只有全部未提交时 execution 才是 rolledBack 或 notStarted。",
         "x-tier0-readonly": false,
         "x-tier0-destructive": true
       }
@@ -5831,25 +6017,38 @@
             }
           },
           "default": {
-            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
+            "description": "失败响应。部分提交时 error.execution=committed、retry.safe=false，data 为累计结果。",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DocCommonError"
+                  "$ref": "#/components/schemas/DocUnsV2RecordBulkWritePartialError"
                 },
                 "example": {
-                  "code": 422,
-                  "msg": "请求参数不合法",
+                  "code": 503,
+                  "msg": "chunk failed after partial commit",
                   "requestId": "request-id",
-                  "data": null,
+                  "data": {
+                    "status": "partiallyCommitted",
+                    "replayed": false,
+                    "insertedCount": 1,
+                    "matchedCount": 0,
+                    "modifiedCount": 0,
+                    "deletedCount": 0,
+                    "upsertedCount": 0,
+                    "insertedIds": {
+                      "0": "r1"
+                    },
+                    "upsertedIds": {},
+                    "hasMore": true,
+                    "nextIndex": 100
+                  },
                   "error": {
-                    "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "code": "TEMPORARILY_UNAVAILABLE",
+                    "reason": "statement timeout in chunk 3",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
+                    "execution": "committed",
+                    "retry": {
+                      "safe": false
                     }
                   }
                 }
@@ -5872,7 +6071,7 @@
             }
           }
         ],
-        "description": "按 operations 在同一集合内混合执行新增、更新、替换和软删除。atomic、ordered 控制批量执行方式；结果索引对应原始输入位置。dryRun=true 仅校验。",
+        "description": "按 operations 在同一集合内混合执行新增、更新、替换和软删除。atomic、ordered 控制批量执行方式；结果索引对应原始输入位置。dryRun=true 仅校验。atomic=false 时按块 / 按项提交：只要有任一块或任一项已提交，失败响应的 error.execution=committed（部分提交）、retry.safe=false，错误信封 data 为与成功响应相同结构的累计结果（计数、insertedIds、writeErrors、hasMore、nextIndex，结局未知时另有 unknownUntil），nextIndex 是第一个未执行操作的零基序号；序号小于 nextIndex 且不在 writeErrors 里的操作都已提交；有 unknownUntil 时 [nextIndex, unknownUntil) 结局未知，带幂等键时用同一个键重试，不带键时只有带客户端 id 的新增与按 id 的替换 / 删除能先按 id 读取状态再续做，服务端生成 id 的新增、按 filter 选择目标的操作与 $inc 等增量更新无法核对，结局未知时不能安全续做（这类写入应始终带幂等键）；没有 unknownUntil 时从 nextIndex 续做是安全的；只有全部未提交时 execution 才是 rolledBack 或 notStarted。",
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -5969,13 +6168,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -6099,13 +6298,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -6241,13 +6440,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -6338,13 +6537,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -6431,13 +6630,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -6500,13 +6699,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -6582,13 +6781,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -6657,13 +6856,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -6741,13 +6940,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -6757,7 +6956,7 @@
         "tags": [
           "控制"
         ],
-        "description": "按 code 和 input 调用控制能力。相同业务意图重试时复用 idempotencyKey；结果未知时按返回的重试建议处理，避免重复执行。",
+        "description": "按 code 和 input 调用控制能力。相同业务意图重试时复用 idempotencyKey；失败时按 error.execution 与 error.retry 判断，execution=unknown 时只能复用原幂等键重试，避免重复执行。",
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -6819,13 +7018,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -6836,7 +7035,7 @@
           "数据源"
         ],
         "description": "按 id 读取数据源的完整原生配置文档，需要数据源管理权限。",
-        "x-tier0-readonly": false,
+        "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
     },
@@ -6956,13 +7155,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -7062,13 +7261,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -7140,13 +7339,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -7157,7 +7356,7 @@
           "处理流"
         ],
         "description": "按 id 读取处理流的原生配置文档。",
-        "x-tier0-readonly": false,
+        "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
     },
@@ -7226,13 +7425,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -7323,13 +7522,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -7437,13 +7636,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -7535,13 +7734,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -7576,6 +7775,11 @@
                 "properties": {
                   "document": {
                     "$ref": "#/components/schemas/CloudStreamDocument"
+                  },
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$",
+                    "description": "Stable current Stream ID when validating edits. Omit for new drafts; names never identify which active routes to exclude."
                   }
                 },
                 "required": [
@@ -7610,13 +7814,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -7627,7 +7831,7 @@
           "处理流"
         ],
         "description": "校验 document 并返回校验问题；仅在实际生成标准化文档时返回 normalizedDocument，不执行脚本或部署。",
-        "x-tier0-readonly": false,
+        "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
     },
@@ -7721,13 +7925,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -7738,7 +7942,7 @@
           "数据源"
         ],
         "description": "按 id、expectedRevision 和 action 评估拟议变更及受影响资源，返回供提交该变更使用的影响确认标识。",
-        "x-tier0-readonly": false,
+        "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
     },
@@ -7807,13 +8011,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -7903,13 +8107,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -7980,13 +8184,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -8066,13 +8270,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -8149,13 +8353,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -8166,7 +8370,7 @@
           "处理流"
         ],
         "description": "对 document 中 entryId 指定的入口使用 input 执行隔离样例测试；不访问外部主机，也不提交数据写入。",
-        "x-tier0-readonly": false,
+        "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
     },
@@ -8227,13 +8431,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -8244,7 +8448,7 @@
           "App 与授权"
         ],
         "description": "读取真实 App 的 collections 授权。需要当前 Builder 会话或 full_access 个人/Agent key，运行时 App 凭证不可管理授权。",
-        "x-tier0-readonly": false,
+        "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
     },
@@ -8365,13 +8569,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -8434,13 +8638,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -8450,111 +8654,7 @@
         "tags": [
           "App 与授权"
         ],
-        "description": "仅当前受管理 App 凭证可用；返回真实 App 名称和当前授权集合与 Key 权限的交集。collections[].createCapability 按当前员工的真实新增规则给出 allowed、独立可写输入 schema 和版本绑定；不能用通用 record:write 或 read schema 猜测新增。提示不是授权凭证，写入与 replay 仍实时校验。身份只取自服务端认证，不接受 App ID 或发行人用户参数，不返回凭据。",
-        "x-tier0-readonly": true,
-        "x-tier0-destructive": false
-      }
-    },
-    "/uns/records/changes": {
-      "post": {
-        "operationId": "UnsV2RecordChangesPoll",
-        "summary": "读取授权记录变更通知",
-        "deprecated": false,
-        "security": [
-          {
-            "ApiKey": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "collectionId": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 128
-                  },
-                  "recordIds": {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 128
-                    },
-                    "maxItems": 20,
-                    "uniqueItems": true
-                  },
-                  "cursor": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 8192
-                  },
-                  "limit": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 100,
-                    "default": 50
-                  },
-                  "waitMs": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 5000,
-                    "default": 0
-                  }
-                },
-                "required": [
-                  "collectionId"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "查询结果。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocUnsV2RecordChangesPollResponse"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocCommonError"
-                },
-                "example": {
-                  "code": 422,
-                  "msg": "请求参数不合法",
-                  "requestId": "request-id",
-                  "data": null,
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "retryable": false,
-                    "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "业务数据"
-        ],
-        "description": "从既有 EVENTS 有界读取当前可见 Record 的通知，不返回业务字段。无 cursor 时建立实时基准，再调用受限查询读取当前数据；保留期内使用 sealed nextCursor 续传。每次响应复验当前 workspace、App、Key、员工、集合与原/当前归属。409 CURSOR_EXPIRED 要求重新建基准并回读，不补造历史。仅 Record，不开放受保护 Sample、租约或后台作业。",
+        "description": "仅当前受管理 App 凭证可用；返回真实 App 名称和当前授权集合与 Key 权限的交集。collections[] 含集合定义版本 revision、recordSchema、indexes、indexStatus（索引就绪状态）与 ttl；App 读取集合结构只用此接口。collections[].createCapability 按当前员工的真实新增规则给出 allowed、独立可写输入 schema 和版本绑定；不能用通用 record:write 或 read schema 猜测新增。limits 给出 count、总数、queryBatch、get、订阅、TTL、并发名额与幂等窗口等边界，供客户端自适应。提示不是授权凭证，写入与 replay 仍实时校验。身份只取自服务端认证，不接受 App ID 或发行人用户参数，不返回凭据。",
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -8675,13 +8775,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -8798,13 +8898,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -8878,13 +8978,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -8958,13 +9058,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -9038,13 +9138,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -9219,13 +9319,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -9378,13 +9478,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -9563,13 +9663,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -9699,13 +9799,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -9875,13 +9975,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -9905,6 +10005,150 @@
         ],
         "description": "正常释放传 locks 中的 id、token；管理员可传 ids 和 force=true 强制释放。App/API Key 不允许强制释放。",
         "x-tier0-readonly": false,
+        "x-tier0-destructive": false
+      }
+    },
+    "/uns/collections/{collectionId}/records:get": {
+      "post": {
+        "operationId": "UnsV2RecordGet",
+        "summary": "按 ID 读取记录",
+        "deprecated": false,
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "uniqueItems": true
+                  },
+                  "projection": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "oneOf": [
+                        {
+                          "type": "integer",
+                          "enum": [
+                            0,
+                            1
+                          ]
+                        },
+                        {
+                          "type": "boolean"
+                        }
+                      ]
+                    },
+                    "description": "Include or exclude declared fields; computed expressions use aggregate-pipeline. System identity is retained."
+                  }
+                },
+                "required": [
+                  "ids"
+                ],
+                "description": "按主键读取最多 100 条有效记录，items 按请求顺序返回。不存在、已软删除或被员工数据规则过滤的 ID 统一列入 missing，不区分不存在与无权读取。"
+              },
+              "example": {
+                "ids": [
+                  "device-1",
+                  "device-2"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "查询结果。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocUnsV2RecordGetResponse"
+                },
+                "example": {
+                  "code": 200,
+                  "msg": "success",
+                  "requestId": "request-id",
+                  "data": {
+                    "items": [
+                      {
+                        "id": "r1",
+                        "collectionId": "devices",
+                        "data": {
+                          "temperature": 25
+                        },
+                        "revision": 1,
+                        "createdAt": 1792454400000,
+                        "updatedAt": 1792454400000,
+                        "sourceId": null,
+                        "sourceTime": null
+                      }
+                    ],
+                    "missing": [
+                      "r2"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocCommonError"
+                },
+                "example": {
+                  "code": 422,
+                  "msg": "请求参数不合法",
+                  "requestId": "request-id",
+                  "data": null,
+                  "error": {
+                    "code": "INVALID_REQUEST",
+                    "reason": "filter.status must be a string",
+                    "details": [],
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "业务数据"
+        ],
+        "parameters": [
+          {
+            "name": "collectionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "description": "按主键读取最多 100 条有效记录，支持 projection。items 按请求顺序返回；不存在、已软删除或被员工数据规则过滤的 ID 统一列入 missing，不区分不存在与无权读取。",
+        "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
     },
@@ -10001,13 +10245,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -10031,6 +10275,184 @@
         ],
         "description": "按 ids 恢复最多 100 条软删除记录。整批原子执行，重新校验当前 Schema 与唯一索引，任一冲突整批回滚；不恢复删除 Record 时已物理删除的 Sample。dryRun=true 仅校验。",
         "x-tier0-readonly": false,
+        "x-tier0-destructive": false
+      }
+    },
+    "/uns/records:queryBatch": {
+      "post": {
+        "operationId": "UnsV2RecordQueryBatch",
+        "summary": "批量读取页面数据",
+        "deprecated": false,
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "queries": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                      "$ref": "#/components/schemas/CloudRecordBatchQuery"
+                    }
+                  }
+                },
+                "required": [
+                  "queries"
+                ],
+                "description": "最多 20 个查询，在同一个可重复读只读事务中执行，结果来自同一快照。整批最多返回 2000 行、8 MiB，超出返回 413 RESPONSE_TOO_LARGE；任一语句超时返回 504 QUERY_TIMEOUT，整批不返回部分结果。"
+              },
+              "example": {
+                "queries": [
+                  {
+                    "id": "open",
+                    "op": "find",
+                    "collectionId": "work_orders",
+                    "filter": {
+                      "status": "open"
+                    },
+                    "sort": [
+                      [
+                        "_meta.updatedAt",
+                        -1
+                      ]
+                    ],
+                    "limit": 20,
+                    "count": {
+                      "max": 10000
+                    }
+                  },
+                  {
+                    "id": "byStatus",
+                    "op": "aggregate",
+                    "collectionId": "work_orders",
+                    "pipeline": [
+                      {
+                        "$group": {
+                          "_id": "$status",
+                          "count": {
+                            "$sum": 1
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "id": "pinned",
+                    "op": "get",
+                    "collectionId": "work_orders",
+                    "ids": [
+                      "wo-1"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "查询结果。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocUnsV2RecordQueryBatchResponse"
+                },
+                "example": {
+                  "code": 200,
+                  "msg": "success",
+                  "requestId": "request-id",
+                  "data": {
+                    "results": {
+                      "open": {
+                        "ok": true,
+                        "data": {
+                          "items": [
+                            {
+                              "id": "r1",
+                              "collectionId": "devices",
+                              "data": {
+                                "temperature": 25
+                              },
+                              "revision": 1,
+                              "createdAt": 1792454400000,
+                              "updatedAt": 1792454400000,
+                              "sourceId": null,
+                              "sourceTime": null
+                            }
+                          ],
+                          "pageInfo": {
+                            "mode": "cursor",
+                            "hasMore": false,
+                            "nextCursor": null,
+                            "nextPage": null,
+                            "snapshotScope": "thisRequestOnly"
+                          },
+                          "total": {
+                            "count": 1,
+                            "capped": false
+                          }
+                        }
+                      },
+                      "byStatus": {
+                        "ok": false,
+                        "error": {
+                          "code": "INVALID_REQUEST",
+                          "reason": "unknown field status",
+                          "details": [],
+                          "execution": "notStarted",
+                          "retry": {
+                            "safe": false
+                          },
+                          "queryId": "byStatus"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocCommonError"
+                },
+                "example": {
+                  "code": 422,
+                  "msg": "请求参数不合法",
+                  "requestId": "request-id",
+                  "data": null,
+                  "error": {
+                    "code": "INVALID_REQUEST",
+                    "reason": "filter.status must be a string",
+                    "details": [],
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "业务数据"
+        ],
+        "description": "一次请求执行最多 20 个只读查询（find、count、distinct、aggregate、get，可跨集合），共用一次准入、一份授权快照和同一个可重复读快照；需要 uns.read 与各集合的 record:read。results 按查询 id 返回 {ok:true,data} 或 {ok:false,error}，校验、编译、授权与单项 SQL 错误只影响该项。整批最多 2000 行、8 MiB，超出返回 413 RESPONSE_TOO_LARGE；任一语句超时返回 504 QUERY_TIMEOUT，均不返回部分结果。",
+        "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
     },
@@ -10216,13 +10638,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -10337,13 +10759,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -10470,13 +10892,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -10650,13 +11072,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -10919,13 +11341,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -11109,13 +11531,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -11345,13 +11767,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -11486,13 +11908,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -11654,13 +12076,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -11827,13 +12249,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -12027,13 +12449,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -12136,13 +12558,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -12263,13 +12685,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -12413,13 +12835,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -12536,13 +12958,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -12661,13 +13083,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -12832,25 +13254,28 @@
             }
           },
           "default": {
-            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
+            "description": "失败响应。部分提交时 error.execution=committed、retry.safe=false，data 为累计结果。",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DocCommonError"
+                  "$ref": "#/components/schemas/DocUnsV2MetadataBulkWritePartialError"
                 },
                 "example": {
-                  "code": 422,
-                  "msg": "请求参数不合法",
+                  "code": 503,
+                  "msg": "chunk failed after partial commit",
                   "requestId": "request-id",
-                  "data": null,
+                  "data": {
+                    "status": "partiallyCommitted",
+                    "replayed": false,
+                    "nextIndex": 100
+                  },
                   "error": {
-                    "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "code": "TEMPORARILY_UNAVAILABLE",
+                    "reason": "statement timeout in chunk 3",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
+                    "execution": "committed",
+                    "retry": {
+                      "safe": false
                     }
                   }
                 }
@@ -12861,7 +13286,7 @@
         "tags": [
           "元数据管理"
         ],
-        "description": "同一 kind 下最多 200 个操作。默认原子；非原子时 ordered 控制失败后是否继续，按原始序号返回逐项结果。",
+        "description": "同一 kind 下最多 200 个操作。默认原子；非原子时 ordered 控制失败后是否继续，按原始序号返回逐项结果。非原子执行只要有任一项已提交，失败响应的 error.execution=committed、retry.safe=false，错误信封 data 为与成功响应相同结构的累计结果（含 nextIndex，结局未知时另有 unknownUntil）：序号小于 nextIndex 且不在 errors 里的操作都已提交；[nextIndex, unknownUntil) 结局未知，带幂等键时同键重试，不带键时只有带客户端 id 的新增与按 id 的替换 / 删除能先按 id 读取状态再续做，服务端生成 id 的新增、按 filter 选择目标的操作与 $inc 等增量更新无法核对，结局未知时不能安全续做（这类写入应始终带幂等键）；没有 unknownUntil 时从 nextIndex 续做是安全的。只有全部未提交时才是 rolledBack 或 notStarted。",
         "x-tier0-readonly": false,
         "x-tier0-destructive": true
       }
@@ -12963,13 +13388,13 @@
                   "data": null,
                   "error": {
                     "code": "INVALID_REQUEST",
-                    "retryable": false,
+                    "reason": "filter.status must be a string",
                     "details": [],
-                    "retryAdvice": {
-                      "recommendedAction": "inspectErrorAndCorrectRequest",
-                      "canRetrySameRequest": false,
-                      "keepIdempotencyKey": false
-                    }
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
                   }
                 }
               }
@@ -13389,13 +13814,37 @@
           },
           "createCapability": {
             "$ref": "#/components/schemas/CloudAppCreateCapability"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "集合定义版本；结构或索引变化时递增。"
+          },
+          "indexStatus": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IndexState"
+            },
+            "description": "当前索引状态；只有 state=ready 的唯一索引可用于 upsert，ready 的 TTL 索引才开始过期删除。"
+          },
+          "ttl": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CloudCollectionTTL"
+              }
+            ],
+            "nullable": true,
+            "description": "集合的 TTL 规则；没有时为 null。"
           }
         },
         "required": [
           "alias",
           "collectionId",
           "permissions",
-          "recordSchema"
+          "recordSchema",
+          "revision",
+          "indexStatus",
+          "ttl"
         ],
         "type": "object"
       },
@@ -13437,6 +13886,9 @@
           },
           "revision": {
             "type": "integer"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/CloudAppDataLimits"
           }
         },
         "required": [
@@ -13444,7 +13896,8 @@
           "name",
           "revision",
           "collections",
-          "platformPermissions"
+          "platformPermissions",
+          "limits"
         ],
         "type": "object"
       },
@@ -13807,59 +14260,79 @@
         "type": "object"
       },
       "Fault": {
+        "type": "object",
         "additionalProperties": false,
         "properties": {
-          "candidates": {
-            "items": {
-              "additionalProperties": {},
-              "type": "object"
-            },
-            "type": "array"
-          },
           "code": {
-            "type": "string"
+            "type": "string",
+            "description": "可编程判断的错误码，例如 OVERLOADED、VERSION_CONFLICT。"
           },
-          "conditionIndex": {
-            "type": "integer"
+          "reason": {
+            "type": "string",
+            "description": "面向开发者的错误原因。"
           },
-          "objectId": {
-            "type": "string"
+          "details": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "description": "结构化定位信息；没有时为空数组。"
+          },
+          "execution": {
+            "type": "string",
+            "enum": [
+              "notStarted",
+              "rolledBack",
+              "committed",
+              "unknown"
+            ],
+            "description": "notStarted：进入写路径前被拒绝；rolledBack：已执行但整体回滚；committed：已提交；unknown：无法证明是否提交，只出现在写操作上，读请求永远不是 unknown。notStarted/rolledBack 可证明没有副作用。非原子批量（partialCommit 操作）只要有任一块或任一项已提交即为 committed（部分提交），此时 retry.safe=false，错误信封 data 为累计结果。"
+          },
+          "retry": {
+            "$ref": "#/components/schemas/ErrorRetry"
+          },
+          "repair": {
+            "type": "string",
+            "description": "修正建议，例如缩小查询范围。"
+          },
+          "opId": {
+            "type": "string",
+            "description": "事务或批量写入中出错的输入项标识。"
+          },
+          "queryId": {
+            "type": "string",
+            "description": "批量查询中出错的查询项标识。"
+          },
+          "path": {
+            "type": "string",
+            "description": "可定位时指向出错的输入位置。"
           },
           "objectKind": {
             "type": "string"
           },
-          "opId": {
-            "type": "string",
-            "description": "本事务内唯一操作标识，供依赖和结果引用使用。"
-          },
-          "path": {
+          "objectId": {
             "type": "string"
           },
-          "queryId": {
-            "type": "string",
-            "description": "本批查询内唯一标识，用于对应结果。"
+          "candidates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
           },
-          "reason": {
-            "type": "string"
-          },
-          "repair": {
-            "type": "string"
-          },
-          "retryAdvice": {
-            "$ref": "#/components/schemas/RetryAdvice"
-          },
-          "retryable": {
-            "type": "boolean"
-          },
-          "rolledBack": {
-            "type": "boolean"
+          "conditionIndex": {
+            "type": "integer"
           }
         },
         "required": [
           "code",
-          "retryable"
+          "reason",
+          "details",
+          "execution",
+          "retry"
         ],
-        "type": "object"
+        "description": "线上错误对象。错误信封的 error、批量写入逐项 error、queryBatch 逐项 error 与作业 error 使用同一形状。"
       },
       "FieldBinding": {
         "additionalProperties": false,
@@ -14072,10 +14545,67 @@
           },
           "unique": {
             "type": "boolean"
+          },
+          "expireAfterSeconds": {
+            "type": "integer",
+            "minimum": 60,
+            "maximum": 31536000,
+            "description": "TTL 索引：记录在该字段时间加上此秒数后被物理删除，不可恢复。只用于单个 path、btree、records、非唯一索引；字段须在 RecordSchema 中声明为 integer（Unix 毫秒）。每集合最多 1 个；ensure 只能新增或加大，缩短或删除需 schema:replace；被数据源写入的集合不支持。"
           }
         },
         "required": [],
-        "type": "object"
+        "type": "object",
+        "allOf": [
+          {
+            "anyOf": [
+              {
+                "not": {
+                  "required": [
+                    "expireAfterSeconds"
+                  ]
+                }
+              },
+              {
+                "required": [
+                  "path"
+                ],
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "paths"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "unique"
+                      ],
+                      "properties": {
+                        "unique": {
+                          "enum": [
+                            true
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                },
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "btree"
+                    ]
+                  },
+                  "target": {
+                    "enum": [
+                      "records"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        ]
       },
       "IndexState": {
         "additionalProperties": false,
@@ -14467,42 +14997,6 @@
           "sourceTime"
         ],
         "description": "普通业务记录。业务字段位于 data；系统属性位于同级。filter/projection 使用业务裸字段名及 _id/_meta.*，不按本响应对象路径编写。lock 仅描述有效租约，不返回令牌。"
-      },
-      "RetryAdvice": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "recommendedAction",
-          "canRetrySameRequest",
-          "keepIdempotencyKey"
-        ],
-        "properties": {
-          "recommendedAction": {
-            "type": "string",
-            "description": "下一步恢复动作，不构成额外业务授权。",
-            "enum": [
-              "inspectErrorAndCorrectRequest",
-              "queryTransactionStatusBeforeRetry",
-              "rereadAndReplan",
-              "queryTransactionStatusBeforeReplanning",
-              "queryOriginalTransactionStatusDoNotReplaceKey",
-              "restoreAuthorizationBeforeRetry",
-              "narrowQueryAndRetry",
-              "retryOriginalRequestWithSameKey",
-              "useCommittedOutcomeDoNotExecuteAgain",
-              "pollTransactionStatus",
-              "inspectJobFailureBeforeReplanning"
-            ]
-          },
-          "canRetrySameRequest": {
-            "type": "boolean",
-            "description": "是否可重发完全相同的请求；若建议先查状态，必须先查。"
-          },
-          "keepIdempotencyKey": {
-            "type": "boolean",
-            "description": "恢复原意图时保留原幂等键；不能换键重复执行。"
-          }
-        }
       },
       "RuntimeStreamDefinition": {
         "additionalProperties": false,
@@ -17724,46 +18218,6 @@
           "principals"
         ]
       },
-      "CloudRecordChangeNotification": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "eventId": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 256
-          },
-          "collectionId": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 128
-          },
-          "recordId": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 128
-          },
-          "change": {
-            "type": "string",
-            "enum": [
-              "record",
-              "delete"
-            ]
-          },
-          "occurredAt": {
-            "type": "integer",
-            "minimum": 1,
-            "description": "Event occurrence time in Unix milliseconds; delivery order is not commit order."
-          }
-        },
-        "required": [
-          "eventId",
-          "collectionId",
-          "recordId",
-          "change",
-          "occurredAt"
-        ]
-      },
       "CloudAppCollectionDeclaration": {
         "type": "object",
         "additionalProperties": false,
@@ -18013,6 +18467,179 @@
           "archived",
           "updatedAt"
         ]
+      },
+      "CloudRecordChangeEvent": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8192,
+            "description": "事件位置，与 SSE 帧的 id 相同；断线后作为 Last-Event-ID 续传。不透明，不能解析或拼接。"
+          },
+          "collectionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "recordId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "变更后的记录版本；delete 为删除时的版本。"
+          },
+          "change": {
+            "type": "string",
+            "enum": [
+              "record",
+              "delete"
+            ],
+            "description": "record：新增、更新或恢复；delete：软删除或 TTL 物理删除。按 recordId 重新读取获得当前内容。"
+          },
+          "occurredAt": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "写入时间（写入事务内的服务端时间），Unix 毫秒。事件按写入事务的顺序投递，不是提交顺序：同一记录的事件不保证 revision 单调，客户端按 recordId 重读，忽略不大于已见 revision 的非 delete 事件；delete 事件一律处理（迟到的 delete 也处理），并清除该 recordId 已见的 revision，之后同 id 的事件按新记录处理（软删除后重新写入时 revision 继续递增，物理删除后从 1 开始）。"
+          },
+          "restricted": {
+            "type": "boolean",
+            "description": "集合存在员工数据规则时为 true。以 App 身份合并上游再转发给浏览器的服务端，对 restricted 事件只能转发集合级通知（不带 recordId / revision），由浏览器通过受员工规则约束的接口重新读取，避免泄漏无权查看记录的存在性。"
+          }
+        },
+        "required": [
+          "eventId",
+          "collectionId",
+          "recordId",
+          "revision",
+          "change",
+          "occurredAt",
+          "restricted"
+        ]
+      },
+      "CloudRecordSubscribeReset": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "CURSOR_EXPIRED",
+              "SCOPE_CHANGED"
+            ],
+            "description": "CURSOR_EXPIRED：续传位置之后的变更已超出 24 小时保留期被清理、游标已无法解开（例如密钥轮换）或租户库已迁移到别的实例；SCOPE_CHANGED：授权范围变化（含省略 collectionIds 时可读集合的增减、续传时集合不再可读）。两者都要求重新读取当前数据后不带续传位置重新订阅。"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "description": "服务端发送 reset 后关闭连接。客户端重新读取当前数据，再不带 Last-Event-ID 重新订阅。"
+      },
+      "CloudRecordSubscribeFrame": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "event": {
+                "type": "string",
+                "enum": [
+                  "change"
+                ]
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8192
+              },
+              "data": {
+                "$ref": "#/components/schemas/CloudRecordChangeEvent"
+              }
+            },
+            "required": [
+              "event",
+              "id",
+              "data"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "event": {
+                "type": "string",
+                "enum": [
+                  "heartbeat"
+                ]
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 8192
+              },
+              "data": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "at": {
+                    "type": "integer",
+                    "description": "服务端时间，Unix 毫秒。"
+                  }
+                },
+                "required": [
+                  "at"
+                ]
+              }
+            },
+            "required": [
+              "event",
+              "id",
+              "data"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "event": {
+                "type": "string",
+                "enum": [
+                  "reset"
+                ]
+              },
+              "data": {
+                "$ref": "#/components/schemas/CloudRecordSubscribeReset"
+              }
+            },
+            "required": [
+              "event",
+              "data"
+            ]
+          }
+        ],
+        "description": "SSE 帧：event 为帧类型，id 为续传位置，data 为 JSON。连接建立后立即发送一次 heartbeat（id 为当前位置），之后每 15 秒一次；change 按写入事务的顺序投递（同一记录的 revision 不保证单调，见 CloudRecordChangeEvent.occurredAt）；reset 后连接关闭。"
+      },
+      "CloudRecordTotalOption": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "max": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000,
+            "default": 10000,
+            "description": "总数上限；真实总数大于 max 时 total.count=max、total.capped=true。"
+          }
+        },
+        "required": [],
+        "description": "在同一只读快照中附带符合条件的总数，响应返回 total:{count,capped}。只能用于第一页或 offset 页，与续页 cursor 同用返回 INVALID_REQUEST。"
       },
       "CloudAppCreateCapability": {
         "type": "object",
@@ -18328,6 +18955,25 @@
           "snapshotScope"
         ]
       },
+      "CloudCappedCount": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "capped": {
+            "type": "boolean",
+            "description": "capped=true 表示真实匹配数大于上限（服务端按上限 +1 行判断），此时 count 等于上限；capped=false 时 count 是完整总数。"
+          }
+        },
+        "required": [
+          "count",
+          "capped"
+        ],
+        "description": "封顶计数。"
+      },
       "CloudRecordPage": {
         "type": "object",
         "additionalProperties": false,
@@ -18340,6 +18986,10 @@
           },
           "pageInfo": {
             "$ref": "#/components/schemas/CloudPageInfo"
+          },
+          "total": {
+            "$ref": "#/components/schemas/CloudCappedCount",
+            "description": "仅在请求带 count 时返回，与本页同一快照。"
           }
         },
         "required": [
@@ -18365,6 +19015,73 @@
           "items",
           "pageInfo"
         ]
+      },
+      "CloudRecordAggregatePage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "pageInfo": {
+            "$ref": "#/components/schemas/CloudPageInfo"
+          },
+          "total": {
+            "$ref": "#/components/schemas/CloudCappedCount",
+            "description": "仅在请求带 count 时返回，与本页同一快照。"
+          }
+        },
+        "required": [
+          "items",
+          "pageInfo"
+        ],
+        "description": "聚合管线的输出文档；total 为管线输出的封顶总数。"
+      },
+      "CloudDistinctResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "values": {
+            "type": "array",
+            "items": {}
+          },
+          "pageInfo": {
+            "$ref": "#/components/schemas/CloudPageInfo"
+          }
+        },
+        "required": [
+          "values",
+          "pageInfo"
+        ]
+      },
+      "CloudRecordGetResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecordDocument"
+            }
+          },
+          "missing": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        },
+        "required": [
+          "items",
+          "missing"
+        ],
+        "description": "items 按请求 ids 的顺序返回；不存在、已软删除或无权读取的 ID 列入 missing。"
       },
       "CloudDistinctPage": {
         "type": "object",
@@ -18441,6 +19158,365 @@
           "fence",
           "record"
         ]
+      },
+      "CloudRecordBatchQuery": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_.-]{1,64}$",
+                "description": "批内唯一的查询标识，结果按它返回。"
+              },
+              "op": {
+                "type": "string",
+                "enum": [
+                  "find"
+                ]
+              },
+              "collectionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "description": "集合 ID，业务记录和采样所属的 Collection。"
+              },
+              "filter": {
+                "$ref": "#/components/schemas/UnsV2DataFilter"
+              },
+              "sort": {
+                "$ref": "#/components/schemas/UnsV2PipelineSort"
+              },
+              "projection": {
+                "type": "object",
+                "additionalProperties": {
+                  "oneOf": [
+                    {
+                      "type": "integer",
+                      "enum": [
+                        0,
+                        1
+                      ]
+                    },
+                    {
+                      "type": "boolean"
+                    }
+                  ]
+                },
+                "description": "Include or exclude declared fields; computed expressions use aggregate-pipeline. System identity is retained."
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 200
+              },
+              "cursor": {
+                "type": "string"
+              },
+              "count": {
+                "$ref": "#/components/schemas/CloudRecordTotalOption"
+              }
+            },
+            "required": [
+              "id",
+              "op",
+              "collectionId"
+            ],
+            "allOf": [
+              {
+                "not": {
+                  "required": [
+                    "count",
+                    "cursor"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_.-]{1,64}$",
+                "description": "批内唯一的查询标识，结果按它返回。"
+              },
+              "op": {
+                "type": "string",
+                "enum": [
+                  "count"
+                ]
+              },
+              "collectionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "description": "集合 ID，业务记录和采样所属的 Collection。"
+              },
+              "filter": {
+                "$ref": "#/components/schemas/UnsV2DataFilter"
+              },
+              "maxCount": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100000,
+                "default": 100000,
+                "description": "计数上限；真实匹配数大于 maxCount 时返回 count=maxCount、capped=true，等于 maxCount 时 capped=false。"
+              }
+            },
+            "required": [
+              "id",
+              "op",
+              "collectionId"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_.-]{1,64}$",
+                "description": "批内唯一的查询标识，结果按它返回。"
+              },
+              "op": {
+                "type": "string",
+                "enum": [
+                  "distinct"
+                ]
+              },
+              "collectionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "description": "集合 ID，业务记录和采样所属的 Collection。"
+              },
+              "filter": {
+                "$ref": "#/components/schemas/UnsV2DataFilter"
+              },
+              "field": {
+                "type": "string"
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 200
+              },
+              "page": {
+                "$ref": "#/components/schemas/CloudDistinctPage"
+              }
+            },
+            "required": [
+              "id",
+              "op",
+              "collectionId",
+              "field"
+            ],
+            "allOf": [
+              {
+                "not": {
+                  "required": [
+                    "limit",
+                    "page"
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_.-]{1,64}$",
+                "description": "批内唯一的查询标识，结果按它返回。"
+              },
+              "op": {
+                "type": "string",
+                "enum": [
+                  "aggregate"
+                ]
+              },
+              "collectionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "description": "集合 ID，业务记录和采样所属的 Collection。"
+              },
+              "pipeline": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/UnsV2PipelineStage"
+                },
+                "minItems": 0,
+                "maxItems": 32
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 200
+              },
+              "page": {
+                "$ref": "#/components/schemas/UnsV2PipelinePage"
+              },
+              "count": {
+                "$ref": "#/components/schemas/CloudRecordTotalOption"
+              }
+            },
+            "required": [
+              "id",
+              "op",
+              "collectionId",
+              "pipeline"
+            ],
+            "allOf": [
+              {
+                "not": {
+                  "required": [
+                    "page",
+                    "limit"
+                  ]
+                }
+              },
+              {
+                "not": {
+                  "required": [
+                    "count",
+                    "page"
+                  ],
+                  "properties": {
+                    "page": {
+                      "required": [
+                        "cursor"
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_.-]{1,64}$",
+                "description": "批内唯一的查询标识，结果按它返回。"
+              },
+              "op": {
+                "type": "string",
+                "enum": [
+                  "get"
+                ]
+              },
+              "collectionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "minItems": 1,
+                "maxItems": 100,
+                "uniqueItems": true
+              },
+              "projection": {
+                "type": "object",
+                "additionalProperties": {
+                  "oneOf": [
+                    {
+                      "type": "integer",
+                      "enum": [
+                        0,
+                        1
+                      ]
+                    },
+                    {
+                      "type": "boolean"
+                    }
+                  ]
+                },
+                "description": "Include or exclude declared fields; computed expressions use aggregate-pipeline. System identity is retained."
+              }
+            },
+            "required": [
+              "id",
+              "op",
+              "collectionId",
+              "ids"
+            ]
+          }
+        ],
+        "description": "字段与对应单项接口（records:find / count / distinct / aggregate / get）的请求相同，另加 id 与 op。"
+      },
+      "CloudRecordBatchQueryResult": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "ok": {
+                "type": "boolean",
+                "enum": [
+                  true
+                ]
+              },
+              "data": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/CloudRecordPage"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CloudCappedCount"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CloudDistinctResult"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CloudRecordAggregatePage"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CloudRecordGetResult"
+                  }
+                ],
+                "description": "与对应单项接口成功响应的 data 相同。"
+              }
+            },
+            "required": [
+              "ok",
+              "data"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "ok": {
+                "type": "boolean",
+                "enum": [
+                  false
+                ]
+              },
+              "error": {
+                "$ref": "#/components/schemas/Fault"
+              }
+            },
+            "required": [
+              "ok",
+              "error"
+            ]
+          }
+        ],
+        "description": "单项结果。校验、编译、授权与单项 SQL 错误只影响该项；语句超时或整批读预算超限时整批失败。"
       },
       "CloudSourceCreateCredentials": {
         "type": "object",
@@ -18641,6 +19717,233 @@
           "documentOperation",
           "projectionIssue"
         ]
+      },
+      "CloudCollectionTTL": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "description": "过期时间字段。"
+          },
+          "expireAfterSeconds": {
+            "type": "integer",
+            "minimum": 60,
+            "maximum": 31536000
+          }
+        },
+        "required": [
+          "path",
+          "expireAfterSeconds"
+        ],
+        "description": "集合的 TTL 规则：记录在 path 时间加 expireAfterSeconds 后被物理删除，不可恢复。"
+      },
+      "CloudAppDataLimits": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "defaultMax": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "records:count 默认上限。"
+              },
+              "max": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "maxCount 最大值。"
+              }
+            },
+            "required": [
+              "defaultMax",
+              "max"
+            ]
+          },
+          "total": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "defaultMax": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "find / aggregate 附带总数的默认上限。"
+              },
+              "max": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "count.max 最大值。"
+              }
+            },
+            "required": [
+              "defaultMax",
+              "max"
+            ]
+          },
+          "queryBatch": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "maxQueries": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "单次最多查询数。"
+              },
+              "maxRows": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "整批最多返回行数。"
+              },
+              "maxBytes": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "整批最多返回字节数。"
+              }
+            },
+            "required": [
+              "maxQueries",
+              "maxRows",
+              "maxBytes"
+            ]
+          },
+          "get": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "maxIds": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "records:get 单次最多 ID 数。"
+              }
+            },
+            "required": [
+              "maxIds"
+            ]
+          },
+          "subscribe": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "maxCollections": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "单个订阅显式列出的最多集合数；省略 collectionIds 表示全部可读集合。"
+              },
+              "maxRecordIds": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "单个订阅最多记录数。"
+              },
+              "heartbeatMs": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "心跳间隔毫秒。"
+              },
+              "retentionMs": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "变更保留时长毫秒，超出后续传收到 reset。"
+              }
+            },
+            "required": [
+              "maxCollections",
+              "maxRecordIds",
+              "heartbeatMs",
+              "retentionMs"
+            ]
+          },
+          "ttl": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "minSeconds": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "expireAfterSeconds 最小值。"
+              },
+              "maxSeconds": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "expireAfterSeconds 最大值。"
+              },
+              "maxPerCollection": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "每个集合最多 TTL 索引数。"
+              }
+            },
+            "required": [
+              "minSeconds",
+              "maxSeconds",
+              "maxPerCollection"
+            ]
+          },
+          "concurrency": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "reads": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "本工作区在单个 UNS 副本上的并发读名额。"
+              },
+              "writes": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "本工作区在单个 UNS 副本上的并发写名额。"
+              },
+              "queueMs": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "名额已满时的最长排队毫秒数，超时返回 429 OVERLOADED。"
+              }
+            },
+            "required": [
+              "reads",
+              "writes",
+              "queueMs"
+            ]
+          },
+          "idempotencyWindowMs": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "写入幂等键的保留窗口毫秒；窗口外复用同一键视为新请求。"
+          }
+        },
+        "required": [
+          "count",
+          "total",
+          "queryBatch",
+          "get",
+          "subscribe",
+          "ttl",
+          "concurrency",
+          "idempotencyWindowMs"
+        ],
+        "description": "当前数据面边界，供 SDK 与 MCP 自适应批量大小与并发；值由服务端按当前配置返回。"
+      },
+      "ErrorRetry": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "safe": {
+            "type": "boolean",
+            "description": "true 表示可以原样重发同一请求（写入复用原幂等键）；false 时必须先修正请求或恢复授权。"
+          },
+          "afterMs": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "建议的最短等待毫秒数，只在 safe=true 时出现；HTTP 响应同时给出 Retry-After（秒）。"
+          }
+        },
+        "required": [
+          "safe"
+        ],
+        "description": "能否原样重试。读失败按 safe 重试；写失败只在 safe=true 时重试，且必须复用原幂等键。"
       },
       "MetadataDocument": {
         "type": "object",
@@ -19480,39 +20783,62 @@
         ]
       },
       "DocItemFault": {
+        "type": "object",
         "additionalProperties": true,
         "properties": {
           "code": {
-            "type": "string"
+            "type": "string",
+            "description": "可编程判断的错误码，例如 OVERLOADED、VERSION_CONFLICT。"
           },
-          "retryable": {
-            "type": "boolean"
+          "reason": {
+            "type": "string",
+            "description": "面向开发者的错误原因。"
+          },
+          "details": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "description": "结构化定位信息；没有时为空数组。"
+          },
+          "execution": {
+            "type": "string",
+            "enum": [
+              "notStarted",
+              "rolledBack",
+              "committed",
+              "unknown"
+            ],
+            "description": "notStarted：进入写路径前被拒绝；rolledBack：已执行但整体回滚；committed：已提交；unknown：无法证明是否提交，只出现在写操作上，读请求永远不是 unknown。notStarted/rolledBack 可证明没有副作用。非原子批量（partialCommit 操作）只要有任一块或任一项已提交即为 committed（部分提交），此时 retry.safe=false，错误信封 data 为累计结果。"
+          },
+          "retry": {
+            "$ref": "#/components/schemas/ErrorRetry"
+          },
+          "repair": {
+            "type": "string",
+            "description": "修正建议，例如缩小查询范围。"
           },
           "opId": {
             "type": "string",
             "description": "发生错误的输入项标识。"
           },
+          "queryId": {
+            "type": "string",
+            "description": "批量查询中出错的查询项标识。"
+          },
           "path": {
-            "type": "string"
-          },
-          "reason": {
-            "type": "string"
-          },
-          "repair": {
-            "type": "string"
-          },
-          "retryAdvice": {
-            "$ref": "#/components/schemas/RetryAdvice"
-          },
-          "rolledBack": {
-            "type": "boolean"
+            "type": "string",
+            "description": "可定位时指向出错的输入位置。"
           }
         },
         "required": [
           "code",
-          "retryable"
-        ],
-        "type": "object"
+          "reason",
+          "details",
+          "execution",
+          "retry"
+        ]
       },
       "DocCommonError": {
         "type": "object",
@@ -19532,35 +20858,53 @@
           },
           "error": {
             "type": "object",
+            "additionalProperties": true,
             "properties": {
               "code": {
-                "type": "string"
+                "type": "string",
+                "description": "可编程判断的错误码，例如 OVERLOADED、VERSION_CONFLICT。"
               },
-              "retryable": {
-                "type": "boolean"
+              "reason": {
+                "type": "string",
+                "description": "面向开发者的错误原因。"
               },
               "details": {
                 "type": "array",
                 "items": {
                   "type": "object",
                   "additionalProperties": true
-                }
+                },
+                "description": "结构化定位信息；没有时为空数组。"
               },
-              "retryAdvice": {
-                "$ref": "#/components/schemas/RetryAdvice"
+              "execution": {
+                "type": "string",
+                "enum": [
+                  "notStarted",
+                  "rolledBack",
+                  "committed",
+                  "unknown"
+                ],
+                "description": "notStarted：进入写路径前被拒绝；rolledBack：已执行但整体回滚；committed：已提交；unknown：无法证明是否提交，只出现在写操作上，读请求永远不是 unknown。notStarted/rolledBack 可证明没有副作用。非原子批量（partialCommit 操作）只要有任一块或任一项已提交即为 committed（部分提交），此时 retry.safe=false，错误信封 data 为累计结果。"
               },
-              "rolledBack": {
-                "type": "boolean",
-                "description": "为 true 时表示请求在执行前被拒绝或事务已回滚，没有产生任何副作用；未出现时写操作的结局可能未知，应先读取业务状态再决定是否重试。"
+              "retry": {
+                "$ref": "#/components/schemas/ErrorRetry"
+              },
+              "repair": {
+                "type": "string",
+                "description": "修正建议，例如缩小查询范围。"
+              },
+              "path": {
+                "type": "string",
+                "description": "可定位时指向出错的输入位置。"
               }
             },
             "required": [
               "code",
-              "retryable",
+              "reason",
               "details",
-              "retryAdvice"
-            ],
-            "additionalProperties": true
+              "execution",
+              "retry"
+            ]
           }
         },
         "required": [
@@ -21711,17 +23055,7 @@
             "type": "string"
           },
           "data": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "count": {
-                "type": "integer",
-                "minimum": 0
-              }
-            },
-            "required": [
-              "count"
-            ]
+            "$ref": "#/components/schemas/CloudCappedCount"
           }
         },
         "required": [
@@ -21745,21 +23079,7 @@
             "type": "string"
           },
           "data": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "values": {
-                "type": "array",
-                "items": {}
-              },
-              "pageInfo": {
-                "$ref": "#/components/schemas/CloudPageInfo"
-              }
-            },
-            "required": [
-              "values",
-              "pageInfo"
-            ]
+            "$ref": "#/components/schemas/CloudDistinctResult"
           }
         },
         "required": [
@@ -21783,7 +23103,7 @@
             "type": "string"
           },
           "data": {
-            "$ref": "#/components/schemas/CloudDataPage"
+            "$ref": "#/components/schemas/CloudRecordAggregatePage"
           }
         },
         "required": [
@@ -21824,7 +23144,8 @@
                 "minimum": 0
               },
               "capped": {
-                "type": "boolean"
+                "type": "boolean",
+                "description": "true 表示真实匹配数大于 limit，此时 matchedCount 等于 limit。"
               },
               "sampleIds": {
                 "type": "array",
@@ -21930,6 +23251,16 @@
                 },
                 "description": "键为原始输入中从 0 开始的操作索引，值为对应成功记录 ID；部分失败时不重新编号。"
               },
+              "nextIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "第一个未执行操作的零基序号。序号小于它且不在 writeErrors 里的操作都已提交。"
+              },
+              "unknownUntil": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "中断原因结局未知时给出：[nextIndex, unknownUntil) 的操作结局未知，带幂等键时用同一个键重试，不带键时只有带客户端 id 的新增与按 id 的替换 / 删除能先按 id 读取状态再续做，服务端生成 id 的新增、按 filter 选择目标的操作与 $inc 等增量更新无法核对，结局未知时不能安全续做（这类写入应始终带幂等键）。没有它时从 nextIndex 续做是安全的。"
+              },
               "status": {
                 "type": "string",
                 "description": "执行状态；validated 为回滚预检，committed 为提交成功，partiallyCommitted/failed 表示部分写入结果。"
@@ -21946,11 +23277,6 @@
               },
               "hasMore": {
                 "type": "boolean"
-              },
-              "resumeAfter": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 128
               }
             },
             "required": [
@@ -21967,6 +23293,135 @@
           "requestId",
           "data"
         ]
+      },
+      "DocUnsV2RecordInsertManyPartialError": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "nullable": true,
+            "allOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "insertedCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "insertedIds": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "description": "键为原始输入中从 0 开始的操作索引，值为对应成功记录 ID；部分失败时不重新编号。"
+                  },
+                  "nextIndex": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "第一个未执行操作的零基序号。序号小于它且不在 writeErrors 里的操作都已提交。"
+                  },
+                  "unknownUntil": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "中断原因结局未知时给出：[nextIndex, unknownUntil) 的操作结局未知，带幂等键时用同一个键重试，不带键时只有带客户端 id 的新增与按 id 的替换 / 删除能先按 id 读取状态再续做，服务端生成 id 的新增、按 filter 选择目标的操作与 $inc 等增量更新无法核对，结局未知时不能安全续做（这类写入应始终带幂等键）。没有它时从 nextIndex 续做是安全的。"
+                  },
+                  "status": {
+                    "type": "string",
+                    "description": "执行状态；validated 为回滚预检，committed 为提交成功，partiallyCommitted/failed 表示部分写入结果。"
+                  },
+                  "replayed": {
+                    "type": "boolean",
+                    "description": "是否返回同一幂等请求的已保存结果。"
+                  },
+                  "writeErrors": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/CloudWriteError"
+                    }
+                  },
+                  "hasMore": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "insertedCount",
+                  "insertedIds",
+                  "status",
+                  "replayed"
+                ]
+              }
+            ],
+            "description": "error.execution=committed（部分提交）时为累计结果：序号小于 nextIndex 且不在 writeErrors 里的操作都已提交；[nextIndex, unknownUntil) 结局未知，带幂等键时同键重试，不带键时只有带客户端 id 的新增与按 id 的替换 / 删除能先按 id 读取状态再续做，服务端生成 id 的新增、按 filter 选择目标的操作与 $inc 等增量更新无法核对，结局未知时不能安全续做（这类写入应始终带幂等键）；没有 unknownUntil 时从 nextIndex 续做是安全的。全部未提交时为 null。"
+          },
+          "error": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "可编程判断的错误码，例如 OVERLOADED、VERSION_CONFLICT。"
+              },
+              "reason": {
+                "type": "string",
+                "description": "面向开发者的错误原因。"
+              },
+              "details": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "description": "结构化定位信息；没有时为空数组。"
+              },
+              "execution": {
+                "type": "string",
+                "enum": [
+                  "notStarted",
+                  "rolledBack",
+                  "committed",
+                  "unknown"
+                ],
+                "description": "notStarted：进入写路径前被拒绝；rolledBack：已执行但整体回滚；committed：已提交；unknown：无法证明是否提交，只出现在写操作上，读请求永远不是 unknown。notStarted/rolledBack 可证明没有副作用。非原子批量（partialCommit 操作）只要有任一块或任一项已提交即为 committed（部分提交），此时 retry.safe=false，错误信封 data 为累计结果。"
+              },
+              "retry": {
+                "$ref": "#/components/schemas/ErrorRetry"
+              },
+              "repair": {
+                "type": "string",
+                "description": "修正建议，例如缩小查询范围。"
+              },
+              "path": {
+                "type": "string",
+                "description": "可定位时指向出错的输入位置。"
+              }
+            },
+            "required": [
+              "code",
+              "reason",
+              "details",
+              "execution",
+              "retry"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "msg",
+          "requestId",
+          "error"
+        ],
+        "additionalProperties": false
       },
       "DocUnsV2RecordUpdateOneResponse": {
         "type": "object",
@@ -22289,6 +23744,11 @@
                 "type": "integer",
                 "minimum": 0
               },
+              "resumeAfter": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
               "status": {
                 "type": "string",
                 "description": "执行状态；validated 为回滚预检，committed 为提交成功，partiallyCommitted/failed 表示部分写入结果。"
@@ -22305,11 +23765,6 @@
               },
               "hasMore": {
                 "type": "boolean"
-              },
-              "resumeAfter": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 128
               }
             },
             "required": [
@@ -22326,6 +23781,125 @@
           "requestId",
           "data"
         ]
+      },
+      "DocUnsV2RecordUpdateManyPartialError": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "nullable": true,
+            "allOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "matchedCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "modifiedCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "resumeAfter": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "status": {
+                    "type": "string",
+                    "description": "执行状态；validated 为回滚预检，committed 为提交成功，partiallyCommitted/failed 表示部分写入结果。"
+                  },
+                  "replayed": {
+                    "type": "boolean",
+                    "description": "是否返回同一幂等请求的已保存结果。"
+                  },
+                  "writeErrors": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/CloudWriteError"
+                    }
+                  },
+                  "hasMore": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "matchedCount",
+                  "modifiedCount",
+                  "status",
+                  "replayed"
+                ]
+              }
+            ],
+            "description": "error.execution=committed（部分提交）时为累计结果，含可续做的 hasMore/resumeAfter；全部未提交时为 null。"
+          },
+          "error": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "可编程判断的错误码，例如 OVERLOADED、VERSION_CONFLICT。"
+              },
+              "reason": {
+                "type": "string",
+                "description": "面向开发者的错误原因。"
+              },
+              "details": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "description": "结构化定位信息；没有时为空数组。"
+              },
+              "execution": {
+                "type": "string",
+                "enum": [
+                  "notStarted",
+                  "rolledBack",
+                  "committed",
+                  "unknown"
+                ],
+                "description": "notStarted：进入写路径前被拒绝；rolledBack：已执行但整体回滚；committed：已提交；unknown：无法证明是否提交，只出现在写操作上，读请求永远不是 unknown。notStarted/rolledBack 可证明没有副作用。非原子批量（partialCommit 操作）只要有任一块或任一项已提交即为 committed（部分提交），此时 retry.safe=false，错误信封 data 为累计结果。"
+              },
+              "retry": {
+                "$ref": "#/components/schemas/ErrorRetry"
+              },
+              "repair": {
+                "type": "string",
+                "description": "修正建议，例如缩小查询范围。"
+              },
+              "path": {
+                "type": "string",
+                "description": "可定位时指向出错的输入位置。"
+              }
+            },
+            "required": [
+              "code",
+              "reason",
+              "details",
+              "execution",
+              "retry"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "msg",
+          "requestId",
+          "error"
+        ],
+        "additionalProperties": false
       },
       "DocUnsV2RecordDeleteManyResponse": {
         "type": "object",
@@ -22348,6 +23922,11 @@
                 "type": "integer",
                 "minimum": 0
               },
+              "resumeAfter": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
               "status": {
                 "type": "string",
                 "description": "执行状态；validated 为回滚预检，committed 为提交成功，partiallyCommitted/failed 表示部分写入结果。"
@@ -22364,11 +23943,6 @@
               },
               "hasMore": {
                 "type": "boolean"
-              },
-              "resumeAfter": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 128
               }
             },
             "required": [
@@ -22384,6 +23958,120 @@
           "requestId",
           "data"
         ]
+      },
+      "DocUnsV2RecordDeleteManyPartialError": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "nullable": true,
+            "allOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "deletedCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "resumeAfter": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "status": {
+                    "type": "string",
+                    "description": "执行状态；validated 为回滚预检，committed 为提交成功，partiallyCommitted/failed 表示部分写入结果。"
+                  },
+                  "replayed": {
+                    "type": "boolean",
+                    "description": "是否返回同一幂等请求的已保存结果。"
+                  },
+                  "writeErrors": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/CloudWriteError"
+                    }
+                  },
+                  "hasMore": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "deletedCount",
+                  "status",
+                  "replayed"
+                ]
+              }
+            ],
+            "description": "error.execution=committed（部分提交）时为累计结果，含可续做的 hasMore/resumeAfter；全部未提交时为 null。"
+          },
+          "error": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "可编程判断的错误码，例如 OVERLOADED、VERSION_CONFLICT。"
+              },
+              "reason": {
+                "type": "string",
+                "description": "面向开发者的错误原因。"
+              },
+              "details": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "description": "结构化定位信息；没有时为空数组。"
+              },
+              "execution": {
+                "type": "string",
+                "enum": [
+                  "notStarted",
+                  "rolledBack",
+                  "committed",
+                  "unknown"
+                ],
+                "description": "notStarted：进入写路径前被拒绝；rolledBack：已执行但整体回滚；committed：已提交；unknown：无法证明是否提交，只出现在写操作上，读请求永远不是 unknown。notStarted/rolledBack 可证明没有副作用。非原子批量（partialCommit 操作）只要有任一块或任一项已提交即为 committed（部分提交），此时 retry.safe=false，错误信封 data 为累计结果。"
+              },
+              "retry": {
+                "$ref": "#/components/schemas/ErrorRetry"
+              },
+              "repair": {
+                "type": "string",
+                "description": "修正建议，例如缩小查询范围。"
+              },
+              "path": {
+                "type": "string",
+                "description": "可定位时指向出错的输入位置。"
+              }
+            },
+            "required": [
+              "code",
+              "reason",
+              "details",
+              "execution",
+              "retry"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "msg",
+          "requestId",
+          "error"
+        ],
+        "additionalProperties": false
       },
       "DocUnsV2RecordBulkWriteResponse": {
         "type": "object",
@@ -22440,6 +24128,16 @@
                 },
                 "description": "键为原始输入中从 0 开始的操作索引，值为对应成功记录 ID；部分失败时不重新编号。"
               },
+              "nextIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "第一个未执行操作的零基序号。序号小于它且不在 writeErrors 里的操作都已提交。"
+              },
+              "unknownUntil": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "中断原因结局未知时给出：[nextIndex, unknownUntil) 的操作结局未知，带幂等键时用同一个键重试，不带键时只有带客户端 id 的新增与按 id 的替换 / 删除能先按 id 读取状态再续做，服务端生成 id 的新增、按 filter 选择目标的操作与 $inc 等增量更新无法核对，结局未知时不能安全续做（这类写入应始终带幂等键）。没有它时从 nextIndex 续做是安全的。"
+              },
               "status": {
                 "type": "string",
                 "description": "执行状态；validated 为回滚预检，committed 为提交成功，partiallyCommitted/failed 表示部分写入结果。"
@@ -22456,11 +24154,6 @@
               },
               "hasMore": {
                 "type": "boolean"
-              },
-              "resumeAfter": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 128
               }
             },
             "required": [
@@ -22482,6 +24175,165 @@
           "requestId",
           "data"
         ]
+      },
+      "DocUnsV2RecordBulkWritePartialError": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "nullable": true,
+            "allOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "insertedCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "matchedCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "modifiedCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "deletedCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "upsertedCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "insertedIds": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "description": "键为原始输入中从 0 开始的操作索引，值为对应成功记录 ID；部分失败时不重新编号。"
+                  },
+                  "upsertedIds": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "description": "键为原始输入中从 0 开始的操作索引，值为对应成功记录 ID；部分失败时不重新编号。"
+                  },
+                  "nextIndex": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "第一个未执行操作的零基序号。序号小于它且不在 writeErrors 里的操作都已提交。"
+                  },
+                  "unknownUntil": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "中断原因结局未知时给出：[nextIndex, unknownUntil) 的操作结局未知，带幂等键时用同一个键重试，不带键时只有带客户端 id 的新增与按 id 的替换 / 删除能先按 id 读取状态再续做，服务端生成 id 的新增、按 filter 选择目标的操作与 $inc 等增量更新无法核对，结局未知时不能安全续做（这类写入应始终带幂等键）。没有它时从 nextIndex 续做是安全的。"
+                  },
+                  "status": {
+                    "type": "string",
+                    "description": "执行状态；validated 为回滚预检，committed 为提交成功，partiallyCommitted/failed 表示部分写入结果。"
+                  },
+                  "replayed": {
+                    "type": "boolean",
+                    "description": "是否返回同一幂等请求的已保存结果。"
+                  },
+                  "writeErrors": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/CloudWriteError"
+                    }
+                  },
+                  "hasMore": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "insertedCount",
+                  "matchedCount",
+                  "modifiedCount",
+                  "deletedCount",
+                  "upsertedCount",
+                  "insertedIds",
+                  "upsertedIds",
+                  "status",
+                  "replayed"
+                ]
+              }
+            ],
+            "description": "error.execution=committed（部分提交）时为累计结果：序号小于 nextIndex 且不在 writeErrors 里的操作都已提交；[nextIndex, unknownUntil) 结局未知，带幂等键时同键重试，不带键时只有带客户端 id 的新增与按 id 的替换 / 删除能先按 id 读取状态再续做，服务端生成 id 的新增、按 filter 选择目标的操作与 $inc 等增量更新无法核对，结局未知时不能安全续做（这类写入应始终带幂等键）；没有 unknownUntil 时从 nextIndex 续做是安全的。全部未提交时为 null。"
+          },
+          "error": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "可编程判断的错误码，例如 OVERLOADED、VERSION_CONFLICT。"
+              },
+              "reason": {
+                "type": "string",
+                "description": "面向开发者的错误原因。"
+              },
+              "details": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "description": "结构化定位信息；没有时为空数组。"
+              },
+              "execution": {
+                "type": "string",
+                "enum": [
+                  "notStarted",
+                  "rolledBack",
+                  "committed",
+                  "unknown"
+                ],
+                "description": "notStarted：进入写路径前被拒绝；rolledBack：已执行但整体回滚；committed：已提交；unknown：无法证明是否提交，只出现在写操作上，读请求永远不是 unknown。notStarted/rolledBack 可证明没有副作用。非原子批量（partialCommit 操作）只要有任一块或任一项已提交即为 committed（部分提交），此时 retry.safe=false，错误信封 data 为累计结果。"
+              },
+              "retry": {
+                "$ref": "#/components/schemas/ErrorRetry"
+              },
+              "repair": {
+                "type": "string",
+                "description": "修正建议，例如缩小查询范围。"
+              },
+              "path": {
+                "type": "string",
+                "description": "可定位时指向出错的输入位置。"
+              }
+            },
+            "required": [
+              "code",
+              "reason",
+              "details",
+              "execution",
+              "retry"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "msg",
+          "requestId",
+          "error"
+        ],
+        "additionalProperties": false
       },
       "DocUnsV2SampleLatestValuesResponse": {
         "type": "object",
@@ -24183,55 +26035,6 @@
           "data"
         ]
       },
-      "DocUnsV2RecordChangesPollResponse": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "code": {
-            "type": "integer"
-          },
-          "msg": {
-            "type": "string"
-          },
-          "requestId": {
-            "type": "string"
-          },
-          "data": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "items": {
-                "type": "array",
-                "maxItems": 100,
-                "items": {
-                  "$ref": "#/components/schemas/CloudRecordChangeNotification"
-                }
-              },
-              "nextCursor": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 8192
-              },
-              "retentionMs": {
-                "type": "integer",
-                "minimum": 1,
-                "description": "Configured bounded stream retention, not a guarantee of permanent history."
-              }
-            },
-            "required": [
-              "items",
-              "nextCursor",
-              "retentionMs"
-            ]
-          }
-        },
-        "required": [
-          "code",
-          "msg",
-          "requestId",
-          "data"
-        ]
-      },
       "DocUnsV2AppCollectionsEnsureResponse": {
         "type": "object",
         "additionalProperties": false,
@@ -24660,6 +26463,30 @@
           "data"
         ]
       },
+      "DocUnsV2RecordGetResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/CloudRecordGetResult"
+          }
+        },
+        "required": [
+          "code",
+          "msg",
+          "requestId",
+          "data"
+        ]
+      },
       "DocUnsV2RecordRestoreResponse": {
         "type": "object",
         "additionalProperties": false,
@@ -24703,6 +26530,44 @@
               "restoredIds",
               "status",
               "replayed"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "msg",
+          "requestId",
+          "data"
+        ]
+      },
+      "DocUnsV2RecordQueryBatchResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "results": {
+                "type": "object",
+                "maxProperties": 20,
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/CloudRecordBatchQueryResult"
+                },
+                "description": "键为查询 id。"
+              }
+            },
+            "required": [
+              "results"
             ]
           }
         },
@@ -25634,6 +27499,16 @@
                   ]
                 }
               },
+              "nextIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "按序执行提前停下或部分提交时，第一个未执行操作的零基序号。序号小于它且不在 errors 里的操作都已提交。"
+              },
+              "unknownUntil": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "部分提交的中断原因结局未知时给出：[nextIndex, unknownUntil) 的操作结局未知，带幂等键时用同一个键重试，不带键时只有带客户端 id 的新增与按 id 的替换 / 删除能先按 id 读取状态再续做，服务端生成 id 的新增、按 filter 选择目标的操作与 $inc 等增量更新无法核对，结局未知时不能安全续做（这类写入应始终带幂等键）。没有它时从 nextIndex 续做是安全的。"
+              },
               "status": {
                 "type": "string",
                 "enum": [
@@ -25669,6 +27544,193 @@
           "requestId",
           "data"
         ]
+      },
+      "DocUnsV2MetadataBulkWritePartialError": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "nullable": true,
+            "allOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "insertedCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "matchedCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "modifiedCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "deletedCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "restoredCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "upsertedCount": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "insertedIds": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "description": "键为原始输入的零基序号。"
+                  },
+                  "upsertedIds": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "description": "键为原始输入的零基序号。"
+                  },
+                  "results": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/MetadataBulkResult"
+                    }
+                  },
+                  "errors": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "index": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "error": {
+                          "$ref": "#/components/schemas/Fault"
+                        }
+                      },
+                      "required": [
+                        "index",
+                        "error"
+                      ]
+                    }
+                  },
+                  "nextIndex": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "按序执行提前停下或部分提交时，第一个未执行操作的零基序号。序号小于它且不在 errors 里的操作都已提交。"
+                  },
+                  "unknownUntil": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "部分提交的中断原因结局未知时给出：[nextIndex, unknownUntil) 的操作结局未知，带幂等键时用同一个键重试，不带键时只有带客户端 id 的新增与按 id 的替换 / 删除能先按 id 读取状态再续做，服务端生成 id 的新增、按 filter 选择目标的操作与 $inc 等增量更新无法核对，结局未知时不能安全续做（这类写入应始终带幂等键）。没有它时从 nextIndex 续做是安全的。"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "validated",
+                      "committed",
+                      "partiallyCommitted",
+                      "failed"
+                    ]
+                  },
+                  "replayed": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "insertedCount",
+                  "matchedCount",
+                  "modifiedCount",
+                  "deletedCount",
+                  "restoredCount",
+                  "upsertedCount",
+                  "insertedIds",
+                  "upsertedIds",
+                  "results",
+                  "errors",
+                  "status",
+                  "replayed"
+                ]
+              }
+            ],
+            "description": "error.execution=committed（部分提交）时为累计结果（results / errors / nextIndex / unknownUntil）：序号小于 nextIndex 且不在 errors 里的操作都已提交；[nextIndex, unknownUntil) 结局未知，带幂等键时同键重试，不带键时只有带客户端 id 的新增与按 id 的替换 / 删除能先按 id 读取状态再续做，服务端生成 id 的新增、按 filter 选择目标的操作与 $inc 等增量更新无法核对，结局未知时不能安全续做（这类写入应始终带幂等键）；没有 unknownUntil 时从 nextIndex 续做是安全的。全部未提交时为 null。"
+          },
+          "error": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "可编程判断的错误码，例如 OVERLOADED、VERSION_CONFLICT。"
+              },
+              "reason": {
+                "type": "string",
+                "description": "面向开发者的错误原因。"
+              },
+              "details": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "description": "结构化定位信息；没有时为空数组。"
+              },
+              "execution": {
+                "type": "string",
+                "enum": [
+                  "notStarted",
+                  "rolledBack",
+                  "committed",
+                  "unknown"
+                ],
+                "description": "notStarted：进入写路径前被拒绝；rolledBack：已执行但整体回滚；committed：已提交；unknown：无法证明是否提交，只出现在写操作上，读请求永远不是 unknown。notStarted/rolledBack 可证明没有副作用。非原子批量（partialCommit 操作）只要有任一块或任一项已提交即为 committed（部分提交），此时 retry.safe=false，错误信封 data 为累计结果。"
+              },
+              "retry": {
+                "$ref": "#/components/schemas/ErrorRetry"
+              },
+              "repair": {
+                "type": "string",
+                "description": "修正建议，例如缩小查询范围。"
+              },
+              "path": {
+                "type": "string",
+                "description": "可定位时指向出错的输入位置。"
+              }
+            },
+            "required": [
+              "code",
+              "reason",
+              "details",
+              "execution",
+              "retry"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "msg",
+          "requestId",
+          "error"
+        ],
+        "additionalProperties": false
       },
       "DocUnsV2MetadataTransactResponse": {
         "type": "object",

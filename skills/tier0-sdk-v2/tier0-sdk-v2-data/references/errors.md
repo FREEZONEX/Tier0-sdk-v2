@@ -46,7 +46,7 @@ export function toResponse(error: unknown): Response {
 | `HTTP_502` / `HTTP_503` / `HTTP_504` (503) | 网关在滚动发布、Pod 重启时未经 UNS 直接返回；读会自动重试，写入时 `outcomeUnknown` 为 true、不重试 |
 | `DATA_BAD_RESPONSE` (502) | UNS 应答不符合契约 |
 | `BATCH_LIMIT_EXCEEDED` (400) | 原子批量超过 200 项，未发送 |
-| `WRITE_ERRORS` (409) | 批量写入有条目被拒；`details.writeErrors` 列出各条，非原子批量的 `details` 还有累计数量与 `resumeAfter` |
+| `WRITE_ERRORS` (409) | 批量写入有条目被拒；`details.writeErrors` 列出各条，`updateMany` / `deleteMany` 的 `details` 还有累计数量与 `resumeAfter`；`insertMany` / `bulkWrite` 是原子的，整批回滚 |
 | `TRANSACTION_FAILED` (409) | 事务未提交；`details.results` 列出各步骤 |
 | `SCHEMA_CONFLICT` (409) | Preview 下声明与存储冲突（部署环境记日志，冲突集合按已有 ID 继续服务） |
 | `SCHEMA_WARNINGS` (500) | Preview 下 ensure 带警告（`REQUIRED_NOT_ENFORCED`、`INDEX_BUILD_FAILED`） |

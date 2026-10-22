@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createUnsV2Client, createClient, UNS_V2_CODEC_SCHEMAS, UNS_V2_CONTRACT_PROVENANCE, UNS_V2_OPERATIONS, UnsV2Error, UnsV2OutcomeUnknownError, UnsV2RawNumber } from '../../src/index.js';
+import { createUnsV2Client, createClient, UNS_V2_CODEC_SCHEMAS, UNS_V2_CONTRACT_PROVENANCE, UNS_V2_OPERATIONS, UNS_V2_STREAM_OPERATIONS, UnsV2Error, UnsV2OutcomeUnknownError, UnsV2RawNumber } from '../../src/index.js';
 import { CloudTransport } from '../../src/cloud-transport.js';
 import { HttpClient } from '../../src/openapi/client.js';
 import type { UnsV2Response } from '../../src/uns-v2/generated.js';
@@ -335,17 +335,18 @@ describe('UNS v2 localhost HTTP fixture', () => {
     for (const name of ['CloudSourceCredentialCreateReq', 'CloudSourceCredentialCreateResponse', 'CloudSourceIngressGetReq', 'CloudSourceIngressRotateReq']) {
       expect(Object.hasOwn(UNS_V2_CODEC_SCHEMAS, name)).toBe(false);
     }
-    expect(UNS_V2_CONTRACT_PROVENANCE.version).toBe('4.0.0');
+    expect(UNS_V2_CONTRACT_PROVENANCE.version).toBe('5.0.0');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudContractRevision.split('+')).toEqual(expect.arrayContaining([
       'cloud-source-impact/1', 'app-create-capability/1', 'data/3', 'collection-namespace/1', 'http-acquisition/2',
       'app-collection/2', 'metadata/1', 'app-data/2', 'hosted-control/1', 'source-bindings/1',
       'record-notifications/1', 'record-delete-samples/1', 'stream-history/1',
+      'record-reads/1', 'app-context/2', 'collection-ttl/1', 'error-model/1',
     ]));
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('8d9fe632e958811778041398c4c3454a28c494bc');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('c665d82c5ff1f6744391226a206a3b17c4a90529');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(UNS_V2_CONTRACT_PROVENANCE.sourceDerivedContractSHA256).toBe(UNS_V2_CONTRACT_PROVENANCE.hashes.contract);
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(100);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(113);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(101);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(115);
     expect(received.slice(start)).toHaveLength(1);
   });
 
@@ -841,30 +842,10 @@ describe('UNS v2 localhost HTTP fixture', () => {
 });
 
 
-describe('Record notifications over the existing isolated HTTP transport', () => {
-  it('exposes a readonly operation and preserves cursor plus exact integer notification identity', async () => {
-    const start = received.length;
-    respond = (_req, res) => {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end('{"code":200,"msg":"ok","requestId":"changes","data":{"items":[{"eventId":"stable-event","collectionId":"orders","recordId":"9007199254740993","change":"record","occurredAt":9007199254740993}],"nextCursor":"rc1.sealed.fixture","retentionMs":3600000}}');
-    };
-    const result = await client().uns.recordChangesPoll({ collectionId: 'orders', cursor: 'rc1.old.fixture', limit: 20, waitMs: 0 });
-    expect(UNS_V2_OPERATIONS.recordChangesPoll.mutation).toBe(false);
-    expect(result.data.nextCursor).toBe('rc1.sealed.fixture');
-    expect(String(result.data.items[0].occurredAt)).toBe('9007199254740993');
-    expect(result.data.items[0].recordId).toBe('9007199254740993');
-    expect(received.slice(start)).toHaveLength(1);
-    expect(received.at(-1)?.path).toBe('/openapi/v2/uns/records/changes');
-    expect(JSON.parse(received.at(-1)!.body)).toEqual({ collectionId: 'orders', cursor: 'rc1.old.fixture', limit: 20, waitMs: 0 });
-  });
-  it.each([[409, 'CURSOR_EXPIRED'], [403, 'FORBIDDEN'], [503, 'TEMPORARILY_UNAVAILABLE']])('preserves %s/%s without automatic reconnect or write replay', async (status, code) => {
-    const start = received.length;
-    respond = (_req, res) => send(res, { code: status, msg: 'safe failure', requestId: 'changes', data: null,
-      error: { code, details: [], execution: 'rolledBack', retry: { safe: false } } }, status);
-    const error = await client().uns.recordChangesPoll({ collectionId: 'orders', cursor: 'rc1.old' }).catch(value => value);
-    expect(error).toBeInstanceOf(UnsV2Error);
-    expect(error).not.toBeInstanceOf(UnsV2OutcomeUnknownError);
-    expect(error).toMatchObject({ status, code, operation: 'recordChangesPoll' });
-    expect(received.slice(start)).toHaveLength(1);
+describe('records:subscribe in the generated contract', () => {
+  it('is a GET stream outside the generated POST methods', () => {
+    expect(Object.keys(UNS_V2_OPERATIONS)).not.toContain('recordSubscribe');
+    expect(Object.keys(UNS_V2_OPERATIONS)).not.toContain('recordChangesPoll');
+    expect(UNS_V2_STREAM_OPERATIONS.recordSubscribe.path).toBe('/openapi/v2/uns/records:subscribe');
   });
 });

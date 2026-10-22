@@ -53,8 +53,10 @@ for (const operation of manifest.operations) {
       if (operation[key] !== expected) fail(`${operation.name}.${key} differs from contract.json`);
     }
   }
+  // Server-sent event streams are GET routes; everything else is a POST envelope call.
+  const method = operation.transport === 'sse' ? 'GET' : 'POST';
   if ((source && operation.path !== source.suffix) || !operation.path?.startsWith('/uns/') ||
-      operation.method !== 'POST' || operation.supported !== true) {
+      operation.method !== method || operation.supported !== true) {
     fail(`${operation.name} has an unsupported route contract`);
   }
   const pathParams = operation.path.split('/').filter(part => part.startsWith(':')).map(part => part.slice(1));
@@ -79,7 +81,10 @@ if (registryNames.length !== manifest.operations.length || registryNames.some((n
   fail('registry_generated.go operation order differs from manifest.json');
 }
 
-const publicOperations = manifest.operations.filter(operation => !operation.coreOnly);
+const exposedOperations = manifest.operations.filter(operation => !operation.coreOnly);
+const publicOperations = exposedOperations.filter(operation => operation.transport !== 'sse');
+// Streams get no generated method: the client opens them with its own SSE reader.
+const streamOperations = exposedOperations.filter(operation => operation.transport === 'sse');
 const refName = ref => ref?.startsWith('#/components/schemas/') ? ref.slice('#/components/schemas/'.length) : undefined;
 const requestType = operation => refName(operation.requestSchema?.$ref) || operation.request;
 const responseType = operation => refName(operation.responseSchema?.$ref) || operation.response;
@@ -105,7 +110,7 @@ function reachableSchemas(operations) {
   return names;
 }
 
-const publicSchemaNames = reachableSchemas(publicOperations);
+const publicSchemaNames = reachableSchemas(exposedOperations);
 const privateSchemaNames = reachableSchemas(manifest.operations.filter(operation => operation.coreOnly));
 // A resolved Cloud source also contains Core-only schemas. Export only those
 // reachable publicly or unrelated to private operations; never expose private DTOs.
@@ -136,6 +141,26 @@ const acceptsIdempotencyKey = (schema, seen = new Set()) => {
 const literal = value => JSON.stringify(value);
 const union = values => [...new Set(values.filter(Boolean))].join(' | ') || 'never';
 
+// Keywords that only validate a value whose shape is declared elsewhere.
+const shapeKeys = ['$ref', 'type', 'enum', 'const', 'items', 'additionalProperties'];
+/**
+ * A schema that adds rules (`not`, `required`, bounds) but no shape, such as
+ * `allOf: [{ not: { required: ['count', 'cursor'] } }]`. TypeScript cannot
+ * express it; typing it as JSON would intersect the parent with every JSON
+ * value, so it contributes nothing to the type.
+ */
+function constraintOnly(schema) {
+  if (!schema || typeof schema !== 'object' || shapeKeys.some(key => Object.hasOwn(schema, key))) return false;
+  if (schema.properties && !Object.values(schema.properties).every(constraintOnly)) return false;
+  // A union with a rule-only branch admits whatever the parent admits.
+  return (!schema.allOf || schema.allOf.every(constraintOnly)) &&
+    (!schema.anyOf || schema.anyOf.some(constraintOnly)) && (!schema.oneOf || schema.oneOf.some(constraintOnly));
+}
+/** Composition parts that shape the type: a union with a rule-only branch admits the parent as is. */
+const shaping = (parts, kind) => kind === 'allOf'
+  ? parts.filter(part => !constraintOnly(part))
+  : parts.some(constraintOnly) ? [] : parts;
+
 function typeFor(schema, nested = false) {
   if (!schema || typeof schema !== 'object' || Object.keys(schema).length === 0) return 'UnsV2JSONValue';
   // Required-only object alternatives inherit the parent's field definitions.
@@ -155,6 +180,9 @@ function typeFor(schema, nested = false) {
   }
   const composed = [];
   const hasOwnShape = schema.$ref || schema.const !== undefined || schema.enum || schema.type || schema.properties || schema.additionalProperties !== undefined;
+  const allOf = shaping(schema.allOf || [], 'allOf');
+  const oneOf = shaping(schema.oneOf || [], 'oneOf');
+  const anyOf = shaping(schema.anyOf || [], 'anyOf');
   if (hasOwnShape && (schema.oneOf || schema.anyOf || schema.allOf)) {
     const own = { ...schema };
     delete own.oneOf;
@@ -163,9 +191,9 @@ function typeFor(schema, nested = false) {
     delete own.nullable;
     composed.push(typeFor(own, true));
   }
-  if (Array.isArray(schema.allOf)) composed.push(...schema.allOf.map(item => typeFor(item, true)));
-  if (Array.isArray(schema.oneOf)) composed.push(`(${union(schema.oneOf.map(item => typeFor(item, true)))})`);
-  if (Array.isArray(schema.anyOf)) composed.push(`(${union(schema.anyOf.map(item => typeFor(item, true)))})`);
+  composed.push(...allOf.map(item => typeFor(item, true)));
+  if (oneOf.length) composed.push(`(${union(oneOf.map(item => typeFor(item, true)))})`);
+  if (anyOf.length) composed.push(`(${union(anyOf.map(item => typeFor(item, true)))})`);
   if (composed.length) {
     let combined = composed.join(' & ');
     if (schema.nullable === true) combined = `${combined} | null`;
@@ -224,6 +252,8 @@ const schemaTypes = Object.entries(exportedSchemas).map(([name, schema]) =>
   `export type ${name} = ${typeFor(schema)};`).join('\n\n');
 const operationRows = publicOperations.map(operation =>
   `  ${JSON.stringify(operation.name)}: { path: ${JSON.stringify(`/openapi/v2${operation.path}`)}, pathParams: ${JSON.stringify(operation.pathParams || [])}, request: ${JSON.stringify(requestType(operation))}, response: ${JSON.stringify(responseType(operation))}, mutation: ${JSON.stringify(Boolean(operation.mutation))}, idempotencyKey: ${JSON.stringify(Boolean(operation.mutation) && acceptsIdempotencyKey(manifest.schemas[requestType(operation)]))}, scope: ${JSON.stringify(operation.scope)} },`).join('\n');
+const streamRows = streamOperations.map(operation =>
+  `  ${JSON.stringify(operation.name)}: { path: ${JSON.stringify(`/openapi/v2${operation.path}`)}, request: ${JSON.stringify(requestType(operation))}, scope: ${JSON.stringify(operation.scope)} },`).join('\n');
 const operationTypes = publicOperations.map(operation =>
   `  ${JSON.stringify(operation.name)}: { request: ${requestType(operation)}; response: ${responseType(operation)} };`).join('\n');
 const operationMethods = publicOperations.map(operation =>
@@ -242,13 +272,16 @@ const generated = `// Generated by scripts/generate-uns-v2.mjs from the frozen B
 `export type UnsV2JSONValue = null | boolean | number | string | UnsV2RawNumber | UnsV2JSONValue[] | { [key: string]: UnsV2JSONValue };\n\n` +
 `${schemaTypes}\n\n` +
 `export const UNS_V2_OPERATIONS = {\n${operationRows}\n} as const;\n\n` +
+`/** GET server-sent event streams; their wire frames are documented by the contract schemas. */\n` +
+`export const UNS_V2_STREAM_OPERATIONS = {\n${streamRows}\n} as const;\n` +
+`export type UnsV2StreamOperationName = keyof typeof UNS_V2_STREAM_OPERATIONS;\n\n` +
 `export interface UnsV2OperationMap {\n${operationTypes}\n}\n\n` +
 `export interface UnsV2Operations {\n${operationMethods}\n}\n\n` +
 `export type UnsV2OperationName = keyof UnsV2OperationMap;\n` +
 `export type UnsV2Request<Name extends UnsV2OperationName> = UnsV2OperationMap[Name]['request'];\n` +
 `export type UnsV2Response<Name extends UnsV2OperationName> = UnsV2OperationMap[Name]['response'];\n\n` +
 `export const UNS_V2_CODEC_SCHEMAS = ${JSON.stringify(codecSchemas)} as const;\n\n` +
-`export const UNS_V2_CONTRACT_PROVENANCE = ${JSON.stringify({ ...provenance, hashes, publicOperationCount: publicOperations.length, manifestOperationCount: manifest.operations.length }, null, 2)} as const;\n`;
+`export const UNS_V2_CONTRACT_PROVENANCE = ${JSON.stringify({ ...provenance, hashes, publicOperationCount: publicOperations.length, streamOperationCount: streamOperations.length, manifestOperationCount: manifest.operations.length }, null, 2)} as const;\n`;
 
 const outputPath = resolve(root, output);
 if (process.argv.includes('--check')) {

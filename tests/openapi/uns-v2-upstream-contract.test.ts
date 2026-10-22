@@ -5,6 +5,10 @@ import { UNS_V2_CODEC_SCHEMAS, UNS_V2_CONTRACT_PROVENANCE, UNS_V2_OPERATIONS } f
 
 type Operation = {
   name: string;
+  mutation?: string;
+  readOnly?: boolean;
+  sideEffect?: boolean;
+  partialCommit?: boolean;
   appAllowed: boolean;
   coreOnly?: boolean;
   permission: string;
@@ -22,20 +26,20 @@ const operation = (name: string) => manifest.operations.find(item => item.name =
 
 describe('Backend App UNS access contract without generic record audit', () => {
   it('pins the exact upstream commit and all generator inputs', () => {
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('8d9fe632e958811778041398c4c3454a28c494bc');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('c665d82c5ff1f6744391226a206a3b17c4a90529');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     for (const [key, file] of Object.entries({ contract: 'contract.json', cloudSupport: 'cloud-support.json', manifest: 'manifest.json', provenance: 'provenance.json', registry: 'registry_generated.go' })) {
       expect(UNS_V2_CONTRACT_PROVENANCE.hashes[key as keyof typeof UNS_V2_CONTRACT_PROVENANCE.hashes]).toBe(
         createHash('sha256').update(read(file)).digest('hex')
       );
     }
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(100);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(113);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(101);
+    expect(UNS_V2_CONTRACT_PROVENANCE.streamOperationCount).toBe(1);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(115);
   });
 
   it.each([
     ['catalog', ['uns.read', 'uns.write', 'uns.delete']],
-    ['jobs', ['uns.read', 'uns.write', 'uns.delete']],
     ['dataAppContext', ['uns.read', 'uns.write', 'uns.delete']],
     ['recordTransactionExecute', ['uns.write', 'uns.delete']],
   ] as const)('%s preserves the upstream resource alternatives without inventing read/manage rights', (name, permissions) => {
@@ -47,6 +51,49 @@ describe('Backend App UNS access contract without generic record audit', () => {
     expect(line).toContain(`PermissionAnyOf: []string{${permissions.map(permission => `"${permission}"`).join(', ')}}`);
     expect(line).toContain('AppAllowed: true');
     expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(true);
+  });
+
+  it('marks every operation without a mutation read-only, matching the generated mutation flag', () => {
+    // The SDK fills `execution` for failures without an error body from `mutation`: reads rolledBack, writes unknown.
+    for (const item of manifest.operations) {
+      expect(item.readOnly, item.name).toBe(!item.mutation && !item.sideEffect);
+      if (Object.hasOwn(UNS_V2_OPERATIONS, item.name)) {
+        expect(UNS_V2_OPERATIONS[item.name as keyof typeof UNS_V2_OPERATIONS].mutation, item.name).toBe(!item.readOnly);
+      }
+    }
+  });
+
+  it('flags the non-atomic batch writes that can commit partly', () => {
+    // The data layer's updateMany / deleteMany rely on these answering execution=committed with cumulative data.
+    expect(manifest.operations.filter(item => item.partialCommit).map(item => item.name).sort()).toEqual(
+      ['metadataBulkWrite', 'recordBulkWrite', 'recordDeleteMany', 'recordInsertMany', 'recordUpdateMany'],
+    );
+  });
+
+  it('continues updateMany and deleteMany with resumeAfter, the operation batches from nextIndex up to unknownUntil', () => {
+    // The data layer sends insertMany / bulkWrite atomic, so it never continues them.
+    const carrying = (field: string) =>
+      Object.entries(manifest.schemas).filter(([, schema]) => JSON.stringify(schema).includes(`"${field}"`)).map(([name]) => name).sort();
+    expect(carrying('resumeAfter')).toEqual([
+      'UnsV2RecordDeleteManyReq', 'UnsV2RecordDeleteManyReqBody', 'UnsV2RecordDeleteManyResponse',
+      'UnsV2RecordUpdateManyReq', 'UnsV2RecordUpdateManyReqBody', 'UnsV2RecordUpdateManyResponse',
+    ]);
+    expect(carrying('nextIndex')).toEqual(['UnsV2MetadataBulkWriteResponse', 'UnsV2RecordBulkWriteResponse', 'UnsV2RecordInsertManyResponse']);
+    // [nextIndex, unknownUntil) is the span whose outcome is unknown; without it, continuing from nextIndex is safe.
+    expect(carrying('unknownUntil')).toEqual(['UnsV2MetadataBulkWriteResponse', 'UnsV2RecordBulkWriteResponse', 'UnsV2RecordInsertManyResponse']);
+  });
+
+  it('narrows App credentials to the 5.0.0 data surface', () => {
+    // A9: App keys lose metadataFind*, the jobs query and change polling; records:explain stays (D-9 withdrawn).
+    for (const name of ['metadataFind', 'metadataFindOne', 'jobs']) {
+      expect(operation(name).appAllowed, name).toBe(false);
+      expect(Object.hasOwn(UNS_V2_OPERATIONS, name), name).toBe(true);
+    }
+    expect(operation('jobs').permissionAnyOf).toEqual(['uns.read', 'uns.write', 'uns.delete']);
+    expect(manifest.operations.some(item => item.name === 'recordChangesPoll')).toBe(false);
+    for (const name of ['recordExplain', 'recordGet', 'recordQueryBatch', 'recordSubscribe']) {
+      expect(operation(name).appAllowed, name).toBe(true);
+    }
   });
 
   it('keeps App credentials outside generic management while preserving owned-collection lifecycle and Core-only boundaries', () => {

@@ -998,6 +998,26 @@ describe('collection operations', () => {
     ]);
   });
 
+  it('sends insertMany and bulkWrite atomically: write errors roll the batch back, with no resume position', async () => {
+    const writeErrors = [{ index: 1, code: 'DUPLICATE_KEY', message: 'code exists' }];
+    const mock = mockUns({
+      [ENSURE]: BOTH_UNCHANGED,
+      '/uns/collections/c-orders/records:insertMany': ok({ insertedCount: 0, insertedIds: {}, status: 'failed', replayed: false, writeErrors }),
+      '/uns/collections/c-orders/records:bulkWrite': ok({ insertedCount: 0, matchedCount: 0, modifiedCount: 0, deletedCount: 0, upsertedCount: 0, status: 'failed', replayed: false, writeErrors }),
+    });
+    const handle = client(mock).collection(orders);
+    const docs = [{ code: 'A', status: 'OPEN' as const }, { code: 'A', status: 'OPEN' as const }];
+    for (const promise of [handle.insertMany(docs), handle.bulkWrite(docs.map(document => ({ insertOne: { document } })))]) {
+      const error = await failed(promise);
+      expect(error).toMatchObject({ code: 'WRITE_ERRORS', execution: 'rolledBack' });
+      expect(error.details).toEqual({ writeErrors });
+    }
+    for (const path of ['/uns/collections/c-orders/records:insertMany', '/uns/collections/c-orders/records:bulkWrite']) {
+      expect(mock.calls(path)[0].body).toMatchObject({ atomic: true });
+      expect(mock.calls(path)[0].body).not.toHaveProperty('resumeAfter');
+    }
+  });
+
   it('runs transactions synchronously with resolved collection IDs', async () => {
     const mock = mockUns({
       [ENSURE]: BOTH_UNCHANGED,

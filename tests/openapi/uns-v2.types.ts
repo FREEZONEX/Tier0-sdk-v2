@@ -126,14 +126,11 @@ const insertedShape = client.uns.recordInsertOne({ collectionId: 'orders', data:
 });
 void [resourceShape, insertedShape];
 
-// Notifications expose identifiers only; business fields use the existing scoped query.
-const notifications = client.uns.recordChangesPoll({ collectionId: 'orders', limit: 20, waitMs: 1000 });
-notifications.then(result => {
-  const cursor: string = result.data.nextCursor;
-  const recordID: string | undefined = result.data.items[0]?.recordId;
-  void cursor; void recordID;
-  // @ts-expect-error notifications never export an unfiltered historical document
-  void result.data.items[0]?.data;
+// Change events go through the SSE reader, never a generated method.
+// @ts-expect-error records/changes polling was removed in contract 5.0.0
+void client.uns.recordChangesPoll;
+// Records by ID: missing IDs are listed, never distinguished as absent or hidden.
+client.uns.recordGet({ collectionId: 'orders', ids: ['o-1'] }).then(result => {
+  const missing: string[] = result.data.missing;
+  void missing;
 });
-// @ts-expect-error the authenticated workspace cannot be overridden in the body
-void client.uns.recordChangesPoll({ collectionId: 'orders', workspaceId: 'other' });
