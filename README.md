@@ -179,6 +179,6 @@ npm run check
 
 v1 来自网关 Swagger，并按实际 handler 补齐响应外层；UNS 来自 `contract_generated.go#ContractJSON` 中已经应用 Cloud 扩展的契约，结合 manifest/registry 生成。不能直接使用仍含 Enterprise 基础操作的 `share/unscontract/contract.json` 作为最终云端契约。
 
-`npm run check` 包含契约一致性、Skill 注册及递归引用检查、所有 Skill TypeScript 示例的源码/安装包类型校验、单元和本地 HTTP 测试、ESM/CJS 构建、实际 npm 包安装、浏览器打包及导入验证。测试不调用线上写接口，也不证明真实环境功能已上线。
+`npm run check` 包含契约一致性、Skill 注册及递归引用检查、所有 Skill TypeScript 示例的源码/安装包类型校验、单元和本地 HTTP 测试、ESM/CJS 构建、实际 npm 包安装、浏览器打包及导入验证。`tests/skill-workflows.test.ts` 直接提取 Markdown 示例，验证 Source/Stream/UNS 的创建、查询、修改、删除或归档恢复，以及影响分页和结果未知分支。测试不调用线上写接口，也不证明真实环境功能已上线。
 
 首发前仍需：目标环境只读联调、隔离测试空间的写入验收、App 脚手架切换精确依赖 `"@tier0/sdk-v2": "0.1.0"`、新 Skill 上传和 npm 发布授权。App 成员能力等待公开 appId 契约落地后增加，现阶段不承诺该能力。

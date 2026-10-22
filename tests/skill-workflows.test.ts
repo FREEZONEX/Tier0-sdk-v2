@@ -1,0 +1,258 @@
+import { readFileSync, readdirSync } from 'node:fs';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { runInNewContext } from 'node:vm';
+import ts from 'typescript';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import * as sdk from '../src/index.js';
+
+// Execute the actual Markdown snippets, not a separately maintained copy.
+function example(domain: string, file: string, index = 0): Record<string, (...args: any[]) => any> {
+  const markdown = readFileSync(new URL('../skills/tier0-sdk-v2-' + domain + '/references/' + file + '.md', import.meta.url), 'utf8');
+  const blocks = [...markdown.matchAll(/^\x60\x60\x60(?:ts|typescript)\r?\n([\s\S]*?)^\x60\x60\x60/gm)];
+  if (!blocks[index]) throw new Error('Missing documentation example');
+  const code = ts.transpileModule(blocks[index][1], {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const exports = {};
+  runInNewContext(code, { exports, require: (name: string) => {
+    if (name !== '@tier0/sdk-v2') throw new Error('Unexpected import: ' + name);
+    return sdk;
+  } });
+  return exports;
+}
+
+type Step = { path: string; check?: (body: any) => void; data?: any; raw?: string };
+let steps: Step[] = [];
+let failures: unknown[] = [];
+let calls: { path: string; body: any }[] = [];
+let client: sdk.Tier0Client;
+const server = createServer(async (req, res) => {
+  let raw = '';
+  for await (const chunk of req) raw += chunk;
+  const body = JSON.parse(raw);
+  const path = req.url!.replace('/openapi/v2/uns/', '');
+  calls.push({ path, body });
+  const step = steps.shift();
+  try {
+    expect(req.method).toBe('POST');
+    expect(step, 'Unexpected request: ' + path).toBeDefined();
+    expect(path).toBe(step!.path);
+    step!.check?.(body);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(step!.raw ?? JSON.stringify({ code: 200, msg: '', requestId: 'skill-fixture', data: step!.data }));
+  } catch (error) {
+    failures.push(error);
+    res.writeHead(500);
+    res.end('fixture assertion failed');
+  }
+});
+beforeAll(async () => {
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  client = sdk.createClient({ apiHost: 'http://127.0.0.1:' + (server.address() as AddressInfo).port, apiKey: 'fixture-key' });
+});
+beforeEach(() => { steps = []; failures = []; calls = []; });
+afterAll(async () => {
+  server.closeAllConnections();
+  await new Promise<void>(resolve => server.close(() => resolve()));
+});
+function finished() { expect(failures).toEqual([]); expect(steps).toEqual([]); }
+const preview = { validated: true, sideEffects: false };
+const outcome = (status = 'committed') => ({ status, replayed: false, results: [] });
+const page = (list: unknown[]) => ({ list, total: list.length, page: 1, size: 200,
+  hasMore: false, complete: true, truncated: false, snapshotScope: 'thisRequestOnly' });
+const source = (revision = 1, name = 'orders') => ({
+  id: '9007199254740993', revision, document: { name, protocol: 'http', description: '订单系统 HTTP 接入',
+    config: { configVersion: 2, endpoint: 'https://fixture.invalid', options: {} } },
+  desiredState: 'disabled', runtimeState: 'stopped', health: 'unknown', createdAt: 1, updatedAt: 1,
+});
+const token = 'si1_' + 'a'.repeat(43); // Fixture-only server-issued confirmation.
+const impact = (action = 'update', revision = 1) => ({
+  impactRevision: token, sourceID: source().id, sourceRevision: revision, action, complete: 1,
+  counts: { draft: 0, activeRelease: 0, historicalRelease: 0 }, restrictedCount: 0,
+  references: [], nextOffset: 0, expiresAt: 9999999999999,
+});
+const stream = (revision = 1, description = '', activeRelease = 0) => ({
+  id: '9007199254740995', revision, document: { name: 'orders-stream', model: 'program', description,
+    script: { sdkVersion: 'tier0-stream/v2', code: 'module.exports=api=>{};', timeoutMs: 5000 },
+    sources: [{ alias: 'orders', sourceId: source().id, configRevision: 1, resources: [], acquisition: {} }],
+    entries: [] },
+  status: activeRelease ? 'active' : 'draft', activeRelease, createdAt: 1, updatedAt: 1,
+});
+const collection = (revision = 1) => ({ kind: 'collection', id: 'devices', revision,
+  data: { schemaVersion: 1, name: 'devices', recordSchema: { type: 'object', properties: {
+    name: { type: 'string' }, enabled: { type: 'boolean' } }, required: ['name', 'enabled'] } } });
+const record = (revision = 1, name = 'pump') => ({ id: 'device-1', collectionId: 'devices', revision,
+  data: { name, enabled: true }, createdAt: 1, updatedAt: 1 });
+const records = (...items: unknown[]) => ({ items, pageInfo: { hasMore: false } });
+
+describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () => {
+  it('documents only HTTP paths present in the pinned SDK contract', () => {
+    const paths = new Set<string>(Object.values(sdk.UNS_V2_OPERATIONS).map(operation => operation.path));
+    for (const domain of ['source', 'stream', 'uns']) {
+      const dir = new URL('../skills/tier0-sdk-v2-' + domain + '/references/', import.meta.url);
+      for (const name of readdirSync(dir).filter(name => name.endsWith('.md'))) {
+        const content = readFileSync(new URL(name, dir), 'utf8');
+        for (const match of content.matchAll(/\/openapi\/v2\/[A-Za-z0-9_/:{}-]+/g)) {
+          const path = match[0].replace(/\{(\w+)\}/g, ':$1');
+          expect(paths.has(path), domain + '/' + name + ': ' + path).toBe(true);
+        }
+      }
+    }
+  });
+  it('executes Source create, read, exact-intent update, delete and archive readback', async () => {
+    steps = [
+      { path: 'sources/documents/create', check: b => expect(b.dryRun).toBe(true), data: preview },
+      { path: 'sources/documents/create', check: b => expect(b).toMatchObject({
+        dryRun: false, idempotencyKey: 'create-source', document: source().document }), data: source() },
+      { path: 'sources/documents/get', check: b => expect(b.id).toBe(source().id), data: source() },
+      { path: 'sources/documents/get', data: source() },
+      { path: 'sources/impact', check: b => expect(b).toMatchObject({
+        expectedRevision: 1, action: 'update', document: { name: 'renamed' } }), data: impact() },
+      { path: 'sources/documents/update', check: b => expect(b).toMatchObject({
+        dryRun: true, expectedRevision: 1, confirmedImpactRevision: token }), data: preview },
+      { path: 'sources/documents/update', check: b => expect(b).toMatchObject({
+        dryRun: false, expectedRevision: 1, confirmedImpactRevision: token,
+        document: { ...source().document, name: 'renamed' } }), data: source(2, 'renamed') },
+      { path: 'sources/documents/get', data: source(2, 'renamed') },
+      { path: 'sources/impact', check: b => expect(b).toMatchObject({ action: 'delete', expectedRevision: 2 }), data: impact('delete', 2) },
+      { path: 'sources/delete', check: b => expect(b.items).toEqual([
+        { id: source().id, expectedRevision: 2, confirmedImpactRevision: token }]), data: outcome() },
+      { path: 'sources/documents/list', check: b => expect(b.archived).toBe(true), data: page([source(3, 'renamed')]) },
+    ];
+    const created = await example('source', 'create').createHttpSource('https://fixture.invalid', 'orders', 'create-source', client);
+    const plan = await example('source', 'update').prepareSourceRename(created.current.id, 'renamed', client);
+    const changed = await example('source', 'update').commitSourceRename(plan, 'rename-source', client);
+    const assessed = await example('source', 'changes').collectSourceImpact({
+      id: changed.current.id, expectedRevision: changed.current.revision, action: 'delete',
+    }, client);
+    const deleted = await example('source', 'delete').deleteSource(changed.current.id,
+      changed.current.revision, assessed.impactRevision, 'delete-source', client);
+    expect(deleted.state).toBe('archived');
+    finished();
+  });
+
+  it('keeps the same confirmation and intent while traversing Source impact pages', async () => {
+    const ref = { kind: 'draft', streamID: stream().id, streamRevision: 1, release: 0,
+      alias: 'orders', configRevision: 1, streamDeleted: 2, parentMissing: 2 };
+    steps = [
+      { path: 'sources/impact', data: { ...impact(), references: [ref], nextOffset: 1 } },
+      { path: 'sources/impact', check: b => expect(b).toMatchObject({
+        id: source().id, expectedRevision: 1, action: 'delete', offset: 1, impactRevision: token }),
+        data: { ...impact(), references: [ref], nextOffset: 0 } },
+    ];
+    const result = await example('source', 'changes').collectSourceImpact({
+      id: source().id, expectedRevision: 1, action: 'delete',
+    }, client);
+    expect(result.references).toHaveLength(2);
+    finished();
+  });
+
+  it('executes Stream Source binding, full-document update, deploy, guarded disable and deletion', async () => {
+    steps = [
+      { path: 'sources/documents/get', data: source() },
+      { path: 'streams/program/validate', check: b => {
+        expect(b.document.sourceBindings).toEqual([{ sourceId: source().id, configRevision: 1, acquisition: {} }]);
+        expect(b.document.script).toContain('api.sources.use');
+      }, data: { valid: true, sideEffects: false } },
+      { path: 'streams/program/create', data: { id: stream().id, revision: 1, activeVersion: '0' } },
+      { path: 'streams/documents/get', data: stream() },
+      { path: 'streams/documents/get', data: stream() },
+      { path: 'streams/documents/validate', data: { valid: true, issues: [] } },
+      { path: 'streams/documents/update', check: b => expect(b).toMatchObject({
+        expectedRevision: 1, document: { ...stream().document, description: 'updated' } }), data: stream(2, 'updated') },
+      { path: 'streams/documents/get', data: stream(2, 'updated') },
+      { path: 'streams/documents/get', data: stream(2, 'updated') },
+      { path: 'streams/program/deploy', check: b => expect(b).toMatchObject({
+        expectedRevision: 2, expectedSourceRevision: 1, dryRun: false }), data: { activeVersion: '9007199254740997' } },
+      { path: 'streams/documents/get', data: stream(3, 'updated', 1) },
+      { path: 'streams/observation/get', data: {} },
+      { path: 'streams/documents/get', data: stream(3, 'updated', 1) },
+      { path: 'streams/documents/disable', check: b => expect(b).toMatchObject({
+        expectedRevision: 3, expectedActiveRelease: 1 }), data: { id: stream().id, revision: 4, status: 'disabled', activeRelease: 0 } },
+      { path: 'streams/documents/get', data: stream(4, 'updated') },
+      { path: 'streams/documents/get', data: stream(4, 'updated') },
+      { path: 'streams/program/delete', check: b => expect(b.expectedRevision).toBe(4),
+        data: { id: stream().id, revision: 4, deleted: true } },
+      { path: 'streams/program/list', data: page([stream(4, 'updated')]) },
+    ];
+    const created = await example('stream', 'create').createHttpStream(source().id, 'orders-stream', 'create-stream', client);
+    const id = created.current.id;
+    await example('stream', 'update').updateStreamDescription(id, 'updated', 'update-stream', client);
+    await example('stream', 'deploy').deployStream(id, 'deploy-stream', client);
+    await example('stream', 'deploy').disableStream(id, 'disable-stream', client);
+    const deleted = await example('stream', 'delete').deleteStream(id, 'delete-stream', client);
+    expect(deleted.archived.id).toBe(id);
+    finished();
+  });
+
+  it('executes collection and Record CRUD, Schema extension, archive and restore', async () => {
+    steps = [
+      { path: 'collections/create', data: outcome('validated') },
+      { path: 'collections/create', check: b => expect(b.items[0].recordSchema.required).toEqual(['name', 'enabled']), data: outcome() },
+      { path: 'collections/get', data: collection() },
+      { path: 'collections/devices/records', data: { insertedId: 'device-1', status: 'committed', replayed: false } },
+      { path: 'collections/devices/records:find', data: records(record()) },
+      { path: 'collections/devices/records:find', data: records(record()) },
+      { path: 'collections/devices/records:updateOne', check: b => expect(b).toMatchObject({
+        filter: { _id: 'device-1' }, expectedRevision: 1, update: { $set: { name: 'pump-2' } }, upsert: false }),
+        data: { status: 'committed', matchedCount: 1, modifiedCount: 1, replayed: false } },
+      { path: 'collections/devices/records:find', data: records(record(2, 'pump-2')) },
+      { path: 'collections/get', data: collection() },
+      { path: 'collections/schema/update', check: b => {
+        expect(b.items[0].recordSchema.properties.location).toEqual({ type: 'string' });
+        expect(b.items[0].recordSchema.required).toEqual(['name', 'enabled']);
+        expect(b.items[0]).not.toHaveProperty('sampleSchema');
+      }, data: outcome('validated') },
+      { path: 'collections/schema/update', data: outcome() },
+      { path: 'collections/get', data: collection(2) },
+      { path: 'collections/devices/records:find', data: records(record(2, 'pump-2')) },
+      { path: 'collections/devices/records:deleteOne', check: b => expect(b.expectedRevision).toBe(2),
+        data: { status: 'committed', deletedCount: 1, replayed: false } },
+      { path: 'collections/devices/records:find', data: records() },
+      { path: 'collections/devices/records:restore', data: { status: 'committed', restoredCount: 1, restoredIds: ['device-1'], replayed: false } },
+      { path: 'collections/devices/records:find', data: records(record(4, 'pump-2')) },
+      { path: 'collections/get', data: collection(2) },
+      { path: 'collections/archive', check: b => expect(b.items[0].expectedRevision).toBe(2), data: outcome() },
+      { path: 'collections/list', data: page([{ ...collection(3), deletedAt: 1 }]) },
+      { path: 'collections/restore', check: b => expect(b.items[0].expectedRevision).toBe(3), data: outcome() },
+      { path: 'collections/get', data: collection(4) },
+    ];
+    await example('uns', 'create').createDeviceCollection('devices', 'devices', 'create-collection', client);
+    await example('uns', 'create', 1).insertDevice('devices', 'device-1', 'pump', 'insert-record', client);
+    await example('uns', 'update').renameDevice('devices', 'device-1', 'pump-2', 'update-record', client);
+    await example('uns', 'update', 2).addDeviceLocation('devices', 'schema-change', client);
+    await example('uns', 'delete').deleteDevice('devices', 'device-1', 'delete-record', client);
+    await example('uns', 'restore').restoreDevice('devices', 'device-1', 'restore-record', client);
+    const archived = await example('uns', 'delete', 1).archiveCollection('devices', 'archive-collection', client);
+    await example('uns', 'restore').restoreCollection('devices', archived.archived.revision, 'restore-collection', client);
+    finished();
+  });
+
+  it('does not report an accepted collection mutation as committed or perform dependent reads', async () => {
+    steps = [
+      { path: 'collections/create', data: outcome('validated') },
+      { path: 'collections/create', data: { ...outcome('accepted'), jobId: 'pending-job' } },
+    ];
+    const result = await example('uns', 'create').createDeviceCollection('devices', 'devices', 'create', client);
+    expect(result.state).toBe('unconfirmed');
+    expect(result.receipt.data.jobId).toBe('pending-job');
+    finished();
+  });
+
+  it('does not retry a Source mutation after an unknown transport result', async () => {
+    steps = [{ path: 'sources/delete', raw: 'truncated response' }];
+    await expect(example('source', 'delete').deleteSource(source().id, 1, token, 'delete', client))
+      .rejects.toBeInstanceOf(sdk.UnsV2OutcomeUnknownError);
+    expect(calls).toHaveLength(1);
+    finished();
+  });
+
+  it('does not insert when updating an absent Record', async () => {
+    steps = [{ path: 'collections/devices/records:find', data: records() }];
+    await expect(example('uns', 'update').renameDevice('devices', 'missing', 'new', 'rename', client))
+      .rejects.toThrow('记录不存在');
+    expect(calls).toHaveLength(1);
+    finished();
+  });
+});

@@ -1,74 +1,43 @@
 ---
 name: tier0-sdk-v2-stream
-description: 使用 @tier0/sdk-v2 的 client.stream 管理 Tier0 Stream 程序和原生文档，配置源绑定，执行校验、样例测试、部署、停用、回滚和运行观测。
+description: 使用 @tier0/sdk-v2 的 client.stream 创建、查询、修改和删除 Stream，绑定 Source，校验脚本，发布、停用、回滚及检查运行结果。
 ---
 
 # Stream 处理与运行
 
-Stream 负责处理逻辑和运行。连接凭据由 [Source](../tier0-sdk-v2-source/SKILL.md) 管理，集合和记录由 [UNS](../tier0-sdk-v2-uns/SKILL.md) 管理。应用集成使用 `client.stream`，不再用旧 Flow 或 `client.uns.stream*`。
+应用代码使用 client.stream；外部连接用 [Source](../tier0-sdk-v2-source/SKILL.md)，集合和记录用 [UNS](../tier0-sdk-v2-uns/SKILL.md)。服务端 `createClient()` 读取 TIER0_API_HOST / TIER0_API_KEY，也可显式传 apiHost/apiKey。
 
-## 先区分两个契约
+## 按任务加载参考
 
-| 形态 | 数据与入口 |
-| --- | --- |
-| Runtime program | `{ sdkVersion: 'tier0-stream/v2', name, script, sourceBindings?, timeoutMs? }`；使用 `stream.programs.*` |
-| 云端原生文档 | `{ name, model, script, sources?, entries? }`；使用 `stream.documents.*` |
+| 用户任务 | 参考 | 方法 |
+| --- | --- | --- |
+| 新建并绑定 HTTP Source | [创建](references/create.md) | programs.validate/create |
+| 列表、完整文档、运行记录 | [查询](references/read.md) | programs.list/get、documents.get、observations.get、runs.list |
+| 修改草稿、脚本和绑定 | [修改](references/update.md) | documents.validate/update |
+| 发布、停用、版本回滚 | [部署](references/deploy.md) | programs.deploy/rollback、documents.disable |
+| 删除并核验归档 | [删除](references/delete.md) | programs.delete |
+| 隔离样例测试、流程衔接 | [生命周期](references/lifecycle.md) | sampleTest |
 
-两个 script 字段的形态可能不同，不能直接相互拷贝。Runtime script 是完整 `module.exports = api => { ... }` 程序，不能只写一个 transform 函数体。脚本里的 `api.source/api.uns/api.stream` 属于平台执行器，不是本 npm 包的 `client`，不要在运行时脚本内套用 HTTP SDK 示例。
+## 两种文档形态
 
-## 发现和读取
+| 形态 | 完整输入 | 适用入口 |
+| --- | --- | --- |
+| Runtime program | name、sdkVersion、script 字符串、sourceBindings、timeoutMs | programs.create/update/validate |
+| 云端原生文档 | name、model、script 对象、sources、entries | documents.create/get/update/validate |
 
-```ts
-import { createClient } from '@tier0/sdk-v2';
+程序必须是完整 `module.exports = api => { ... }`，执行器 API 是 api.sources/api.uns/api.stream，与 npm 包的 client.source 不同。Runtime sourceBindings 为 sourceId/configRevision/acquisition；原生 sources 还使用 alias/resources。连接凭据不进脚本或 acquisition。
 
-export async function inspectStreams() {
-  const client = createClient();
-  const capabilities = await client.stream.runtime.capabilities({});
-  const programs = await client.stream.programs.list({ page: 1, size: 20 });
-  return { capabilities: capabilities.data, programs: programs.data };
-}
-export async function inspectRun(id: string) {
-  const client = createClient();
-  const observation = await client.stream.observations.get({ id });
-  const runs = await client.stream.runs.list({ id, size: 20 });
-  return { observation: observation.data, runs: runs.data };
-}
-```
+## 核心约束
 
-优先读取当前文档和 runtime capabilities。按真实 ID 查询；原生 ID 保持十进制字符串。读取旧运行结果不能证明最新 release 已生效。
+1. programs.get 返回脱敏摘要，不含可回写脚本；编辑必须 documents.get。保留未修改的 sources/entries/script 字段。
+2. create/update 保存草稿，不自动发布；documents 没有 deploy，云端 program 发布使用 programs.deploy。不能将已保存报告为已运行。
+3. 所有更新/部署/删除携带当前 expectedRevision。原生停用另需 expectedActiveRelease，避免停掉他人刚发布的版本。
+4. versionId 从 versions.list 取得，不把 release 序号当 ID。expectedSourceRevision 仅用于恰好一个依赖源，不代表多个源的修订。
+5. resources=[] 是空冻结资源集，不是通配符。先查询 runtime.capabilities，并让服务端 validate 检查能力；当前云端程序 timeoutMs 上限 30000。
+6. 仅执行用户要求的生命周期步骤；修改脚本不自动授予发布、停用或删除权限。
 
-## 校验 Runtime program
+## 成功与异常
 
-```ts
-import { createClient } from '@tier0/sdk-v2';
+响应保留 code/msg/requestId/data。校验要检查 valid，样例要检查 completed/failed，删除要检查 deleted，发布要检查 activeVersion 和观测。样例 writePreview 不代表线上数据写入。
 
-export async function validateHealthProgram() {
-  const client = createClient();
-  return client.stream.programs.validate({
-    document: {
-      name: 'Health response',
-      sdkVersion: 'tier0-stream/v2',
-      script: 'module.exports = api => { api.stream.onRequest({ id: "health" }, () => ({ ok: true })); };',
-      timeoutMs: 1000,
-    },
-  });
-}
-```
-
-这是无外部连接的校验示例，尚未创建或部署。业务程序应按能力目录填写真实入口与绑定。Runtime `sourceBindings` 使用 sourceId、configRevision、acquisition；连接地址、认证、TLS 从 Source 读取，不复制到 acquisition 或脚本。原生文档的 sources 按其自身契约填写。
-
-## 创建、更新、发布
-
-- `programs.create/update` 保存程序，先 `validate` 或 `dryRun: true` 检查；不能把保存成功当成发布成功。
-- `programs.deploy` 执行发布；`programs.disable` 停用；`programs.rollback` 回到明确的 versionId。版本先从 `programs.versions.list({ id })` 查询。
-- 更新、部署与回滚携带读取到的 expectedRevision；涉及 Source 修订约束时携带 expectedSourceRevision。不要把名字、当前时间或版本序号猜成 ID。
-- 原生文档用 `documents.validate/create/update`，原生停用用 `documents.disable`，它要求 expectedRevision 和 expectedActiveRelease。不要给原生文档虚构 `documents.deploy`；按其实际发布语义及回执判断生效。
-- 用户仅要求检查/修正脚本时，不附带执行部署或停用。
-
-调用结构见 [生命周期示例](references/lifecycle.md)。
-
-## 样例测试与运行对账
-
-`sampleTest({ document, entryId, input })` 接收原生文档，返回 isolated-sample 的 status、writePreview、logs 等。HTTP 成功时也要检查 `data.status` 与 `data.errorCode`；预览写入不是实际写入，样例成功不证明线上依赖可用。
-
-Source/Stream 返回完整 `{ code, msg, requestId, data }`，错误使用 `UnsV2Error`。部署超时或 `UnsV2OutcomeUnknownError` 时查询程序/观测/运行记录，保留原意图键；不自动再次 deploy 或换新 key。分页使用 runs 返回的 cursor，执行结果与运行状态按服务端值呈现。
+UnsV2OutcomeUnknownError、发布超时或取消后先读取版本/观测对账，保留原请求意图键，不自动重复发布。版本冲突先比较当前草稿，不能忽略 expectedRevision。不同写入意图使用不同键；本地 SDK 测试不能代替目标环境联调。

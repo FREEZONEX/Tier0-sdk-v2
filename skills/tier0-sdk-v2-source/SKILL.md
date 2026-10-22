@@ -1,72 +1,38 @@
 ---
 name: tier0-sdk-v2-source
-description: 使用 @tier0/sdk-v2 的 client.source 管理 Tier0 数据源、原生连接文档、协议发现、运行观测和修改影响分析。适用于 HTTP、MQTT 等外部系统接入配置。
+description: 使用 @tier0/sdk-v2 的 client.source 查询、创建、修改、启停和删除新架构 Source，配置协议连接、处理影响分析、版本冲突与运行观测。
 ---
 
 # Source 数据接入
 
-Source 负责连接配置、认证引用和源状态。处理脚本/发布用 [Stream](../tier0-sdk-v2-stream/SKILL.md)，存储数据用 [UNS](../tier0-sdk-v2-uns/SKILL.md)。使用服务端 `createClient({ apiHost, apiKey })`，或注入 `TIER0_API_HOST` / `TIER0_API_KEY`。
+Source 维护连接配置、认证引用与源状态。脚本处理用 [Stream](../tier0-sdk-v2-stream/SKILL.md)，数据存储用 [UNS](../tier0-sdk-v2-uns/SKILL.md)。服务端使用 `createClient({apiHost,apiKey})`，或注入 TIER0_API_HOST / TIER0_API_KEY 后 `createClient()`；密钥不进入浏览器。
 
-## 选对文档形态
+## 按任务加载参考
 
-| 任务 | 调用 |
-| --- | --- |
-| 原生源安全摘要、原生编辑器文档 | `source.documents.list/get` |
-| 原生文档新增与更新 | `source.documents.create/update` |
-| 通用投影列表/详情、创建/更新 | `source.list/get/create/update` |
-| 协议能力与配置校验 | `source.protocols.list`、`source.validate` |
-| 连接、启停、删除 | `source.connection.update`、`source.state.update`、`source.delete` |
-| 修改影响、历史 | `source.impact`、`source.history` |
-| 运行状态、批量观测、探测 | `source.runtime.get`、`source.observations.get`、`source.probe` |
+| 用户任务 | 参考 | SDK 方法 |
+| --- | --- | --- |
+| 选协议、准备连接配置 | [协议配置](references/protocols.md) | protocols.list |
+| 创建 HTTP/带凭据源 | [创建](references/create.md) | documents.create |
+| 列表、详情、运行状态 | [查询](references/read.md) | documents.list/get、observations.get、runtime.get |
+| 修改名称、端点或配置 | [修改](references/update.md) | documents.update |
+| 查看修改/启停/删除影响 | [影响分析](references/changes.md) | impact |
+| 启用、停用 | [状态变更](references/state.md) | state.update |
+| 删除并核验 | [删除](references/delete.md) | delete |
 
-原生文档是 `{ name, protocol, config }`，如 HTTP 的 protocol 为 `http`；通用投影的 adapter 为 `http-api`。不要互换这两个值，也不要把不能转换的原生源重建成匿名 HTTP 源。原生 ID 是十进制字符串，保留服务端原值。
+先加载对应操作文档，使用其中的参数表、完整请求及返回判断。只执行用户任务所需步骤；示例函数调用才会执行写入，导入不执行。新建→查询→修改→删除可组成生命周期，但查询任务不触发其他操作。
 
-## 读取已有数据源
+## 核心约束
 
-```ts
-import { createClient } from '@tier0/sdk-v2';
+1. 原生文档 `{name,protocol,config}` 使用 documents.*；通用投影使用 source.list/get/create/update。http 原生协议与 http-api adapter 不可互换。
+2. 编辑前读取完整 documents.get；安全列表摘要不能无损回写。原生 ID 是十进制字符串，revision 原样传递，不转 Number。
+3. 现有 Source 修改、启停、删除都要 expectedRevision + confirmedImpactRevision。先形成精确意图，再读取全部影响分页；回执不可合成、跨意图复用或静默刷新。
+4. 配置中保留认证/TLS 引用，不写明文秘密；HTTP 新凭据走创建专用 credentials。
+5. desiredState 不代表实际健康，保存配置不代表 Stream 已切换至新 configRevision。运行状态另行读取。
 
-export async function inspectSources() {
-  const client = createClient();
-  const response = await client.source.documents.list({
-    page: 1, size: 20, includeDocument: false,
-  });
-  return { requestId: response.requestId, data: response.data };
-}
-export async function inspectSource(id: string) {
-  const client = createClient();
-  return client.source.documents.get({ id });
-}
-```
+## 返回值与异常
 
-`includeDocument: false` 适合浏览者；完整文档需要 Source manage 权限。App 数据 Key 不自动具有 Source 管理权限。不要把列表里的安全摘要当作可无损回写的完整配置。
+所有调用返回完整 code/msg/requestId/data。documents.create/update 的预检返回 validated/sideEffects，提交返回完整 Source view；批量状态/删除返回 Outcome。只有 committed 且无项错误才可报告提交成功；accepted/jobId 继续查询作业。
 
-## 新建与校验
+需要查看历史用 source.history({id,beforeRevision,size})，按 nextBeforeRevision 继续；探测用 source.probe，其外部系统访问应属于当前任务。source.connection.update 属于现有源变更，同样遵守影响确认契约，不能作为绕过文档校验的入口。
 
-```ts
-import { createClient, type Tier0Client } from '@tier0/sdk-v2';
-
-type SourceDocument = Parameters<Tier0Client['source']['documents']['create']>[0]['document'];
-export async function previewNewSource(document: SourceDocument) {
-  const client = createClient();
-  return client.source.documents.create({ dryRun: true, document });
-}
-```
-
-先发现协议要求，再由真实连接参数构建完整文档。预览确认有效后，按已授权的创建意图显式提交 `dryRun: false`。需要 HTTP 新凭据时，使用创建请求专用的 `credentials` 字段；不要把秘密塞进文档、日志或 Stream script。现有认证/TLS 引用要保留原值。
-
-## 更新已有源的正确流程
-
-1. 读取完整文档和当前 revision，形成精确的新文档或启停/删除意图。
-2. 调用 `source.impact({ id, expectedRevision, action, ... })`；update 时提供拟提交的文档。
-3. 阅读 draft、activeRelease、historicalRelease 影响计数，以及受权限限制的 `restrictedCount`。引用列表按 `nextOffset` 分页，后续请求保持同一意图和返回的 `impactRevision`。
-4. 在对应变更请求中同时携带原 `expectedRevision` 和 `confirmedImpactRevision`。这个值是服务端签发的精确意图凭据，不能自行拼造，也不能改完文档后继续使用旧值。
-5. 出现 revision 冲突、确认过期或意图不一致时，重新读取和评估；不要在后台悄悄刷新确认值并重复修改。
-
-[影响分析示例](references/changes.md)展示如何准备变更。影响确认不能替代已有的操作授权；读状态的请求不意味着允许启停或删除源。
-
-## 运行观测与结果处理
-
-Source/Stream/UNS 均返回完整响应，业务结果在 `response.data`。配置写入成功不等于连接已健康；结合 `runtime.get` 与带 expectedRevision 的 `observations.get` 判断。探测可能触达外部系统，`dryRun: true` 的校验不能当成实际连通性证据。
-
-写入出现 `UnsV2OutcomeUnknownError` 时保存 requestId、原请求与意图键，查询详情/历史核对；SDK 不自动重试。多项写入只有显式 `allowPartial: true` 才按项提交，必须检查每项错误；delete 的当前契约不支持部分提交。
+UnsV2Error 表示已知拒绝；UnsV2OutcomeUnknownError 表示可能已写入。保存 requestId、原请求和意图键，先查详情/历史/作业对账。取消等待不撤销服务端操作；SDK 不自动重试。权限不足不能解释为资源不存在。
