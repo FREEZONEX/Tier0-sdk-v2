@@ -5,6 +5,18 @@ description: 使用 @tier0/sdk-v2 实现 Tier0 应用附件、头像、导入导
 
 # 文件与附件
 
+## 按任务读取操作文档
+
+| 任务 | 参考 |
+| --- | --- |
+| 上传并保存 filePath | [上传](references/upload.md) |
+| 大文件、进度、中断会话 | [分片上传](references/multipart.md) |
+| 图片预览、临时访问地址 | [访问 URL](references/url.md) |
+| 服务端转发、浏览器保存附件 | [下载](references/download.md) |
+| 删除对象及核验回执 | [删除](references/delete.md) |
+
+沿用 v1 的业务流程，调用已适配 v2；不提供旧版自动续传/并发助手。
+
 业务文件使用平台对象存储，数据库保存返回的 filePath。App 本地目录可用于临时处理和构建，但不能替代持久化上传。使用服务端 client.files，API Key 不下发给浏览器或对象存储。
 
 ## 上传并保存引用
@@ -34,7 +46,7 @@ upload 接收 Web File；Node 20.19+ 可直接构造。若文件来自磁盘，�
 
 - `upload(file, options)` 自动填写 fileName/contentType/size；options 支持平台定义的 business/useBy/visibility/sessionId/appInstanceId 与 signal，不猜测这些字段的合法业务枚举。
 - 普通上传先向平台申请 postUrl/postFields，再向对象存储提交表单，file 必须排在签名字段之后。SDK 已处理，不能手工附带平台 Authorization。
-- filePath 为持久化引用；fileUrl 为临时地址。发通知或生成页面时，按当前权限重新请求临时 URL。
+- filePath 为持久化引用；私有文件的 fileUrl 为临时地址，公开文件可能返回公开 URL。发通知或生成页面时，按当前权限请求访问 URL。
 - 下载通过平台申请签名地址后匿名读取，使用 `client.files.download`，不要手动跟随携带 API Key 的下载重定向。
 
 ## 分片上传

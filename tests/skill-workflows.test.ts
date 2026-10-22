@@ -3,7 +3,7 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as sdk from '../src/index.js';
 
 // Execute the actual Markdown snippets, not a separately maintained copy.
@@ -253,6 +253,38 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     await expect(example('uns', 'update').renameDevice('devices', 'missing', 'new', 'rename', client))
       .rejects.toThrow('记录不存在');
     expect(calls).toHaveLength(1);
+    finished();
+  });
+
+  it('sends the migrated notification example with inbox type, explicit mode and v2 App identity', async () => {
+    vi.stubEnv('APP_ID', 'da6aa4b6-1a8f-43b7-86ed-73818fe22550');
+    steps = [
+      { path: '/openapi/v1/notifications/send', check: body => {
+        expect(body).toMatchObject({ recipientUserId: '9007199254740993', type: 'inbox',
+          mode: 'test', idempotencyKey: 'work-order-event-v1', channels: ['web', 'mobile'],
+          sender: { type: 'app', id: 'da6aa4b6-1a8f-43b7-86ed-73818fe22550' } });
+        expect(body.sender).not.toHaveProperty('meta');
+        expect(body.sender).not.toHaveProperty('name');
+      }, raw: JSON.stringify({ messageId: '9007199254740997', status: 'accepted', createdAt: '2026-10-22T00:00:00Z' }) },
+      { path: '/openapi/v1/notifications/get', check: body => expect(body.messageId).toBe('9007199254740997'),
+        raw: JSON.stringify({ messageId: '9007199254740997', type: 'inbox', status: 'accepted', createdAt: '2026-10-22T00:00:00Z' }) },
+    ];
+    try {
+      const sent = await example('notifications', 'send').sendCompletedOrder(
+        '9007199254740993', 'work-order', 'work-order-event-v1', 'test', client);
+      const status = await example('notifications', 'get').waitForNotification(sent.messageId, client, 1);
+      expect(status.status).toBe('accepted');
+      expect(calls).toHaveLength(2);
+      finished();
+    } finally { vi.unstubAllEnvs(); }
+  });
+
+  it('keeps unnamed member IDs internal instead of using them as display labels', async () => {
+    steps = [{ path: '/openapi/v1/platform/getMembers', check: body => expect(body.statuses).toEqual(['active']),
+      data: { list: [{ userId: '9007199254740993', status: 'active', roles: [], updatedAt: '2026-10-22T00:00:00Z' }],
+        page: 1, size: 20, total: 1 } }];
+    const result = await example('members', 'platform-members').memberOptions('pump', 1, client);
+    expect(result.options[0]).toMatchObject({ value: '9007199254740993', label: '未命名成员' });
     finished();
   });
 });
