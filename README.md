@@ -81,7 +81,7 @@ await tier0.uns.recordFind(
 );
 ```
 
-实际集合 ID 和有效权限从平台配置/数据上下文取得。管理操作中，App 凭证只能调用本 App 集合的 `appCollectionsEnsure` / `appCollectionsSchemaReplace` / `appCollectionsArchive` / `appCollectionsRestore`；SDK 中存在 `collectionCreate` 等其他管理方法，不表示 App 凭证有对应权限。App 数据授权 `appDataPolicyGet` / `appDataPolicyUpdate` 需要当前 Builder 会话或 full_access 个人/Agent Key，运行时 App 凭证不能管理授权。Core-only 后台接口不导出到公开 SDK。
+实际集合 ID 和有效权限从平台配置/数据上下文取得。管理操作中，App 凭证只能调用本 App 集合的 `appCollectionsEnsure` / `appCollectionsSchemaReplace` / `appCollectionsArchive` / `appCollectionsRestore`；SDK 中存在 `collectionCreate` 等其他管理方法，不表示 App 凭证有对应权限。App 数据授权 `appDataPolicyGet` / `appDataPolicyUpdate` 的调用方必须是：持有 `uns.write` 的登录会话、持有 `uns.write` 且 full_access、不绑定 App 的 personal / agent Key，或治理会话；运行时 App 凭证不能管理授权。Core-only 后台接口不导出到公开 SDK。
 
 UNS 保留 `{ code, msg, requestId, data }` 完整响应。普通 v1 包装接口返回已解包的 `data`，通知/Control/能力发现返回服务端直接对象。业务错误即使 HTTP 为 200 也会抛出 `ApiError`。
 

@@ -49,7 +49,7 @@ export async function searchMembers(keyword: string, page = 1) {
 
 ## App 可用成员
 
-能使用某个 App 的成员用 `members.listApp`，参数、示例与错误处理见 [App 可用成员](references/app-members.md)。`appId` 必须显式传入，SDK 不隐式读取 `APP_ID`；查询当前 App 时传 `getCurrentAppId()`。3003016 / 3003017 都是 HTTP 503，表示访问名单暂时无法给出，不是空名单：按 `ApiError.code` 分支，不匹配 message 文本；3003016 需要重新部署 App，3003017 可稍后重试。
+能使用某个 App 的成员用 `members.listApp`，参数、示例与错误处理见 [App 可用成员](references/app-members.md)。`appId` 必须显式传入，SDK 不隐式读取 `APP_ID`；查询当前 App 时传 `getCurrentAppId()`。接口只接受 API Key，登录会话不能调用；绑定 App 的凭证只能查自己的 appId，查其他 App 返回 403。3003016 / 3003017 都是 HTTP 503，表示访问名单暂时无法给出，不是空名单：按 `ApiError.code` 分支，不匹配 message 文本；3003016 需要重新部署 App，3003017 可稍后重试。
 
 ## 当前边界
 

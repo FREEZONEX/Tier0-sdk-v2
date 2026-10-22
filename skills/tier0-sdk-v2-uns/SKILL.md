@@ -5,7 +5,7 @@ description: 使用 @tier0/sdk-v2 的 client.uns 完成新架构集合、Schema�
 
 # UNS 数据操作
 
-UNS 管数据命名空间、集合、Record 和 Sample；外部连接与脚本分别用 [Source](../tier0-sdk-v2-source/SKILL.md)、[Stream](../tier0-sdk-v2-stream/SKILL.md)。服务端 `createClient()` 读取 TIER0_API_HOST / TIER0_API_KEY，或显式传 apiHost/apiKey。数据权限不自动授予管理权限：管理操作中 App 凭证只能调用本 App 集合的 appCollectionsEnsure / SchemaReplace / Archive / Restore；appDataPolicyGet/Update 需要 Builder 会话或 full_access 个人/Agent Key，运行时 App 凭证不能管理数据授权。
+UNS 管数据命名空间、集合、Record 和 Sample；外部连接与脚本分别用 [Source](../tier0-sdk-v2-source/SKILL.md)、[Stream](../tier0-sdk-v2-stream/SKILL.md)。服务端 `createClient()` 读取 TIER0_API_HOST / TIER0_API_KEY，或显式传 apiHost/apiKey。数据权限不自动授予管理权限：管理操作中 App 凭证只能调用本 App 集合的 appCollectionsEnsure / SchemaReplace / Archive / Restore；appDataPolicyGet/Update 的调用方必须是持有 uns.write 的登录会话、持有 uns.write 且 full_access、不绑定 App 的 personal / agent Key，或治理会话；运行时 App 凭证不能管理数据授权。
 
 ## 按任务加载参考
 
