@@ -19,6 +19,13 @@ for (const path of files) if (/(^|\/)(node_modules|\.env|contracts|\.git|\.tmp)(
 writeFileSync(resolve(consumer, 'package.json'), JSON.stringify({ name: 'sdk-package-consumer', private: true, type: 'module' }));
 run([npm, 'install', '--prefer-offline', '--ignore-scripts', '--no-audit', '--no-fund', '--legacy-peer-deps', resolve(consumer, archive.filename)], consumer);
 const installed = resolve(consumer, 'node_modules/@tier0/sdk-v2');
+for (const path of files) {
+  if (path.endsWith('.js.map')) {
+    const map = JSON.parse(readFileSync(resolve(installed, path), 'utf8'));
+    if (!map.sourcesContent?.length || map.sourcesContent.some(source => typeof source !== 'string')) throw new Error(`Unusable packed source map: ${path}`);
+  }
+  if (path.endsWith('.d.ts.map')) throw new Error(`Declaration map points outside the package: ${path}`);
+}
 run(['scripts/check-skills.mjs', installed]);
 run(['scripts/check-skill-examples.mjs', installed]);
 const pkg = JSON.parse(readFileSync(resolve(installed, 'package.json'), 'utf8'));
@@ -66,4 +73,5 @@ for (const subpath of ['', '/source', '/stream', '/mq', '/react', '/vue']) {
 // The data layer is server-only: a browser bundle must fail on its Node built-ins instead of shipping it.
 const dataBundle = await build({ absWorkingDir: consumer, stdin: { contents: `export * from '@tier0/sdk-v2/data';`, resolveDir: consumer }, bundle: true, platform: 'browser', format: 'esm', write: false, logLevel: 'silent' }).then(() => 'bundled', () => 'rejected');
 if (dataBundle !== 'rejected') throw new Error('@tier0/sdk-v2/data must not bundle for the browser');
-console.log(`Verified packed ${pkg.name}@${pkg.version}: ESM/CJS runtime + declarations, browser bundles, exports and bundled Skills. Tarball: ${resolve(consumer, archive.filename)}`);
+execFileSync(process.execPath, ['scripts/check-installed-tests.mjs', consumer], { cwd: root, stdio: 'inherit' });
+console.log(`Verified packed ${pkg.name}@${pkg.version}: ESM/CJS runtime + declarations, browser bundles, server-only data entry, exports, bundled Skills and installed behavioral suite. Tarball: ${resolve(consumer, archive.filename)}`);

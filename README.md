@@ -180,6 +180,22 @@ npm run check
 
 v1 来自网关 Swagger，并按实际 handler 补齐响应外层；UNS 来自 `contract_generated.go#ContractJSON` 中已经应用 Cloud 扩展的契约，结合 manifest/registry 生成。不能直接使用仍含 Enterprise 基础操作的 `share/unscontract/contract.json` 作为最终云端契约。
 
-`npm run check` 包含契约一致性、Skill 注册及递归引用检查、所有 Skill TypeScript 示例的源码/安装包类型校验、单元和本地 HTTP 测试、ESM/CJS 构建、实际 npm 包安装、浏览器打包及导入验证。`tests/skill-workflows.test.ts` 直接提取 Markdown 示例，验证 Source/Stream/UNS 的创建、查询、修改、删除或归档恢复，影响分页和结果未知分支，以及通知请求、状态查询和成员展示。测试不调用线上写接口，也不证明真实环境功能已上线。
+`npm run check` 包含契约一致性、Skill 注册及递归引用检查、所有 Skill TypeScript 示例的源码/安装包类型校验、单元和本地 HTTP 测试、ESM/CJS 构建、实际 npm 包安装、浏览器打包及导入验证。完整行为测试还会在独立 consumer 中对已安装的 `.tgz` 再跑一遍，导入目标严格指向包内 `dist`；包内调试映射包含源内容。当前 651 项测试包含全部 157 个公开操作的路由检查。路由检查使用本地 HTTP fixture，不等于每个操作的业务验收。
 
-首发前仍需：目标环境只读联调、隔离测试空间的写入验收、App 脚手架切换精确依赖 `"@tier0/sdk-v2": "0.1.0"`、新 Skill 上传和 npm 发布授权。
+`tests/skill-workflows.test.ts` 直接提取 Markdown 示例，验证 Source/Stream/UNS 的创建、查询、修改、删除或归档恢复，影响分页和结果未知分支，以及通知请求、状态查询和成员展示。默认检查不调用线上接口。
+
+真实环境验收脚本使用刚安装的包，先通过 `whoami` 核对 Workspace，再执行选定操作。`TIER0_API_HOST` 必须指向 API 网关（开发环境为 `https://api-dev.tier0.cn`，不是网页域名 `dev.tier0.cn`），`TIER0_API_KEY` 由当前进程环境提供，不放进命令行参数或版本库。
+
+```sh
+# consumer 路径使用 npm run check 最后输出的 .tmp/package-check-* 目录。
+node scripts/check-live-readonly.mjs <consumer> <workspaceId> .tmp/live-readonly.json
+
+# 仅在已授权的测试 Workspace 执行；会创建、修改、归档/删除本次测试资源。
+# 可用 TIER0_TEST_DOMAINS 选择 source,stream,uns,files；追加 extended 扩展 UNS 验收。
+node scripts/check-live-workflows.mjs <consumer> <workspaceId> .tmp/live-workflows.json --write-test-fixtures
+node scripts/check-live-transports.mjs <consumer> <workspaceId> .tmp/live-transports.json --write-test-fixtures
+```
+
+写入验收不发布 Stream、不启用 Source、不发送通知。归档资源保留正常产品恢复能力；报告区分通过、服务端拒绝和未验证范围。分片上传失败会保留错误原因，确认尚未尝试 complete 时清理本次会话；完成结果未知时先对账。完整结果见 [2026-10-22 验收报告](docs/acceptance-2026-10-22.md)。
+
+首发前仍需：解决验收报告中的阻断并补齐未验收范围、App 脚手架切换精确依赖 `"@tier0/sdk-v2": "0.1.0"`、新 Skill 上传和 npm 发布授权。
