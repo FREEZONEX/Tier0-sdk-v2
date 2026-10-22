@@ -38,13 +38,15 @@ for (const [path, entry] of Object.entries(pkg.exports)) {
   }
 }
 run(['--input-type=module', '-e', `
-  import { createClient, createUnsV2Client, UNS_V2_OPERATIONS } from '@tier0/sdk-v2';
+  import { createClient, createUnsV2Client, UNS_V2_OPERATIONS, UNS_V2_CONTRACT_PROVENANCE } from '@tier0/sdk-v2';
   import * as sdk from '@tier0/sdk-v2';
   const client = createClient({ apiHost: 'https://fixture.invalid' });
   if ('getCurrentProjectId' in sdk || 'flow' in client || 'launchpad' in client.api) throw new Error('Legacy API leaked');
   const operations = Object.keys(UNS_V2_OPERATIONS);
   const raw = createUnsV2Client();
-  if (operations.length !== 106 || operations.some(name => typeof raw[name] !== 'function')) throw new Error('Missing generated operations');
+  if (operations.length !== UNS_V2_CONTRACT_PROVENANCE.publicOperationCount || operations.some(name => typeof raw[name] !== 'function')) throw new Error('Missing generated operations');
+  if (typeof client.uns.metadataFindOne !== 'function' || typeof client.uns.metadataBulkWrite !== 'function') throw new Error('Missing metadata operations');
+  if ('collectionCreate' in client.uns || 'metaBatchExecute' in client.uns) throw new Error('Retired metadata routes leaked');
   if ('sourceList' in client.uns || 'streamProgramDeploy' in client.uns || 'controlInvoke' in client.uns) throw new Error('Mixed domain entrypoints');
   if (typeof client.source.documents.get !== 'function' || typeof client.stream.programs.deploy !== 'function') throw new Error('Missing domain entrypoints');
 `], consumer);
@@ -64,6 +66,7 @@ const order: Promise<Doc<typeof orders> | null> = createDataClient({ collections
 void order;
 const client: Tier0Client = createClient({ apiHost: 'https://fixture.invalid' });
 client.uns.recordFind({ collectionId: 'orders' });
+client.uns.metadataFindOne({ kind: 'collection', filter: { _id: 'orders' } });
 createSourceClient().documents.list({});
 createStreamClient().programs.list({});
 client.mqttAuth.delete({ id: 9007199254740993n });

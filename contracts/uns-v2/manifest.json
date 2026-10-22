@@ -1,6 +1,6 @@
 {
   "version": "4.0.0",
-  "cloudContractRevision": "cloud-source-impact/1+app-create-capability/1+data/3+collection-namespace/1+http-acquisition/2+app-collection/2+app-data/2+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/1",
+  "cloudContractRevision": "cloud-source-impact/1+app-create-capability/1+data/3+collection-namespace/1+http-acquisition/2+app-collection/2+metadata/1+app-data/2+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/1",
   "operations": [
     {
       "name": "dataDiscover",
@@ -80,7 +80,7 @@
       "minPermission": 1,
       "scope": "uns:read",
       "tags": [
-        "元数据"
+        "接口能力"
       ],
       "operation": "catalog",
       "path": "/uns/catalog/get",
@@ -88,44 +88,6 @@
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2CatalogReq"
-      },
-      "responseSchema": {
-        "$ref": "#/components/schemas/UnsV2Envelope"
-      }
-    },
-    {
-      "name": "metadata",
-      "handler": "UnsV2Metadata",
-      "suffix": "/uns/metadata/query",
-      "request": "UnsV2QueryReq",
-      "resourceId": 212,
-      "example": {
-        "queries": [
-          {
-            "queryId": "metadata",
-            "kinds": [
-              "collection"
-            ],
-            "page": 1,
-            "size": 20
-          }
-        ]
-      },
-      "appAllowed": false,
-      "response": "UnsV2Envelope",
-      "permission": "uns.read",
-      "permissionAnyOf": [],
-      "minPermission": 1,
-      "scope": "uns:read",
-      "tags": [
-        "元数据"
-      ],
-      "operation": "metadata",
-      "path": "/uns/metadata/query",
-      "method": "POST",
-      "supported": true,
-      "requestSchema": {
-        "$ref": "#/components/schemas/UnsV2MetadataDocumentedRequest"
       },
       "responseSchema": {
         "$ref": "#/components/schemas/UnsV2Envelope"
@@ -262,7 +224,7 @@
       "minPermission": 1,
       "scope": "uns:read",
       "tags": [
-        "元数据"
+        "元数据管理"
       ],
       "operation": "references",
       "path": "/uns/references/query",
@@ -313,115 +275,6 @@
       },
       "responseSchema": {
         "$ref": "#/components/schemas/UnsV2Envelope"
-      }
-    },
-    {
-      "name": "metaBatchExecute",
-      "handler": "UnsV2MetaBatchExecute",
-      "suffix": "/uns/meta/batch",
-      "request": "UnsV2MetaBatchReq",
-      "resourceId": 212,
-      "mutation": "transaction",
-      "example": {
-        "items": [
-          {
-            "opId": "directory",
-            "action": "meta.create",
-            "kind": "directory",
-            "id": "workshop-1",
-            "data": {
-              "schemaVersion": 1,
-              "name": "车间一",
-              "parentId": null
-            }
-          },
-          {
-            "opId": "child",
-            "action": "meta.create",
-            "kind": "directory",
-            "id": "line-1",
-            "data": {
-              "schemaVersion": 1,
-              "name": "产线一",
-              "parentId": {
-                "ref": "directory"
-              }
-            }
-          }
-        ]
-      },
-      "response": "UnsV2MetaBatchExecuteResponse",
-      "appAllowed": false,
-      "permission": "uns.write",
-      "permissionAnyOf": [],
-      "minPermission": 3,
-      "scope": "uns:update",
-      "tags": [
-        "元数据"
-      ],
-      "operation": "metaBatchExecute",
-      "path": "/uns/meta/batch",
-      "method": "POST",
-      "supported": true,
-      "requestSchema": {
-        "$ref": "#/components/schemas/UnsV2MetaBatchReq"
-      },
-      "responseSchema": {
-        "$ref": "#/components/schemas/UnsV2MetaBatchExecuteResponse"
-      }
-    },
-    {
-      "name": "metaBatchValidate",
-      "handler": "UnsV2MetaBatchValidate",
-      "suffix": "/uns/meta/batch/validate",
-      "request": "UnsV2MetaBatchValidateReq",
-      "resourceId": 212,
-      "example": {
-        "items": [
-          {
-            "opId": "directory",
-            "action": "meta.create",
-            "kind": "directory",
-            "id": "workshop-1",
-            "data": {
-              "schemaVersion": 1,
-              "name": "车间一",
-              "parentId": null
-            }
-          },
-          {
-            "opId": "child",
-            "action": "meta.create",
-            "kind": "directory",
-            "id": "line-1",
-            "data": {
-              "schemaVersion": 1,
-              "name": "产线一",
-              "parentId": {
-                "ref": "directory"
-              }
-            }
-          }
-        ]
-      },
-      "response": "UnsV2MetaBatchValidateResponse",
-      "appAllowed": false,
-      "permission": "uns.write",
-      "permissionAnyOf": [],
-      "minPermission": 3,
-      "scope": "uns:update",
-      "tags": [
-        "元数据"
-      ],
-      "operation": "metaBatchValidate",
-      "path": "/uns/meta/batch/validate",
-      "method": "POST",
-      "supported": true,
-      "requestSchema": {
-        "$ref": "#/components/schemas/UnsV2MetaBatchValidateReq"
-      },
-      "responseSchema": {
-        "$ref": "#/components/schemas/UnsV2MetaBatchValidateResponse"
       }
     },
     {
@@ -499,653 +352,6 @@
       },
       "responseSchema": {
         "$ref": "#/components/schemas/UnsV2RecordTransactionExecuteResponse"
-      }
-    },
-    {
-      "name": "directoryList",
-      "handler": "UnsV2DirectoryList",
-      "suffix": "/uns/directories/list",
-      "request": "UnsV2DirectoryListReq",
-      "response": "UnsV2DirectoryListResponse",
-      "resourceId": 212,
-      "resource": "directory",
-      "mutation": "",
-      "permission": "uns.read",
-      "summary": "List directories; archived=true selects archived objects only",
-      "example": {},
-      "appAllowed": false,
-      "permissionAnyOf": [],
-      "minPermission": 1,
-      "scope": "uns:read",
-      "tags": [
-        "命名空间"
-      ],
-      "operation": "directoryList",
-      "path": "/uns/directories/list",
-      "method": "POST",
-      "supported": true,
-      "requestSchema": {
-        "$ref": "#/components/schemas/UnsV2DirectoryListReq"
-      },
-      "responseSchema": {
-        "$ref": "#/components/schemas/UnsV2DirectoryListResponse"
-      }
-    },
-    {
-      "name": "directoryGet",
-      "handler": "UnsV2DirectoryGet",
-      "suffix": "/uns/directories/get",
-      "request": "UnsV2DirectoryGetReq",
-      "response": "UnsV2DirectoryGetResponse",
-      "resourceId": 212,
-      "resource": "directory",
-      "mutation": "",
-      "permission": "uns.read",
-      "summary": "Get one directory definition and revision, without data expansion",
-      "example": {
-        "id": "example-id"
-      },
-      "appAllowed": false,
-      "permissionAnyOf": [],
-      "minPermission": 1,
-      "scope": "uns:read",
-      "tags": [
-        "命名空间"
-      ],
-      "operation": "directoryGet",
-      "path": "/uns/directories/get",
-      "method": "POST",
-      "supported": true,
-      "requestSchema": {
-        "$ref": "#/components/schemas/UnsV2DirectoryGetReq"
-      },
-      "responseSchema": {
-        "$ref": "#/components/schemas/UnsV2DirectoryGetResponse"
-      }
-    },
-    {
-      "name": "directoryCreate",
-      "handler": "UnsV2DirectoryCreate",
-      "suffix": "/uns/directories/create",
-      "request": "UnsV2DirectoryCreateReq",
-      "response": "UnsV2DirectoryCreateResponse",
-      "resourceId": 214,
-      "resource": "directory",
-      "mutation": "meta.create",
-      "permission": "uns.write",
-      "summary": "Create directory; schemaVersion is assigned by the server",
-      "example": {
-        "dryRun": true,
-        "items": [
-          {
-            "name": "Example"
-          }
-        ]
-      },
-      "appAllowed": false,
-      "permissionAnyOf": [],
-      "minPermission": 3,
-      "scope": "uns:update",
-      "tags": [
-        "命名空间"
-      ],
-      "operation": "directoryCreate",
-      "path": "/uns/directories/create",
-      "method": "POST",
-      "supported": true,
-      "requestSchema": {
-        "$ref": "#/components/schemas/UnsV2DirectoryCreateReq"
-      },
-      "responseSchema": {
-        "$ref": "#/components/schemas/UnsV2DirectoryCreateResponse"
-      }
-    },
-    {
-      "name": "directoryUpdate",
-      "handler": "UnsV2DirectoryUpdate",
-      "suffix": "/uns/directories/update",
-      "request": "UnsV2DirectoryUpdateReq",
-      "response": "UnsV2DirectoryUpdateResponse",
-      "resourceId": 214,
-      "resource": "directory",
-      "mutation": "meta.resourcePatch",
-      "permission": "uns.write",
-      "summary": "Update directory metadata only; omitted fields are preserved",
-      "example": {
-        "dryRun": true,
-        "items": [
-          {
-            "id": "example-id",
-            "name": "Updated name"
-          }
-        ]
-      },
-      "appAllowed": false,
-      "permissionAnyOf": [],
-      "minPermission": 3,
-      "scope": "uns:update",
-      "tags": [
-        "命名空间"
-      ],
-      "operation": "directoryUpdate",
-      "path": "/uns/directories/update",
-      "method": "POST",
-      "supported": true,
-      "requestSchema": {
-        "$ref": "#/components/schemas/UnsV2DirectoryUpdateReq"
-      },
-      "responseSchema": {
-        "$ref": "#/components/schemas/UnsV2DirectoryUpdateResponse"
-      }
-    },
-    {
-      "name": "directoryArchive",
-      "handler": "UnsV2DirectoryArchive",
-      "suffix": "/uns/directories/archive",
-      "request": "UnsV2DirectoryArchiveReq",
-      "response": "UnsV2DirectoryArchiveResponse",
-      "resourceId": 215,
-      "resource": "directory",
-      "mutation": "meta.archive",
-      "permission": "uns.write",
-      "summary": "archive directory",
-      "example": {
-        "dryRun": true,
-        "items": [
-          {
-            "id": "example-id"
-          }
-        ]
-      },
-      "appAllowed": false,
-      "permissionAnyOf": [],
-      "minPermission": 3,
-      "scope": "uns:update",
-      "tags": [
-        "命名空间"
-      ],
-      "operation": "directoryArchive",
-      "path": "/uns/directories/archive",
-      "method": "POST",
-      "supported": true,
-      "requestSchema": {
-        "$ref": "#/components/schemas/UnsV2DirectoryArchiveReq"
-      },
-      "responseSchema": {
-        "$ref": "#/components/schemas/UnsV2DirectoryArchiveResponse"
-      }
-    },
-    {
-      "name": "directoryRestore",
-      "handler": "UnsV2DirectoryRestore",
-      "suffix": "/uns/directories/restore",
-      "request": "UnsV2DirectoryRestoreReq",
-      "response": "UnsV2DirectoryRestoreResponse",
-      "resourceId": 214,
-      "resource": "directory",
-      "mutation": "meta.restore",
-      "permission": "uns.write",
-      "summary": "restore directory",
-      "example": {
-        "dryRun": true,
-        "items": [
-          {
-            "id": "example-id"
-          }
-        ]
-      },
-      "appAllowed": false,
-      "permissionAnyOf": [],
-      "minPermission": 3,
-      "scope": "uns:update",
-      "tags": [
-        "命名空间"
-      ],
-      "operation": "directoryRestore",
-      "path": "/uns/directories/restore",
-      "method": "POST",
-      "supported": true,
-      "requestSchema": {
-        "$ref": "#/components/schemas/UnsV2DirectoryRestoreReq"
-      },
-      "responseSchema": {
-        "$ref": "#/components/schemas/UnsV2DirectoryRestoreResponse"
-      }
-    },
-    {
-      "name": "topicList",
-      "handler": "UnsV2TopicList",
-      "suffix": "/uns/topics/list",
-      "request": "UnsV2TopicListReq",
-      "response": "UnsV2TopicListResponse",
-      "resourceId": 212,
-      "resource": "topic",
-      "mutation": "",
-      "permission": "uns.read",
-      "summary": "List topics; archived=true selects archived objects only",
-      "example": {},
-      "appAllowed": false,
-      "permissionAnyOf": [],
-      "minPermission": 1,
-      "scope": "uns:read",
-      "tags": [
-        "命名空间"
-      ],
-      "operation": "topicList",
-      "path": "/uns/topics/list",
-      "method": "POST",
-      "supported": true,
-      "requestSchema": {
-        "$ref": "#/components/schemas/UnsV2TopicListReq"
-      },
-      "responseSchema": {
-        "$ref": "#/components/schemas/UnsV2TopicListResponse"
-      }
-    },
-    {
-      "name": "topicGet",
-      "handler": "UnsV2TopicGet",
-      "suffix": "/uns/topics/get",
-      "request": "UnsV2TopicGetReq",
-      "response": "UnsV2TopicGetResponse",
-      "resourceId": 212,
-      "resource": "topic",
-      "mutation": "",
-      "permission": "uns.read",
-      "summary": "Get one topic definition and revision, without data expansion",
-      "example": {
-        "id": "example-id"
-      },
-      "appAllowed": false,
-      "permissionAnyOf": [],
-      "minPermission": 1,
-      "scope": "uns:read",
-      "tags": [
-        "命名空间"
-      ],
-      "operation": "topicGet",
-      "path": "/uns/topics/get",
-      "method": "POST",
-      "supported": true,
-      "requestSchema": {
-        "$ref": "#/components/schemas/UnsV2TopicGetReq"
-      },
-      "responseSchema": {
-        "$ref": "#/components/schemas/UnsV2TopicGetResponse"
-      }
-    },
-    {
-      "name": "topicCreate",
-      "handler": "UnsV2TopicCreate",
-      "suffix": "/uns/topics/create",
-      "request": "UnsV2TopicCreateReq",
-      "response": "UnsV2TopicCreateResponse",
-      "resourceId": 214,
-      "resource": "topic",
-      "mutation": "meta.create",
-      "permission": "uns.write",
-      "summary": "Create topic; schemaVersion is assigned by the server",
-      "example": {
-        "dryRun": true,
-        "items": [
-          {
-            "name": "Example",
-            "viewMode": "records",
-            "collectionId": "example-collection"
-          }
-        ]
-      },
-      "appAllowed": false,
-      "permissionAnyOf": [],
-      "minPermission": 3,
-      "scope": "uns:update",
-      "tags": [
-        "命名空间"
-      ],
-      "operation": "topicCreate",
-      "path": "/uns/topics/create",
-      "method": "POST",
-      "supported": true,
-      "requestSchema": {
-        "$ref": "#/components/schemas/UnsV2TopicCreateReq"
-      },
-      "responseSchema": {
-        "$ref": "#/components/schemas/UnsV2TopicCreateResponse"
-      }
-    },
-    {
-      "name": "topicUpdate",
-      "handler": "UnsV2TopicUpdate",
-      "suffix": "/uns/topics/update",
-      "request": "UnsV2TopicUpdateReq",
-      "response": "UnsV2TopicUpdateResponse",
-      "resourceId": 214,
-      "resource": "topic",
-      "mutation": "meta.resourcePatch",
-      "permission": "uns.write",
-      "summary": "Update topic metadata only; omitted fields are preserved",
-      "example": {
-        "dryRun": true,
-        "items": [
-          {
-            "id": "example-id",
-            "name": "Updated name"
-          }
-        ]
-      },
-      "appAllowed": false,
-      "permissionAnyOf": [],
-      "minPermission": 3,
-      "scope": "uns:update",
-      "tags": [
-        "命名空间"
-      ],
-      "operation": "topicUpdate",
-      "path": "/uns/topics/update",
-      "method": "POST",
-      "supported": true,
-      "requestSchema": {
-        "$ref": "#/components/schemas/UnsV2TopicUpdateReq"
-      },
-      "responseSchema": {
-        "$ref": "#/components/schemas/UnsV2TopicUpdateResponse"
-      }
-    },
-    {
-      "name": "topicArchive",
-      "handler": "UnsV2TopicArchive",
-      "suffix": "/uns/topics/archive",
-      "request": "UnsV2TopicArchiveReq",
-      "response": "UnsV2TopicArchiveResponse",
-      "resourceId": 215,
-      "resource": "topic",
-      "mutation": "meta.archive",
-      "permission": "uns.write",
-      "summary": "archive topic",
-      "example": {
-        "dryRun": true,
-        "items": [
-          {
-            "id": "example-id"
-          }
-        ]
-      },
-      "appAllowed": false,
-      "permissionAnyOf": [],
-      "minPermission": 3,
-      "scope": "uns:update",
-      "tags": [
-        "命名空间"
-      ],
-      "operation": "topicArchive",
-      "path": "/uns/topics/archive",
-      "method": "POST",
-      "supported": true,
-      "requestSchema": {
-        "$ref": "#/components/schemas/UnsV2TopicArchiveReq"
-      },
-      "responseSchema": {
-        "$ref": "#/components/schemas/UnsV2TopicArchiveResponse"
-      }
-    },
-    {
-      "name": "topicRestore",
-      "handler": "UnsV2TopicRestore",
-      "suffix": "/uns/topics/restore",
-      "request": "UnsV2TopicRestoreReq",
-      "response": "UnsV2TopicRestoreResponse",
-      "resourceId": 214,
-      "resource": "topic",
-      "mutation": "meta.restore",
-      "permission": "uns.write",
-      "summary": "restore topic",
-      "example": {
-        "dryRun": true,
-        "items": [
-          {
-            "id": "example-id"
-          }
-        ]
-      },
-      "appAllowed": false,
-      "permissionAnyOf": [],
-      "minPermission": 3,
-      "scope": "uns:update",
-      "tags": [
-        "命名空间"
-      ],
-      "operation": "topicRestore",
-      "path": "/uns/topics/restore",
-      "method": "POST",
-      "supported": true,
-      "requestSchema": {
-        "$ref": "#/components/schemas/UnsV2TopicRestoreReq"
-      },
-      "responseSchema": {
-        "$ref": "#/components/schemas/UnsV2TopicRestoreResponse"
-      }
-    },
-    {
-      "name": "collectionList",
-      "handler": "UnsV2CollectionList",
-      "suffix": "/uns/collections/list",
-      "request": "UnsV2CollectionListReq",
-      "response": "UnsV2CollectionListResponse",
-      "resourceId": 212,
-      "resource": "collection",
-      "mutation": "",
-      "permission": "uns.read",
-      "summary": "List collections; archived=true selects archived objects only",
-      "example": {},
-      "appAllowed": true,
-      "permissionAnyOf": [],
-      "minPermission": 1,
-      "scope": "uns:read",
-      "tags": [
-        "集合管理"
-      ],
-      "operation": "collectionList",
-      "path": "/uns/collections/list",
-      "method": "POST",
-      "supported": true,
-      "requestSchema": {
-        "$ref": "#/components/schemas/UnsV2CollectionListReq"
-      },
-      "responseSchema": {
-        "$ref": "#/components/schemas/UnsV2CollectionListResponse"
-      }
-    },
-    {
-      "name": "collectionGet",
-      "handler": "UnsV2CollectionGet",
-      "suffix": "/uns/collections/get",
-      "request": "UnsV2CollectionGetReq",
-      "response": "UnsV2CollectionGetResponse",
-      "resourceId": 212,
-      "resource": "collection",
-      "mutation": "",
-      "permission": "uns.read",
-      "summary": "Get one collection definition and revision, without data expansion",
-      "example": {
-        "id": "example-id"
-      },
-      "appAllowed": true,
-      "permissionAnyOf": [],
-      "minPermission": 1,
-      "scope": "uns:read",
-      "tags": [
-        "集合管理"
-      ],
-      "operation": "collectionGet",
-      "path": "/uns/collections/get",
-      "method": "POST",
-      "supported": true,
-      "requestSchema": {
-        "$ref": "#/components/schemas/UnsV2CollectionGetReq"
-      },
-      "responseSchema": {
-        "$ref": "#/components/schemas/UnsV2CollectionGetResponse"
-      }
-    },
-    {
-      "name": "collectionCreate",
-      "handler": "UnsV2CollectionCreate",
-      "suffix": "/uns/collections/create",
-      "request": "UnsV2CollectionCreateReq",
-      "response": "UnsV2CollectionCreateResponse",
-      "resourceId": 214,
-      "resource": "collection",
-      "mutation": "meta.create",
-      "permission": "uns.write",
-      "summary": "Create collection; schemaVersion is assigned by the server",
-      "example": {
-        "dryRun": true,
-        "items": [
-          {
-            "name": "Example",
-            "recordSchema": {
-              "type": "object",
-              "properties": {
-                "name": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "name"
-              ],
-              "additionalProperties": false
-            }
-          }
-        ]
-      },
-      "appAllowed": false,
-      "permissionAnyOf": [],
-      "minPermission": 3,
-      "scope": "uns:update",
-      "tags": [
-        "集合管理"
-      ],
-      "operation": "collectionCreate",
-      "path": "/uns/collections/create",
-      "method": "POST",
-      "supported": true,
-      "requestSchema": {
-        "$ref": "#/components/schemas/UnsV2CollectionCreateReq"
-      },
-      "responseSchema": {
-        "$ref": "#/components/schemas/UnsV2CollectionCreateResponse"
-      }
-    },
-    {
-      "name": "collectionUpdate",
-      "handler": "UnsV2CollectionUpdate",
-      "suffix": "/uns/collections/update",
-      "request": "UnsV2CollectionUpdateReq",
-      "response": "UnsV2CollectionUpdateResponse",
-      "resourceId": 214,
-      "resource": "collection",
-      "mutation": "meta.resourcePatch",
-      "permission": "uns.write",
-      "summary": "Update collection metadata only; omitted fields are preserved",
-      "example": {
-        "dryRun": true,
-        "items": [
-          {
-            "id": "example-id",
-            "name": "Updated name"
-          }
-        ]
-      },
-      "appAllowed": false,
-      "permissionAnyOf": [],
-      "minPermission": 3,
-      "scope": "uns:update",
-      "tags": [
-        "集合管理"
-      ],
-      "operation": "collectionUpdate",
-      "path": "/uns/collections/update",
-      "method": "POST",
-      "supported": true,
-      "requestSchema": {
-        "$ref": "#/components/schemas/UnsV2CollectionUpdateReq"
-      },
-      "responseSchema": {
-        "$ref": "#/components/schemas/UnsV2CollectionUpdateResponse"
-      }
-    },
-    {
-      "name": "collectionArchive",
-      "handler": "UnsV2CollectionArchive",
-      "suffix": "/uns/collections/archive",
-      "request": "UnsV2CollectionArchiveReq",
-      "response": "UnsV2CollectionArchiveResponse",
-      "resourceId": 215,
-      "resource": "collection",
-      "mutation": "meta.archive",
-      "permission": "uns.write",
-      "summary": "archive collection",
-      "example": {
-        "dryRun": true,
-        "items": [
-          {
-            "id": "example-id"
-          }
-        ]
-      },
-      "appAllowed": false,
-      "permissionAnyOf": [],
-      "minPermission": 3,
-      "scope": "uns:update",
-      "tags": [
-        "集合管理"
-      ],
-      "operation": "collectionArchive",
-      "path": "/uns/collections/archive",
-      "method": "POST",
-      "supported": true,
-      "requestSchema": {
-        "$ref": "#/components/schemas/UnsV2CollectionArchiveReq"
-      },
-      "responseSchema": {
-        "$ref": "#/components/schemas/UnsV2CollectionArchiveResponse"
-      }
-    },
-    {
-      "name": "collectionRestore",
-      "handler": "UnsV2CollectionRestore",
-      "suffix": "/uns/collections/restore",
-      "request": "UnsV2CollectionRestoreReq",
-      "response": "UnsV2CollectionRestoreResponse",
-      "resourceId": 214,
-      "resource": "collection",
-      "mutation": "meta.restore",
-      "permission": "uns.write",
-      "summary": "restore collection",
-      "example": {
-        "dryRun": true,
-        "items": [
-          {
-            "id": "example-id"
-          }
-        ]
-      },
-      "appAllowed": false,
-      "permissionAnyOf": [],
-      "minPermission": 3,
-      "scope": "uns:update",
-      "tags": [
-        "集合管理"
-      ],
-      "operation": "collectionRestore",
-      "path": "/uns/collections/restore",
-      "method": "POST",
-      "supported": true,
-      "requestSchema": {
-        "$ref": "#/components/schemas/UnsV2CollectionRestoreReq"
-      },
-      "responseSchema": {
-        "$ref": "#/components/schemas/UnsV2CollectionRestoreResponse"
       }
     },
     {
@@ -1292,94 +498,6 @@
       },
       "responseSchema": {
         "$ref": "#/components/schemas/UnsV2SourceUpdateResponse"
-      }
-    },
-    {
-      "name": "collectionSchemaUpdate",
-      "handler": "UnsV2CollectionSchemaUpdate",
-      "suffix": "/uns/collections/schema/update",
-      "request": "UnsV2CollectionSchemaUpdateReq",
-      "response": "UnsV2CollectionSchemaUpdateResponse",
-      "resourceId": 214,
-      "resource": "collection",
-      "mutation": "meta.resourcePatch",
-      "permission": "uns.write",
-      "summary": "Replace Collection schemas; omitted sampleSchema and indexes are preserved; indexes=[] removes declarations; indexes build asynchronously; existing data must satisfy constraints; may return a job",
-      "example": {
-        "dryRun": true,
-        "items": [
-          {
-            "id": "example-id",
-            "recordSchema": {
-              "type": "object",
-              "properties": {
-                "name": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "name"
-              ],
-              "additionalProperties": false
-            }
-          }
-        ]
-      },
-      "appAllowed": false,
-      "permissionAnyOf": [],
-      "minPermission": 3,
-      "scope": "uns:update",
-      "tags": [
-        "集合管理"
-      ],
-      "operation": "collectionSchemaUpdate",
-      "path": "/uns/collections/schema/update",
-      "method": "POST",
-      "supported": true,
-      "requestSchema": {
-        "$ref": "#/components/schemas/UnsV2CollectionSchemaUpdateReq"
-      },
-      "responseSchema": {
-        "$ref": "#/components/schemas/UnsV2CollectionSchemaUpdateResponse"
-      }
-    },
-    {
-      "name": "topicViewUpdate",
-      "handler": "UnsV2TopicViewUpdate",
-      "suffix": "/uns/topics/view/update",
-      "request": "UnsV2TopicViewUpdateReq",
-      "response": "UnsV2TopicViewUpdateResponse",
-      "resourceId": 214,
-      "resource": "topic",
-      "mutation": "meta.resourcePatch",
-      "permission": "uns.write",
-      "summary": "Replace Topic view configuration; incompatible previous view fields are cleared",
-      "example": {
-        "dryRun": true,
-        "items": [
-          {
-            "id": "example-id",
-            "viewMode": "records",
-            "collectionId": "example-collection"
-          }
-        ]
-      },
-      "appAllowed": false,
-      "permissionAnyOf": [],
-      "minPermission": 3,
-      "scope": "uns:update",
-      "tags": [
-        "命名空间"
-      ],
-      "operation": "topicViewUpdate",
-      "path": "/uns/topics/view/update",
-      "method": "POST",
-      "supported": true,
-      "requestSchema": {
-        "$ref": "#/components/schemas/UnsV2TopicViewUpdateReq"
-      },
-      "responseSchema": {
-        "$ref": "#/components/schemas/UnsV2TopicViewUpdateResponse"
       }
     },
     {
@@ -3812,7 +2930,7 @@
         "uns.delete"
       ],
       "tags": [
-        "元数据"
+        "App 与授权"
       ],
       "operation": "dataAppContext",
       "path": "/uns/app/context",
@@ -3905,7 +3023,7 @@
       "cloudExtension": true,
       "permissionAnyOf": [],
       "tags": [
-        "元数据"
+        "业务数据"
       ],
       "operation": "recordChangesPoll",
       "path": "/uns/records/changes",
@@ -4388,54 +3506,782 @@
       }
     },
     {
-      "name": "collectionCreateForApp",
-      "handler": "UnsV2CollectionCreateForApp",
-      "suffix": "/uns/collections/create-for-app",
-      "request": "CloudAppCollectionCreateReq",
-      "response": "CloudAppCollectionCreateResponse",
-      "resource": "collection",
-      "mutation": "meta.create",
-      "permission": "uns.write",
-      "appAllowed": false,
-      "mcp": false,
-      "cloudExtension": true,
-      "summary": "为 App 创建专用集合并绑定数据权限",
-      "description": "兼容入口；新调用使用 /uns/collections/create 并提供 appId、alias 和单个 items。需要当前 Builder 的 full_access 人员凭证及 uns.read、uns.write、uns.delete。两条路径共用创建、App 授权和幂等回执事务。",
+      "name": "metadataFind",
+      "handler": "UnsV2MetadataFind",
+      "request": "UnsV2MetadataFindReq",
+      "response": "UnsV2MetadataFindResponse",
+      "suffix": "/uns/metadata:find",
+      "resource": "metadata",
+      "metadataAction": "find",
+      "resourceId": 212,
+      "mutation": "",
+      "permission": "uns.read",
+      "destructive": false,
+      "appAllowed": true,
+      "summary": "查询元数据",
+      "description": "查询目录、主题、集合。配置字段直接使用字段名；_id 和 _meta.* 访问系统字段。返回 items/pageInfo。",
       "example": {
-        "appId": "14bfc189-8516-4709-a4c9-865a0f1dc345",
-        "alias": "orders",
-        "collection": {
-          "name": "Orders",
-          "recordSchema": {
-            "type": "object",
-            "properties": {
-              "title": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "title"
-            ]
-          }
+        "kinds": [
+          "directory",
+          "collection"
+        ],
+        "state": "active",
+        "filter": {
+          "parentId": null
         },
-        "idempotencyKey": "create-orders-v1",
-        "dryRun": false
+        "page": {
+          "mode": "offset",
+          "page": 1,
+          "size": 20
+        }
+      },
+      "permissionAnyOf": [],
+      "minPermission": 1,
+      "scope": "uns:read",
+      "tags": [
+        "元数据管理"
+      ],
+      "operation": "metadataFind",
+      "path": "/uns/metadata:find",
+      "method": "POST",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataFindReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataFindResponse"
+      }
+    },
+    {
+      "name": "metadataFindOne",
+      "handler": "UnsV2MetadataFindOne",
+      "request": "UnsV2MetadataFindOneReq",
+      "response": "UnsV2MetadataFindOneResponse",
+      "suffix": "/uns/metadata:findOne",
+      "resource": "metadata",
+      "metadataAction": "findOne",
+      "resourceId": 212,
+      "mutation": "",
+      "permission": "uns.read",
+      "destructive": false,
+      "appAllowed": true,
+      "summary": "读取一条元数据",
+      "description": "按 filter/sort 选取一个对象，未匹配返回 value:null。",
+      "example": {
+        "kind": "directory",
+        "filter": {
+          "_id": "workshop-1"
+        }
+      },
+      "permissionAnyOf": [],
+      "minPermission": 1,
+      "scope": "uns:read",
+      "tags": [
+        "元数据管理"
+      ],
+      "operation": "metadataFindOne",
+      "path": "/uns/metadata:findOne",
+      "method": "POST",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataFindOneReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataFindOneResponse"
+      }
+    },
+    {
+      "name": "metadataCount",
+      "handler": "UnsV2MetadataCount",
+      "request": "UnsV2MetadataCountReq",
+      "response": "UnsV2MetadataCountResponse",
+      "suffix": "/uns/metadata:count",
+      "resource": "metadata",
+      "metadataAction": "count",
+      "resourceId": 212,
+      "mutation": "",
+      "permission": "uns.read",
+      "destructive": false,
+      "appAllowed": false,
+      "summary": "统计元数据数量",
+      "description": "统计指定类型和状态内符合条件的对象。",
+      "example": {
+        "kinds": [
+          "collection"
+        ],
+        "filter": {}
+      },
+      "permissionAnyOf": [],
+      "minPermission": 1,
+      "scope": "uns:read",
+      "tags": [
+        "元数据管理"
+      ],
+      "operation": "metadataCount",
+      "path": "/uns/metadata:count",
+      "method": "POST",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataCountReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataCountResponse"
+      }
+    },
+    {
+      "name": "metadataDistinct",
+      "handler": "UnsV2MetadataDistinct",
+      "request": "UnsV2MetadataDistinctReq",
+      "response": "UnsV2MetadataDistinctResponse",
+      "suffix": "/uns/metadata:distinct",
+      "resource": "metadata",
+      "metadataAction": "distinct",
+      "resourceId": 212,
+      "mutation": "",
+      "permission": "uns.read",
+      "destructive": false,
+      "appAllowed": false,
+      "summary": "查询元数据去重值",
+      "description": "对单一配置或系统字段取去重值，保留 JSON 类型。",
+      "example": {
+        "kinds": [
+          "collection"
+        ],
+        "field": "parentId"
+      },
+      "permissionAnyOf": [],
+      "minPermission": 1,
+      "scope": "uns:read",
+      "tags": [
+        "元数据管理"
+      ],
+      "operation": "metadataDistinct",
+      "path": "/uns/metadata:distinct",
+      "method": "POST",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataDistinctReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataDistinctResponse"
+      }
+    },
+    {
+      "name": "metadataAggregate",
+      "handler": "UnsV2MetadataAggregate",
+      "request": "UnsV2MetadataAggregateReq",
+      "response": "UnsV2MetadataAggregateResponse",
+      "suffix": "/uns/metadata:aggregate",
+      "resource": "metadata",
+      "metadataAction": "aggregate",
+      "resourceId": 212,
+      "mutation": "",
+      "permission": "uns.read",
+      "destructive": false,
+      "appAllowed": false,
+      "summary": "聚合元数据",
+      "description": "支持 match/project/group/sort/skip/limit；仅查询允许的元数据类型，不跨表关联或写入。",
+      "example": {
+        "kinds": [
+          "collection"
+        ],
+        "pipeline": [
+          {
+            "$group": {
+              "_id": "$parentId",
+              "count": {
+                "$sum": 1
+              }
+            }
+          }
+        ]
+      },
+      "permissionAnyOf": [],
+      "minPermission": 1,
+      "scope": "uns:read",
+      "tags": [
+        "元数据管理"
+      ],
+      "operation": "metadataAggregate",
+      "path": "/uns/metadata:aggregate",
+      "method": "POST",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataAggregateReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataAggregateResponse"
+      }
+    },
+    {
+      "name": "metadataInsertOne",
+      "handler": "UnsV2MetadataInsertOne",
+      "request": "UnsV2MetadataInsertOneReq",
+      "response": "UnsV2MetadataInsertOneResponse",
+      "suffix": "/uns/metadata",
+      "resource": "metadata",
+      "metadataAction": "insertOne",
+      "resourceId": 214,
+      "mutation": "metadata.insertOne",
+      "permission": "uns.write",
+      "destructive": false,
+      "appAllowed": false,
+      "summary": "新增一条元数据",
+      "description": "创建目录、主题或集合。指定 appId/alias 时仅允许创建 Collection，由服务端原子绑定 App 授权，必须携带 idempotencyKey，并复验当前 Builder 权限。",
+      "example": {
+        "kind": "directory",
+        "data": {
+          "name": "装配车间",
+          "parentId": null
+        }
       },
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "uns:update",
       "tags": [
-        "集合管理"
+        "元数据管理"
       ],
-      "operation": "collectionCreateForApp",
-      "path": "/uns/collections/create-for-app",
+      "operation": "metadataInsertOne",
+      "path": "/uns/metadata",
       "method": "POST",
       "supported": true,
       "requestSchema": {
-        "$ref": "#/components/schemas/CloudAppCollectionCreateReq"
+        "$ref": "#/components/schemas/UnsV2MetadataInsertOneReq"
       },
       "responseSchema": {
-        "$ref": "#/components/schemas/CloudAppCollectionCreateResponse"
+        "$ref": "#/components/schemas/UnsV2MetadataInsertOneResponse"
+      }
+    },
+    {
+      "name": "metadataInsertMany",
+      "handler": "UnsV2MetadataInsertMany",
+      "request": "UnsV2MetadataInsertManyReq",
+      "response": "UnsV2MetadataInsertManyResponse",
+      "suffix": "/uns/metadata:insertMany",
+      "resource": "metadata",
+      "metadataAction": "insertMany",
+      "resourceId": 214,
+      "mutation": "metadata.insertMany",
+      "permission": "uns.write",
+      "destructive": false,
+      "appAllowed": false,
+      "summary": "批量新增元数据",
+      "description": "同一 kind 批量创建，最多 200 项，默认整批原子。insertedIds 按原始输入零基序号对应。",
+      "example": {
+        "kind": "directory",
+        "documents": [
+          {
+            "data": {
+              "name": "装配车间",
+              "parentId": null
+            }
+          }
+        ],
+        "atomic": true
+      },
+      "permissionAnyOf": [],
+      "minPermission": 3,
+      "scope": "uns:update",
+      "tags": [
+        "元数据管理"
+      ],
+      "operation": "metadataInsertMany",
+      "path": "/uns/metadata:insertMany",
+      "method": "POST",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataInsertManyReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataInsertManyResponse"
+      }
+    },
+    {
+      "name": "metadataUpdateOne",
+      "handler": "UnsV2MetadataUpdateOne",
+      "request": "UnsV2MetadataUpdateOneReq",
+      "response": "UnsV2MetadataUpdateOneResponse",
+      "suffix": "/uns/metadata:updateOne",
+      "resource": "metadata",
+      "metadataAction": "updateOne",
+      "resourceId": 214,
+      "mutation": "metadata.updateOne",
+      "permission": "uns.write",
+      "destructive": false,
+      "appAllowed": false,
+      "summary": "更新一条元数据",
+      "description": "选择和更新在同一事务中完成；执行领域校验。upsert 新增要求明确 _id 和完整配置。",
+      "example": {
+        "kind": "directory",
+        "filter": {
+          "_id": "workshop-1"
+        },
+        "update": {
+          "$set": {
+            "name": "装配二车间"
+          }
+        }
+      },
+      "permissionAnyOf": [],
+      "minPermission": 3,
+      "scope": "uns:update",
+      "tags": [
+        "元数据管理"
+      ],
+      "operation": "metadataUpdateOne",
+      "path": "/uns/metadata:updateOne",
+      "method": "POST",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataUpdateOneReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataUpdateOneResponse"
+      }
+    },
+    {
+      "name": "metadataFindOneAndUpdate",
+      "handler": "UnsV2MetadataFindOneAndUpdate",
+      "request": "UnsV2MetadataFindOneAndUpdateReq",
+      "response": "UnsV2MetadataFindOneAndUpdateResponse",
+      "suffix": "/uns/metadata:findOneAndUpdate",
+      "resource": "metadata",
+      "metadataAction": "findOneAndUpdate",
+      "resourceId": 214,
+      "mutation": "metadata.findOneAndUpdate",
+      "permission": "uns.write",
+      "destructive": false,
+      "appAllowed": false,
+      "summary": "更新并返回元数据",
+      "description": "选择和更新在同一事务中完成；执行领域校验。returnDocument 选择 before/after。upsert 新增要求明确 _id 和完整配置。",
+      "example": {
+        "kind": "directory",
+        "filter": {
+          "_id": "workshop-1"
+        },
+        "update": {
+          "$set": {
+            "name": "装配二车间"
+          }
+        },
+        "returnDocument": "after"
+      },
+      "permissionAnyOf": [],
+      "minPermission": 3,
+      "scope": "uns:update",
+      "tags": [
+        "元数据管理"
+      ],
+      "operation": "metadataFindOneAndUpdate",
+      "path": "/uns/metadata:findOneAndUpdate",
+      "method": "POST",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataFindOneAndUpdateReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataFindOneAndUpdateResponse"
+      }
+    },
+    {
+      "name": "metadataReplaceOne",
+      "handler": "UnsV2MetadataReplaceOne",
+      "request": "UnsV2MetadataReplaceOneReq",
+      "response": "UnsV2MetadataReplaceOneResponse",
+      "suffix": "/uns/metadata:replaceOne",
+      "resource": "metadata",
+      "metadataAction": "replaceOne",
+      "resourceId": 214,
+      "mutation": "metadata.replaceOne",
+      "permission": "uns.write",
+      "destructive": false,
+      "appAllowed": false,
+      "summary": "替换一条元数据",
+      "description": "完整替换可写配置并执行 Schema、索引和引用校验；系统字段保持服务端管理。upsert 新增要求明确 _id 和完整配置。",
+      "example": {
+        "kind": "directory",
+        "filter": {
+          "_id": "workshop-1"
+        },
+        "replacement": {
+          "name": "装配车间",
+          "parentId": null
+        }
+      },
+      "permissionAnyOf": [],
+      "minPermission": 3,
+      "scope": "uns:update",
+      "tags": [
+        "元数据管理"
+      ],
+      "operation": "metadataReplaceOne",
+      "path": "/uns/metadata:replaceOne",
+      "method": "POST",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataReplaceOneReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataReplaceOneResponse"
+      }
+    },
+    {
+      "name": "metadataFindOneAndReplace",
+      "handler": "UnsV2MetadataFindOneAndReplace",
+      "request": "UnsV2MetadataFindOneAndReplaceReq",
+      "response": "UnsV2MetadataFindOneAndReplaceResponse",
+      "suffix": "/uns/metadata:findOneAndReplace",
+      "resource": "metadata",
+      "metadataAction": "findOneAndReplace",
+      "resourceId": 214,
+      "mutation": "metadata.findOneAndReplace",
+      "permission": "uns.write",
+      "destructive": false,
+      "appAllowed": false,
+      "summary": "替换并返回元数据",
+      "description": "完整替换可写配置并执行 Schema、索引和引用校验；系统字段保持服务端管理。returnDocument 选择 before/after。upsert 新增要求明确 _id 和完整配置。",
+      "example": {
+        "kind": "directory",
+        "filter": {
+          "_id": "workshop-1"
+        },
+        "replacement": {
+          "name": "装配车间",
+          "parentId": null
+        },
+        "returnDocument": "after"
+      },
+      "permissionAnyOf": [],
+      "minPermission": 3,
+      "scope": "uns:update",
+      "tags": [
+        "元数据管理"
+      ],
+      "operation": "metadataFindOneAndReplace",
+      "path": "/uns/metadata:findOneAndReplace",
+      "method": "POST",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataFindOneAndReplaceReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataFindOneAndReplaceResponse"
+      }
+    },
+    {
+      "name": "metadataDeleteOne",
+      "handler": "UnsV2MetadataDeleteOne",
+      "request": "UnsV2MetadataDeleteOneReq",
+      "response": "UnsV2MetadataDeleteOneResponse",
+      "suffix": "/uns/metadata:deleteOne",
+      "resource": "metadata",
+      "metadataAction": "deleteOne",
+      "resourceId": 214,
+      "mutation": "metadata.deleteOne",
+      "permission": "uns.write",
+      "destructive": true,
+      "appAllowed": false,
+      "summary": "软删除一条元数据",
+      "description": "软删除有效对象，执行引用和子节点校验，不级联清除 Record/Sample。",
+      "example": {
+        "kind": "directory",
+        "filter": {
+          "_id": "workshop-1"
+        }
+      },
+      "permissionAnyOf": [],
+      "minPermission": 3,
+      "scope": "uns:update",
+      "tags": [
+        "元数据管理"
+      ],
+      "operation": "metadataDeleteOne",
+      "path": "/uns/metadata:deleteOne",
+      "method": "POST",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataDeleteOneReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataDeleteOneResponse"
+      }
+    },
+    {
+      "name": "metadataFindOneAndDelete",
+      "handler": "UnsV2MetadataFindOneAndDelete",
+      "request": "UnsV2MetadataFindOneAndDeleteReq",
+      "response": "UnsV2MetadataFindOneAndDeleteResponse",
+      "suffix": "/uns/metadata:findOneAndDelete",
+      "resource": "metadata",
+      "metadataAction": "findOneAndDelete",
+      "resourceId": 214,
+      "mutation": "metadata.findOneAndDelete",
+      "permission": "uns.write",
+      "destructive": true,
+      "appAllowed": false,
+      "summary": "软删除并返回原元数据",
+      "description": "软删除有效对象，执行引用和子节点校验，不级联清除 Record/Sample。返回删除前对象。",
+      "example": {
+        "kind": "directory",
+        "filter": {
+          "_id": "workshop-1"
+        }
+      },
+      "permissionAnyOf": [],
+      "minPermission": 3,
+      "scope": "uns:update",
+      "tags": [
+        "元数据管理"
+      ],
+      "operation": "metadataFindOneAndDelete",
+      "path": "/uns/metadata:findOneAndDelete",
+      "method": "POST",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataFindOneAndDeleteReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataFindOneAndDeleteResponse"
+      }
+    },
+    {
+      "name": "metadataUpdateMany",
+      "handler": "UnsV2MetadataUpdateMany",
+      "request": "UnsV2MetadataUpdateManyReq",
+      "response": "UnsV2MetadataUpdateManyResponse",
+      "suffix": "/uns/metadata:updateMany",
+      "resource": "metadata",
+      "metadataAction": "updateMany",
+      "resourceId": 214,
+      "mutation": "metadata.updateMany",
+      "permission": "uns.write",
+      "destructive": false,
+      "appAllowed": false,
+      "summary": "批量更新元数据",
+      "description": "显式 kind 内条件批量操作。整批原子；匹配数超过 maxDocs 整体拒绝。不同对象需要独立 revision 时使用 bulkWrite。",
+      "example": {
+        "kind": "directory",
+        "filter": {
+          "_id": {
+            "$in": [
+              "workshop-1",
+              "workshop-2"
+            ]
+          }
+        },
+        "update": {
+          "$set": {
+            "description": "生产车间"
+          }
+        },
+        "atomic": true,
+        "maxDocs": 200
+      },
+      "permissionAnyOf": [],
+      "minPermission": 3,
+      "scope": "uns:update",
+      "tags": [
+        "元数据管理"
+      ],
+      "operation": "metadataUpdateMany",
+      "path": "/uns/metadata:updateMany",
+      "method": "POST",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataUpdateManyReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataUpdateManyResponse"
+      }
+    },
+    {
+      "name": "metadataDeleteMany",
+      "handler": "UnsV2MetadataDeleteMany",
+      "request": "UnsV2MetadataDeleteManyReq",
+      "response": "UnsV2MetadataDeleteManyResponse",
+      "suffix": "/uns/metadata:deleteMany",
+      "resource": "metadata",
+      "metadataAction": "deleteMany",
+      "resourceId": 214,
+      "mutation": "metadata.deleteMany",
+      "permission": "uns.write",
+      "destructive": true,
+      "appAllowed": false,
+      "summary": "批量软删除元数据",
+      "description": "显式 kind 内条件批量操作。整批原子；匹配数超过 maxDocs 整体拒绝。不同对象需要独立 revision 时使用 bulkWrite。",
+      "example": {
+        "kind": "directory",
+        "filter": {
+          "_id": {
+            "$in": [
+              "workshop-1",
+              "workshop-2"
+            ]
+          }
+        },
+        "atomic": true,
+        "maxDocs": 200
+      },
+      "permissionAnyOf": [],
+      "minPermission": 3,
+      "scope": "uns:update",
+      "tags": [
+        "元数据管理"
+      ],
+      "operation": "metadataDeleteMany",
+      "path": "/uns/metadata:deleteMany",
+      "method": "POST",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataDeleteManyReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataDeleteManyResponse"
+      }
+    },
+    {
+      "name": "metadataRestore",
+      "handler": "UnsV2MetadataRestore",
+      "request": "UnsV2MetadataRestoreReq",
+      "response": "UnsV2MetadataRestoreResponse",
+      "suffix": "/uns/metadata:restore",
+      "resource": "metadata",
+      "metadataAction": "restore",
+      "resourceId": 214,
+      "mutation": "metadata.restore",
+      "permission": "uns.write",
+      "destructive": false,
+      "appAllowed": false,
+      "summary": "按 ID 批量恢复元数据",
+      "description": "整批原子恢复，复验当前名称、父目录和引用，revision 递增；不隐式恢复依赖。",
+      "example": {
+        "kind": "directory",
+        "items": [
+          {
+            "id": "workshop-1",
+            "expectedRevision": 7
+          }
+        ]
+      },
+      "permissionAnyOf": [],
+      "minPermission": 3,
+      "scope": "uns:update",
+      "tags": [
+        "元数据管理"
+      ],
+      "operation": "metadataRestore",
+      "path": "/uns/metadata:restore",
+      "method": "POST",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataRestoreReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataRestoreResponse"
+      }
+    },
+    {
+      "name": "metadataBulkWrite",
+      "handler": "UnsV2MetadataBulkWrite",
+      "request": "UnsV2MetadataBulkWriteReq",
+      "response": "UnsV2MetadataBulkWriteResponse",
+      "suffix": "/uns/metadata:bulkWrite",
+      "resource": "metadata",
+      "metadataAction": "bulkWrite",
+      "resourceId": 214,
+      "mutation": "metadata.bulkWrite",
+      "permission": "uns.write",
+      "destructive": true,
+      "appAllowed": false,
+      "summary": "执行元数据混合批量写入",
+      "description": "同一 kind 下最多 200 个操作。默认原子；非原子时 ordered 控制失败后是否继续，按原始序号返回逐项结果。",
+      "example": {
+        "kind": "directory",
+        "operations": [
+          {
+            "insertOne": {
+              "data": {
+                "name": "装配车间",
+                "parentId": null
+              }
+            }
+          }
+        ]
+      },
+      "permissionAnyOf": [],
+      "minPermission": 3,
+      "scope": "uns:update",
+      "tags": [
+        "元数据管理"
+      ],
+      "operation": "metadataBulkWrite",
+      "path": "/uns/metadata:bulkWrite",
+      "method": "POST",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataBulkWriteReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataBulkWriteResponse"
+      }
+    },
+    {
+      "name": "metadataTransact",
+      "handler": "UnsV2MetadataTransact",
+      "request": "UnsV2MetadataTransactReq",
+      "response": "UnsV2MetadataTransactResponse",
+      "suffix": "/uns/metadata:transact",
+      "resource": "metadata",
+      "metadataAction": "transact",
+      "resourceId": 214,
+      "mutation": "metadata.transact",
+      "permission": "uns.write",
+      "destructive": true,
+      "appAllowed": false,
+      "summary": "执行元数据事务",
+      "description": "跨目录、主题、集合的原子操作。opId/dependsOn 控制依赖，parentId/collectionId 支持 {ref:opId} 引用创建结果。最多 200 项；dryRun=true 执行预校验后回滚。",
+      "example": {
+        "operations": [
+          {
+            "opId": "parent",
+            "action": "insertOne",
+            "kind": "directory",
+            "data": {
+              "name": "装配车间",
+              "parentId": null
+            }
+          },
+          {
+            "opId": "child",
+            "action": "insertOne",
+            "kind": "directory",
+            "data": {
+              "name": "产线一",
+              "parentId": {
+                "ref": "parent"
+              }
+            },
+            "dependsOn": [
+              "parent"
+            ]
+          }
+        ]
+      },
+      "permissionAnyOf": [],
+      "minPermission": 3,
+      "scope": "uns:update",
+      "tags": [
+        "元数据管理"
+      ],
+      "operation": "metadataTransact",
+      "path": "/uns/metadata:transact",
+      "method": "POST",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataTransactReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/UnsV2MetadataTransactResponse"
       }
     }
   ],
@@ -32509,6 +32355,2626 @@
         "projectionIssue"
       ]
     },
+    "UnsV2MetadataFindReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "directory",
+            "topic",
+            "collection"
+          ]
+        },
+        "kinds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "directory",
+              "topic",
+              "collection"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 3,
+          "uniqueItems": true
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "active",
+            "deleted",
+            "all"
+          ],
+          "default": "active",
+          "description": "有效、已软删除或全部对象。"
+        },
+        "filter": {
+          "$ref": "#/components/schemas/UnsV2DataFilter"
+        },
+        "sort": {
+          "$ref": "#/components/schemas/UnsV2PipelineSort"
+        },
+        "projection": {
+          "type": "object",
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  0,
+                  1
+                ]
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "description": "Include or exclude declared fields; computed expressions use aggregate-pipeline. System identity is retained."
+        },
+        "page": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "offset"
+              ],
+              "default": "offset"
+            },
+            "page": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 20
+            }
+          },
+          "required": []
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        }
+      },
+      "required": [],
+      "oneOf": [
+        {
+          "required": [
+            "kind"
+          ],
+          "not": {
+            "required": [
+              "kinds"
+            ]
+          }
+        },
+        {
+          "required": [
+            "kinds"
+          ],
+          "not": {
+            "required": [
+              "kind"
+            ]
+          }
+        }
+      ],
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "page",
+              "limit"
+            ]
+          }
+        }
+      ]
+    },
+    "UnsV2MetadataFindResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/components/schemas/MetadataPage"
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
+    },
+    "UnsV2MetadataFindOneReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "directory",
+            "topic",
+            "collection"
+          ]
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "active",
+            "deleted",
+            "all"
+          ],
+          "default": "active",
+          "description": "有效、已软删除或全部对象。"
+        },
+        "filter": {
+          "$ref": "#/components/schemas/UnsV2DataFilter"
+        },
+        "sort": {
+          "$ref": "#/components/schemas/UnsV2PipelineSort"
+        },
+        "projection": {
+          "type": "object",
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  0,
+                  1
+                ]
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "description": "Include or exclude declared fields; computed expressions use aggregate-pipeline. System identity is retained."
+        }
+      },
+      "required": [
+        "kind",
+        "filter"
+      ]
+    },
+    "UnsV2MetadataFindOneResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "value": {
+              "$ref": "#/components/schemas/MetadataNullableDocument"
+            }
+          },
+          "required": [
+            "value"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
+    },
+    "UnsV2MetadataCountReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "directory",
+            "topic",
+            "collection"
+          ]
+        },
+        "kinds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "directory",
+              "topic",
+              "collection"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 3,
+          "uniqueItems": true
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "active",
+            "deleted",
+            "all"
+          ],
+          "default": "active",
+          "description": "有效、已软删除或全部对象。"
+        },
+        "filter": {
+          "$ref": "#/components/schemas/UnsV2DataFilter"
+        }
+      },
+      "required": [],
+      "oneOf": [
+        {
+          "required": [
+            "kind"
+          ],
+          "not": {
+            "required": [
+              "kinds"
+            ]
+          }
+        },
+        {
+          "required": [
+            "kinds"
+          ],
+          "not": {
+            "required": [
+              "kind"
+            ]
+          }
+        }
+      ]
+    },
+    "UnsV2MetadataCountResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "count": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "count"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
+    },
+    "UnsV2MetadataDistinctReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "directory",
+            "topic",
+            "collection"
+          ]
+        },
+        "kinds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "directory",
+              "topic",
+              "collection"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 3,
+          "uniqueItems": true
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "active",
+            "deleted",
+            "all"
+          ],
+          "default": "active",
+          "description": "有效、已软删除或全部对象。"
+        },
+        "filter": {
+          "$ref": "#/components/schemas/UnsV2DataFilter"
+        },
+        "field": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "page": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "offset"
+              ],
+              "default": "offset"
+            },
+            "page": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 20
+            }
+          },
+          "required": []
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        }
+      },
+      "required": [
+        "field"
+      ],
+      "oneOf": [
+        {
+          "required": [
+            "kind"
+          ],
+          "not": {
+            "required": [
+              "kinds"
+            ]
+          }
+        },
+        {
+          "required": [
+            "kinds"
+          ],
+          "not": {
+            "required": [
+              "kind"
+            ]
+          }
+        }
+      ],
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "page",
+              "limit"
+            ]
+          }
+        }
+      ]
+    },
+    "UnsV2MetadataDistinctResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "values": {
+              "type": "array",
+              "items": {}
+            },
+            "pageInfo": {
+              "$ref": "#/components/schemas/CloudPageInfo"
+            }
+          },
+          "required": [
+            "values",
+            "pageInfo"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
+    },
+    "UnsV2MetadataAggregateReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "directory",
+            "topic",
+            "collection"
+          ]
+        },
+        "kinds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "directory",
+              "topic",
+              "collection"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 3,
+          "uniqueItems": true
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "active",
+            "deleted",
+            "all"
+          ],
+          "default": "active",
+          "description": "有效、已软删除或全部对象。"
+        },
+        "filter": {
+          "$ref": "#/components/schemas/UnsV2DataFilter"
+        },
+        "pipeline": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "$match": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                },
+                "required": [
+                  "$match"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "$project": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                },
+                "required": [
+                  "$project"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "$group": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                },
+                "required": [
+                  "$group"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "$sort": {
+                    "$ref": "#/components/schemas/UnsV2PipelineSort"
+                  }
+                },
+                "required": [
+                  "$sort"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "$skip": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "$skip"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "$limit": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "$limit"
+                ]
+              }
+            ]
+          }
+        },
+        "page": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "offset"
+              ],
+              "default": "offset"
+            },
+            "page": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 20
+            }
+          },
+          "required": []
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        }
+      },
+      "required": [
+        "pipeline"
+      ],
+      "oneOf": [
+        {
+          "required": [
+            "kind"
+          ],
+          "not": {
+            "required": [
+              "kinds"
+            ]
+          }
+        },
+        {
+          "required": [
+            "kinds"
+          ],
+          "not": {
+            "required": [
+              "kind"
+            ]
+          }
+        }
+      ],
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "page",
+              "limit"
+            ]
+          }
+        }
+      ]
+    },
+    "UnsV2MetadataAggregateResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "pageInfo": {
+              "$ref": "#/components/schemas/CloudPageInfo"
+            }
+          },
+          "required": [
+            "items",
+            "pageInfo"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
+    },
+    "UnsV2MetadataInsertOneReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "directory",
+            "topic",
+            "collection"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "appId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "alias": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,62}$"
+        },
+        "dryRun": {
+          "type": "boolean",
+          "default": false,
+          "description": "仅校验并回滚，不预留资源。"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "同一写入意图的重试复用此键；内容变化必须换键。"
+        }
+      },
+      "required": [
+        "kind",
+        "data"
+      ],
+      "oneOf": [
+        {
+          "properties": {
+            "kind": {
+              "enum": [
+                "directory"
+              ]
+            },
+            "data": {
+              "$ref": "#/components/schemas/MetadataDirectoryInput"
+            }
+          }
+        },
+        {
+          "properties": {
+            "kind": {
+              "enum": [
+                "topic"
+              ]
+            },
+            "data": {
+              "$ref": "#/components/schemas/MetadataTopicInput"
+            }
+          }
+        },
+        {
+          "properties": {
+            "kind": {
+              "enum": [
+                "collection"
+              ]
+            },
+            "data": {
+              "$ref": "#/components/schemas/MetadataCollectionInput"
+            }
+          }
+        }
+      ],
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "appId"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "alias"
+                    ]
+                  }
+                ]
+              }
+            },
+            {
+              "required": [
+                "appId",
+                "alias",
+                "idempotencyKey"
+              ],
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "collection"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "UnsV2MetadataInsertOneResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "insertedId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "validated",
+                "committed",
+                "partiallyCommitted",
+                "failed"
+              ]
+            },
+            "replayed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "insertedId",
+            "status",
+            "replayed"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
+    },
+    "UnsV2MetadataInsertManyReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "directory",
+            "topic",
+            "collection"
+          ]
+        },
+        "documents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "data": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "data"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 200
+        },
+        "atomic": {
+          "type": "boolean",
+          "enum": [
+            true
+          ],
+          "default": true,
+          "description": "整批原子提交；需要逐项提交时使用 bulkWrite。"
+        },
+        "dryRun": {
+          "type": "boolean",
+          "default": false,
+          "description": "仅校验并回滚，不预留资源。"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "同一写入意图的重试复用此键；内容变化必须换键。"
+        }
+      },
+      "required": [
+        "kind",
+        "documents"
+      ],
+      "oneOf": [
+        {
+          "properties": {
+            "kind": {
+              "enum": [
+                "directory"
+              ]
+            },
+            "documents": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "data": {
+                    "$ref": "#/components/schemas/MetadataDirectoryInput"
+                  }
+                },
+                "required": [
+                  "data"
+                ]
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "documents"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "enum": [
+                "topic"
+              ]
+            },
+            "documents": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "data": {
+                    "$ref": "#/components/schemas/MetadataTopicInput"
+                  }
+                },
+                "required": [
+                  "data"
+                ]
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "documents"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "enum": [
+                "collection"
+              ]
+            },
+            "documents": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "data": {
+                    "$ref": "#/components/schemas/MetadataCollectionInput"
+                  }
+                },
+                "required": [
+                  "data"
+                ]
+              }
+            }
+          },
+          "required": [
+            "kind",
+            "documents"
+          ]
+        }
+      ]
+    },
+    "UnsV2MetadataInsertManyResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "insertedCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "insertedIds": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "description": "键为原始输入的零基序号。"
+            },
+            "results": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/MetadataBulkResult"
+              }
+            },
+            "errors": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "index": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "error": {
+                    "$ref": "#/components/schemas/Fault"
+                  }
+                },
+                "required": [
+                  "index",
+                  "error"
+                ]
+              }
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "validated",
+                "committed",
+                "partiallyCommitted",
+                "failed"
+              ]
+            },
+            "replayed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "insertedCount",
+            "insertedIds",
+            "status",
+            "replayed"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
+    },
+    "UnsV2MetadataUpdateOneReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "directory",
+            "topic",
+            "collection"
+          ]
+        },
+        "filter": {
+          "$ref": "#/components/schemas/UnsV2DataFilter"
+        },
+        "sort": {
+          "$ref": "#/components/schemas/UnsV2PipelineSort"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "可选乐观锁；管理表单保存时携带读取到的 revision。冲突须重新读取。"
+        },
+        "update": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "$set": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "$unset": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "$setOnInsert": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "required": [],
+          "minProperties": 1,
+          "description": "仅支持 $set/$unset/$setOnInsert；配置路径不带 data.，系统字段只读。数组按整个字段替换。"
+        },
+        "upsert": {
+          "type": "boolean",
+          "default": false,
+          "description": "仅单条更新/替换支持；filter 必须明确 _id 等值，新增配置须完整合法。同 ID 已删除对象不自动恢复。"
+        },
+        "dryRun": {
+          "type": "boolean",
+          "default": false,
+          "description": "仅校验并回滚，不预留资源。"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "同一写入意图的重试复用此键；内容变化必须换键。"
+        }
+      },
+      "required": [
+        "kind",
+        "filter",
+        "update"
+      ]
+    },
+    "UnsV2MetadataUpdateOneResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "matchedCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "modifiedCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "upsertedId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "validated",
+                "committed",
+                "partiallyCommitted",
+                "failed"
+              ]
+            },
+            "replayed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "matchedCount",
+            "modifiedCount",
+            "status",
+            "replayed"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
+    },
+    "UnsV2MetadataFindOneAndUpdateReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "directory",
+            "topic",
+            "collection"
+          ]
+        },
+        "filter": {
+          "$ref": "#/components/schemas/UnsV2DataFilter"
+        },
+        "sort": {
+          "$ref": "#/components/schemas/UnsV2PipelineSort"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "可选乐观锁；管理表单保存时携带读取到的 revision。冲突须重新读取。"
+        },
+        "update": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "$set": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "$unset": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "$setOnInsert": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "required": [],
+          "minProperties": 1,
+          "description": "仅支持 $set/$unset/$setOnInsert；配置路径不带 data.，系统字段只读。数组按整个字段替换。"
+        },
+        "upsert": {
+          "type": "boolean",
+          "default": false,
+          "description": "仅单条更新/替换支持；filter 必须明确 _id 等值，新增配置须完整合法。同 ID 已删除对象不自动恢复。"
+        },
+        "projection": {
+          "type": "object",
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  0,
+                  1
+                ]
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "description": "Include or exclude declared fields; computed expressions use aggregate-pipeline. System identity is retained."
+        },
+        "returnDocument": {
+          "type": "string",
+          "enum": [
+            "before",
+            "after"
+          ],
+          "default": "before"
+        },
+        "dryRun": {
+          "type": "boolean",
+          "default": false,
+          "description": "仅校验并回滚，不预留资源。"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "同一写入意图的重试复用此键；内容变化必须换键。"
+        }
+      },
+      "required": [
+        "kind",
+        "filter",
+        "update"
+      ]
+    },
+    "UnsV2MetadataFindOneAndUpdateResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "value": {
+              "$ref": "#/components/schemas/MetadataNullableDocument"
+            },
+            "upsertedId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "validated",
+                "committed",
+                "partiallyCommitted",
+                "failed"
+              ]
+            },
+            "replayed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "value",
+            "status",
+            "replayed"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
+    },
+    "UnsV2MetadataReplaceOneReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "directory",
+            "topic",
+            "collection"
+          ]
+        },
+        "filter": {
+          "$ref": "#/components/schemas/UnsV2DataFilter"
+        },
+        "sort": {
+          "$ref": "#/components/schemas/UnsV2PipelineSort"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "可选乐观锁；管理表单保存时携带读取到的 revision。冲突须重新读取。"
+        },
+        "replacement": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "upsert": {
+          "type": "boolean",
+          "default": false,
+          "description": "仅单条更新/替换支持；filter 必须明确 _id 等值，新增配置须完整合法。同 ID 已删除对象不自动恢复。"
+        },
+        "dryRun": {
+          "type": "boolean",
+          "default": false,
+          "description": "仅校验并回滚，不预留资源。"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "同一写入意图的重试复用此键；内容变化必须换键。"
+        }
+      },
+      "required": [
+        "kind",
+        "filter",
+        "replacement"
+      ],
+      "oneOf": [
+        {
+          "properties": {
+            "kind": {
+              "enum": [
+                "directory"
+              ]
+            },
+            "replacement": {
+              "$ref": "#/components/schemas/MetadataDirectoryInput"
+            }
+          },
+          "required": [
+            "kind",
+            "replacement"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "enum": [
+                "topic"
+              ]
+            },
+            "replacement": {
+              "$ref": "#/components/schemas/MetadataTopicInput"
+            }
+          },
+          "required": [
+            "kind",
+            "replacement"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "enum": [
+                "collection"
+              ]
+            },
+            "replacement": {
+              "$ref": "#/components/schemas/MetadataCollectionInput"
+            }
+          },
+          "required": [
+            "kind",
+            "replacement"
+          ]
+        }
+      ]
+    },
+    "UnsV2MetadataReplaceOneResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "matchedCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "modifiedCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "upsertedId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "validated",
+                "committed",
+                "partiallyCommitted",
+                "failed"
+              ]
+            },
+            "replayed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "matchedCount",
+            "modifiedCount",
+            "status",
+            "replayed"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
+    },
+    "UnsV2MetadataFindOneAndReplaceReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "directory",
+            "topic",
+            "collection"
+          ]
+        },
+        "filter": {
+          "$ref": "#/components/schemas/UnsV2DataFilter"
+        },
+        "sort": {
+          "$ref": "#/components/schemas/UnsV2PipelineSort"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "可选乐观锁；管理表单保存时携带读取到的 revision。冲突须重新读取。"
+        },
+        "replacement": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "upsert": {
+          "type": "boolean",
+          "default": false,
+          "description": "仅单条更新/替换支持；filter 必须明确 _id 等值，新增配置须完整合法。同 ID 已删除对象不自动恢复。"
+        },
+        "projection": {
+          "type": "object",
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  0,
+                  1
+                ]
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "description": "Include or exclude declared fields; computed expressions use aggregate-pipeline. System identity is retained."
+        },
+        "returnDocument": {
+          "type": "string",
+          "enum": [
+            "before",
+            "after"
+          ],
+          "default": "before"
+        },
+        "dryRun": {
+          "type": "boolean",
+          "default": false,
+          "description": "仅校验并回滚，不预留资源。"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "同一写入意图的重试复用此键；内容变化必须换键。"
+        }
+      },
+      "required": [
+        "kind",
+        "filter",
+        "replacement"
+      ],
+      "oneOf": [
+        {
+          "properties": {
+            "kind": {
+              "enum": [
+                "directory"
+              ]
+            },
+            "replacement": {
+              "$ref": "#/components/schemas/MetadataDirectoryInput"
+            }
+          },
+          "required": [
+            "kind",
+            "replacement"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "enum": [
+                "topic"
+              ]
+            },
+            "replacement": {
+              "$ref": "#/components/schemas/MetadataTopicInput"
+            }
+          },
+          "required": [
+            "kind",
+            "replacement"
+          ]
+        },
+        {
+          "properties": {
+            "kind": {
+              "enum": [
+                "collection"
+              ]
+            },
+            "replacement": {
+              "$ref": "#/components/schemas/MetadataCollectionInput"
+            }
+          },
+          "required": [
+            "kind",
+            "replacement"
+          ]
+        }
+      ]
+    },
+    "UnsV2MetadataFindOneAndReplaceResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "value": {
+              "$ref": "#/components/schemas/MetadataNullableDocument"
+            },
+            "upsertedId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "validated",
+                "committed",
+                "partiallyCommitted",
+                "failed"
+              ]
+            },
+            "replayed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "value",
+            "status",
+            "replayed"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
+    },
+    "UnsV2MetadataDeleteOneReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "directory",
+            "topic",
+            "collection"
+          ]
+        },
+        "filter": {
+          "$ref": "#/components/schemas/UnsV2DataFilter"
+        },
+        "sort": {
+          "$ref": "#/components/schemas/UnsV2PipelineSort"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "可选乐观锁；管理表单保存时携带读取到的 revision。冲突须重新读取。"
+        },
+        "dryRun": {
+          "type": "boolean",
+          "default": false,
+          "description": "仅校验并回滚，不预留资源。"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "同一写入意图的重试复用此键；内容变化必须换键。"
+        }
+      },
+      "required": [
+        "kind",
+        "filter"
+      ]
+    },
+    "UnsV2MetadataDeleteOneResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "deletedCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "validated",
+                "committed",
+                "partiallyCommitted",
+                "failed"
+              ]
+            },
+            "replayed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "deletedCount",
+            "status",
+            "replayed"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
+    },
+    "UnsV2MetadataFindOneAndDeleteReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "directory",
+            "topic",
+            "collection"
+          ]
+        },
+        "filter": {
+          "$ref": "#/components/schemas/UnsV2DataFilter"
+        },
+        "sort": {
+          "$ref": "#/components/schemas/UnsV2PipelineSort"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "可选乐观锁；管理表单保存时携带读取到的 revision。冲突须重新读取。"
+        },
+        "projection": {
+          "type": "object",
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  0,
+                  1
+                ]
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "description": "Include or exclude declared fields; computed expressions use aggregate-pipeline. System identity is retained."
+        },
+        "dryRun": {
+          "type": "boolean",
+          "default": false,
+          "description": "仅校验并回滚，不预留资源。"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "同一写入意图的重试复用此键；内容变化必须换键。"
+        }
+      },
+      "required": [
+        "kind",
+        "filter"
+      ]
+    },
+    "UnsV2MetadataFindOneAndDeleteResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "value": {
+              "$ref": "#/components/schemas/MetadataNullableDocument"
+            },
+            "upsertedId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "validated",
+                "committed",
+                "partiallyCommitted",
+                "failed"
+              ]
+            },
+            "replayed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "value",
+            "status",
+            "replayed"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
+    },
+    "UnsV2MetadataUpdateManyReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "directory",
+            "topic",
+            "collection"
+          ]
+        },
+        "filter": {
+          "$ref": "#/components/schemas/UnsV2DataFilter"
+        },
+        "update": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "$set": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "$unset": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "$setOnInsert": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "required": [],
+          "minProperties": 1,
+          "description": "仅支持 $set/$unset/$setOnInsert；配置路径不带 data.，系统字段只读。数组按整个字段替换。"
+        },
+        "atomic": {
+          "type": "boolean",
+          "enum": [
+            true
+          ],
+          "default": true,
+          "description": "整批原子提交；需要逐项提交时使用 bulkWrite。"
+        },
+        "maxDocs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200,
+          "default": 200,
+          "description": "超过匹配上限整体拒绝，不截断写入范围。"
+        },
+        "dryRun": {
+          "type": "boolean",
+          "default": false,
+          "description": "仅校验并回滚，不预留资源。"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "同一写入意图的重试复用此键；内容变化必须换键。"
+        }
+      },
+      "required": [
+        "kind",
+        "filter",
+        "update"
+      ]
+    },
+    "UnsV2MetadataUpdateManyResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "matchedCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "modifiedCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "upsertedId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "results": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/MetadataBulkResult"
+              }
+            },
+            "errors": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "index": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "error": {
+                    "$ref": "#/components/schemas/Fault"
+                  }
+                },
+                "required": [
+                  "index",
+                  "error"
+                ]
+              }
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "validated",
+                "committed",
+                "partiallyCommitted",
+                "failed"
+              ]
+            },
+            "replayed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "matchedCount",
+            "modifiedCount",
+            "status",
+            "replayed"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
+    },
+    "UnsV2MetadataDeleteManyReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "directory",
+            "topic",
+            "collection"
+          ]
+        },
+        "filter": {
+          "$ref": "#/components/schemas/UnsV2DataFilter"
+        },
+        "atomic": {
+          "type": "boolean",
+          "enum": [
+            true
+          ],
+          "default": true,
+          "description": "整批原子提交；需要逐项提交时使用 bulkWrite。"
+        },
+        "maxDocs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200,
+          "default": 200,
+          "description": "超过匹配上限整体拒绝，不截断写入范围。"
+        },
+        "dryRun": {
+          "type": "boolean",
+          "default": false,
+          "description": "仅校验并回滚，不预留资源。"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "同一写入意图的重试复用此键；内容变化必须换键。"
+        }
+      },
+      "required": [
+        "kind",
+        "filter"
+      ]
+    },
+    "UnsV2MetadataDeleteManyResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "deletedCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "results": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/MetadataBulkResult"
+              }
+            },
+            "errors": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "index": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "error": {
+                    "$ref": "#/components/schemas/Fault"
+                  }
+                },
+                "required": [
+                  "index",
+                  "error"
+                ]
+              }
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "validated",
+                "committed",
+                "partiallyCommitted",
+                "failed"
+              ]
+            },
+            "replayed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "deletedCount",
+            "status",
+            "replayed"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
+    },
+    "UnsV2MetadataRestoreReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "directory",
+            "topic",
+            "collection"
+          ]
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "expectedRevision": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "可选乐观锁；管理表单保存时携带读取到的 revision。冲突须重新读取。"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 200
+        },
+        "dryRun": {
+          "type": "boolean",
+          "default": false,
+          "description": "仅校验并回滚，不预留资源。"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "同一写入意图的重试复用此键；内容变化必须换键。"
+        }
+      },
+      "required": [
+        "kind",
+        "items"
+      ]
+    },
+    "UnsV2MetadataRestoreResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "restoredCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/MetadataDocument"
+              }
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "validated",
+                "committed",
+                "partiallyCommitted",
+                "failed"
+              ]
+            },
+            "replayed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "restoredCount",
+            "items",
+            "status",
+            "replayed"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
+    },
+    "UnsV2MetadataBulkWriteReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "directory",
+            "topic",
+            "collection"
+          ]
+        },
+        "operations": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "insertOne": {
+                    "$ref": "#/components/schemas/MetadataBulkInsertOne"
+                  }
+                },
+                "required": [
+                  "insertOne"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "updateOne": {
+                    "$ref": "#/components/schemas/MetadataBulkUpdateOne"
+                  }
+                },
+                "required": [
+                  "updateOne"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "replaceOne": {
+                    "$ref": "#/components/schemas/MetadataBulkReplaceOne"
+                  }
+                },
+                "required": [
+                  "replaceOne"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "deleteOne": {
+                    "$ref": "#/components/schemas/MetadataBulkDeleteOne"
+                  }
+                },
+                "required": [
+                  "deleteOne"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "restoreOne": {
+                    "$ref": "#/components/schemas/MetadataBulkRestoreOne"
+                  }
+                },
+                "required": [
+                  "restoreOne"
+                ]
+              }
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 200
+        },
+        "atomic": {
+          "type": "boolean",
+          "default": true,
+          "description": "默认整批原子提交。false 时按项独立提交；每个对象仍执行完整权限和领域校验。"
+        },
+        "ordered": {
+          "type": "boolean",
+          "default": true,
+          "description": "atomic=false 时控制失败后停止或继续；原子批次不接受 ordered=false。"
+        },
+        "dryRun": {
+          "type": "boolean",
+          "default": false,
+          "description": "仅校验并回滚，不预留资源。"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "同一写入意图的重试复用此键；内容变化必须换键。"
+        }
+      },
+      "required": [
+        "kind",
+        "operations"
+      ]
+    },
+    "UnsV2MetadataBulkWriteResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "insertedCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "matchedCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "modifiedCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "deletedCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "restoredCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "upsertedCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "insertedIds": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "description": "键为原始输入的零基序号。"
+            },
+            "upsertedIds": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "description": "键为原始输入的零基序号。"
+            },
+            "results": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/MetadataBulkResult"
+              }
+            },
+            "errors": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "index": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "error": {
+                    "$ref": "#/components/schemas/Fault"
+                  }
+                },
+                "required": [
+                  "index",
+                  "error"
+                ]
+              }
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "validated",
+                "committed",
+                "partiallyCommitted",
+                "failed"
+              ]
+            },
+            "replayed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "insertedCount",
+            "matchedCount",
+            "modifiedCount",
+            "deletedCount",
+            "restoredCount",
+            "upsertedCount",
+            "insertedIds",
+            "upsertedIds",
+            "results",
+            "errors",
+            "status",
+            "replayed"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
+    },
+    "UnsV2MetadataTransactReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/MetadataTransactionOperation"
+          },
+          "minItems": 1,
+          "maxItems": 200
+        },
+        "dryRun": {
+          "type": "boolean",
+          "default": false,
+          "description": "仅校验并回滚，不预留资源。"
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "同一写入意图的重试复用此键；内容变化必须换键。"
+        }
+      },
+      "required": [
+        "operations"
+      ]
+    },
+    "UnsV2MetadataTransactResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "results": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/MetadataTransactionResult"
+              }
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "validated",
+                "committed",
+                "partiallyCommitted",
+                "failed"
+              ]
+            },
+            "replayed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "results",
+            "status",
+            "replayed"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
+    },
     "CloudAppCollectionCreateReq": {
       "type": "object",
       "additionalProperties": false,
@@ -32608,6 +35074,843 @@
         "msg",
         "requestId",
         "data"
+      ]
+    },
+    "MetadataDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "directory",
+            "topic",
+            "collection"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "createdAt": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "updatedAt": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "deletedAt": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "revision",
+        "createdAt",
+        "updatedAt",
+        "deletedAt",
+        "data"
+      ]
+    },
+    "MetadataNullableDocument": {
+      "nullable": true,
+      "allOf": [
+        {
+          "$ref": "#/components/schemas/MetadataDocument"
+        }
+      ]
+    },
+    "MetadataPage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/MetadataDocument"
+          }
+        },
+        "pageInfo": {
+          "$ref": "#/components/schemas/CloudPageInfo"
+        }
+      },
+      "required": [
+        "items",
+        "pageInfo"
+      ]
+    },
+    "MetadataDirectoryInput": {
+      "additionalProperties": false,
+      "description": "可写配置；schemaVersion 由服务端默认设为 1，未知字段拒绝。",
+      "properties": {
+        "description": {
+          "maxLength": 512,
+          "type": "string"
+        },
+        "name": {
+          "description": "Unique display name; no surrounding whitespace",
+          "maxLength": 63,
+          "minLength": 1,
+          "type": "string"
+        },
+        "parentId": {
+          "allOf": [
+            {
+              "$ref": "#/components/schemas/UnsV2Identity"
+            }
+          ],
+          "nullable": true
+        },
+        "schemaVersion": {
+          "default": 1,
+          "enum": [
+            1
+          ],
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object",
+      "x-readOnlyFields": [
+        "id",
+        "kind",
+        "revision",
+        "createdAt",
+        "updatedAt",
+        "deletedAt"
+      ]
+    },
+    "MetadataTopicInput": {
+      "additionalProperties": false,
+      "description": "可写配置；schemaVersion 由服务端默认设为 1，未知字段拒绝。",
+      "properties": {
+        "collectionId": {
+          "$ref": "#/components/schemas/UnsV2Identity"
+        },
+        "description": {
+          "maxLength": 512,
+          "type": "string"
+        },
+        "fields": {
+          "items": {
+            "$ref": "#/components/schemas/FieldBinding"
+          },
+          "type": "array"
+        },
+        "name": {
+          "description": "Unique display name; no surrounding whitespace",
+          "maxLength": 63,
+          "minLength": 1,
+          "type": "string"
+        },
+        "parentId": {
+          "allOf": [
+            {
+              "$ref": "#/components/schemas/UnsV2Identity"
+            }
+          ],
+          "nullable": true
+        },
+        "schemaVersion": {
+          "default": 1,
+          "enum": [
+            1
+          ],
+          "type": "integer"
+        },
+        "viewMode": {
+          "enum": [
+            "records",
+            "fields"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "viewMode"
+      ],
+      "type": "object",
+      "x-readOnlyFields": [
+        "id",
+        "kind",
+        "revision",
+        "createdAt",
+        "updatedAt",
+        "deletedAt"
+      ]
+    },
+    "MetadataCollectionInput": {
+      "additionalProperties": false,
+      "description": "可写配置；schemaVersion 由服务端默认设为 1，未知字段拒绝。",
+      "properties": {
+        "description": {
+          "maxLength": 512,
+          "type": "string"
+        },
+        "indexes": {
+          "items": {
+            "$ref": "#/components/schemas/IndexSpec"
+          },
+          "maxItems": 16,
+          "type": "array",
+          "description": "统一索引声明，例如 [{\"path\":\"orderNo\",\"unique\":true}] 或 [{\"paths\":[\"factoryId\",\"externalId\"],\"unique\":true}]。省略保留，[] 移除；字段不带 data.，唯一索引仅 Record B-tree，异步构建并通过 indexStatus 检查就绪。"
+        },
+        "name": {
+          "description": "Unique display name; no surrounding whitespace",
+          "maxLength": 63,
+          "minLength": 1,
+          "type": "string"
+        },
+        "recordSchema": {
+          "$ref": "#/components/schemas/Schema"
+        },
+        "sampleSchema": {
+          "$ref": "#/components/schemas/Schema"
+        },
+        "schemaVersion": {
+          "default": 1,
+          "enum": [
+            1
+          ],
+          "type": "integer"
+        },
+        "semantics": {
+          "$ref": "#/components/schemas/CollectionSemantics"
+        },
+        "parentId": {
+          "allOf": [
+            {
+              "$ref": "#/components/schemas/UnsV2Identity"
+            }
+          ],
+          "nullable": true,
+          "description": "Containing directory ID. Omitted on create or null means root; omitted on update preserves placement. Moving does not change collection identity or data."
+        }
+      },
+      "required": [
+        "name",
+        "recordSchema"
+      ],
+      "type": "object",
+      "x-readOnlyFields": [
+        "id",
+        "kind",
+        "revision",
+        "createdAt",
+        "updatedAt",
+        "deletedAt"
+      ]
+    },
+    "MetadataBulkResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "insertedId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "matchedCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "modifiedCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "deletedCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "restoredCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "upsertedId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "value": {
+          "$ref": "#/components/schemas/MetadataNullableDocument"
+        },
+        "error": {
+          "$ref": "#/components/schemas/Fault"
+        }
+      },
+      "required": [
+        "index"
+      ]
+    },
+    "MetadataTransactionResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "opId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "insertedId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "matchedCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "modifiedCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "deletedCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "restoredCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "upsertedId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "value": {
+          "$ref": "#/components/schemas/MetadataNullableDocument"
+        }
+      },
+      "required": [
+        "opId"
+      ]
+    },
+    "MetadataBulkInsertOne": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "data"
+      ]
+    },
+    "MetadataBulkUpdateOne": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "filter": {
+          "$ref": "#/components/schemas/UnsV2DataFilter"
+        },
+        "sort": {
+          "$ref": "#/components/schemas/UnsV2PipelineSort"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "可选乐观锁；管理表单保存时携带读取到的 revision。冲突须重新读取。"
+        },
+        "update": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "$set": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "$unset": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "$setOnInsert": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "required": [],
+          "minProperties": 1,
+          "description": "仅支持 $set/$unset/$setOnInsert；配置路径不带 data.，系统字段只读。数组按整个字段替换。"
+        },
+        "upsert": {
+          "type": "boolean",
+          "default": false,
+          "description": "仅单条更新/替换支持；filter 必须明确 _id 等值，新增配置须完整合法。同 ID 已删除对象不自动恢复。"
+        }
+      },
+      "required": [
+        "filter",
+        "update"
+      ]
+    },
+    "MetadataBulkReplaceOne": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "filter": {
+          "$ref": "#/components/schemas/UnsV2DataFilter"
+        },
+        "sort": {
+          "$ref": "#/components/schemas/UnsV2PipelineSort"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "可选乐观锁；管理表单保存时携带读取到的 revision。冲突须重新读取。"
+        },
+        "replacement": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "upsert": {
+          "type": "boolean",
+          "default": false,
+          "description": "仅单条更新/替换支持；filter 必须明确 _id 等值，新增配置须完整合法。同 ID 已删除对象不自动恢复。"
+        }
+      },
+      "required": [
+        "filter",
+        "replacement"
+      ]
+    },
+    "MetadataBulkDeleteOne": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "filter": {
+          "$ref": "#/components/schemas/UnsV2DataFilter"
+        },
+        "sort": {
+          "$ref": "#/components/schemas/UnsV2PipelineSort"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "可选乐观锁；管理表单保存时携带读取到的 revision。冲突须重新读取。"
+        }
+      },
+      "required": [
+        "filter"
+      ]
+    },
+    "MetadataBulkRestoreOne": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "可选乐观锁；管理表单保存时携带读取到的 revision。冲突须重新读取。"
+        }
+      },
+      "required": [
+        "id"
+      ]
+    },
+    "MetadataTransactionOperation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "opId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "insertOne",
+            "updateOne",
+            "replaceOne",
+            "deleteOne",
+            "restoreOne"
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "directory",
+            "topic",
+            "collection"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "filter": {
+          "$ref": "#/components/schemas/UnsV2DataFilter"
+        },
+        "sort": {
+          "$ref": "#/components/schemas/UnsV2PipelineSort"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "update": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "$set": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "$unset": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "$setOnInsert": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "required": [],
+          "minProperties": 1,
+          "description": "仅支持 $set/$unset/$setOnInsert；配置路径不带 data.，系统字段只读。数组按整个字段替换。"
+        },
+        "replacement": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "可选乐观锁；管理表单保存时携带读取到的 revision。冲突须重新读取。"
+        },
+        "dependsOn": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "maxItems": 200
+        }
+      },
+      "required": [
+        "opId",
+        "action",
+        "kind"
+      ],
+      "oneOf": [
+        {
+          "properties": {
+            "action": {
+              "enum": [
+                "insertOne"
+              ]
+            }
+          },
+          "required": [
+            "action",
+            "data"
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "filter"
+                ]
+              },
+              {
+                "required": [
+                  "update"
+                ]
+              },
+              {
+                "required": [
+                  "replacement"
+                ]
+              },
+              {
+                "required": [
+                  "expectedRevision"
+                ]
+              },
+              {
+                "required": [
+                  "sort"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "properties": {
+            "action": {
+              "enum": [
+                "updateOne"
+              ]
+            }
+          },
+          "required": [
+            "action",
+            "update"
+          ],
+          "oneOf": [
+            {
+              "required": [
+                "id"
+              ],
+              "not": {
+                "required": [
+                  "filter"
+                ]
+              }
+            },
+            {
+              "required": [
+                "filter"
+              ],
+              "not": {
+                "required": [
+                  "id"
+                ]
+              }
+            }
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "data"
+                ]
+              },
+              {
+                "required": [
+                  "replacement"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "properties": {
+            "action": {
+              "enum": [
+                "replaceOne"
+              ]
+            }
+          },
+          "required": [
+            "action",
+            "replacement"
+          ],
+          "oneOf": [
+            {
+              "required": [
+                "id"
+              ],
+              "not": {
+                "required": [
+                  "filter"
+                ]
+              }
+            },
+            {
+              "required": [
+                "filter"
+              ],
+              "not": {
+                "required": [
+                  "id"
+                ]
+              }
+            }
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "data"
+                ]
+              },
+              {
+                "required": [
+                  "update"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "properties": {
+            "action": {
+              "enum": [
+                "deleteOne"
+              ]
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "oneOf": [
+            {
+              "required": [
+                "id"
+              ],
+              "not": {
+                "required": [
+                  "filter"
+                ]
+              }
+            },
+            {
+              "required": [
+                "filter"
+              ],
+              "not": {
+                "required": [
+                  "id"
+                ]
+              }
+            }
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "data"
+                ]
+              },
+              {
+                "required": [
+                  "update"
+                ]
+              },
+              {
+                "required": [
+                  "replacement"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "properties": {
+            "action": {
+              "enum": [
+                "restoreOne"
+              ]
+            }
+          },
+          "required": [
+            "action",
+            "id"
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "data"
+                ]
+              },
+              {
+                "required": [
+                  "update"
+                ]
+              },
+              {
+                "required": [
+                  "replacement"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "directory"
+                  ]
+                },
+                "data": {
+                  "$ref": "#/components/schemas/MetadataDirectoryInput"
+                },
+                "replacement": {
+                  "$ref": "#/components/schemas/MetadataDirectoryInput"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "topic"
+                  ]
+                },
+                "data": {
+                  "$ref": "#/components/schemas/MetadataTopicInput"
+                },
+                "replacement": {
+                  "$ref": "#/components/schemas/MetadataTopicInput"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            {
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "collection"
+                  ]
+                },
+                "data": {
+                  "$ref": "#/components/schemas/MetadataCollectionInput"
+                },
+                "replacement": {
+                  "$ref": "#/components/schemas/MetadataCollectionInput"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            }
+          ]
+        }
       ]
     }
   }

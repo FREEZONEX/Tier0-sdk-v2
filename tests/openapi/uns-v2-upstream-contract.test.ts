@@ -22,15 +22,15 @@ const operation = (name: string) => manifest.operations.find(item => item.name =
 
 describe('Backend App UNS access contract without generic record audit', () => {
   it('pins the exact upstream commit and all generator inputs', () => {
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('fb35598ae8404e1a64bdc8a500341f12aeff2744');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('8d9fe632e958811778041398c4c3454a28c494bc');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     for (const [key, file] of Object.entries({ contract: 'contract.json', cloudSupport: 'cloud-support.json', manifest: 'manifest.json', provenance: 'provenance.json', registry: 'registry_generated.go' })) {
       expect(UNS_V2_CONTRACT_PROVENANCE.hashes[key as keyof typeof UNS_V2_CONTRACT_PROVENANCE.hashes]).toBe(
         createHash('sha256').update(read(file)).digest('hex')
       );
     }
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(106);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(119);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(100);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(113);
   });
 
   it.each([
@@ -49,11 +49,12 @@ describe('Backend App UNS access contract without generic record audit', () => {
     expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(true);
   });
 
-  it('lets App credentials reach only the App collection lifecycle among management operations and preserves Core-only policy boundaries', () => {
+  it('keeps App credentials outside generic management while preserving owned-collection lifecycle and Core-only boundaries', () => {
     const appCollectionLifecycle = ['appCollectionsArchive', 'appCollectionsEnsure', 'appCollectionsRestore', 'appCollectionsSchemaReplace'];
     const management = manifest.operations.filter(item => item.minPermission >= 3 || item.permission.includes('manage'));
     expect(management.filter(item => item.appAllowed).map(item => item.name).sort()).toEqual(appCollectionLifecycle);
     for (const item of management) {
+      expect(item.appAllowed, item.name).toBe(['appCollectionsEnsure', 'appCollectionsSchemaReplace', 'appCollectionsArchive', 'appCollectionsRestore'].includes(item.name));
       expect(item.permissionAnyOf.some(permission => permission.includes('manage')), item.name).toBe(false);
     }
     for (const name of appCollectionLifecycle) {
@@ -61,11 +62,16 @@ describe('Backend App UNS access contract without generic record audit', () => {
       expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(true);
     }
     // Generic workspace SDK methods remain available; their presence grants no App authority.
-    for (const name of ['collectionCreate', 'collectionCreateForApp', 'appCollectionsList']) {
-      expect(operation(name).appAllowed, name).toBe(false);
-      expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(true);
+    expect(operation('metadataInsertOne').appAllowed).toBe(false);
+    expect(Object.hasOwn(UNS_V2_OPERATIONS, 'metadataInsertOne')).toBe(true);
+    expect(operation('appCollectionsList').appAllowed).toBe(false);
+    expect(Object.hasOwn(UNS_V2_OPERATIONS, 'appCollectionsList')).toBe(true);
+    for (const name of ['metadata', 'metaBatchExecute', 'metaBatchValidate', 'directoryCreate', 'directoryGet',
+      'directoryList', 'directoryUpdate', 'directoryDelete', 'topicCreate', 'topicGet', 'topicList', 'topicUpdate',
+      'topicDelete', 'collectionCreate', 'collectionGet', 'collectionList', 'collectionUpdate',
+      'collectionArchive', 'collectionRestore', 'collectionSchemaUpdate', 'topicViewUpdate']) {
+      expect(Object.hasOwn(UNS_V2_OPERATIONS, name), name).toBe(false);
     }
-    // App data grants are managed by Builder sessions or full_access keys, never by runtime App credentials.
     for (const name of ['appDataPolicyGet', 'appDataPolicyUpdate']) {
       expect(operation(name)).toMatchObject({ appAllowed: false, coreOnly: false, permission: 'uns.write', minPermission: 3 });
       expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(true);

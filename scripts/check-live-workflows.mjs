@@ -65,12 +65,12 @@ const streamUpdate = example('stream', 'update');
 const streamDelete = example('stream', 'delete');
 const unsCreate = example('uns', 'create');
 const recordCreate = example('uns', 'create', 1);
-const recordUpdate = example('uns', 'update');
-const collectionUpdate = example('uns', 'update', 1);
+const recordUpdate = example('uns', 'update', 2);
+const collectionUpdate = example('uns', 'update');
 const recordDelete = example('uns', 'delete');
 const collectionDelete = example('uns', 'delete', 1);
 const restore = example('uns', 'restore');
-let sourceId, streamId, collectionId, filePath, archivedRevision;
+let sourceId, streamId, collectionId, filePath;
 save();
 
 try {
@@ -159,8 +159,8 @@ try {
     });
     await step('Skill UNS collection update + read', async () => {
       const result = await collectionUpdate.renameCollection(collectionId, prefix + '-edited', intent('collection-update'), client);
-      assert.equal(result.state, 'committed');
-      assert.equal(result.current.data.name, prefix + '-edited');
+      assert.equal(result.data.status, 'committed');
+      assert.equal(result.data.value.data.name, prefix + '-edited');
     });
     await step('Skill UNS record create + read', async () => {
       const result = await recordCreate.insertDevice(collectionId, 'device-1', 'SDK device', intent('record-create'), client);
@@ -182,14 +182,13 @@ try {
       assert.equal((await recordDelete.deleteDevice(collectionId, 'device-1', intent('record-delete-final'), client)).state, 'committed');
     });
     await step('Skill UNS collection archive + readback', async () => {
-      const result = await collectionDelete.archiveCollection(collectionId, intent('collection-archive'), client);
-      assert.equal(result.state, 'archived');
+      const result = await collectionDelete.deleteCollection(collectionId, intent('collection-archive'), client);
+      assert.equal(result.state, 'deleted');
       report.fixtures.collection.state = 'archived';
-      report.fixtures.collection.revision = String(result.archived.revision);
-      archivedRevision = result.archived.revision;
+      report.fixtures.collection.revision = String(result.deleted.revision);
     });
     await step('Skill UNS collection restore + readback', async () => {
-      const result = await restore.restoreCollection(collectionId, archivedRevision, intent('collection-restore'), client);
+      const result = await restore.restoreCollection(collectionId, intent('collection-restore'), client);
       assert.equal(result.state, 'committed');
       report.fixtures.collection.state = 'restored';
     });
@@ -197,8 +196,8 @@ try {
   finally {
     if (collectionId && report.fixtures.collection.state !== 'archived') {
       try { await step('Skill UNS collection cleanup + archived readback', async () => {
-        const result = await collectionDelete.archiveCollection(collectionId, intent('collection-cleanup'), client);
-        assert.equal(result.state, 'archived');
+        const result = await collectionDelete.deleteCollection(collectionId, intent('collection-cleanup'), client);
+        assert.equal(result.state, 'deleted');
         report.fixtures.collection.state = 'archived';
       }); } catch { /* Report retains cleanup failure. */ }
     }

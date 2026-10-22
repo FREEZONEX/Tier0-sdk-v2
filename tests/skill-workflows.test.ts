@@ -186,11 +186,11 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     finished();
   });
 
-  it('executes collection and Record CRUD, Schema extension, archive and restore', async () => {
+  it('executes metadata and Record CRUD, Schema replacement, soft delete and restore', async () => {
     steps = [
-      { path: 'collections/create', data: outcome('validated') },
-      { path: 'collections/create', check: b => expect(b.items[0].recordSchema.required).toEqual(['name', 'enabled']), data: outcome() },
-      { path: 'collections/get', data: collection() },
+      { path: 'metadata', data: outcome('validated') },
+      { path: 'metadata', check: b => expect(b.data.recordSchema.required).toEqual(['name', 'enabled']), data: outcome() },
+      { path: 'metadata:findOne', data: { value: collection() } },
       { path: 'collections/devices/records', data: { insertedId: 'device-1', status: 'committed', replayed: false } },
       { path: 'collections/devices/records:find', data: records(record()) },
       { path: 'collections/devices/records:find', data: records(record()) },
@@ -198,45 +198,52 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
         filter: { _id: 'device-1' }, expectedRevision: 1, update: { $set: { name: 'pump-2' } }, upsert: false }),
         data: { status: 'committed', matchedCount: 1, modifiedCount: 1, replayed: false } },
       { path: 'collections/devices/records:find', data: records(record(2, 'pump-2')) },
-      { path: 'collections/get', data: collection() },
-      { path: 'collections/schema/update', check: b => {
-        expect(b.items[0].recordSchema.properties.location).toEqual({ type: 'string' });
-        expect(b.items[0].recordSchema.required).toEqual(['name', 'enabled']);
-        expect(b.items[0]).not.toHaveProperty('sampleSchema');
+      { path: 'metadata:findOne', data: { value: collection() } },
+      { path: 'metadata:updateOne', check: b => {
+        expect(b.update.$set.recordSchema.properties.location).toEqual({ type: 'string' });
+        expect(b.update.$set.recordSchema.required).toEqual(['name', 'enabled']);
+        expect(b.update.$set).not.toHaveProperty('sampleSchema');
       }, data: outcome('validated') },
-      { path: 'collections/schema/update', data: outcome() },
-      { path: 'collections/get', data: collection(2) },
+      { path: 'metadata:updateOne', data: outcome() },
+      { path: 'metadata:findOne', data: { value: collection(2) } },
+      { path: 'metadata:findOneAndUpdate', check: b => expect(b).toMatchObject({
+        kind: 'collection', filter: { _id: 'devices' }, expectedRevision: 2,
+        update: { $set: { name: 'renamed' } }, returnDocument: 'after', upsert: false,
+      }), data: { ...outcome(), value: { ...collection(3), data: { ...collection().data, name: 'renamed' } } } },
       { path: 'collections/devices/records:find', data: records(record(2, 'pump-2')) },
       { path: 'collections/devices/records:deleteOne', check: b => expect(b.expectedRevision).toBe(2),
         data: { status: 'committed', deletedCount: 1, replayed: false } },
       { path: 'collections/devices/records:find', data: records() },
       { path: 'collections/devices/records:restore', data: { status: 'committed', restoredCount: 1, restoredIds: ['device-1'], replayed: false } },
       { path: 'collections/devices/records:find', data: records(record(4, 'pump-2')) },
-      { path: 'collections/get', data: collection(2) },
-      { path: 'collections/archive', check: b => expect(b.items[0].expectedRevision).toBe(2), data: outcome() },
-      { path: 'collections/list', data: page([{ ...collection(3), deletedAt: 1 }]) },
-      { path: 'collections/restore', check: b => expect(b.items[0].expectedRevision).toBe(3), data: outcome() },
-      { path: 'collections/get', data: collection(4) },
+      { path: 'metadata:findOne', data: { value: collection(3) } },
+      { path: 'metadata:deleteOne', check: b => expect(b.expectedRevision).toBe(3), data: { ...outcome(), deletedCount: 1 } },
+      { path: 'metadata:findOne', check: b => expect(b.state).toBe('deleted'), data: { value: { ...collection(4), deletedAt: 1 } } },
+      { path: 'metadata:findOne', check: b => expect(b.state).toBe('deleted'), data: { value: { ...collection(4), deletedAt: 1 } } },
+      { path: 'metadata:restore', check: b => expect(b.items[0].expectedRevision).toBe(4), data: { ...outcome(), restoredCount: 1 } },
+      { path: 'metadata:findOne', data: { value: collection(5) } },
     ];
     await example('uns', 'create').createDeviceCollection('devices', 'devices', 'create-collection', client);
     await example('uns', 'create', 1).insertDevice('devices', 'device-1', 'pump', 'insert-record', client);
-    await example('uns', 'update').renameDevice('devices', 'device-1', 'pump-2', 'update-record', client);
-    await example('uns', 'update', 2).addDeviceLocation('devices', 'schema-change', client);
+    await example('uns', 'update', 2).renameDevice('devices', 'device-1', 'pump-2', 'update-record', client);
+    const schema = { ...collection().data.recordSchema, properties: { ...collection().data.recordSchema.properties, location: { type: 'string' } } };
+    await example('uns', 'update', 1).replaceRecordSchema('devices', schema, 'schema-change', client);
+    await example('uns', 'update').renameCollection('devices', 'renamed', 'rename-collection', client);
     await example('uns', 'delete').deleteDevice('devices', 'device-1', 'delete-record', client);
     await example('uns', 'restore').restoreDevice('devices', 'device-1', 'restore-record', client);
-    const archived = await example('uns', 'delete', 1).archiveCollection('devices', 'archive-collection', client);
-    await example('uns', 'restore').restoreCollection('devices', archived.archived.revision, 'restore-collection', client);
+    await example('uns', 'delete', 1).deleteCollection('devices', 'delete-collection', client);
+    await example('uns', 'restore').restoreCollection('devices', 'restore-collection', client);
     finished();
   });
 
-  it('does not report an accepted collection mutation as committed or perform dependent reads', async () => {
+  it('does not treat an unconfirmed metadata mutation as committed or perform dependent reads', async () => {
     steps = [
-      { path: 'collections/create', data: outcome('validated') },
-      { path: 'collections/create', data: { ...outcome('accepted'), jobId: 'pending-job' } },
+      { path: 'metadata', data: outcome('validated') },
+      { path: 'metadata', data: outcome('unconfirmed') },
     ];
     const result = await example('uns', 'create').createDeviceCollection('devices', 'devices', 'create', client);
     expect(result.state).toBe('unconfirmed');
-    expect(result.receipt.data.jobId).toBe('pending-job');
+    expect(result.receipt.data.status).toBe('unconfirmed');
     finished();
   });
 
@@ -250,7 +257,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
 
   it('does not insert when updating an absent Record', async () => {
     steps = [{ path: 'collections/devices/records:find', data: records() }];
-    await expect(example('uns', 'update').renameDevice('devices', 'missing', 'new', 'rename', client))
+    await expect(example('uns', 'update', 2).renameDevice('devices', 'missing', 'new', 'rename', client))
       .rejects.toThrow('记录不存在');
     expect(calls).toHaveLength(1);
     finished();

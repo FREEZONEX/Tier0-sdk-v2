@@ -1,16 +1,6 @@
-# 删除记录与归档集合
+# 删除记录与元数据
 
-集合没有 collectionDelete；使用 collectionArchive。记录使用 recordDeleteOne/Many。两种操作的影响不可互换。
-
-## 删除一个明确 ID 的记录
-
-| 字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| collectionId | string | 是 | 所属集合 |
-| filter | object | 是 | 示例用 _id 精确等值 |
-| expectedRevision | integer | 建议提供 | 刚读取的记录修订 |
-| dryRun | boolean | 否 | 默认 false，示例显式指定 |
-| idempotencyKey | string | 否 | 最多 96 字符 |
+记录删除仍使用专属数据接口：
 
 ```ts
 import { createClient, type Tier0Client } from '@tier0/sdk-v2';
@@ -18,8 +8,7 @@ import { createClient, type Tier0Client } from '@tier0/sdk-v2';
 export async function deleteDevice(
   collectionId: string, id: string, intentKey: string, client: Tier0Client = createClient(),
 ) {
-  const found = await client.uns.recordFind({ collectionId, filter: { _id: id }, limit: 1 });
-  const current = found.data.items[0];
+  const current = (await client.uns.recordFind({ collectionId, filter: { _id: id }, limit: 1 })).data.items[0];
   if (!current) throw new Error('记录不存在或不可见，未执行删除');
   const receipt = await client.uns.recordDeleteOne({
     collectionId, filter: { _id: id }, expectedRevision: current.revision,
@@ -34,36 +23,31 @@ export async function deleteDevice(
 }
 ```
 
-删除 Record 时关联 Sample 被物理删除；恢复记录不会重建这些 Sample。批量删除先明确筛选范围，不能用空 filter 代替未知 ID。删除回执含 deletedCount/status/replayed。
-
-## 归档集合
-
-输入 dryRun、items[{id,expectedRevision}]，可选 mode/allowPartial/idempotencyKey（最多128字符）。归档不等于逐条删除 Record，也不承诺物理擦除。
+元数据使用 metadataDeleteOne/Many，或 metadataFindOneAndDelete 返回删除前对象。它们执行软删除，增加 revision，不隐式级联目录后代、引用对象或集合数据。引用约束与版本冲突必须处理，不能自行扩展删除范围。
 
 ```ts
 import { createClient, type Tier0Client } from '@tier0/sdk-v2';
 
-export async function archiveCollection(
+export async function deleteCollection(
   id: string, intentKey: string, client: Tier0Client = createClient(),
 ) {
-  const { data: current } = await client.uns.collectionGet({ id });
-  const receipt = await client.uns.collectionArchive({
-    dryRun: false, mode: 'sync', allowPartial: false, idempotencyKey: intentKey,
-    items: [{ id, expectedRevision: current.revision }],
+  const current = (await client.uns.metadataFindOne({ kind: 'collection', filter: { _id: id } })).data.value;
+  if (!current) throw new Error('集合不存在或不可见，未执行删除');
+  const receipt = await client.uns.metadataDeleteOne({
+    kind: 'collection', filter: { _id: id }, expectedRevision: current.revision,
+    dryRun: false, idempotencyKey: intentKey,
   });
-  if (receipt.data.status !== 'committed' || receipt.data.results?.some(item => item.error)) {
+  if (receipt.data.status !== 'committed' || String(receipt.data.deletedCount) !== '1') {
     return { state: 'unconfirmed' as const, receipt };
   }
-  let page = 1;
-  while (true) {
-    const { data } = await client.uns.collectionList({ archived: true, page, size: 200 });
-    const archived = data.list.find(item => item.id === id);
-    if (archived) return { state: 'archived' as const, receipt, archived };
-    if (!data.hasMore) return { state: 'committed-readback-unconfirmed' as const, receipt };
-    if (typeof data.nextPage !== 'number' || data.nextPage <= page) throw new Error('无有效下一页');
-    page = data.nextPage;
-  }
+  const deleted = await client.uns.metadataFindOne({ kind: 'collection', filter: { _id: id }, state: 'deleted' });
+  if (!deleted.data.value) throw new Error('删除有回执，但删除状态读回未确认');
+  return { state: 'deleted' as const, receipt, deleted: deleted.data.value };
 }
 ```
 
-返回 Outcome，accepted 需要 jobs 对账；不能提前宣称完成。引用约束或版本冲突应停止并评估，不自动连带删除 Topic/Source/Stream。恢复见[恢复](restore.md)。
+metadataDeleteMany 使用明确 filter 和 maxDocs。默认原子；超过上限整体拒绝，不会静默只删第一批。批量删除前可 dryRun。state 默认 active，删除对象通过 state=deleted 查询；all 同时包含两种状态。
+
+业务记录使用 recordDeleteOne/Many，传 collectionId 和明确 filter，编辑型流程同时传 expectedRevision。不要把元数据软删除解释成逐条删除该集合的 Record。Sample 的删除是独立的显式时间范围操作，具体影响遵循当前数据 API 契约。
+
+恢复见[恢复](restore.md)。未知写入结果保留原意图键，先按对象身份核对，不自动换键重试。

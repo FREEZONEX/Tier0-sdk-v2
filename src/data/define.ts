@@ -20,7 +20,7 @@ export const MAX_DESCRIPTION_LENGTH = 512;
 /** Seeds are inserted in atomic chunks of 200 during the first request; keep them a baseline, not a data import. */
 export const MAX_SEED_DOCUMENTS = 1000;
 
-/** Same shape as UNS `collectionCreate` indexes, limited to record indexes. */
+/** Same shape as collection metadata indexes, limited to record indexes. */
 export interface IndexSpec {
   /** Business field path without `data.`, e.g. `code` or `customer.id`. */
   path?: string;

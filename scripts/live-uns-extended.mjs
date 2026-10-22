@@ -12,35 +12,35 @@ export async function checkExtendedUns(client, collectionId, prefix, step, repor
   try {
     await step('UNS directory create + get + update', async () => {
       const id = prefix + '-dir';
-      committed(await client.uns.directoryCreate({ dryRun: false, mode: 'sync', items: [{ id, name: prefix }], idempotencyKey: idempotencyKey('dir-create') }));
+      committed(await client.uns.metadataInsertOne({ kind: 'directory', id, data: { name: prefix }, idempotencyKey: idempotencyKey('dir-create') }));
       directoryId = id;
       report.fixtures.directory = { id, state: 'created' };
-      const current = (await client.uns.directoryGet({ id })).data;
-      committed(await client.uns.directoryUpdate({ dryRun: false, mode: 'sync', items: [{ id, name: prefix + '-edit', expectedRevision: current.revision }], idempotencyKey: idempotencyKey('dir-update') }));
-      assert.equal((await client.uns.directoryGet({ id })).data.data.name, prefix + '-edit');
+      const current = (await client.uns.metadataFindOne({ kind: 'directory', filter: { _id: id } })).data.value;
+      committed(await client.uns.metadataUpdateOne({ kind: 'directory', filter: { _id: id }, update: { $set: { name: prefix + '-edit' } }, expectedRevision: current.revision, idempotencyKey: idempotencyKey('dir-update') }));
+      assert.equal((await client.uns.metadataFindOne({ kind: 'directory', filter: { _id: id } })).data.value.data.name, prefix + '-edit');
     });
     await step('UNS Topic create + get + update', async () => {
       const id = prefix + '-topic';
-      committed(await client.uns.topicCreate({ dryRun: false, mode: 'sync', items: [{ id, name: prefix, viewMode: 'records', collectionId, parentId: directoryId }], idempotencyKey: idempotencyKey('topic-create') }));
+      committed(await client.uns.metadataInsertOne({ kind: 'topic', id, data: { name: prefix, viewMode: 'records', collectionId, parentId: directoryId }, idempotencyKey: idempotencyKey('topic-create') }));
       topicId = id;
       report.fixtures.topic = { id, state: 'created' };
-      const current = (await client.uns.topicGet({ id })).data;
-      committed(await client.uns.topicUpdate({ dryRun: false, mode: 'sync', items: [{ id, name: prefix + '-edit', expectedRevision: current.revision }], idempotencyKey: idempotencyKey('topic-update') }));
-      assert.equal((await client.uns.topicGet({ id })).data.data.name, prefix + '-edit');
+      const current = (await client.uns.metadataFindOne({ kind: 'topic', filter: { _id: id } })).data.value;
+      committed(await client.uns.metadataUpdateOne({ kind: 'topic', filter: { _id: id }, update: { $set: { name: prefix + '-edit' } }, expectedRevision: current.revision, idempotencyKey: idempotencyKey('topic-update') }));
+      assert.equal((await client.uns.metadataFindOne({ kind: 'topic', filter: { _id: id } })).data.value.data.name, prefix + '-edit');
     });
     for (const [kind, id] of [['topic', topicId], ['directory', directoryId]]) {
       // Topic goes first, so its directory can be archived without live children.
       await step(`UNS ${kind} archive + restore + cleanup`, async () => {
-        const current = (await client.uns[`${kind}Get`]({ id })).data;
-        committed(await client.uns[`${kind}Archive`]({ dryRun: false, mode: 'sync', items: [{ id, expectedRevision: current.revision }], idempotencyKey: idempotencyKey(`${kind}-archive`) }));
+        const current = (await client.uns.metadataFindOne({ kind, filter: { _id: id } })).data.value;
+        committed(await client.uns.metadataDeleteOne({ kind, filter: { _id: id }, expectedRevision: current.revision, idempotencyKey: idempotencyKey(`${kind}-archive`) }));
         report.fixtures[kind].state = 'archived';
-        const archived = (await client.uns[`${kind}List`]({ archived: true, search: prefix, page: 1, size: 200 })).data.list.find(item => item.id === id);
+        const archived = (await client.uns.metadataFindOne({ kind, filter: { _id: id }, state: 'deleted' })).data.value;
         assert.ok(archived);
-        committed(await client.uns[`${kind}Restore`]({ dryRun: false, mode: 'sync', items: [{ id, expectedRevision: archived.revision }], idempotencyKey: idempotencyKey(`${kind}-restore`) }));
+        committed(await client.uns.metadataRestore({ kind, items: [{ id, expectedRevision: archived.revision }], idempotencyKey: idempotencyKey(`${kind}-restore`) }));
         report.fixtures[kind].state = 'restored';
-        const restored = (await client.uns[`${kind}Get`]({ id })).data;
+        const restored = (await client.uns.metadataFindOne({ kind, filter: { _id: id } })).data.value;
         assert.equal(restored.id, id);
-        committed(await client.uns[`${kind}Archive`]({ dryRun: false, mode: 'sync', items: [{ id, expectedRevision: restored.revision }], idempotencyKey: idempotencyKey(`${kind}-cleanup`) }));
+        committed(await client.uns.metadataDeleteOne({ kind, filter: { _id: id }, expectedRevision: restored.revision, idempotencyKey: idempotencyKey(`${kind}-cleanup`) }));
         report.fixtures[kind].state = 'archived';
       });
     }
@@ -49,8 +49,8 @@ export async function checkExtendedUns(client, collectionId, prefix, step, repor
     for (const [kind, id] of [['topic', topicId], ['directory', directoryId]]) {
       if (!id || report.fixtures[kind].state === 'archived') continue;
       try { await step(`UNS ${kind} cleanup after failure`, async () => {
-        const current = (await client.uns[`${kind}Get`]({ id })).data;
-        committed(await client.uns[`${kind}Archive`]({ dryRun: false, mode: 'sync', items: [{ id, expectedRevision: current.revision }], idempotencyKey: idempotencyKey(`${kind}-fallback-cleanup`) }));
+        const current = (await client.uns.metadataFindOne({ kind, filter: { _id: id } })).data.value;
+        committed(await client.uns.metadataDeleteOne({ kind, filter: { _id: id }, expectedRevision: current.revision, idempotencyKey: idempotencyKey(`${kind}-fallback-cleanup`) }));
         report.fixtures[kind].state = 'archived';
       }); } catch { /* Cleanup failure remains visible. */ }
     }
