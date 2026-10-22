@@ -43,12 +43,43 @@ export async function addNote(id: string, notes: string, revision: number) {
 }
 ```
 
+## 一个页面一次请求：`data.queryBatch`
+
+页面要同时显示列表、总数、各状态数量、某条记录时，用 `data.queryBatch` 把这些读取合成一次请求（最多 20 个），结果来自同一个快照，不要分别发多个请求：
+
+```ts
+import { z } from 'zod';
+import { createDataClient, defineCollection } from '@tier0/sdk-v2/data';
+
+const workOrders = defineCollection({
+  alias: 'work_orders',
+  schema: z.object({ code: z.string(), status: z.enum(['DRAFT', 'RELEASED', 'DONE']) }),
+  indexes: [{ path: 'code', unique: true }, { path: 'status' }],
+});
+const data = createDataClient({ collections: [workOrders] });
+const orders = data.collection(workOrders);
+
+export async function ordersScreen(page: number, selectedId: string) {
+  const { list, byStatus, selected } = await data.queryBatch({
+    list: orders.query.findPage({ status: { $ne: 'DONE' } }, { sort: { code: 1 }, page, pageSize: 20 }),
+    byStatus: orders.query.countBy('status'),
+    selected: orders.query.get([selectedId]),
+  });
+  return { list, byStatus, selected: selected.items[0] ?? null };
+}
+```
+
+- 读取用 `collection.query.*` 构造：`find`（首页，可带 `maxCount` 附带总数）、`findPage`、`count`、`countBy`、`distinct`、`aggregate`、`get`；每项只返回一页（最多 200 行），`get` 最多 100 个 ID。
+- 结果按名字返回，类型与对应方法一致。名字只能用字母、数字、`_` `.` `-`。
+- 某一项被拒（过滤条件不合法、无授权）时整个调用抛出该项的 `DataError`；传 `{ settle: true }` 则每项返回 `{ ok: true, value }` 或 `{ ok: false, error }`。语句超时或整批超过 2000 行 / 8 MiB 时整批失败。
+
 ## 方法
 
 | 读取 | 说明 |
 | --- | --- |
 | `find(filter, { sort, limit, projection })` | 游标，每页最多 200 条；列表读取始终给 `limit` |
 | `findOne(filter)` | 无匹配返回 `null` |
+| `get(ids, { projection })` | 按 `_id` 读取，返回 `{ items, missing }`，`items` 按请求顺序（重复的 ID 只取第一次出现）；不存在、已删除或员工无权查看的 ID 一律进 `missing`。超过 100 个自动分批 |
 | `findPage(filter, { sort, page, pageSize, maxCount })` | 页码分页，一次请求返回 `{ items, total: { count, capped }, page, pageSize }`；pageSize 最多 200，总数默认数到 10000（`maxCount` 最多 100000），超过时 `capped: true` |
 | `countDocuments(filter, { maxCount })` | 返回 `{ count, capped }`，默认数到 100000；只要阈值时给小的 `maxCount`（如角标 `99+`） |
 | `countBy(field, filter)` | 每个取值的数量 `[{ value, count }]`，从多到少；一次 `$group` |
@@ -71,7 +102,7 @@ export async function addNote(id: string, notes: string, revision: number) {
 | `insertMany`、`bulkWrite`、`data.transact` | 每次 ≤200 项，超过在发送前抛 `BATCH_LIMIT_EXCEEDED` | 是，全部或全不 |
 | `updateMany`、`deleteMany` | 无上限，翻页处理所有匹配 | 否，逐条提交；已有提交后失败时错误保留原 `code`，`execution: 'committed'`、`retry.safe: false`，`details` 是累计结果（`matchedCount` 等、`status: 'partiallyCommitted'`、续做位置 `resumeAfter`） |
 
-超过 200 条按 200 分块写入（循环分块即可），每块用固定 `_id` 或独立 `idempotencyKey`，重试不会重复。多条文档必须一起成功或失败时，用一次 `data.transact`（≤200 步），不要用 `updateMany`。不要在循环里逐条调用数据层：读用一次 `$in`，写用 `insertMany` / `updateMany` / `bulkWrite` 或 `data.transact`。
+超过 200 条按 200 分块写入（循环分块即可），每块是一次独立的原子调用：数据层自动给每次调用生成幂等键并在重试中复用，不需要手写；要让“某块写过就不再写”跨进程重启也成立，用固定 `_id`（或按业务意图显式传 `idempotencyKey`）。多条文档必须一起成功或失败时，用一次 `data.transact`（≤200 步），不要用 `updateMany`。不要在循环里逐条调用数据层：读用一次 `get` / `$in` 或 `queryBatch`，写用 `insertMany` / `updateMany` / `bulkWrite` 或 `data.transact`。
 
 ### 非原子批量中途失败
 

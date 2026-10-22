@@ -201,6 +201,52 @@ export interface CappedCount {
   capped: boolean;
 }
 
+/** UNS reads at most 100 records by ID per request. */
+export const MAX_GET_IDS = 100;
+
+export interface FoundPage<T> {
+  items: WithMeta<T>[];
+  total: CappedCount;
+  page: number;
+  pageSize: number;
+}
+
+export interface ValueCount {
+  value: unknown;
+  count: number;
+}
+
+interface RecordGetResult {
+  items: UnsRecord[];
+  missing: string[];
+}
+
+/** One read of `data.queryBatch`, built by `collection.query.*`. */
+export interface BatchQuery<R> {
+  readonly collection: CollectionDefinition;
+  /** The batch item without `id` and `collectionId`; resolves `$lookup` targets. */
+  prepare(): Promise<Record<string, unknown>>;
+  /** The item's result as the builder's caller sees it. */
+  parse(data: unknown): R;
+}
+
+export interface CollectionQueries<T> {
+  /** First page (≤200, default 20); `maxCount` adds the capped total of all matches. */
+  find(filter?: Filter, options?: { sort?: Sort; limit?: number; projection?: Projection; maxCount?: number }):
+    BatchQuery<{ items: WithMeta<T>[]; hasMore: boolean; total?: CappedCount }>;
+  /** Like `collection.findPage`. */
+  findPage(filter?: Filter, options?: FindPageOptions): BatchQuery<FoundPage<T>>;
+  count(filter?: Filter, options?: { maxCount?: number }): BatchQuery<CappedCount>;
+  /** The 200 most frequent values. */
+  countBy(field: string, filter?: Filter): BatchQuery<ValueCount[]>;
+  /** The first 200 distinct values. */
+  distinct(field: string, filter?: Filter): BatchQuery<unknown[]>;
+  /** The first 200 output rows. */
+  aggregate<R = Record<string, unknown>>(pipeline: Record<string, unknown>[]): BatchQuery<R[]>;
+  /** 1–100 distinct records by ID, as `collection.get`. */
+  get(ids: readonly string[], options?: { projection?: Projection }): BatchQuery<{ items: WithMeta<T>[]; missing: string[] }>;
+}
+
 export interface UpdateOptions {
   upsert?: boolean;
   /** Reject the write with VERSION_CONFLICT unless the record is at this revision. */
@@ -224,6 +270,33 @@ export type BulkOperation =
 function compact<T extends Record<string, unknown>>(value: T): T {
   return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as T;
 }
+
+function filterOrNothing(filter: Filter): Filter | undefined {
+  return Object.keys(filter).length > 0 ? filter : undefined;
+}
+
+/** `recordAggregatePipeline` body of one numbered page with its capped total. */
+function pageRequest(filter: Filter, options: FindPageOptions) {
+  const page = Math.max(1, Math.trunc(options.page ?? 1));
+  const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Math.trunc(options.pageSize ?? 20)));
+  const pipeline: Record<string, unknown>[] = [];
+  if (Object.keys(filter).length > 0) pipeline.push({ $match: filter });
+  const sort = toSortPairs(options.sort);
+  if (sort) pipeline.push({ $sort: sort });
+  if (options.projection) pipeline.push({ $project: options.projection });
+  const body = { pipeline, page: { mode: 'offset', page, size: pageSize }, count: options.maxCount === undefined ? {} : { max: options.maxCount } };
+  return { body, page, pageSize };
+}
+
+function countByPipeline(field: string, filter: Filter): Record<string, unknown>[] {
+  const pipeline: Record<string, unknown>[] = [];
+  if (Object.keys(filter).length > 0) pipeline.push({ $match: filter });
+  // `_id` breaks ties, so offset pages of equal counts neither repeat nor skip a group.
+  pipeline.push({ $group: { _id: `$${field}`, count: { $sum: 1 } } }, { $sort: { count: -1, _id: 1 } });
+  return pipeline;
+}
+
+const toValueCount = (row: { _id: unknown; count: number }): ValueCount => ({ value: row._id ?? null, count: row.count });
 
 function idsInOrder(ids: Record<string, string> | undefined): string[] {
   return Object.entries(ids ?? {})
@@ -339,26 +412,31 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
   }
 
   /**
+   * Records by ID, in the order asked for (each ID once, at its first
+   * position); IDs that do not exist, are deleted or are hidden by employee
+   * data rules are listed in `missing` alike. More than 100 IDs are read in
+   * chunks of 100 (not one snapshot).
+   */
+  async get(ids: readonly string[], options: { projection?: Projection } = {}): Promise<{ items: WithMeta<T>[]; missing: string[] }> {
+    const unique = [...new Set(ids)];
+    const chunks: string[][] = [];
+    for (let start = 0; start < unique.length; start += MAX_GET_IDS) chunks.push(unique.slice(start, start + MAX_GET_IDS));
+    const results = await Promise.all(chunks.map((chunk) =>
+      this.post<RecordGetResult>('recordGet', { ids: chunk, projection: options.projection })));
+    return {
+      items: results.flatMap((result) => result.items.map((record) => toDoc<T>(record))),
+      missing: results.flatMap((result) => result.missing),
+    };
+  }
+
+  /**
    * One numbered page plus the total match count, for paged list screens:
    * one `recordAggregatePipeline` offset page whose `count` runs in the same
    * snapshot. Show a capped total as "10000+".
    */
-  async findPage(
-    filter: Filter = {},
-    options: FindPageOptions = {},
-  ): Promise<{ items: WithMeta<T>[]; total: CappedCount; page: number; pageSize: number }> {
-    const page = Math.max(1, Math.trunc(options.page ?? 1));
-    const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Math.trunc(options.pageSize ?? 20)));
-    const pipeline: Record<string, unknown>[] = [];
-    if (Object.keys(filter).length > 0) pipeline.push({ $match: filter });
-    const sort = toSortPairs(options.sort);
-    if (sort) pipeline.push({ $sort: sort });
-    if (options.projection) pipeline.push({ $project: options.projection });
-    const result = await this.post<{ items: WithMeta<T>[]; total: CappedCount }>('recordAggregatePipeline', {
-      pipeline,
-      page: { mode: 'offset', page, size: pageSize },
-      count: options.maxCount === undefined ? {} : { max: options.maxCount },
-    });
+  async findPage(filter: Filter = {}, options: FindPageOptions = {}): Promise<FoundPage<T>> {
+    const { body, page, pageSize } = pageRequest(filter, options);
+    const result = await this.post<{ items: WithMeta<T>[]; total: CappedCount }>('recordAggregatePipeline', body);
     return { items: result.items, total: result.total, page, pageSize };
   }
 
@@ -367,10 +445,7 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
    * `capped` result means "at least `count`".
    */
   async countDocuments(filter: Filter = {}, options: { maxCount?: number } = {}): Promise<CappedCount> {
-    const result = await this.post<CappedCount>('recordCount', {
-      filter: Object.keys(filter).length > 0 ? filter : undefined,
-      maxCount: options.maxCount,
-    });
+    const result = await this.post<CappedCount>('recordCount', { filter: filterOrNothing(filter), maxCount: options.maxCount });
     return { count: result.count, capped: result.capped };
   }
 
@@ -379,13 +454,71 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
    * instead of a count per value. Records without the field count under
    * `value: null`.
    */
-  async countBy(field: string, filter: Filter = {}): Promise<{ value: unknown; count: number }[]> {
-    const pipeline: Record<string, unknown>[] = [];
-    if (Object.keys(filter).length > 0) pipeline.push({ $match: filter });
-    // `_id` breaks ties, so offset pages of equal counts neither repeat nor skip a group.
-    pipeline.push({ $group: { _id: `$${field}`, count: { $sum: 1 } } }, { $sort: { count: -1, _id: 1 } });
-    const rows = await this.aggregate<{ _id: unknown; count: number }>(pipeline).toArray();
-    return rows.map((row) => ({ value: row._id ?? null, count: row.count }));
+  async countBy(field: string, filter: Filter = {}): Promise<ValueCount[]> {
+    const rows = await this.aggregate<{ _id: unknown; count: number }>(countByPipeline(field, filter)).toArray();
+    return rows.map(toValueCount);
+  }
+
+  /**
+   * Builders for `data.queryBatch`: each describes one read of this
+   * collection, run together with the others in one request and one
+   * snapshot. Each returns one page (at most 200 rows), unlike the cursor
+   * methods; `get` takes at most 100 IDs.
+   */
+  get query(): CollectionQueries<T> {
+    const one = <R>(op: string, build: () => Promise<Record<string, unknown>>, parse: (data: never) => R): BatchQuery<R> => ({
+      collection: this.definition,
+      prepare: async () => ({ op, ...compact(await build()) }),
+      parse: parse as (data: unknown) => R,
+    });
+    return {
+      find: (filter = {}, options = {}) =>
+        one('find', async () => ({
+          filter: filterOrNothing(filter),
+          sort: toSortPairs(options.sort),
+          projection: options.projection,
+          limit: Math.min(MAX_PAGE_SIZE, options.limit ?? 20),
+          count: options.maxCount === undefined ? undefined : { max: options.maxCount },
+        }), (data: { items: UnsRecord[]; pageInfo: PageInfo; total?: CappedCount }) => ({
+          items: data.items.map((record) => toDoc<T>(record)),
+          hasMore: data.pageInfo.hasMore,
+          ...(data.total ? { total: data.total } : {}),
+        })),
+      findPage: (filter = {}, options = {}) => {
+        const { body, page, pageSize } = pageRequest(filter, options);
+        return one('aggregate', async () => body, (data: { items: WithMeta<T>[]; total: CappedCount }) => ({
+          items: data.items, total: data.total, page, pageSize,
+        }));
+      },
+      count: (filter = {}, options = {}) =>
+        one('count', async () => ({ filter: filterOrNothing(filter), maxCount: options.maxCount }),
+          (data: CappedCount) => ({ count: data.count, capped: data.capped })),
+      countBy: (field, filter = {}) =>
+        one('aggregate', async () => ({
+          pipeline: await this.prepareStages(countByPipeline(field, filter)),
+          page: { mode: 'offset', page: 1, size: MAX_PAGE_SIZE },
+        }), (data: { items: { _id: unknown; count: number }[] }) => data.items.map(toValueCount)),
+      distinct: (field, filter = {}) =>
+        one('distinct', async () => ({ field, filter: filterOrNothing(filter), page: { mode: 'offset', page: 1, size: MAX_PAGE_SIZE } }),
+          (data: { values: unknown[] }) => data.values),
+      aggregate: <R = Record<string, unknown>>(pipeline: Record<string, unknown>[]) =>
+        one('aggregate', async () => {
+          const stages = await this.prepareStages(pipeline);
+          const last = stages[stages.length - 1];
+          // A final $count returns one row and forbids an explicit page.
+          return last !== undefined && '$count' in last
+            ? { pipeline: stages }
+            : { pipeline: stages, page: isDirectPipeline(stages) ? { mode: 'cursor', size: MAX_PAGE_SIZE } : { mode: 'offset', page: 1, size: MAX_PAGE_SIZE } };
+        }, (data: { items: R[] }) => data.items),
+      get: (ids, options = {}) => {
+        const unique = [...new Set(ids)];
+        if (unique.length < 1 || unique.length > MAX_GET_IDS) {
+          throw new TypeError(`query.get takes 1–${MAX_GET_IDS} distinct IDs; use collection.get for more.`);
+        }
+        return one('get', async () => ({ ids: unique, projection: options.projection }),
+          (data: RecordGetResult) => ({ items: data.items.map((record) => toDoc<T>(record)), missing: data.missing }));
+      },
+    };
   }
 
   /** Distinct values of a field (every page). */

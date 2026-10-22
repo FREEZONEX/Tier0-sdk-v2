@@ -1044,6 +1044,131 @@ describe('collection operations', () => {
   });
 });
 
+describe('reads by ID and query batches', () => {
+  const doc = (id: string, data: Record<string, unknown>, collectionId = 'c-orders') =>
+    ({ id, collectionId, data, revision: 2, createdAt: 1, updatedAt: 5, sourceId: null, sourceTime: null });
+  const GET = '/uns/collections/c-orders/records:get';
+  const BATCH = '/uns/records:queryBatch';
+  const pageInfo = { mode: 'offset', hasMore: false, nextCursor: null, nextPage: null, snapshotScope: 'thisRequestOnly' };
+
+  it('reads records by ID in order, lists missing ones, and chunks more than 100 IDs', async () => {
+    const mock = mockUns({
+      [ENSURE]: BOTH_UNCHANGED,
+      [GET]: (sent: Sent) => ok({
+        items: (sent.body.ids as string[]).filter(id => id !== 'gone').map(id => doc(id, { code: id, status: 'OPEN' })),
+        missing: (sent.body.ids as string[]).filter(id => id === 'gone'),
+      }),
+    });
+    const handle = client(mock).collection(orders);
+    const found = await handle.get(['o-2', 'gone', 'o-1'], { projection: { code: 1 } });
+    expect(found.items.map(item => item._id)).toEqual(['o-2', 'o-1']);
+    expect(found.items[0]).toEqual({ code: 'o-2', status: 'OPEN', _id: 'o-2', _meta: { revision: 2, createdAt: 1, updatedAt: 5 } });
+    expect(found.missing).toEqual(['gone']);
+    expect(mock.calls(GET)[0].body).toEqual({ collectionId: 'c-orders', ids: ['o-2', 'gone', 'o-1'], projection: { code: 1 } });
+
+    const many = Array.from({ length: 150 }, (_, index) => `o-${index}`);
+    expect((await handle.get(many)).items.map(item => item._id)).toEqual(many);
+    expect(mock.calls(GET).slice(1).map(call => (call.body.ids as string[]).length)).toEqual([100, 50]);
+  });
+
+  it('sends each ID once, at its first position, also across chunks and in query batches', async () => {
+    const mock = mockUns({
+      [ENSURE]: BOTH_UNCHANGED,
+      [GET]: (sent: Sent) => ok({ items: (sent.body.ids as string[]).map(id => doc(id, { code: id, status: 'OPEN' })), missing: [] }),
+      [BATCH]: ok({ results: { line: { ok: true, data: { items: [], missing: ['l-1', 'l-2'] } } } }),
+    });
+    const data = client(mock);
+    const handle = data.collection(orders);
+    const ids = ['o-2', 'o-1', 'o-2', ...Array.from({ length: 120 }, (_, index) => `o-${index % 101}`)];
+    const found = await handle.get(ids);
+    const unique = [...new Set(ids)];
+    expect(found.items.map(item => item._id)).toEqual(unique);
+    expect(mock.calls(GET).flatMap(call => call.body.ids as string[])).toEqual(unique);
+    await data.queryBatch({ line: data.collection(lines).query.get(['l-1', 'l-2', 'l-1']) });
+    expect((mock.calls(BATCH)[0].body.queries as { ids: string[] }[])[0].ids).toEqual(['l-1', 'l-2']);
+  });
+
+  it('sends a page\'s reads as one request and returns typed results by name', async () => {
+    const mock = mockUns({
+      [ENSURE]: BOTH_UNCHANGED,
+      [BATCH]: ok({
+        results: {
+          open: { ok: true, data: { items: [doc('o-1', { code: 'A', status: 'OPEN' })], pageInfo: { ...pageInfo, mode: 'cursor', hasMore: true }, total: { count: 10000, capped: true } } },
+          page: { ok: true, data: { items: [{ _id: 'o-3', code: 'C', status: 'OPEN' }], pageInfo, total: { count: 21, capped: false } } },
+          done: { ok: true, data: { count: 4, capped: false } },
+          byStatus: { ok: true, data: { items: [{ _id: 'OPEN', count: 3 }], pageInfo } },
+          codes: { ok: true, data: { values: ['A', 'B'], pageInfo } },
+          joined: { ok: true, data: { items: [{ n: 1 }], pageInfo } },
+          line: { ok: true, data: { items: [doc('l-1', { orderId: 'o-1', sku: 'S' }, 'c-lines')], missing: ['l-9'] } },
+        },
+      }),
+    });
+    const data = client(mock);
+    const o = data.collection(orders);
+    const result = await data.queryBatch({
+      open: o.query.find({ status: 'OPEN' }, { sort: { code: 1 }, limit: 5, maxCount: 10000 }),
+      page: o.query.findPage({ status: 'OPEN' }, { page: 2, pageSize: 10 }),
+      done: o.query.count({ status: 'DONE' }, { maxCount: 100 }),
+      byStatus: o.query.countBy('status'),
+      codes: o.query.distinct('code'),
+      joined: o.query.aggregate<{ n: number }>([{ $lookup: { from: lines, localField: '_id', foreignField: 'orderId', as: 'lines' } }]),
+      line: data.collection(lines).query.get(['l-1', 'l-9']),
+    });
+    expect(result.open).toMatchObject({ hasMore: true, total: { count: 10000, capped: true } });
+    expect(result.open.items[0]._id).toBe('o-1');
+    expect(result.page).toMatchObject({ total: { count: 21, capped: false }, page: 2, pageSize: 10 });
+    expect(result.done).toEqual({ count: 4, capped: false });
+    expect(result.byStatus).toEqual([{ value: 'OPEN', count: 3 }]);
+    expect(result.codes).toEqual(['A', 'B']);
+    const n: number = result.joined[0].n;
+    expect(n).toBe(1);
+    expect(result.line).toMatchObject({ items: [{ _id: 'l-1', sku: 'S' }], missing: ['l-9'] });
+
+    expect(mock.calls(BATCH)).toHaveLength(1);
+    expect(mock.calls(BATCH)[0].body).toEqual({
+      queries: [
+        { id: 'open', collectionId: 'c-orders', op: 'find', filter: { status: 'OPEN' }, sort: [['code', 1]], limit: 5, count: { max: 10000 } },
+        { id: 'page', collectionId: 'c-orders', op: 'aggregate', pipeline: [{ $match: { status: 'OPEN' } }], page: { mode: 'offset', page: 2, size: 10 }, count: {} },
+        { id: 'done', collectionId: 'c-orders', op: 'count', filter: { status: 'DONE' }, maxCount: 100 },
+        { id: 'byStatus', collectionId: 'c-orders', op: 'aggregate', pipeline: [{ $group: { _id: '$status', count: { $sum: 1 } } }, { $sort: [['count', -1], ['_id', 1]] }], page: { mode: 'offset', page: 1, size: 200 } },
+        { id: 'codes', collectionId: 'c-orders', op: 'distinct', field: 'code', page: { mode: 'offset', page: 1, size: 200 } },
+        { id: 'joined', collectionId: 'c-orders', op: 'aggregate', pipeline: [{ $lookup: { collectionId: 'c-lines', localField: '_id', foreignField: 'orderId', as: 'lines' } }], page: { mode: 'offset', page: 1, size: 200 } },
+        { id: 'line', collectionId: 'c-lines', op: 'get', ids: ['l-1', 'l-9'] },
+      ],
+    });
+  });
+
+  it('rejects with the first failed item, or settles every item', async () => {
+    const refused = { ok: false, error: { code: 'INVALID_REQUEST', reason: 'unknown field', details: [{ path: 'filter.nope' }], execution: 'unknown', retry: { safe: false }, queryId: 'bad' } };
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, [BATCH]: ok({ results: { good: { ok: true, data: { count: 1, capped: false } }, bad: refused } }) });
+    const data = client(mock);
+    const o = data.collection(orders);
+    const queries = { good: o.query.count(), bad: o.query.count({ nope: 1 }) };
+    const error = await failed(data.queryBatch(queries));
+    // A read item is never unknown, whatever it says.
+    expect(error).toMatchObject({ code: 'INVALID_REQUEST', status: 400, execution: 'rolledBack', outcomeUnknown: false, details: { queryId: 'bad', details: [{ path: 'filter.nope' }] } });
+    expect(error.message).toMatch(/unknown field/);
+
+    const settled = await data.queryBatch(queries, { settle: true });
+    expect(settled.good).toEqual({ ok: true, value: { count: 1, capped: false } });
+    expect(settled.bad.ok).toBe(false);
+    if (!settled.bad.ok) expect(settled.bad.error).toBeInstanceOf(DataError);
+  });
+
+  it('checks batch size, names and declarations before sending', async () => {
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED });
+    const data = client(mock);
+    const count = data.collection(orders).query.count();
+    await expect(data.queryBatch({})).rejects.toThrow(/1–20 queries/);
+    await expect(data.queryBatch(Object.fromEntries(Array.from({ length: 21 }, (_, i) => [`q${i}`, count])))).rejects.toThrow(/1–20 queries/);
+    await expect(data.queryBatch({ 'bad name': count })).rejects.toThrow(/must match/);
+    expect(() => data.collection(orders).query.get([])).toThrow(/1–100 distinct IDs/);
+    const other = client(mock, { collections: [orders] });
+    await expect(other.queryBatch({ l: data.collection(lines).query.count() })).rejects.toThrow(/missing from the `collections`/);
+    expect(mock.calls(BATCH)).toHaveLength(0);
+  });
+});
+
 describe('transaction step validation', () => {
   const data = () => client(mockUns({ [ENSURE]: BOTH_UNCHANGED, '/uns/records:transact': ok({ status: 'committed', replayed: false, results: [] }) }));
 
