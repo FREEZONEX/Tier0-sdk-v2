@@ -27,7 +27,8 @@ function collect(dir) {
     }
   }
 }
-for (const skill of pkg.agents.skills) collect(resolve(packageRoot, skill.path));
+// Sub-Skills are nested under the root Skill, so collecting the root covers every Skill once.
+collect(resolve(packageRoot, 'skills'));
 if (!files.length) throw new Error('No typed Skill examples found');
 const paths = {};
 for (const [key, value] of Object.entries(pkg.exports)) {

@@ -8,7 +8,7 @@ import * as sdk from '../src/index.js';
 
 // Execute the actual Markdown snippets, not a separately maintained copy.
 function example(domain: string, file: string, index = 0): Record<string, (...args: any[]) => any> {
-  const markdown = readFileSync(new URL('../skills/tier0-sdk-v2-' + domain + '/references/' + file + '.md', import.meta.url), 'utf8');
+  const markdown = readFileSync(new URL('../skills/tier0-sdk-v2/tier0-sdk-v2-' + domain + '/references/' + file + '.md', import.meta.url), 'utf8');
   const blocks = [...markdown.matchAll(/^\x60\x60\x60(?:ts|typescript)\r?\n([\s\S]*?)^\x60\x60\x60/gm)];
   if (!blocks[index]) throw new Error('Missing documentation example');
   const code = ts.transpileModule(blocks[index][1], {
@@ -90,7 +90,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
   it('documents only HTTP paths present in the pinned SDK contract', () => {
     const paths = new Set<string>(Object.values(sdk.UNS_V2_OPERATIONS).map(operation => operation.path));
     for (const domain of ['source', 'stream', 'uns']) {
-      const dir = new URL('../skills/tier0-sdk-v2-' + domain + '/references/', import.meta.url);
+      const dir = new URL('../skills/tier0-sdk-v2/tier0-sdk-v2-' + domain + '/references/', import.meta.url);
       for (const name of readdirSync(dir).filter(name => name.endsWith('.md'))) {
         const content = readFileSync(new URL(name, dir), 'utf8');
         for (const match of content.matchAll(/\/openapi\/v2\/[A-Za-z0-9_/:{}-]+/g)) {

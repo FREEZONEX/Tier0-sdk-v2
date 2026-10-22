@@ -46,7 +46,7 @@ async function step(name, fn) {
   }
 }
 function example(domain, file, index = 0) {
-  const markdown = readFileSync(resolve(installed, `skills/tier0-sdk-v2-${domain}/references/${file}.md`), 'utf8');
+  const markdown = readFileSync(resolve(installed, `skills/tier0-sdk-v2/tier0-sdk-v2-${domain}/references/${file}.md`), 'utf8');
   const code = [...markdown.matchAll(/```ts\r?\n([\s\S]*?)```/g)][index]?.[1];
   if (!code) throw new Error('Missing packed Skill example');
   const module = { exports: {} };
