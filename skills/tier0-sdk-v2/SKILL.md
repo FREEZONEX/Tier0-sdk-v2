@@ -5,7 +5,7 @@ description: 使用 @tier0/sdk-v2 开发或迁移 Tier0 云端 TypeScript/JavaSc
 
 # Tier0 SDK v2 应用集成
 
-面向应用代码编写；运行时为 Node.js 20.19+。独立包 `@tier0/sdk-v2` 的当前源码版本为 0.1.0，是否可从 npm 安装须检查实际发布状态；未发布时安装仓库构建的 tarball。不要改回旧包或旧 Flow API。
+面向应用代码编写；运行时为 Node.js 20.19+。独立包 `@tier0/sdk-v2` 的当前源码版本为 0.2.0（UNS v2 契约 5.0.0），是否可从 npm 安装须检查实际发布状态；未发布时安装仓库构建的 tarball。不要改回旧包或旧 Flow API。
 
 ## 选择业务入口
 

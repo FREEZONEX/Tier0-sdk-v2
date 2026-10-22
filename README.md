@@ -2,7 +2,7 @@
 
 Tier0 云端新架构的独立 TypeScript / JavaScript SDK。新仓库、新 npm 包，不覆盖 `@tier0/sdk`。
 
-当前版本 `0.1.0` 是待联调的首版源码，尚未发布 npm，也不表示开发环境已部署对应后端。要求 Node.js 20.19+。浏览器 HTTP、MQTT、React、Vue 和服务端身份验签分别提供独立入口。
+当前源码版本 `0.2.0` 对应 UNS v2 契约 5.0.0，与 0.1.0 不兼容（新错误模型 `execution` / `retry`、封顶计数、删除 `recordChangesPoll` 等）；尚未发布 npm，也不表示开发环境已部署对应后端。要求 Node.js 20.19+。浏览器 HTTP、MQTT、React、Vue 和服务端身份验签分别提供独立入口。
 
 ## 安装与初始化
 
@@ -199,4 +199,4 @@ node scripts/check-live-transports.mjs <consumer> <workspaceId> .tmp/live-transp
 
 写入验收不发布 Stream、不启用 Source、不发送通知。归档资源保留正常产品恢复能力；报告区分通过、服务端拒绝和未验证范围。分片上传失败会保留错误原因，确认尚未尝试 complete 时清理本次会话；完成结果未知时先对账。完整结果见 [2026-10-22 验收报告](docs/acceptance-2026-10-22.md)。
 
-首发前仍需：解决验收报告中的阻断并补齐未验收范围、App 脚手架切换精确依赖 `"@tier0/sdk-v2": "0.1.0"`、新 Skill 上传和 npm 发布授权。
+首发前仍需：解决验收报告中的阻断并补齐未验收范围、App 脚手架切换精确依赖 `"@tier0/sdk-v2": "0.2.0"`、新 Skill 上传和 npm 发布授权。
