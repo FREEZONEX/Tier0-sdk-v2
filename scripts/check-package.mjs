@@ -19,6 +19,13 @@ for (const path of files) if (/(^|\/)(node_modules|\.env|contracts|\.git|\.tmp)(
 writeFileSync(resolve(consumer, 'package.json'), JSON.stringify({ name: 'sdk-package-consumer', private: true, type: 'module' }));
 run([npm, 'install', '--prefer-offline', '--ignore-scripts', '--no-audit', '--no-fund', '--legacy-peer-deps', resolve(consumer, archive.filename)], consumer);
 const installed = resolve(consumer, 'node_modules/@tier0/sdk-v2');
+for (const path of files) {
+  if (path.endsWith('.js.map')) {
+    const map = JSON.parse(readFileSync(resolve(installed, path), 'utf8'));
+    if (!map.sourcesContent?.length || map.sourcesContent.some(source => typeof source !== 'string')) throw new Error(`Unusable packed source map: ${path}`);
+  }
+  if (path.endsWith('.d.ts.map')) throw new Error(`Declaration map points outside the package: ${path}`);
+}
 run(['scripts/check-skills.mjs', installed]);
 run(['scripts/check-skill-examples.mjs', installed]);
 const pkg = JSON.parse(readFileSync(resolve(installed, 'package.json'), 'utf8'));
@@ -58,4 +65,5 @@ for (const subpath of ['', '/source', '/stream', '/mq', '/react', '/vue']) {
   const result = await build({ absWorkingDir: consumer, stdin: { contents: `export * from '@tier0/sdk-v2${subpath}';`, resolveDir: consumer }, bundle: true, platform: 'browser', format: 'esm', write: false, metafile: true, logLevel: 'silent' });
   if (!subpath && Object.keys(result.metafile.inputs).some(path => /node_modules[\\/](mqtt|react|vue)[\\/]|cloud-server/.test(path))) throw new Error('Root entry loads an optional browser/server dependency');
 }
-console.log(`Verified packed ${pkg.name}@${pkg.version}: ESM/CJS runtime + declarations, browser bundles, exports and bundled Skills. Tarball: ${resolve(consumer, archive.filename)}`);
+execFileSync(process.execPath, ['scripts/check-installed-tests.mjs', consumer], { cwd: root, stdio: 'inherit' });
+console.log(`Verified packed ${pkg.name}@${pkg.version}: ESM/CJS runtime + declarations, browser bundles, exports, bundled Skills and installed behavioral suite. Tarball: ${resolve(consumer, archive.filename)}`);
