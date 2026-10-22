@@ -187,6 +187,29 @@ describe('compileCollection', () => {
     bad([{ path: 'code', kind: 'gin' }]);
   });
 
+  it('compiles one TTL index on an integer millisecond field', () => {
+    const sessions = z.object({ user: z.string(), expiresAt: z.number().int(), note: z.string(), at: z.object({ ms: z.number().int() }) });
+    const compiled = compileCollection(
+      defineCollection({ alias: 'sessions', schema: sessions, indexes: [{ path: 'user' }, { path: 'expiresAt', expireAfterSeconds: 3600 }] }),
+    );
+    expect(compiled.indexes).toEqual([{ path: 'user' }, { path: 'expiresAt', expireAfterSeconds: 3600 }]);
+    const ttl = (indexes: Parameters<typeof defineCollection>[0]['indexes']) => () =>
+      compileCollection(defineCollection({ alias: 'sessions', schema: sessions, indexes }));
+    expect(ttl([{ path: 'expiresAt', expireAfterSeconds: 59 }])).toThrow(/60 to 31536000/);
+    expect(ttl([{ path: 'expiresAt', expireAfterSeconds: 31_536_001 }])).toThrow(/60 to 31536000/);
+    expect(ttl([{ path: 'expiresAt', expireAfterSeconds: 90.5 }])).toThrow(/integer/);
+    expect(ttl([{ path: 'note', expireAfterSeconds: 3600 }])).toThrow(/Unix milliseconds/);
+    expect(ttl([{ paths: ['expiresAt', 'user'], expireAfterSeconds: 3600 }])).toThrow(/single `path`/);
+    expect(ttl([{ path: 'expiresAt', unique: true, expireAfterSeconds: 3600 }])).toThrow(/neither unique/);
+    expect(ttl([{ path: 'expiresAt', expireAfterSeconds: 3600 }, { path: 'at.ms', expireAfterSeconds: 60 }])).toThrow(/at most one TTL index/);
+    expect(ttl([{ path: 'at.ms', expireAfterSeconds: 60 }])).not.toThrow();
+    // A plain index on the TTL path is the same B-tree: it is folded into the TTL index.
+    expect(ttl([{ path: 'expiresAt' }, { path: 'expiresAt', expireAfterSeconds: 3600 }, { paths: ['expiresAt', 'user'] }])().indexes).toEqual([
+      { path: 'expiresAt', expireAfterSeconds: 3600 },
+      { paths: ['expiresAt', 'user'] },
+    ]);
+  });
+
   it('explains index paths that reach into array items', () => {
     expect(() => compileCollection(defineCollection({ alias: 'orders', schema: workOrderSchema, indexes: [{ path: 'lines.sku' }] }))).toThrow(
       /reaches into the items of array "lines"/,

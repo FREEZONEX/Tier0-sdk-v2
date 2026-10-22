@@ -22,12 +22,20 @@ const orders = data.collection(workOrders);
 
 export async function dashboard(page: number) {
   const recent = await orders.find({ status: { $in: ['RELEASED', 'DONE'] } }, { sort: { '_meta.createdAt': -1 }, limit: 50 }).toArray();
+  // 一页 + 总数是一次请求；total.capped 为 true 时显示成 "10000+"。
   const listPage = await orders.findPage({ status: 'RELEASED' }, { sort: { code: 1 }, page, pageSize: 20 });
-  const released = await orders.countDocuments({ status: 'RELEASED' });
+  // 每个状态的数量：一次 $group，不要按状态逐个 countDocuments。
+  const byStatus = await orders.countBy('status');
   const totals = await orders
     .aggregate<{ _id: string; total: number }>([{ $match: { status: 'DONE' } }, { $group: { _id: '$line.id', total: { $sum: '$targetQty' } } }])
     .toArray();
-  return { recent, listPage, released, totals };
+  return { recent, listPage, byStatus, totals };
+}
+
+/** 角标只需要知道“有没有超过 99 条”。 */
+export async function releasedBadge() {
+  const { count, capped } = await orders.countDocuments({ status: 'RELEASED' }, { maxCount: 99 });
+  return capped ? '99+' : String(count);
 }
 
 export async function addNote(id: string, notes: string, revision: number) {
@@ -41,9 +49,11 @@ export async function addNote(id: string, notes: string, revision: number) {
 | --- | --- |
 | `find(filter, { sort, limit, projection })` | 游标，每页最多 200 条；列表读取始终给 `limit` |
 | `findOne(filter)` | 无匹配返回 `null` |
-| `findPage(filter, { sort, page, pageSize })` | 带总数的页码分页 `{ items, total, page, pageSize }`，pageSize 最多 200 |
-| `countDocuments(filter)`、`distinct(field, filter)` | `distinct` 会取完所有页 |
-| `aggregate(pipeline)` | `$match` `$sort` `$group` `$project` `$set` `$unwind` `$skip` `$limit` `$count` `$lookup`；`$lookup.from` 写声明或 alias，数据层换成集合 ID。`$exists` / `$distinct` / `$frequencies` 阶段不执行，改用 `countDocuments`、`distinct` 或 `$group` |
+| `findPage(filter, { sort, page, pageSize, maxCount })` | 页码分页，一次请求返回 `{ items, total: { count, capped }, page, pageSize }`；pageSize 最多 200，总数默认数到 10000（`maxCount` 最多 100000），超过时 `capped: true` |
+| `countDocuments(filter, { maxCount })` | 返回 `{ count, capped }`，默认数到 100000；只要阈值时给小的 `maxCount`（如角标 `99+`） |
+| `countBy(field, filter)` | 每个取值的数量 `[{ value, count }]`，从多到少；一次 `$group` |
+| `distinct(field, filter)` | 会取完所有页 |
+| `aggregate(pipeline)` | `$match` `$sort` `$group` `$project` `$set` `$unwind` `$skip` `$limit` `$count` `$lookup`；`$lookup.from` 写声明或 alias，数据层换成集合 ID。`$exists` / `$distinct` / `$frequencies` 阶段不执行，改用 `countBy`、`distinct` 或 `$group` |
 
 | 写入 | 说明 |
 | --- | --- |

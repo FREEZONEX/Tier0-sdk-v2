@@ -131,8 +131,8 @@ afterEach(() => {
 
 describe('transport', () => {
   it('sends the App key through the SDK client and unwraps the envelope', async () => {
-    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, '/uns/collections/c-orders/records:count': ok({ count: 7 }) });
-    expect(await client(mock).collection(orders).countDocuments({ status: 'OPEN' })).toBe(7);
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, '/uns/collections/c-orders/records:count': ok({ count: 7, capped: false }) });
+    expect(await client(mock).collection(orders).countDocuments({ status: 'OPEN' })).toEqual({ count: 7, capped: false });
     const count = mock.calls('/uns/collections/c-orders/records:count')[0];
     expect(count.url).toBe('http://gw.local:8795/openapi/v2/uns/collections/c-orders/records:count');
     expect(count.headers['x-api-key']).toBe('sk-app');
@@ -252,9 +252,9 @@ describe('call policy', () => {
   };
 
   it('resends a read that UNS marks safe, after retry.afterMs', async () => {
-    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, [COUNT]: [busyAfter(30), ok({ count: 3 })] });
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, [COUNT]: [busyAfter(30), ok({ count: 3, capped: false })] });
     const started = Date.now();
-    expect(await client(mock).collection(orders).countDocuments()).toBe(3);
+    expect(await client(mock).collection(orders).countDocuments()).toEqual({ count: 3, capped: false });
     expect(Date.now() - started).toBeGreaterThanOrEqual(25);
     expect(mock.calls(COUNT)).toHaveLength(2);
   });
@@ -296,14 +296,14 @@ describe('call policy', () => {
       peak = Math.max(peak, active);
       await new Promise(resolve => setTimeout(resolve, 10));
       active -= 1;
-      return new Response(JSON.stringify(ok({ count: 1 }).body));
+      return new Response(JSON.stringify(ok({ count: 1, capped: false }).body));
     }) as typeof fetch;
     const one = client(mock, { fetch: slow });
     const two = client(mock, { fetch: slow });
     await one.ensure();
     await two.ensure();
     const counts = await Promise.all(Array.from({ length: 20 }, (_, index) => (index % 2 ? one : two).collection(orders).countDocuments()));
-    expect(counts).toEqual(Array(20).fill(1));
+    expect(counts).toEqual(Array(20).fill({ count: 1, capped: false }));
     expect(peak).toBe(6);
   });
 });
@@ -388,7 +388,7 @@ describe('call deadline and cancellation', () => {
 
 describe('bootstrap', () => {
   it('ensures every declaration in one batch, once', async () => {
-    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, '/uns/collections/c-orders/records:count': ok({ count: 1 }), '/uns/collections/c-lines/records:count': ok({ count: 2 }) });
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, '/uns/collections/c-orders/records:count': ok({ count: 1, capped: false }), '/uns/collections/c-lines/records:count': ok({ count: 2, capped: false }) });
     const data = client(mock);
     await Promise.all([data.collection(orders).countDocuments(), data.collection('lines').countDocuments(), data.collection(orders).countDocuments()]);
     const calls = mock.calls(ENSURE);
@@ -402,11 +402,11 @@ describe('bootstrap', () => {
     const mock = mockUns({
       // The call itself is resent twice; the third failure surfaces.
       [ENSURE]: [...Array(3).fill(failure(503, 'APP_NOT_READY', null, 'hosted App is not ready', true, 'notStarted')), BOTH_UNCHANGED],
-      '/uns/collections/c-orders/records:count': ok({ count: 0 }),
+      '/uns/collections/c-orders/records:count': ok({ count: 0, capped: false }),
     });
     const data = client(mock);
     await expect(data.collection(orders).countDocuments()).rejects.toThrow(/hosted App is not ready/);
-    expect(await data.collection(orders).countDocuments()).toBe(0);
+    expect(await data.collection(orders).countDocuments()).toEqual({ count: 0, capped: false });
     expect(mock.calls(ENSURE)).toHaveLength(4);
   });
 
@@ -495,10 +495,10 @@ describe('bootstrap', () => {
         fail(409, 'SCHEMA_CONFLICT', { conflicts: [{ alias: 'orders', collectionId: 'c-orders', path: 'qty', reason: 'type' }] }),
         ensured({ alias: 'lines', collectionId: 'c-lines' }),
       ],
-      '/uns/collections/c-orders/records:count': ok({ count: 3 }),
+      '/uns/collections/c-orders/records:count': ok({ count: 3, capped: false }),
     });
     const data = client(mock, { environment: 'deployed', logger: { ...silent, error: (...args: unknown[]) => logged.push(args) } });
-    expect(await data.collection(orders).countDocuments()).toBe(3);
+    expect(await data.collection(orders).countDocuments()).toEqual({ count: 3, capped: false });
     const [first, retry] = mock.calls(ENSURE);
     expect(first.body.collections as unknown[]).toHaveLength(2);
     expect((retry.body.collections as { alias: string }[]).map(item => item.alias)).toEqual(['lines']);
@@ -627,7 +627,7 @@ describe('bootstrap', () => {
 
 describe('stale collection recovery', () => {
   const RECREATED = ensured({ alias: 'orders', collectionId: 'c-orders-2', status: 'created' }, { alias: 'lines', collectionId: 'c-lines' });
-  const count = (n: number) => ok({ count: n });
+  const count = (n: number) => ok({ count: n, capped: false });
 
   it('re-ensures, reseeds and retries once when the App grant went with the collection', async () => {
     const mock = mockUns({
@@ -636,7 +636,7 @@ describe('stale collection recovery', () => {
       '/uns/collections/c-orders-2/records:insertMany': ok({ insertedCount: 2 }),
       '/uns/collections/c-orders-2/records:count': count(2),
     });
-    expect(await client(mock).collection(orders).countDocuments()).toBe(2);
+    expect(await client(mock).collection(orders).countDocuments()).toEqual({ count: 2, capped: false });
     expect(mock.calls(ENSURE)).toHaveLength(2);
     expect(mock.calls('/uns/collections/c-orders/records:count')).toHaveLength(1);
     expect(mock.calls('/uns/collections/c-orders-2/records:insertMany'), 'created again → seeded again').toHaveLength(1);
@@ -754,19 +754,52 @@ describe('collection operations', () => {
     expect(mock.calls('/uns/collections/c-orders/records:find')[0].body.limit).toBe(1);
   });
 
-  it('serves numbered pages through aggregate offset paging plus count', async () => {
+  it('serves a numbered page and its capped total in one aggregate request', async () => {
     const mock = mockUns({
       [ENSURE]: BOTH_UNCHANGED,
-      '/uns/collections/c-orders/records:aggregate': ok({ items: [{ _id: 'o-3', code: 'C', status: 'OPEN', _meta: { revision: 1 } }], pageInfo: { hasMore: false } }),
-      '/uns/collections/c-orders/records:count': ok({ count: 21 }),
+      '/uns/collections/c-orders/records:aggregate': ok({
+        items: [{ _id: 'o-3', code: 'C', status: 'OPEN', _meta: { revision: 1 } }],
+        pageInfo: { hasMore: false },
+        total: { count: 10000, capped: true },
+      }),
     });
-    const page = await client(mock).collection(orders).findPage({ status: 'OPEN' }, { sort: { '_meta.createdAt': -1 }, page: 2, pageSize: 20 });
-    expect(page.total).toBe(21);
+    const handle = client(mock).collection(orders);
+    const page = await handle.findPage({ status: 'OPEN' }, { sort: { '_meta.createdAt': -1 }, page: 2, pageSize: 20 });
+    expect(page).toMatchObject({ total: { count: 10000, capped: true }, page: 2, pageSize: 20 });
     expect(page.items[0]._id).toBe('o-3');
+    await handle.findPage({}, { maxCount: 500 });
+    const sent = mock.calls('/uns/collections/c-orders/records:aggregate').map(call => call.body);
+    expect(sent).toEqual([
+      {
+        collectionId: 'c-orders',
+        pipeline: [{ $match: { status: 'OPEN' } }, { $sort: [['_meta.createdAt', -1]] }],
+        page: { mode: 'offset', page: 2, size: 20 },
+        count: {},
+      },
+      { collectionId: 'c-orders', pipeline: [], page: { mode: 'offset', page: 1, size: 20 }, count: { max: 500 } },
+    ]);
+    expect(mock.calls('/uns/collections/c-orders/records:count')).toHaveLength(0);
+  });
+
+  it('counts up to maxCount and reports capped counts', async () => {
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, '/uns/collections/c-orders/records:count': ok({ count: 100, capped: true }) });
+    expect(await client(mock).collection(orders).countDocuments({ status: 'OPEN' }, { maxCount: 100 })).toEqual({ count: 100, capped: true });
+    expect(mock.calls('/uns/collections/c-orders/records:count')[0].body).toEqual({ collectionId: 'c-orders', filter: { status: 'OPEN' }, maxCount: 100 });
+  });
+
+  it('counts per field value with one $group pipeline', async () => {
+    const mock = mockUns({
+      [ENSURE]: BOTH_UNCHANGED,
+      '/uns/collections/c-orders/records:aggregate': ok({ items: [{ _id: 'OPEN', count: 5 }, { _id: null, count: 1 }], pageInfo: { hasMore: false } }),
+    });
+    expect(await client(mock).collection(orders).countBy('status', { qty: { $gt: 0 } })).toEqual([
+      { value: 'OPEN', count: 5 },
+      { value: null, count: 1 },
+    ]);
     expect(mock.calls('/uns/collections/c-orders/records:aggregate')[0].body).toEqual({
       collectionId: 'c-orders',
-      pipeline: [{ $match: { status: 'OPEN' } }, { $sort: [['_meta.createdAt', -1]] }],
-      page: { mode: 'offset', page: 2, size: 20 },
+      pipeline: [{ $match: { qty: { $gt: 0 } } }, { $group: { _id: '$status', count: { $sum: 1 } } }, { $sort: [['count', -1], ['_id', 1]] }],
+      page: { mode: 'offset', page: 1, size: 200 },
     });
   });
 
@@ -1037,7 +1070,7 @@ describe('transaction step validation', () => {
 describe('data subject', () => {
   const routes = () => ({
     [ENSURE]: BOTH_UNCHANGED,
-    '/uns/collections/c-orders/records:count': ok({ count: 1 }),
+    '/uns/collections/c-orders/records:count': ok({ count: 1, capped: false }),
     '/uns/collections/c-orders/records:insertMany': ok({ insertedCount: 0 }),
   });
   const subjectOf = (entry: Sent) => entry.headers[SUBJECT_HEADER];

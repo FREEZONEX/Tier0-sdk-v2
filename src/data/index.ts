@@ -13,7 +13,7 @@ export { createDataClient } from './client.js';
 export type { DataClient, DataClientConfig, TransactAction, TransactResult, TransactResultItem, TransactStep } from './client.js';
 export type { DataEnvironment, EnsureConflict, EnsureNote, EnsureResult, EnsureState, EnsureWarning, Logger } from './bootstrap.js';
 export { MAX_ATOMIC_ITEMS } from './collection.js';
-export type { BulkOperation, Collection, Cursor, FindOneAndOptions, FindOptions, FindPageOptions, Projection, Update, UpdateOptions, WithMeta } from './collection.js';
+export type { BulkOperation, CappedCount, Collection, Cursor, FindOneAndOptions, FindOptions, FindPageOptions, Projection, Update, UpdateOptions, WithMeta } from './collection.js';
 export { currentDataSubject, runAsApp, runWithRequestContext } from './context.js';
 export { ACCESS_REASONS, DataError } from './error.js';
 export * from './declarations.js';

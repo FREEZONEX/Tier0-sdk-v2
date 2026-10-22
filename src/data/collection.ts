@@ -187,6 +187,14 @@ export interface FindPageOptions {
   /** At most 200. */
   pageSize?: number;
   projection?: Projection;
+  /** Count matches up to this many (1–100000); UNS defaults to 10000. */
+  maxCount?: number;
+}
+
+/** A match count UNS stopped at its limit: `capped` means "at least `count`". */
+export interface CappedCount {
+  count: number;
+  capped: boolean;
 }
 
 export interface UpdateOptions {
@@ -327,13 +335,14 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
   }
 
   /**
-   * One numbered page plus the total match count, for paged list screens.
-   * Uses `recordAggregatePipeline` offset paging.
+   * One numbered page plus the total match count, for paged list screens:
+   * one `recordAggregatePipeline` offset page whose `count` runs in the same
+   * snapshot. Show a capped total as "10000+".
    */
   async findPage(
     filter: Filter = {},
     options: FindPageOptions = {},
-  ): Promise<{ items: WithMeta<T>[]; total: number; page: number; pageSize: number }> {
+  ): Promise<{ items: WithMeta<T>[]; total: CappedCount; page: number; pageSize: number }> {
     const page = Math.max(1, Math.trunc(options.page ?? 1));
     const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Math.trunc(options.pageSize ?? 20)));
     const pipeline: Record<string, unknown>[] = [];
@@ -341,18 +350,38 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
     const sort = toSortPairs(options.sort);
     if (sort) pipeline.push({ $sort: sort });
     if (options.projection) pipeline.push({ $project: options.projection });
-    const [rows, total] = await Promise.all([
-      this.post<{ items: WithMeta<T>[] }>('recordAggregatePipeline', { pipeline, page: { mode: 'offset', page, size: pageSize } }),
-      this.countDocuments(filter),
-    ]);
-    return { items: rows.items, total, page, pageSize };
+    const result = await this.post<{ items: WithMeta<T>[]; total: CappedCount }>('recordAggregatePipeline', {
+      pipeline,
+      page: { mode: 'offset', page, size: pageSize },
+      count: options.maxCount === undefined ? {} : { max: options.maxCount },
+    });
+    return { items: result.items, total: result.total, page, pageSize };
   }
 
-  async countDocuments(filter: Filter = {}): Promise<number> {
-    const result = await this.post<{ count: number }>('recordCount', {
+  /**
+   * Counts matches up to `maxCount` (1–100000, UNS default 100000). A
+   * `capped` result means "at least `count`".
+   */
+  async countDocuments(filter: Filter = {}, options: { maxCount?: number } = {}): Promise<CappedCount> {
+    const result = await this.post<CappedCount>('recordCount', {
       filter: Object.keys(filter).length > 0 ? filter : undefined,
+      maxCount: options.maxCount,
     });
-    return result.count;
+    return { count: result.count, capped: result.capped };
+  }
+
+  /**
+   * Match counts per value of `field`, largest first: one `$group` pipeline
+   * instead of a count per value. Records without the field count under
+   * `value: null`.
+   */
+  async countBy(field: string, filter: Filter = {}): Promise<{ value: unknown; count: number }[]> {
+    const pipeline: Record<string, unknown>[] = [];
+    if (Object.keys(filter).length > 0) pipeline.push({ $match: filter });
+    // `_id` breaks ties, so offset pages of equal counts neither repeat nor skip a group.
+    pipeline.push({ $group: { _id: `$${field}`, count: { $sum: 1 } } }, { $sort: { count: -1, _id: 1 } });
+    const rows = await this.aggregate<{ _id: unknown; count: number }>(pipeline).toArray();
+    return rows.map((row) => ({ value: row._id ?? null, count: row.count }));
   }
 
   /** Distinct values of a field (every page). */
