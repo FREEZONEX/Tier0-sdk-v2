@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createClient, UNS_V2_CODEC_SCHEMAS, UNS_V2_CONTRACT_PROVENANCE, UNS_V2_OPERATIONS, UnsV2Error, UnsV2OutcomeUnknownError, UnsV2RawNumber } from '../../src/index.js';
+import { createUnsV2Client, createClient, UNS_V2_CODEC_SCHEMAS, UNS_V2_CONTRACT_PROVENANCE, UNS_V2_OPERATIONS, UnsV2Error, UnsV2OutcomeUnknownError, UnsV2RawNumber } from '../../src/index.js';
 import { CloudTransport } from '../../src/cloud-transport.js';
 import { HttpClient } from '../../src/openapi/client.js';
 import type { UnsV2Response } from '../../src/uns-v2/generated.js';
@@ -32,6 +32,11 @@ afterAll(async () => {
 const client = (timeout = 2_000, unsV2MaxResponseBytes?: number) => createClient({
   apiHost, apiKey: 'workspace-bound-key', transportTimeoutMs: timeout, unsV2MaxResponseBytes,
 });
+
+const rawClient = (overrides: Parameters<typeof createClient>[0] = {}) => {
+  const config = { apiHost, apiKey: 'workspace-bound-key', ...overrides };
+  return createUnsV2Client(() => new HttpClient(config), config);
+};
 
 describe('UNS v2 localhost HTTP fixture', () => {
   it('isolates concurrent per-request clients and snapshots their proof configuration', async () => {
@@ -126,10 +131,10 @@ describe('UNS v2 localhost HTTP fixture', () => {
       apiHost, apiKey: 'workspace-bound-key', unsV2AppDataSubject: 'gateway.user.signature',
     });
     const results = {
-      controlDiscover: () => api.uns.controlDiscover(requests.controlDiscover),
-      controlDescribe: () => api.uns.controlDescribe(requests.controlDescribe),
-      controlInvoke: () => api.uns.controlInvoke(requests.controlInvoke),
-      streamRuntimeCapabilitiesGet: () => api.uns.streamRuntimeCapabilitiesGet(requests.streamRuntimeCapabilitiesGet),
+      controlDiscover: () => rawClient({ unsV2AppDataSubject: 'gateway.user.signature' }).controlDiscover(requests.controlDiscover),
+      controlDescribe: () => rawClient({ unsV2AppDataSubject: 'gateway.user.signature' }).controlDescribe(requests.controlDescribe),
+      controlInvoke: () => rawClient({ unsV2AppDataSubject: 'gateway.user.signature' }).controlInvoke(requests.controlInvoke),
+      streamRuntimeCapabilitiesGet: () => api.stream.runtime.capabilities(requests.streamRuntimeCapabilitiesGet),
     };
     await expect(results[operation]()).resolves.toEqual(responses[operation]);
     const paths = {
@@ -300,13 +305,13 @@ describe('UNS v2 localhost HTTP fixture', () => {
           : { ...common, id: '202', revision: 4, stats: { admitted: 0, completed: 0, failed: 0, unknown: 0, pending: 0, durationSamples: 0, successRate: null, averageDurationMs: null } };
       send(res, { code: 200, msg: 'ok', requestId: 'connect-observations', data });
     };
-    const api = client().uns;
-    const source = await api.sourceObservationsGet({ items: [{ id: '101', expectedRevision: 3 }] });
+    const api = client();
+    const source = await api.source.observations.get({ items: [{ id: '101', expectedRevision: 3 }] });
     expect(source.data.coverage).toBe('durable-admissions');
     expect(source.data.items[0].lastDataAt).toBeNull();
-    const stream = await api.streamObservationGet({ id: '202' });
+    const stream = await api.stream.observations.get({ id: '202' });
     expect(stream.data.stats.successRate).toBeNull();
-    const runs = await api.streamRunsList({ id: '202', size: 10, cursor: 'opaque-cursor' });
+    const runs = await api.stream.runs.list({ id: '202', size: 10, cursor: 'opaque-cursor' });
     expect(runs.data.items).toEqual([]);
     expect(received.slice(start).map(row => row.path)).toEqual([
       '/openapi/v2/uns/sources/observations/get', '/openapi/v2/uns/streams/observation/get', '/openapi/v2/uns/streams/runs/list',
@@ -318,11 +323,11 @@ describe('UNS v2 localhost HTTP fixture', () => {
   it('never retries isolated sample execution or exposes Core-only credentials and ingress routes', async () => {
     const start = received.length;
     respond = (_req, res) => send(res, { code: 503, msg: 'sample runtime unavailable', requestId: 'sample-unavailable' }, 503);
-    const api = client().uns;
-    await expect(api.streamSampleTest({ document: { name: 'sample', model: 'script', script: { sdkVersion: 'tier0-stream/v2', code: '', timeoutMs: 1000 } }, entryId: 'sample', input: { value: 1 } })).rejects.toBeInstanceOf(UnsV2Error);
+    const api = client();
+    await expect(api.stream.sampleTest({ document: { name: 'sample', model: 'script', script: { sdkVersion: 'tier0-stream/v2', code: '', timeoutMs: 1000 } }, entryId: 'sample', input: { value: 1 } })).rejects.toBeInstanceOf(UnsV2Error);
     expect(received.slice(start)).toHaveLength(1);
     expect(received[start].path).toBe('/openapi/v2/uns/streams/sample/test');
-    const core = api as unknown as { call(name: string, request: unknown): Promise<unknown> };
+    const core = rawClient() as unknown as { call(name: string, request: unknown): Promise<unknown> };
     for (const name of ['graph', 'sourceCredentialCreate', 'sourceIngressGet', 'sourceIngressRotate', 'appDataPolicyGet', 'appDataPolicyUpdate', 'hostedAppControlPolicyGet', 'hostedAppControlPolicyUpdate']) {
       expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(false);
       await expect(core.call(name, {})).rejects.toThrow('unknown UNS v2 operation');
@@ -342,7 +347,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
 
   it.each(['recordAuditList', 'recordAuditAdminList'])('rejects removed %s before encoding or any network request', async name => {
     const start = received.length;
-    const api = createClient({ apiHost, apiKey: 'workspace-bound-key', unsV2AppDataSubject: 'gateway.employee.signature' }).uns;
+    const api = rawClient({ unsV2AppDataSubject: 'gateway.employee.signature' });
     expect(Object.hasOwn(api, name)).toBe(false);
     expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(false);
     const core = api as unknown as { call(name: string, request: unknown): Promise<unknown> };
@@ -371,14 +376,14 @@ describe('UNS v2 localhost HTTP fixture', () => {
       }
       return send(res, { code: 409, msg: 'SOURCE_IMPACT_CHANGED', requestId: 'conflict' }, 409);
     };
-    const api = client().uns;
-    const review = await api.sourceImpact({ id: '101', expectedRevision: 2, action: 'disable', size: 20 });
+    const api = client();
+    const review = await api.source.impact({ id: '101', expectedRevision: 2, action: 'disable', size: 20 });
     expect(review.data.impactRevision).toBe('reviewed-token');
     expect(received.length - start).toBe(1);
     expect(received[start].path).toBe('/openapi/v2/uns/sources/impact');
-    const history = await api.sourceHistory({ id: '101', size: 20 });
+    const history = await api.source.history({ id: '101', size: 20 });
     expect(history.data.sourceID).toBe('101');
-    await expect(api.sourceStateUpdate({ dryRun: false, items: [{
+    await expect(api.source.state.update({ dryRun: false, items: [{
       id: '101', expectedRevision: 2, desiredState: 'disabled', confirmedImpactRevision: review.data.impactRevision,
     }] })).rejects.toBeInstanceOf(UnsV2Error);
     expect(received.length - start).toBe(3);
@@ -389,7 +394,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
 
   it('rejects inherited, unknown and non-string operation names before encoding or fetch', async () => {
     const start = received.length;
-    const core = client().uns as unknown as { call(name: unknown, request: unknown): Promise<unknown> };
+    const core = rawClient() as unknown as { call(name: unknown, request: unknown): Promise<unknown> };
     for (const name of ['constructor', '__proto__', 'toString', 'ordinaryUnknown', 'records', 'samples', 'recordCreate', 'recordDelete', { toString: () => 'records' }]) {
       await expect(core.call(name, {})).rejects.toThrow('unknown UNS v2 operation');
     }
@@ -457,7 +462,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
         total: 0, truncated: false, list: [],
       },
     });
-    const response = await client().uns.sourceList({ page: 1, size: 20, archived: false });
+    const response = await client().source.list({ page: 1, size: 20, archived: false });
     expect(response.data).toMatchObject({ complete: true, total: 0, list: [] });
     expect(received[start]).toMatchObject({
       method: 'POST', path: '/openapi/v2/uns/sources/list', body: '{"page":1,"size":20,"archived":false}',
@@ -570,13 +575,13 @@ describe('UNS v2 localhost HTTP fixture', () => {
       code: 200, msg: 'updated', requestId: 'req-source-state',
       data: { status: 'committed', replayed: false, results: [] },
     });
-    await client().uns.sourceStateUpdate({
+    await client().source.state.update({
       dryRun: false, idempotencyKey: 'source-state-1',
-      items: [{ id: 'source-1', expectedRevision: 2, desiredState: 'enabled' }],
+      items: [{ id: 'source-1', expectedRevision: 2, desiredState: 'enabled', confirmedImpactRevision: 'reviewed-confirmation' }],
     });
     expect(received[start]).toMatchObject({
       path: '/openapi/v2/uns/sources/state/update',
-      body: '{"dryRun":false,"idempotencyKey":"source-state-1","items":[{"id":"source-1","expectedRevision":2,"desiredState":"enabled"}]}',
+      body: '{"dryRun":false,"idempotencyKey":"source-state-1","items":[{"id":"source-1","expectedRevision":2,"desiredState":"enabled","confirmedImpactRevision":"reviewed-confirmation"}]}',
     });
     expect(received.length - start).toBe(1);
   });
@@ -586,7 +591,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
     respond = (_req, res) => send(res, {
       code: 200, msg: 'valid', requestId: 'req-document-validate', data: { valid: true, issues: [] },
     });
-    await client().uns.streamDocumentValidate({ document: {
+    await client().stream.documents.validate({ document: {
       name: 'collector', model: 'collection',
       script: { sdkVersion: 'tier0-stream/v2', code: 'module.exports = api => api;', timeoutMs: 1_000 },
       sources: [{ alias: 'plant', sourceId: 'source-1', configRevision: 2, resources: ['line/1', 'line/2'] }],
@@ -602,7 +607,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
     respond = (_req, res) => send(res, {
       code: 500, msg: 'not canonical', requestId: 'req-deploy', data: null,
     });
-    await expect(client().uns.streamProgramDeploy({
+    await expect(client().stream.programs.deploy({
       id: 'stream-1', dryRun: false, expectedRevision: 3, expectedSourceRevision: 7, idempotencyKey: 'deploy-1',
     })).rejects.toMatchObject({
       name: 'UnsV2OutcomeUnknownError', status: 200, operation: 'streamProgramDeploy',

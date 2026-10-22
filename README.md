@@ -30,7 +30,9 @@ const capabilities = await tier0.capabilities.discover();
 
 | 入口 | 能力 |
 | --- | --- |
-| `tier0.uns` | 98 个公开 UNS v2 操作：目录、Topic、Collection、Record、Sample、Source、Stream、数据上下文等 |
+| `tier0.source` | 数据源、连接文档、影响分析、版本历史与运行观测 |
+| `tier0.stream` | Runtime programs、原生文档、校验、部署、回滚与运行记录 |
+| `tier0.uns` | 目录、Topic、Collection、Record、Sample、事务与 App 数据上下文 |
 | `tier0.system` | `whoami()`、`info()` |
 | `tier0.members` | `listWorkspace()`；没有虚构 App 成员接口 |
 | `tier0.notifications` | `send()`、`get()` |
@@ -41,11 +43,29 @@ const capabilities = await tier0.capabilities.discover();
 | `tier0.controls` | Control 发现、描述、执行及结果未知错误 |
 | `tier0.api` | 50 个普通 OpenAPI 的完整生成接口；通常优先使用上面的领域入口 |
 | `@tier0/sdk-v2/mq` | MQTT WebSocket 客户端与 broker 地址工具；不进入根入口依赖图 |
+| `@tier0/sdk-v2/source` | `createSourceClient()`，独立 Source 客户端 |
+| `@tier0/sdk-v2/stream` | `createStreamClient()`，独立 Stream 客户端 |
 | `@tier0/sdk-v2/react` | `useTier0Query()`、`useTier0Mutation()`，需要 React 和 TanStack Query |
 | `@tier0/sdk-v2/vue` | `useTier0Request()`，需要 Vue 3 |
 | `@tier0/sdk-v2/server` | `createCloudAppRequestVerifier()`，仅服务端加载 `node:crypto` |
 
 不保留 UNS v1、旧 Flow、`getCurrentProjectId()`、project 成员查询或 `/gw/reload`。Workspace 成员不等于能使用某个 App 的成员，不可用前者在客户端猜测 App 权限。
+
+## Source、Stream 与 UNS 分域
+
+Source 负责连接外部系统，Stream 负责处理与运行，UNS 负责命名空间与业务数据。共用底层 98 个公开生成操作，业务入口按领域组织；Control 使用 `tier0.controls` 的专属契约。
+
+```ts
+const sources = await tier0.source.documents.list({ page: 1, size: 20 });
+const programs = await tier0.stream.programs.list({ page: 1, size: 20 });
+const runtime = await tier0.stream.runtime.capabilities({});
+```
+
+Source/Stream 仍保留 `{ code, msg, requestId, data }` 响应以及 `UnsV2Error` 错误类型。`source.documents` 是云端原生文档，`source.create/validate` 等是通用投影；`stream.programs` 与 `stream.documents` 使用不同文档结构，不可混用。保存、部署、运行成功分别判断。
+
+从最初提交迁移：`uns.sourceList` → `source.list`；`uns.sourceDocumentGet` → `source.documents.get`；`uns.streamProgramDeploy` → `stream.programs.deploy`；`uns.streamDocumentValidate` → `stream.documents.validate`。这些管理方法已移出主入口的 `uns`。底层 `createUnsV2Client()` 仍提供完整生成契约供契约工具使用；数据专用客户端可用 `createUnsDataClient()`。
+
+随包提供 11 个可独立发现的 Skill，包含完整流程、参数边界、错误处理与可类型检查的示例：[入口](skills/tier0-sdk-v2/SKILL.md)、[Source](skills/tier0-sdk-v2-source/SKILL.md)、[Stream](skills/tier0-sdk-v2-stream/SKILL.md)、[UNS](skills/tier0-sdk-v2-uns/SKILL.md)、[通知](skills/tier0-sdk-v2-notifications/SKILL.md)、[系统](skills/tier0-sdk-v2-system/SKILL.md)、[文件](skills/tier0-sdk-v2-files/SKILL.md)、[MQTT](skills/tier0-sdk-v2-mq/SKILL.md)、[成员](skills/tier0-sdk-v2-members/SKILL.md)、[Controls](skills/tier0-sdk-v2-controls/SKILL.md)、[Agent](skills/tier0-sdk-v2-agent/SKILL.md)。复杂流程的参考文档随 Skill 一起打包。
 
 ## UNS 数据访问
 
@@ -159,6 +179,6 @@ npm run check
 
 v1 来自网关 Swagger，并按实际 handler 补齐响应外层；UNS 来自 `contract_generated.go#ContractJSON` 中已经应用 Cloud 扩展的契约，结合 manifest/registry 生成。不能直接使用仍含 Enterprise 基础操作的 `share/unscontract/contract.json` 作为最终云端契约。
 
-`npm run check` 包含契约一致性、Skill 链接/注册、类型、单元和本地 HTTP 测试、ESM/CJS 构建、实际 npm 包安装、浏览器打包及导入验证。测试不调用线上写接口，也不证明真实环境功能已上线。
+`npm run check` 包含契约一致性、Skill 注册及递归引用检查、所有 Skill TypeScript 示例的源码/安装包类型校验、单元和本地 HTTP 测试、ESM/CJS 构建、实际 npm 包安装、浏览器打包及导入验证。测试不调用线上写接口，也不证明真实环境功能已上线。
 
 首发前仍需：目标环境只读联调、隔离测试空间的写入验收、App 脚手架切换精确依赖 `"@tier0/sdk-v2": "0.1.0"`、新 Skill 上传和 npm 发布授权。App 成员能力等待公开 appId 契约落地后增加，现阶段不承诺该能力。

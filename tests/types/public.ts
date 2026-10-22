@@ -3,6 +3,14 @@ import { useTier0Query, useTier0Mutation } from '../../src/react.js';
 import { useTier0Request } from '../../src/vue.js';
 const sdk: Tier0Client = createClient({ apiHost: 'https://api.example.invalid', apiKey: 'placeholder' });
 sdk.uns.recordFind({ collectionId: 'orders' }, { signal: new AbortController().signal });
+sdk.source.documents.list({ includeDocument: false });
+sdk.stream.programs.deploy({ id: '123', dryRun: true });
+// @ts-expect-error Source management belongs to its own domain
+sdk.uns.sourceList({});
+// @ts-expect-error Stream management belongs to its own domain
+sdk.uns.streamProgramDeploy({ id: '123', dryRun: true });
+// @ts-expect-error Native documents cannot be passed as runtime programs
+sdk.stream.programs.validate({ document: { name: 'native', protocol: 'http', config: {} } });
 sdk.mqttAuth.delete({ id: 9007199254740993n });
 const info = sdk.system.info();
 info.then(value => { const broker: string | undefined = value.mqttBroker; void broker; });

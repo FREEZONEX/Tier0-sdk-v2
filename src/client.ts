@@ -1,6 +1,9 @@
 import { HttpClient, type ClientConfig } from './openapi/client.js';
 import { createOpenAPI } from './openapi/api.generated.js';
 import { createUnsV2Client } from './uns-v2/client.js';
+import { bindUnsDataClient } from './uns-v2/data-client.js';
+import { bindSourceClient } from './source.js';
+import { bindStreamClient } from './stream.js';
 import { ControlsClient } from './controls.js';
 import { CapabilitiesClient } from './capabilities.js';
 import { FilesClient } from './files.js';
@@ -13,6 +16,7 @@ export function createClient(config: Tier0ClientConfig = {}) {
   const http = new HttpClient(snapshot);
   const api = createOpenAPI(http);
   const resolve = () => http;
+  const raw = createUnsV2Client(resolve, snapshot);
   return Object.freeze({
     system: api.system,
     members: api.members,
@@ -22,7 +26,9 @@ export function createClient(config: Tier0ClientConfig = {}) {
     files: new FilesClient(http),
     capabilities: new CapabilitiesClient(resolve, snapshot),
     controls: new ControlsClient(resolve, snapshot),
-    uns: createUnsV2Client(resolve, snapshot),
+    source: bindSourceClient(raw),
+    stream: bindStreamClient(raw),
+    uns: bindUnsDataClient(raw),
     api,
   });
 }

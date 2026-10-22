@@ -20,6 +20,7 @@ writeFileSync(resolve(consumer, 'package.json'), JSON.stringify({ name: 'sdk-pac
 run([npm, 'install', '--prefer-offline', '--ignore-scripts', '--no-audit', '--no-fund', '--legacy-peer-deps', resolve(consumer, archive.filename)], consumer);
 const installed = resolve(consumer, 'node_modules/@tier0/sdk-v2');
 run(['scripts/check-skills.mjs', installed]);
+run(['scripts/check-skill-examples.mjs', installed]);
 const pkg = JSON.parse(readFileSync(resolve(installed, 'package.json'), 'utf8'));
 for (const [path, entry] of Object.entries(pkg.exports)) {
   if (typeof entry === 'string') continue;
@@ -30,23 +31,30 @@ for (const [path, entry] of Object.entries(pkg.exports)) {
   }
 }
 run(['--input-type=module', '-e', `
-  import { createClient, UNS_V2_OPERATIONS } from '@tier0/sdk-v2';
+  import { createClient, createUnsV2Client, UNS_V2_OPERATIONS } from '@tier0/sdk-v2';
   import * as sdk from '@tier0/sdk-v2';
   const client = createClient({ apiHost: 'https://fixture.invalid' });
   if ('getCurrentProjectId' in sdk || 'flow' in client || 'launchpad' in client.api) throw new Error('Legacy API leaked');
   const operations = Object.keys(UNS_V2_OPERATIONS);
-  if (operations.length !== 98 || operations.some(name => typeof client.uns[name] !== 'function')) throw new Error('Missing UNS operations');
+  const raw = createUnsV2Client();
+  if (operations.length !== 98 || operations.some(name => typeof raw[name] !== 'function')) throw new Error('Missing generated operations');
+  if ('sourceList' in client.uns || 'streamProgramDeploy' in client.uns || 'controlInvoke' in client.uns) throw new Error('Mixed domain entrypoints');
+  if (typeof client.source.documents.get !== 'function' || typeof client.stream.programs.deploy !== 'function') throw new Error('Missing domain entrypoints');
 `], consumer);
 for (const ext of ['mts', 'cts']) writeFileSync(resolve(consumer, `consumer.${ext}`), `
 import { createClient, type Tier0Client } from '@tier0/sdk-v2';
 import { Tier0MQClient } from '@tier0/sdk-v2/mq';
+import { createSourceClient } from '@tier0/sdk-v2/source';
+import { createStreamClient } from '@tier0/sdk-v2/stream';
 const client: Tier0Client = createClient({ apiHost: 'https://fixture.invalid' });
 client.uns.recordFind({ collectionId: 'orders' });
+createSourceClient().documents.list({});
+createStreamClient().programs.list({});
 client.mqttAuth.delete({ id: 9007199254740993n });
 void Tier0MQClient;
 `);
 run([resolve(root, 'node_modules/typescript/bin/tsc'), '--noEmit', '--strict', '--skipLibCheck', '--module', 'NodeNext', '--target', 'ES2022', 'consumer.mts', 'consumer.cts'], consumer);
-for (const subpath of ['', '/mq', '/react', '/vue']) {
+for (const subpath of ['', '/source', '/stream', '/mq', '/react', '/vue']) {
   const result = await build({ absWorkingDir: consumer, stdin: { contents: `export * from '@tier0/sdk-v2${subpath}';`, resolveDir: consumer }, bundle: true, platform: 'browser', format: 'esm', write: false, metafile: true, logLevel: 'silent' });
   if (!subpath && Object.keys(result.metafile.inputs).some(path => /node_modules[\\/](mqtt|react|vue)[\\/]|cloud-server/.test(path))) throw new Error('Root entry loads an optional browser/server dependency');
 }

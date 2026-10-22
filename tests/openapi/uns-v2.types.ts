@@ -42,21 +42,21 @@ void ownAppContext;
 const list = client.uns.recordFind({ collectionId: 'orders', limit: 20, cursor: 'opaque' });
 const jobs = client.uns.jobs({ queries: [{ queryId: 'job', jobIds: ['job-1'] }] });
 const transaction = client.uns.recordTransactionExecute({ items: [] });
-const sources = client.uns.sourceList({ page: 1, size: 20, archived: false });
-const deployment = client.uns.streamProgramDeploy({
+const sources = client.source.list({ page: 1, size: 20, archived: false });
+const deployment = client.stream.programs.deploy({
   id: 'stream-1', dryRun: false, expectedRevision: 3, expectedSourceRevision: 7, idempotencyKey: 'deploy-1',
 });
 const scopedSamples = client.uns.sampleFind({ collectionId: 'measurements', recordIds: ['machine-1'], from: 0, to: 1000, page: { mode: 'cursor', size: 20 } });
-const sourceState = client.uns.sourceStateUpdate({
+const sourceState = client.source.state.update({
   dryRun: false, items: [{ id: '101', expectedRevision: 2, desiredState: 'enabled', confirmedImpactRevision: 'reviewed-confirmation' }],
 });
-const sourceDelete = client.uns.sourceDelete({ dryRun: true, items: [{ id: '101', expectedRevision: 2, confirmedImpactRevision: 'reviewed-confirmation' }] });
-const sourceImpact = client.uns.sourceImpact({ id: '101', expectedRevision: 2, action: 'disable', size: 20 });
-const sourceHistory = client.uns.sourceHistory({ id: '101', size: 20 });
-const observations = client.uns.sourceObservationsGet({ items: [{ id: '101', expectedRevision: 2 }] });
-const streamObservation = client.uns.streamObservationGet({ id: '202' });
-const runs = client.uns.streamRunsList({ id: '202', size: 20, cursor: 'opaque' });
-const documentValidation = client.uns.streamDocumentValidate({ document: {
+const sourceDelete = client.source.delete({ dryRun: true, items: [{ id: '101', expectedRevision: 2, confirmedImpactRevision: 'reviewed-confirmation' }] });
+const sourceImpact = client.source.impact({ id: '101', expectedRevision: 2, action: 'disable', size: 20 });
+const sourceHistory = client.source.history({ id: '101', size: 20 });
+const observations = client.source.observations.get({ items: [{ id: '101', expectedRevision: 2 }] });
+const streamObservation = client.stream.observations.get({ id: '202' });
+const runs = client.stream.runs.list({ id: '202', size: 20, cursor: 'opaque' });
+const documentValidation = client.stream.documents.validate({ document: {
   name: 'collector', model: 'collection',
   script: { sdkVersion: 'tier0-stream/v2', code: 'module.exports = api => api;', timeoutMs: 1_000 },
   sources: [{ alias: 'plant', sourceId: 'source-1', configRevision: 2, resources: ['line/1'] }],
@@ -79,15 +79,15 @@ void [list, jobs, transaction, sources, deployment, scopedSamples, sourceState, 
 // @ts-expect-error core-only graph has no Gateway route and is not exposed by the SDK.
 client.uns.graph({ queries: [] });
 // @ts-expect-error Credential creation is Core-only and has no public Gateway route.
-client.uns.sourceCredentialCreate({});
+client.source.credentials.create({});
 // @ts-expect-error Ingress discovery is Core-only and has no public Gateway route.
-client.uns.sourceIngressGet({ id: '101' });
+client.source.ingress.get({ id: '101' });
 // @ts-expect-error Ingress rotation is Core-only and has no public Gateway route.
-client.uns.sourceIngressRotate({ id: '101' });
+client.source.ingress.rotate({ id: '101' });
 // @ts-expect-error identity and workspace binding cannot be supplied through list request DTOs.
 client.uns.directoryList({ workspaceId: 'other-workspace' });
 // @ts-expect-error Source mutations must carry an explicitly reviewed confirmation.
-client.uns.sourceDelete({ dryRun: false, items: [{ id: '101', expectedRevision: 2 }] });
+client.source.delete({ dryRun: false, items: [{ id: '101', expectedRevision: 2 }] });
 
 const lease = client.uns.recordLock({ collectionId: 'orders', ids: ['order-1'], ttlMs: 30000 });
 const unlock = client.uns.recordUnlock({ collectionId: 'orders', locks: [{ id: 'order-1', token: 'lease' }] });

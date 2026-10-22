@@ -56,6 +56,14 @@
         "default": "./dist/cjs/uns-v2/index.js"
       }
     },
+    "./source": {
+      "import": { "types": "./dist/esm/source.d.ts", "default": "./dist/esm/source.js" },
+      "require": { "types": "./dist/cjs/source.d.ts", "default": "./dist/cjs/source.js" }
+    },
+    "./stream": {
+      "import": { "types": "./dist/esm/stream.d.ts", "default": "./dist/esm/stream.js" },
+      "require": { "types": "./dist/cjs/stream.d.ts", "default": "./dist/cjs/stream.js" }
+    },
     "./files": {
       "import": {
         "types": "./dist/esm/files.d.ts",
@@ -112,7 +120,7 @@
     "sync:contracts": "node scripts/sync-contracts.mjs",
     "generate": "node scripts/generate-openapi.mjs && node scripts/generate-uns-v2.mjs",
     "check:contracts": "node scripts/check-contracts.mjs && node scripts/generate-openapi.mjs --check && node scripts/generate-uns-v2.mjs --check",
-    "check:skills": "node scripts/check-skills.mjs",
+    "check:skills": "node scripts/check-skills.mjs && node scripts/check-skill-examples.mjs",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.tests.json",
     "build": "node scripts/build.mjs",
     "test": "vitest run",
@@ -153,6 +161,14 @@
   },
   "agents": {
     "skills": [
+      {
+        "name": "tier0-sdk-v2-source",
+        "path": "./skills/tier0-sdk-v2-source"
+      },
+      {
+        "name": "tier0-sdk-v2-stream",
+        "path": "./skills/tier0-sdk-v2-stream"
+      },
       {
         "name": "tier0-sdk-v2",
         "path": "./skills/tier0-sdk-v2"
