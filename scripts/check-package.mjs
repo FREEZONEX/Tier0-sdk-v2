@@ -44,7 +44,7 @@ run(['--input-type=module', '-e', `
   if ('getCurrentProjectId' in sdk || 'flow' in client || 'launchpad' in client.api) throw new Error('Legacy API leaked');
   const operations = Object.keys(UNS_V2_OPERATIONS);
   const raw = createUnsV2Client();
-  if (operations.length !== 98 || operations.some(name => typeof raw[name] !== 'function')) throw new Error('Missing generated operations');
+  if (operations.length !== 106 || operations.some(name => typeof raw[name] !== 'function')) throw new Error('Missing generated operations');
   if ('sourceList' in client.uns || 'streamProgramDeploy' in client.uns || 'controlInvoke' in client.uns) throw new Error('Mixed domain entrypoints');
   if (typeof client.source.documents.get !== 'function' || typeof client.stream.programs.deploy !== 'function') throw new Error('Missing domain entrypoints');
 `], consumer);

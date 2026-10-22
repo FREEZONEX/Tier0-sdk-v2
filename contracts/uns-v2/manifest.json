@@ -1,6 +1,6 @@
 {
   "version": "4.0.0",
-  "cloudContractRevision": "cloud-source-impact/1+app-create-capability/1+data/3+collection-namespace/1+http-acquisition/2+app-data/2+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1",
+  "cloudContractRevision": "cloud-source-impact/1+app-create-capability/1+data/3+collection-namespace/1+http-acquisition/2+app-collection/2+app-data/2+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/1",
   "operations": [
     {
       "name": "dataDiscover",
@@ -3696,18 +3696,18 @@
       "handler": "CloudAppDataPolicyGet",
       "request": "CloudAppDataPolicyGetReq",
       "response": "CloudAppDataPolicyGetResponse",
-      "permission": "workspace.api.manage",
+      "permission": "uns.write",
       "resource": "app",
       "mutation": "",
-      "coreOnly": true,
+      "coreOnly": false,
       "appAllowed": false,
       "resourceId": 3339,
       "summary": "Hosted App Collection policy: Get",
-      "description": "Internal session governance bound to an existing hosted App UUID. Does not create Apps, issue keys, or grant control capabilities.",
+      "description": "Manage Collection access for an existing hosted App. Requires a current Builder session or full_access personal/Agent key. Shared data is granted to the recipient App collections; runtime App credentials cannot manage grants. Existing session governance may revoke grants.",
       "cloudExtension": true,
       "permissionAnyOf": [],
       "minPermission": 3,
-      "scope": "app:manage",
+      "scope": "uns:update",
       "tags": [
         "App 与授权"
       ],
@@ -3728,18 +3728,18 @@
       "handler": "CloudAppDataPolicyUpdate",
       "request": "CloudAppDataPolicyUpdateReq",
       "response": "CloudAppDataPolicyMutationResponse",
-      "permission": "workspace.api.manage",
+      "permission": "uns.write",
       "resource": "app",
       "mutation": "meta.replace",
-      "coreOnly": true,
+      "coreOnly": false,
       "appAllowed": false,
       "resourceId": 3340,
       "summary": "Hosted App Collection policy: Update",
-      "description": "Internal session governance bound to an existing hosted App UUID. Does not create Apps, issue keys, or grant control capabilities.",
+      "description": "Manage Collection access for an existing hosted App. Requires a current Builder session or full_access personal/Agent key. Shared data is granted to the recipient App collections; runtime App credentials cannot manage grants. Existing session governance may revoke grants.",
       "cloudExtension": true,
       "permissionAnyOf": [],
       "minPermission": 3,
-      "scope": "app:manage",
+      "scope": "uns:update",
       "tags": [
         "App 与授权"
       ],
@@ -3916,6 +3916,228 @@
       },
       "responseSchema": {
         "$ref": "#/components/schemas/CloudRecordChangesPollResponse"
+      }
+    },
+    {
+      "name": "appCollectionsEnsure",
+      "suffix": "/uns/app/collections/ensure",
+      "handler": "UnsV2AppCollectionsEnsure",
+      "request": "CloudAppCollectionsEnsureReq",
+      "response": "CloudAppCollectionsEnsureResponse",
+      "mutation": "meta.create",
+      "resource": "appCollection",
+      "openapiOnly": true,
+      "mcp": false,
+      "permission": "uns.write",
+      "scope": "uns:update",
+      "minPermission": 3,
+      "resourceId": 214,
+      "summary": "声明本 App 的集合",
+      "description": "Platform-issued App key only (app/internal/full_access, not MCP, no employee subject). Creates or widens App-owned Collections; never narrows.",
+      "example": {
+        "collections": [
+          {
+            "alias": "work_orders",
+            "recordSchema": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "title": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "open",
+                    "done"
+                  ]
+                }
+              },
+              "required": [
+                "title",
+                "status"
+              ]
+            },
+            "indexes": [
+              {
+                "path": "status"
+              }
+            ]
+          }
+        ]
+      },
+      "cloudExtension": true,
+      "appAllowed": true,
+      "permissionAnyOf": [],
+      "tags": [
+        "App 与授权"
+      ],
+      "operation": "appCollectionsEnsure",
+      "path": "/uns/app/collections/ensure",
+      "method": "POST",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/CloudAppCollectionsEnsureReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/CloudAppCollectionsEnsureResponse"
+      }
+    },
+    {
+      "name": "appCollectionsSchemaReplace",
+      "suffix": "/uns/app/collections/schema:replace",
+      "handler": "UnsV2AppCollectionsSchemaReplace",
+      "request": "CloudAppCollectionsSchemaReplaceReq",
+      "response": "CloudAppCollectionsSchemaReplaceResponse",
+      "mutation": "meta.replace",
+      "resource": "appCollection",
+      "openapiOnly": true,
+      "mcp": false,
+      "permission": "uns.write",
+      "scope": "uns:update",
+      "minPermission": 3,
+      "resourceId": 214,
+      "summary": "替换本 App 集合的结构",
+      "description": "Platform-issued App key only. Explicit narrowing with bounded data validation; deleted paths and enum values are retired.",
+      "example": {
+        "alias": "work_orders",
+        "expectedRevision": 3,
+        "dryRun": true,
+        "recordSchema": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "title": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "title"
+          ]
+        },
+        "indexes": []
+      },
+      "cloudExtension": true,
+      "appAllowed": true,
+      "permissionAnyOf": [],
+      "tags": [
+        "App 与授权"
+      ],
+      "operation": "appCollectionsSchemaReplace",
+      "path": "/uns/app/collections/schema:replace",
+      "method": "POST",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/CloudAppCollectionsSchemaReplaceReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/CloudAppCollectionsSchemaReplaceResponse"
+      }
+    },
+    {
+      "name": "appCollectionsArchive",
+      "suffix": "/uns/app/collections/archive",
+      "handler": "UnsV2AppCollectionsArchive",
+      "request": "CloudAppCollectionAliasReq",
+      "response": "CloudAppCollectionStateResponse",
+      "mutation": "meta.archive",
+      "resource": "appCollection",
+      "openapiOnly": true,
+      "mcp": false,
+      "permission": "uns.write",
+      "scope": "uns:update",
+      "minPermission": 3,
+      "resourceId": 214,
+      "summary": "归档本 App 的集合",
+      "description": "Platform-issued App key only. Archives an App-owned Collection, revokes its App grant and retires its indexes.",
+      "example": {
+        "alias": "work_orders"
+      },
+      "cloudExtension": true,
+      "appAllowed": true,
+      "permissionAnyOf": [],
+      "tags": [
+        "App 与授权"
+      ],
+      "operation": "appCollectionsArchive",
+      "path": "/uns/app/collections/archive",
+      "method": "POST",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/CloudAppCollectionAliasReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/CloudAppCollectionStateResponse"
+      }
+    },
+    {
+      "name": "appCollectionsRestore",
+      "suffix": "/uns/app/collections/restore",
+      "handler": "UnsV2AppCollectionsRestore",
+      "request": "CloudAppCollectionAliasReq",
+      "response": "CloudAppCollectionStateResponse",
+      "mutation": "meta.restore",
+      "resource": "appCollection",
+      "openapiOnly": true,
+      "mcp": false,
+      "permission": "uns.write",
+      "scope": "uns:update",
+      "minPermission": 3,
+      "resourceId": 214,
+      "summary": "恢复本 App 已归档的集合",
+      "description": "Platform-issued App key only. Restores the latest archived App-owned Collection with this alias, grants it again and reschedules its indexes.",
+      "example": {
+        "alias": "work_orders"
+      },
+      "cloudExtension": true,
+      "appAllowed": true,
+      "permissionAnyOf": [],
+      "tags": [
+        "App 与授权"
+      ],
+      "operation": "appCollectionsRestore",
+      "path": "/uns/app/collections/restore",
+      "method": "POST",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/CloudAppCollectionAliasReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/CloudAppCollectionStateResponse"
+      }
+    },
+    {
+      "name": "appCollectionsList",
+      "suffix": "/uns/app/collections/list",
+      "handler": "UnsV2AppCollectionsList",
+      "request": "CloudAppCollectionsListReq",
+      "response": "CloudAppCollectionsListResponse",
+      "permission": "uns.read",
+      "scope": "uns:read",
+      "minPermission": 1,
+      "resource": "appCollection",
+      "mutation": "",
+      "resourceId": 212,
+      "summary": "按 App 列出集合",
+      "description": "Session or personal API key with uns.read. Lists Collections owned by the App (ownerAppId), including archived ones, with schema and index status; never returns grants.",
+      "example": {
+        "appId": "00000000-0000-4000-8000-000000000000"
+      },
+      "cloudExtension": true,
+      "appAllowed": false,
+      "permissionAnyOf": [],
+      "tags": [
+        "App 与授权"
+      ],
+      "operation": "appCollectionsList",
+      "path": "/uns/app/collections/list",
+      "method": "POST",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/CloudAppCollectionsListReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/CloudAppCollectionsListResponse"
       }
     },
     {
@@ -4163,6 +4385,57 @@
       },
       "responseSchema": {
         "$ref": "#/components/schemas/UnsV2RecordRestoreResponse"
+      }
+    },
+    {
+      "name": "collectionCreateForApp",
+      "handler": "UnsV2CollectionCreateForApp",
+      "suffix": "/uns/collections/create-for-app",
+      "request": "CloudAppCollectionCreateReq",
+      "response": "CloudAppCollectionCreateResponse",
+      "resource": "collection",
+      "mutation": "meta.create",
+      "permission": "uns.write",
+      "appAllowed": false,
+      "mcp": false,
+      "cloudExtension": true,
+      "summary": "为 App 创建专用集合并绑定数据权限",
+      "description": "兼容入口；新调用使用 /uns/collections/create 并提供 appId、alias 和单个 items。需要当前 Builder 的 full_access 人员凭证及 uns.read、uns.write、uns.delete。两条路径共用创建、App 授权和幂等回执事务。",
+      "example": {
+        "appId": "14bfc189-8516-4709-a4c9-865a0f1dc345",
+        "alias": "orders",
+        "collection": {
+          "name": "Orders",
+          "recordSchema": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "title"
+            ]
+          }
+        },
+        "idempotencyKey": "create-orders-v1",
+        "dryRun": false
+      },
+      "permissionAnyOf": [],
+      "minPermission": 3,
+      "scope": "uns:update",
+      "tags": [
+        "集合管理"
+      ],
+      "operation": "collectionCreateForApp",
+      "path": "/uns/collections/create-for-app",
+      "method": "POST",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/CloudAppCollectionCreateReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/CloudAppCollectionCreateResponse"
       }
     }
   ],
@@ -5158,7 +5431,6 @@
             "enum": [
               "openapi.base",
               "platform.users.read",
-              "platform.projects.members.read",
               "notifications.send",
               "notifications.read",
               "asset.file.upload",
@@ -5238,7 +5510,6 @@
             "enum": [
               "openapi.base",
               "platform.users.read",
-              "platform.projects.members.read",
               "notifications.send",
               "notifications.read",
               "asset.file.upload",
@@ -8870,6 +9141,16 @@
               "recordSchema"
             ]
           }
+        },
+        "appId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "可选目标 App；指定时仅允许一个集合，且必须同时提供 alias 和 idempotencyKey，创建和授权原子提交，不支持 mode=async。"
+        },
+        "alias": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,62}$",
+          "description": "目标 App 内的集合别名，仅与 appId 一起使用。"
         }
       },
       "required": [
@@ -10373,7 +10654,6 @@
                   "enum": [
                     "openapi.base",
                     "platform.users.read",
-                    "platform.projects.members.read",
                     "notifications.send",
                     "notifications.read",
                     "asset.file.upload",
@@ -10630,7 +10910,6 @@
                   "enum": [
                     "openapi.base",
                     "platform.users.read",
-                    "platform.projects.members.read",
                     "notifications.send",
                     "notifications.read",
                     "asset.file.upload",
@@ -12517,8 +12796,93 @@
         },
         "data": {
           "type": "object",
-          "additionalProperties": true,
-          "description": "Existing Source/Stream runtime domain result. Program create/get/deploy return id, revision, activeVersion, executionState and redacted document; versions/runs return list and total; probe returns health; validation returns valid and sideEffects."
+          "additionalProperties": false,
+          "required": [
+            "list",
+            "total",
+            "page",
+            "size"
+          ],
+          "properties": {
+            "list": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "streamId",
+                  "versionId",
+                  "release",
+                  "status",
+                  "digest",
+                  "document",
+                  "createdAt"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "streamId": {
+                    "type": "string"
+                  },
+                  "versionId": {
+                    "type": "string"
+                  },
+                  "release": {
+                    "type": "integer"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "digest": {
+                    "type": "string"
+                  },
+                  "createdAt": {
+                    "type": "integer"
+                  },
+                  "document": {
+                    "description": "view 权限仅有 redactedV2Program 摘要；当前 stream.manage 授权时返回同一 release 已存 DocumentJSON 的完整 CloudStreamDocument。不得用当前 draft、Restore 或 Source 当前配置替代历史。",
+                    "oneOf": [
+                      {
+                        "$ref": "#/components/schemas/CloudStreamDocument"
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "sdkVersion": {
+                            "type": "string"
+                          },
+                          "timeoutMs": {
+                            "type": "integer"
+                          },
+                          "scriptConfigured": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "total": {
+              "type": "integer"
+            },
+            "page": {
+              "type": "integer"
+            },
+            "size": {
+              "type": "integer"
+            }
+          }
         }
       },
       "required": [
@@ -15413,7 +15777,6 @@
             "enum": [
               "openapi.base",
               "platform.users.read",
-              "platform.projects.members.read",
               "notifications.send",
               "notifications.read",
               "asset.file.upload",
@@ -16709,7 +17072,7 @@
           }
         ]
       },
-      "description": "统一谓词：业务路径直接使用 field 或 customer.name；系统路径使用 _id、_meta.revision/createdAt/updatedAt/sourceId/sourceTime/locked。Sample 使用 _meta.recordId/time/receivedAt/quality/streamId/bindingId。直接值等同 $eq；支持标量比较、数组 $elemMatch/$all/$size、逻辑组合与受限 $expr。路径以点分段；字面点写 \\.、反斜杠写 \\\\，JSON 中反斜杠需再次转义；最多 512 字节/10 段，数组使用显式下标，不隐式穿透。字段类型按 Schema 校验，不接受 SQL 或脚本。Record 写入默认必须精确匹配一条。 $eq:null 匹配 null 或缺失；$ne:null 匹配存在且非 null；$ne:非空值包含缺失。$exists 区分存在与缺失，显式 null 算存在。",
+      "description": "统一谓词：业务路径直接使用 field 或 customer.name；系统路径使用 _id、_meta.revision/createdAt/updatedAt/sourceId/sourceTime/locked。Sample 使用 _meta.recordId/time/receivedAt/quality/streamId/bindingId。直接值等同 $eq；支持标量比较、字符串 $contains（ASCII 不区分大小写的子串）、数组 $elemMatch/$all/$size、逻辑组合与受限 $expr。路径以点分段；字面点写 \\.、反斜杠写 \\\\，JSON 中反斜杠需再次转义；最多 512 字节/10 段，数组使用显式下标，不隐式穿透。字段类型按 Schema 校验，不接受 SQL 或脚本。Record 写入默认必须精确匹配一条。 $eq:null 匹配 null 或缺失；$ne:null 匹配存在且非 null；$ne:非空值包含缺失。$exists 区分存在与缺失，显式 null 算存在。",
       "example": {
         "$and": [
           {
@@ -16826,6 +17189,12 @@
         },
         "$elemMatch": {
           "$ref": "#/components/schemas/UnsV2ArrayElementFilter"
+        },
+        "$contains": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "子串匹配，仅对 ASCII 字母不区分大小写（其他字符按原样比较），仅 string 字段，数组等其他类型字段报错；不支持通配符或正则。无法使用索引，大集合可能触发查询超时。"
         }
       },
       "required": [],
@@ -16888,6 +17257,12 @@
         },
         "$not": {
           "$ref": "#/components/schemas/UnsV2FieldComparisons"
+        },
+        "$contains": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "子串匹配，仅对 ASCII 字母不区分大小写（其他字符按原样比较），仅 string 字段，数组等其他类型字段报错；不支持通配符或正则。无法使用索引，大集合可能触发查询超时。"
         }
       },
       "required": [],
@@ -18889,145 +19264,6 @@
                   "status",
                   "roles",
                   "updatedAt"
-                ]
-              }
-            },
-            "total": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "page": {
-              "type": "integer",
-              "format": "int64"
-            },
-            "size": {
-              "type": "integer",
-              "format": "int64"
-            }
-          },
-          "required": [
-            "list",
-            "total",
-            "page",
-            "size"
-          ]
-        }
-      },
-      "required": [
-        "code",
-        "msg",
-        "requestId",
-        "data"
-      ]
-    },
-    "PlatformV2ProjectMembersListReq": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "projectId": {
-          "type": "string",
-          "pattern": "^[1-9][0-9]*$",
-          "description": "目标项目 ID，正整数字符串。"
-        },
-        "page": {
-          "type": "integer",
-          "format": "int64",
-          "description": "页码；省略或 0 使用第 1 页。",
-          "minimum": 0,
-          "maximum": 1000000,
-          "default": 1
-        },
-        "size": {
-          "type": "integer",
-          "format": "int64",
-          "description": "每页条数；最多 100，省略或 0 使用 20。",
-          "minimum": 0,
-          "maximum": 100,
-          "default": 20
-        }
-      },
-      "required": [
-        "projectId"
-      ]
-    },
-    "PlatformV2ProjectMembersListResponse": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "code": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "msg": {
-          "type": "string"
-        },
-        "requestId": {
-          "type": "string"
-        },
-        "data": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "list": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "memberId": {
-                    "type": "string"
-                  },
-                  "projectId": {
-                    "type": "string"
-                  },
-                  "userId": {
-                    "type": "string"
-                  },
-                  "userName": {
-                    "type": "string"
-                  },
-                  "email": {
-                    "type": "string"
-                  },
-                  "status": {
-                    "type": "string"
-                  },
-                  "roles": {
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "additionalProperties": false,
-                      "properties": {
-                        "roleId": {
-                          "type": "string"
-                        },
-                        "roleKey": {
-                          "type": "string"
-                        },
-                        "roleName": {
-                          "type": "string"
-                        },
-                        "description": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "roleId",
-                        "roleKey",
-                        "roleName",
-                        "description"
-                      ]
-                    }
-                  }
-                },
-                "required": [
-                  "memberId",
-                  "projectId",
-                  "userId",
-                  "userName",
-                  "email",
-                  "status",
-                  "roles"
                 ]
               }
             },
@@ -30390,6 +30626,622 @@
         "data"
       ]
     },
+    "CloudAppCollectionDeclaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "alias": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,62}$",
+          "description": "App 内集合别名，不区分大小写唯一；与 src/data/collections.ts 的 alias 一致。"
+        },
+        "recordSchema": {
+          "$ref": "#/components/schemas/Schema",
+          "description": "封闭对象子集：每层 object 必须写 additionalProperties:false；不支持 sampleSchema。"
+        },
+        "indexes": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/components/schemas/IndexSpec"
+          },
+          "description": "声明的索引；ensure 取当前索引与声明的并集，不删除索引。"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 512,
+          "description": "集合说明，只在创建时写入；之后修改须用 schema:replace（ensure 不写注解，差异以 ANNOTATION_NOT_APPLIED 列在 ignored）。"
+        }
+      },
+      "required": [
+        "alias",
+        "recordSchema"
+      ]
+    },
+    "CloudAppCollectionsEnsureReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "collections": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/components/schemas/CloudAppCollectionDeclaration"
+          }
+        },
+        "dryRun": {
+          "type": "boolean",
+          "default": false,
+          "description": "只计算结果，不写入；status=created 时 collectionId 为 null。"
+        }
+      },
+      "required": [
+        "collections"
+      ],
+      "description": "App 运行时和 worker 声明本 App 的集合。只创建或加宽（join），永不收窄；整批一个事务。"
+    },
+    "CloudAppCollectionSchemaNote": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Schema 路径：对象属性用 . 连接（属性名中的 . 和 \\ 用 \\ 转义），数组元素用 []，例如 lines.[].discount；空串表示记录根对象。"
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "RETIRED_PATH",
+            "RETIRED_ENUM_VALUE",
+            "UNDECLARED_PROPERTY",
+            "WIDER_ENUM",
+            "WIDER_TYPE",
+            "WIDER_BOUNDS",
+            "UNDECLARED_INDEX",
+            "ANNOTATION_NOT_APPLIED"
+          ]
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "reason"
+      ]
+    },
+    "CloudAppCollectionWarning": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "REQUIRED_NOT_ENFORCED",
+            "INDEX_BUILD_FAILED",
+            "OLD_WRITERS_REJECTED"
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ]
+    },
+    "CloudAppCollectionEnsureResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "alias": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,62}$",
+          "description": "App 内集合别名，不区分大小写唯一；与 src/data/collections.ts 的 alias 一致。"
+        },
+        "collectionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "nullable": true
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "created",
+            "unchanged",
+            "widened"
+          ]
+        },
+        "ignored": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/CloudAppCollectionSchemaNote"
+          },
+          "maxItems": 100,
+          "description": "声明比存储窄、或命中 retired 而被忽略的差异，仅供日志。"
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/CloudAppCollectionWarning"
+          },
+          "maxItems": 100
+        },
+        "indexStatus": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/IndexState"
+          },
+          "description": "当前索引状态；只有 state=ready 的唯一索引可用于 upsert。"
+        }
+      },
+      "required": [
+        "alias",
+        "collectionId",
+        "revision",
+        "status",
+        "ignored",
+        "warnings",
+        "indexStatus"
+      ]
+    },
+    "CloudAppCollectionsEnsureResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "appId": {
+              "type": "string"
+            },
+            "results": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/CloudAppCollectionEnsureResult"
+              }
+            }
+          },
+          "required": [
+            "appId",
+            "results"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
+    },
+    "CloudAppCollectionConflict": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "alias": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,62}$",
+          "description": "App 内集合别名，不区分大小写唯一；与 src/data/collections.ts 的 alias 一致。"
+        },
+        "collectionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "path": {
+          "type": "string",
+          "description": "Schema 路径：对象属性用 . 连接（属性名中的 . 和 \\ 用 \\ 转义），数组元素用 []，例如 lines.[].discount；空串表示记录根对象。"
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "TYPE_CONFLICT",
+            "LIMIT_EXCEEDED",
+            "OPEN_OBJECT",
+            "ALIAS_IN_USE",
+            "NAME_IN_USE",
+            "INVALID_INDEX",
+            "JOIN_UNSUPPORTED",
+            "DATA_RULE_FIELD"
+          ]
+        },
+        "current": {
+          "type": "string"
+        },
+        "declared": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "alias",
+        "path",
+        "reason"
+      ]
+    },
+    "CloudAppCollectionsSchemaReplaceReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "alias": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,62}$",
+          "description": "App 内集合别名，不区分大小写唯一；与 src/data/collections.ts 的 alias 一致。"
+        },
+        "recordSchema": {
+          "$ref": "#/components/schemas/Schema"
+        },
+        "indexes": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/components/schemas/IndexSpec"
+          },
+          "description": "按请求精确替换索引，[] 删除全部索引。"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "dryRun": {
+          "type": "boolean",
+          "default": false,
+          "description": "在可重复读快照上校验全部数据后返回，不写入、不持 App 锁与元数据锁，30s 预算。"
+        }
+      },
+      "required": [
+        "alias",
+        "recordSchema",
+        "indexes",
+        "expectedRevision"
+      ],
+      "description": "worker 显式替换本 App 集合的结构（可收窄）。收窄时逐条校验未删除记录：≤10,000 条且 ≤16MB。删掉的属性和枚举值记入 retired，旧代码 ensure 不会加回。运行时代码不得调用（Scaffold 门禁）。"
+    },
+    "CloudAppCollectionRetired": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "paths": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "Schema 路径：对象属性用 . 连接（属性名中的 . 和 \\ 用 \\ 转义），数组元素用 []，例如 lines.[].discount；空串表示记录根对象。"
+          }
+        },
+        "enumValues": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "type": "string",
+                "description": "Schema 路径：对象属性用 . 连接（属性名中的 . 和 \\ 用 \\ 转义），数组元素用 []，例如 lines.[].discount；空串表示记录根对象。"
+              },
+              "values": {
+                "type": "array",
+                "items": {}
+              }
+            },
+            "required": [
+              "path",
+              "values"
+            ]
+          }
+        }
+      },
+      "required": [
+        "paths",
+        "enumValues"
+      ]
+    },
+    "CloudAppCollectionViolation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "recordId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "path": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "recordId",
+        "path"
+      ]
+    },
+    "CloudAppCollectionsSchemaReplaceResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "alias": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,62}$",
+              "description": "App 内集合别名，不区分大小写唯一；与 src/data/collections.ts 的 alias 一致。"
+            },
+            "collectionId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "unchanged",
+                "widened",
+                "narrowed"
+              ]
+            },
+            "retired": {
+              "$ref": "#/components/schemas/CloudAppCollectionRetired"
+            },
+            "checkedRecords": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "warnings": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/CloudAppCollectionWarning"
+              }
+            },
+            "indexStatus": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/IndexState"
+              }
+            }
+          },
+          "required": [
+            "alias",
+            "collectionId",
+            "revision",
+            "status",
+            "retired",
+            "checkedRecords",
+            "warnings",
+            "indexStatus"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
+    },
+    "CloudAppCollectionAliasReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "alias": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,62}$",
+          "description": "App 内集合别名，不区分大小写唯一；与 src/data/collections.ts 的 alias 一致。"
+        }
+      },
+      "required": [
+        "alias"
+      ]
+    },
+    "CloudAppCollectionStateResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "alias": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,62}$",
+              "description": "App 内集合别名，不区分大小写唯一；与 src/data/collections.ts 的 alias 一致。"
+            },
+            "collectionId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "archived": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "alias",
+            "collectionId",
+            "revision",
+            "archived"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
+    },
+    "CloudAppCollectionsListReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "appId": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36
+        }
+      },
+      "required": [
+        "appId"
+      ]
+    },
+    "CloudAppCollectionView": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "alias": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,62}$",
+          "description": "App 内集合别名，不区分大小写唯一；与 src/data/collections.ts 的 alias 一致。"
+        },
+        "collectionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "parentId": {
+          "type": "string",
+          "nullable": true
+        },
+        "recordSchema": {
+          "$ref": "#/components/schemas/Schema"
+        },
+        "indexes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/IndexSpec"
+          }
+        },
+        "indexStatus": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/IndexState"
+          }
+        },
+        "retired": {
+          "$ref": "#/components/schemas/CloudAppCollectionRetired"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "archived": {
+          "type": "boolean"
+        },
+        "updatedAt": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "alias",
+        "collectionId",
+        "name",
+        "recordSchema",
+        "indexes",
+        "indexStatus",
+        "retired",
+        "revision",
+        "archived",
+        "updatedAt"
+      ]
+    },
+    "CloudAppCollectionsListResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "appId": {
+              "type": "string"
+            },
+            "collections": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/CloudAppCollectionView"
+              }
+            }
+          },
+          "required": [
+            "appId",
+            "collections"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
+    },
     "UnsV2SampleFindReq": {
       "type": "object",
       "additionalProperties": false,
@@ -31655,6 +32507,107 @@
         "updatedAt",
         "documentOperation",
         "projectionIssue"
+      ]
+    },
+    "CloudAppCollectionCreateReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "appId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "alias": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,62}$"
+        },
+        "collection": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "description": {
+              "maxLength": 512,
+              "type": "string"
+            },
+            "indexes": {
+              "items": {
+                "$ref": "#/components/schemas/IndexSpec"
+              },
+              "maxItems": 16,
+              "type": "array"
+            },
+            "name": {
+              "description": "Unique display name; no surrounding whitespace",
+              "maxLength": 63,
+              "minLength": 1,
+              "type": "string"
+            },
+            "recordSchema": {
+              "$ref": "#/components/schemas/Schema"
+            },
+            "sampleSchema": {
+              "$ref": "#/components/schemas/Schema"
+            },
+            "semantics": {
+              "$ref": "#/components/schemas/CollectionSemantics"
+            },
+            "parentId": {
+              "type": "string",
+              "nullable": true,
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "Containing directory ID. Omitted on create or null means root; omitted on update preserves placement. Moving does not change collection identity or data."
+            }
+          },
+          "required": [
+            "name",
+            "recordSchema"
+          ]
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "dryRun": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "appId",
+        "alias",
+        "collection",
+        "idempotencyKey",
+        "dryRun"
+      ]
+    },
+    "CloudAppCollectionCreateResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/components/schemas/Outcome"
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
       ]
     }
   }

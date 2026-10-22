@@ -34,14 +34,14 @@ const capabilities = await tier0.capabilities.discover();
 | `tier0.stream` | Runtime programs、原生文档、校验、部署、回滚与运行记录 |
 | `tier0.uns` | 目录、Topic、Collection、Record、Sample、事务与 App 数据上下文 |
 | `tier0.system` | `whoami()`、`info()` |
-| `tier0.members` | `listWorkspace()`；没有虚构 App 成员接口 |
+| `tier0.members` | `listWorkspace()` 用于 Workspace 级成员选择；`listApp({ appId })` 查询能使用指定 App 的成员 |
 | `tier0.notifications` | `send()`、`get()` |
 | `tier0.files` | `upload()`、`uploadMultipart()`、`url()`、`download()`、`delete()`、`multipart` 原子接口 |
 | `tier0.mqttAuth` | 创建、删除 MQTT 凭证 |
 | `tier0.agent` | `analyses`、`canvases`、`cards`、`jobs`、`jobRuns`、`library`、`nodes`、`relations`、`results` |
 | `tier0.capabilities` | 当前凭证可见的能力发现；就绪状态由服务端判断 |
 | `tier0.controls` | Control 发现、描述、执行及结果未知错误 |
-| `tier0.api` | 50 个普通 OpenAPI 的完整生成接口；通常优先使用上面的领域入口 |
+| `tier0.api` | 51 个普通 OpenAPI 的完整生成接口；通常优先使用上面的领域入口 |
 | `@tier0/sdk-v2/mq` | MQTT WebSocket 客户端与 broker 地址工具；不进入根入口依赖图 |
 | `@tier0/sdk-v2/source` | `createSourceClient()`，独立 Source 客户端 |
 | `@tier0/sdk-v2/stream` | `createStreamClient()`，独立 Stream 客户端 |
@@ -53,7 +53,7 @@ const capabilities = await tier0.capabilities.discover();
 
 ## Source、Stream 与 UNS 分域
 
-Source 负责连接外部系统，Stream 负责处理与运行，UNS 负责命名空间与业务数据。共用底层 98 个公开生成操作，业务入口按领域组织；Control 使用 `tier0.controls` 的专属契约。
+Source 负责连接外部系统，Stream 负责处理与运行，UNS 负责命名空间与业务数据。共用底层 106 个公开生成操作，业务入口按领域组织；Control 使用 `tier0.controls` 的专属契约。
 
 ```ts
 const sources = await tier0.source.documents.list({ page: 1, size: 20 });
@@ -81,7 +81,7 @@ await tier0.uns.recordFind(
 );
 ```
 
-实际集合 ID 和有效权限从平台配置/数据上下文取得。SDK 中存在创建集合的方法，不表示 App 数据 Key 有管理权限；后台内部管理接口不导出到公开 SDK。
+实际集合 ID 和有效权限从平台配置/数据上下文取得。管理操作中，App 凭证只能调用本 App 集合的 `appCollectionsEnsure` / `appCollectionsSchemaReplace` / `appCollectionsArchive` / `appCollectionsRestore`；SDK 中存在 `collectionCreate` 等其他管理方法，不表示 App 凭证有对应权限。App 数据授权 `appDataPolicyGet` / `appDataPolicyUpdate` 的调用方必须是：持有 `uns.write` 的登录会话、持有 `uns.write` 且 full_access、不绑定 App 的 personal / agent Key，或治理会话；运行时 App 凭证不能管理授权。Core-only 后台接口不导出到公开 SDK。
 
 UNS 保留 `{ code, msg, requestId, data }` 完整响应。普通 v1 包装接口返回已解包的 `data`，通知/Control/能力发现返回服务端直接对象。业务错误即使 HTTP 为 200 也会抛出 `ApiError`。
 
@@ -165,7 +165,7 @@ Vue 由 `execute()` 显式执行，后发请求的结果优先；取消不表示
 
 ## 契约更新与验证
 
-上游：`FREEZONEX/Tier0-Backend`，固定提交 `1e93620522caa47869d67e9aea1491a8cda71fa5`。`contracts/upstream.json` 记录来源和 SHA-256。
+上游：`FREEZONEX/Tier0-Backend`，固定提交 `fb35598ae8404e1a64bdc8a500341f12aeff2744`。`contracts/upstream.json` 记录来源和 SHA-256。
 
 ```sh
 npm ci
@@ -179,7 +179,7 @@ npm run check
 
 v1 来自网关 Swagger，并按实际 handler 补齐响应外层；UNS 来自 `contract_generated.go#ContractJSON` 中已经应用 Cloud 扩展的契约，结合 manifest/registry 生成。不能直接使用仍含 Enterprise 基础操作的 `share/unscontract/contract.json` 作为最终云端契约。
 
-`npm run check` 包含契约一致性、Skill 注册及递归引用检查、所有 Skill TypeScript 示例的源码/安装包类型校验、单元和本地 HTTP 测试、ESM/CJS 构建、实际 npm 包安装、浏览器打包及导入验证。完整行为测试还会在独立 consumer 中对已安装的 `.tgz` 再跑一遍，导入目标严格指向包内 `dist`；包内调试映射包含源内容。当前 580 项测试包含全部 148 个公开操作的路由检查。路由检查使用本地 HTTP fixture，不等于每个操作的业务验收。
+`npm run check` 包含契约一致性、Skill 注册及递归引用检查、所有 Skill TypeScript 示例的源码/安装包类型校验、单元和本地 HTTP 测试、ESM/CJS 构建、实际 npm 包安装、浏览器打包及导入验证。完整行为测试还会在独立 consumer 中对已安装的 `.tgz` 再跑一遍，导入目标严格指向包内 `dist`；包内调试映射包含源内容。当前 591 项测试包含全部 157 个公开操作的路由检查。路由检查使用本地 HTTP fixture，不等于每个操作的业务验收。
 
 `tests/skill-workflows.test.ts` 直接提取 Markdown 示例，验证 Source/Stream/UNS 的创建、查询、修改、删除或归档恢复，影响分页和结果未知分支，以及通知请求、状态查询和成员展示。默认检查不调用线上接口。
 
@@ -197,4 +197,4 @@ node scripts/check-live-transports.mjs <consumer> <workspaceId> .tmp/live-transp
 
 写入验收不发布 Stream、不启用 Source、不发送通知。归档资源保留正常产品恢复能力；报告区分通过、服务端拒绝和未验证范围。分片上传失败会保留错误原因，确认尚未尝试 complete 时清理本次会话；完成结果未知时先对账。完整结果见 [2026-10-22 验收报告](docs/acceptance-2026-10-22.md)。
 
-首发前仍需：解决验收报告中的阻断并补齐未验收范围、App 脚手架切换精确依赖 `"@tier0/sdk-v2": "0.1.0"`、新 Skill 上传和 npm 发布授权。App 成员能力等待公开 appId 契约落地后增加，现阶段不承诺该能力。
+首发前仍需：解决验收报告中的阻断并补齐未验收范围、App 脚手架切换精确依赖 `"@tier0/sdk-v2": "0.1.0"`、新 Skill 上传和 npm 发布授权。

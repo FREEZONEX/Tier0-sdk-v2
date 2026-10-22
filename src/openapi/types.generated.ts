@@ -601,6 +601,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/openapi/v1/apps/access-members/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** listAccessMembers */
+        post: operations["openapi/V1/AppsListAccessMembers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/openapi/v1/assets/files": {
         parameters: {
             query?: never;
@@ -1359,6 +1376,59 @@ export interface components {
             skillVersion: string;
             sourceKind: string;
         };
+        AppAccessMemberResp: {
+            email?: string;
+            /** @description 毫秒 */
+            grantedAt: number | bigint;
+            roles: components["schemas"]["AppAccessMemberRoleResp"][];
+            userId: string;
+            userName?: string;
+        };
+        AppAccessMemberRoleResp: {
+            roleId: string;
+            roleKey: string;
+            roleName: string;
+            sources: components["schemas"]["AppAccessRoleSourceResp"][];
+        };
+        AppAccessMembersListReq: {
+            appId: string;
+            /** @description 毫秒，闭区间，精度为秒 */
+            grantedAtEnd?: number | bigint;
+            /** @description 毫秒，闭区间，精度为秒 */
+            grantedAtStart?: number | bigint;
+            page?: number | bigint;
+            /** @description 任一命中即可，大小写不敏感 */
+            roleKeys?: string[];
+            size?: number | bigint;
+        };
+        AppAccessMembersListResp: {
+            /** @description 1:所有 active 成员都可访问 2:按角色授权 */
+            allActiveMembers: number | bigint;
+            appId: string;
+            list: components["schemas"]["AppAccessMemberResp"][];
+            page: number | bigint;
+            productionVersionId?: string;
+            /** @description 1:已发布 2:未发布 */
+            published: number | bigint;
+            roles: components["schemas"]["AppAccessRoleResp"][];
+            size: number | bigint;
+            total: number | bigint;
+        };
+        AppAccessRoleResp: {
+            description?: string;
+            memberCount: number | bigint;
+            roleId: string;
+            roleKey: string;
+            roleName: string;
+            /** @description active / retired */
+            status: string;
+        };
+        AppAccessRoleSourceResp: {
+            groupId?: string;
+            groupName?: string;
+            /** @description direct / group */
+            type: string;
+        };
         AssetFileDeleteReq: {
             filePath: string;
         };
@@ -1869,6 +1939,13 @@ export interface components {
             code: number | bigint;
             msg: string;
             data: components["schemas"]["SdkagentResultsPinData"];
+        };
+        SdkmembersListAppRequest: components["schemas"]["AppAccessMembersListReq"];
+        SdkmembersListAppData: components["schemas"]["AppAccessMembersListResp"];
+        SdkmembersListAppWire: {
+            code: number | bigint;
+            msg: string;
+            data: components["schemas"]["SdkmembersListAppData"];
         };
         SdkassetsFilesPrepareUploadRequest: components["schemas"]["AssetFileUploadReq"];
         SdkassetsFilesPrepareUploadData: components["schemas"]["AssetFileUploadResp"];
@@ -2675,6 +2752,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SdkagentResultsPinWire"];
+                };
+            };
+        };
+    };
+    "openapi/V1/AppsListAccessMembers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppAccessMembersListReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdkmembersListAppWire"];
                 };
             };
         };

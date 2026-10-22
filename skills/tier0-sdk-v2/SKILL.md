@@ -18,7 +18,7 @@ description: 使用 @tier0/sdk-v2 开发或迁移 Tier0 云端 TypeScript/JavaSc
 | 当前凭证、平台信息、功能是否就绪 | `client.system`、`client.capabilities` | [系统](../tier0-sdk-v2-system/SKILL.md) |
 | 附件、头像、导入导出、生成报告 | `client.files` | [文件](../tier0-sdk-v2-files/SKILL.md) |
 | 实时主题订阅/发布 | `@tier0/sdk-v2/mq`、`client.mqttAuth` | [MQTT](../tier0-sdk-v2-mq/SKILL.md) |
-| Workspace 收件人/成员检索 | `client.members` | [成员](../tier0-sdk-v2-members/SKILL.md) |
+| Workspace 收件人/成员检索、App 可用成员 | `client.members` | [成员](../tier0-sdk-v2-members/SKILL.md) |
 | 调用已发布的 Control | `client.controls` | [Controls](../tier0-sdk-v2-controls/SKILL.md) |
 | Agent 作业、运行、分析结果和卡片 | `client.agent` | [Agent](../tier0-sdk-v2-agent/SKILL.md) |
 
