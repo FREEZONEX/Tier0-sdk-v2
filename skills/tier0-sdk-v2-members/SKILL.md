@@ -5,6 +5,8 @@ description: 使用 @tier0/sdk-v2 查询 Tier0 Workspace 成员、搜索用户�
 
 # Workspace 成员查询
 
+参数表、成员选择和有界增量分页见 [Workspace 成员](references/platform-members.md)。v1 的项目成员接口未迁入 v2，不能用 Workspace 列表代替 App 授权名单。
+
 当前公开入口是 `client.members.listWorkspace`。没有 `listApp`、project 成员迁移别名或 App 成员推断功能。使用服务端 API Key；平台授权决定可查询范围。
 
 ## 搜索与展示候选人
@@ -14,12 +16,12 @@ import { createClient } from '@tier0/sdk-v2';
 
 export async function searchMembers(keyword: string, page = 1) {
   const result = await createClient().members.listWorkspace({
-    keyword, page, size: 20,
+    keyword, statuses: ['active'], page, size: 20,
   });
   return {
     list: result.list.map(member => ({
       userId: member.userId,
-      label: member.nickName || member.userName || member.userId,
+      label: member.nickName || member.userName || member.email || '未命名成员',
       email: member.email,
       status: member.status,
       roles: member.roles,

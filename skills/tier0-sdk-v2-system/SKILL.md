@@ -5,6 +5,13 @@ description: 使用 @tier0/sdk-v2 查询 Tier0 凭证身份、平台版本、MQT
 
 # 系统与能力发现
 
+| 任务 | 参考 |
+| --- | --- |
+| 诊断 Key 所属 Workspace 和权限 | [whoami](references/whoami.md) |
+| 查看平台版本、解析 Broker 地址 | [info](references/info.md) |
+
+v1 的内部 reload 接口不属于 v2 公共 SDK，不能在普通诊断时调用。
+
 使用服务端 `createClient()` 或显式传入 apiHost/apiKey。系统排查从只读信息开始，不因功能不可用自动创建 Key、修改权限或部署服务。
 
 ## 最小诊断
