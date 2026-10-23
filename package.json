@@ -148,6 +148,7 @@
     "check:skills": "node scripts/check-skills.mjs && node scripts/check-skill-examples.mjs",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.tests.json",
     "build": "node scripts/build.mjs",
+    "prepare": "npm run build",
     "test": "vitest run",
     "check": "npm run check:contracts && npm run check:skills && npm run typecheck && npm test && npm run build && node scripts/check-package.mjs",
     "prepack": "npm run check:contracts && npm run check:skills && npm run build",
