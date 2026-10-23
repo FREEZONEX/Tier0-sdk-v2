@@ -2,7 +2,7 @@
 
 Tier0 云端新架构的独立 TypeScript / JavaScript SDK。新仓库、新 npm 包，不覆盖 `@tier0/sdk`。
 
-当前版本 `0.1.0` 是待联调的首版源码，尚未发布 npm，也不表示开发环境已部署对应后端。要求 Node.js 20.19+。浏览器 HTTP、MQTT、React、Vue 和服务端身份验签分别提供独立入口。
+当前源码版本 `0.2.0` 对应 UNS v2 契约 5.0.0，与 0.1.0 不兼容（新错误模型 `execution` / `retry`、封顶计数、删除 `recordChangesPoll` 等）；尚未发布 npm，也不表示开发环境已部署对应后端。要求 Node.js 20.19+。浏览器 HTTP、MQTT、React、Vue 和服务端身份验签分别提供独立入口。
 
 ## 安装与初始化
 
@@ -48,7 +48,7 @@ const capabilities = await tier0.capabilities.discover();
 | `@tier0/sdk-v2/react` | `useTier0Query()`、`useTier0Mutation()`，需要 React 和 TanStack Query |
 | `@tier0/sdk-v2/vue` | `useTier0Request()`，需要 Vue 3 |
 | `@tier0/sdk-v2/server` | `createCloudAppRequestVerifier()`，仅服务端加载 `node:crypto` |
-| `@tier0/sdk-v2/data` | App 数据层：`defineCollection()` 声明集合、`createDataClient()` 首次访问时 ensure，Mongo 风格读写、原子批量与 `transact`、员工数据主体透传；仅服务端，需要 `zod` 4 |
+| `@tier0/sdk-v2/data` | App 数据层：`defineCollection()` 声明集合（含 TTL）、`createDataClient()` 首次访问时 ensure，Mongo 风格读写、带总数分页与封顶计数、原子批量与 `transact`、`subscribe` 变更订阅、员工数据主体透传；自动幂等键、并发上限与按 `retry.safe` 重试；仅服务端，需要 `zod` 4 |
 | `@tier0/sdk-v2/data/define` | 集合声明与类型：`defineCollection()`、`Doc` / `NewDoc` 等、`compileCollection()`、`validateDocument()`；可进浏览器包，组件和 route 的客户端代码只从这里取声明和类型 |
 
 不保留 UNS v1、旧 Flow、`getCurrentProjectId()`、project 成员查询或 `/gw/reload`。Workspace 成员不等于能使用某个 App 的成员，不可用前者在客户端猜测 App 权限。
@@ -89,7 +89,7 @@ UNS 保留 `{ code, msg, requestId, data }` 完整响应。普通 v1 包装接�
 
 `int64` 和普通 v1 整数字段使用 `number | bigint`：安全范围内返回 number，超出范围返回 bigint。UNS 任意 JSON 中无法无损表示的数字用 `UnsV2RawNumber`；传回 SDK 可保持原值。对外输出 JSON 时自行确定 bigint/精确数字的表示，不要直接 `JSON.stringify` 包含这些值的对象。
 
-HTTP 操作不自动重试。`UnsV2OutcomeUnknownError`、`ControlResultUnknownError` 或 `ApiError.outcomeUnknown` 表示写操作可能已执行；先查询结果/作业，按业务意图保留原幂等键，不自动生成新键重放。查询与写入均可受配置超时约束。
+`createClient()` 的 HTTP 操作不自动重试。UNS v2 错误带 `execution`（`notStarted` / `rolledBack` / `committed` / `unknown`）与 `retry: { safe, afterMs? }`：`safe` 表示可以用同一请求（同一幂等键）重发。`execution` 为 `unknown` 时抛出 `UnsV2OutcomeUnknownError`；它与 `ControlResultUnknownError`、`ApiError.outcomeUnknown` 一样表示写操作可能已执行，先读回对账，按业务意图保留原幂等键，不自动生成新键重放。查询与写入均可受配置超时约束。App 数据层 `@tier0/sdk-v2/data` 另有自己的策略：每次调用从开始算最多 25 秒（含排队与重试）、每进程最多 6 个并发请求、写入自动生成幂等键、按 `retry.safe` 最多自动重试 2 次；`runWithRequestContext(request, …)` 传入请求本身时，请求中止后排队中的调用不再发出。
 
 ## 通知
 
@@ -199,4 +199,4 @@ node scripts/check-live-transports.mjs <consumer> <workspaceId> .tmp/live-transp
 
 写入验收不发布 Stream、不启用 Source、不发送通知。归档资源保留正常产品恢复能力；报告区分通过、服务端拒绝和未验证范围。分片上传失败会保留错误原因，确认尚未尝试 complete 时清理本次会话；完成结果未知时先对账。完整结果见 [2026-10-22 验收报告](docs/acceptance-2026-10-22.md)。
 
-首发前仍需：解决验收报告中的阻断并补齐未验收范围、App 脚手架切换精确依赖 `"@tier0/sdk-v2": "0.1.0"`、新 Skill 上传和 npm 发布授权。
+首发前仍需：解决验收报告中的阻断并补齐未验收范围、App 脚手架切换精确依赖 `"@tier0/sdk-v2": "0.2.0"`、新 Skill 上传和 npm 发布授权。

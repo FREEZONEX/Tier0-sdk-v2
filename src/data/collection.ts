@@ -61,6 +61,10 @@ interface WriteResult {
   upsertedCount?: number;
   writeErrors?: unknown[];
   hasMore?: boolean;
+}
+
+/** A page of `updateMany` / `deleteMany`, the only writes that continue with `resumeAfter`. */
+interface ManyPage extends WriteResult {
   resumeAfter?: string | null;
 }
 
@@ -73,6 +77,8 @@ export interface CollectionRuntime {
   recover<R>(fn: () => Promise<R>, options?: { retry?: boolean }): Promise<R>;
   /** Data subject of the request being served. */
   subject(): string | undefined;
+  /** Abort signal of the request being served. */
+  signal(): AbortSignal | undefined;
 }
 
 /** Rejects batches UNS would refuse, before anything is sent. */
@@ -185,6 +191,60 @@ export interface FindPageOptions {
   /** At most 200. */
   pageSize?: number;
   projection?: Projection;
+  /** Count matches up to this many (1–100000); UNS defaults to 10000. */
+  maxCount?: number;
+}
+
+/** A match count UNS stopped at its limit: `capped` means "at least `count`". */
+export interface CappedCount {
+  count: number;
+  capped: boolean;
+}
+
+/** UNS reads at most 100 records by ID per request. */
+export const MAX_GET_IDS = 100;
+
+export interface FoundPage<T> {
+  items: WithMeta<T>[];
+  total: CappedCount;
+  page: number;
+  pageSize: number;
+}
+
+export interface ValueCount {
+  value: unknown;
+  count: number;
+}
+
+interface RecordGetResult {
+  items: UnsRecord[];
+  missing: string[];
+}
+
+/** One read of `data.queryBatch`, built by `collection.query.*`. */
+export interface BatchQuery<R> {
+  readonly collection: CollectionDefinition;
+  /** The batch item without `id` and `collectionId`; resolves `$lookup` targets. */
+  prepare(): Promise<Record<string, unknown>>;
+  /** The item's result as the builder's caller sees it. */
+  parse(data: unknown): R;
+}
+
+export interface CollectionQueries<T> {
+  /** First page (≤200, default 20); `maxCount` adds the capped total of all matches. */
+  find(filter?: Filter, options?: { sort?: Sort; limit?: number; projection?: Projection; maxCount?: number }):
+    BatchQuery<{ items: WithMeta<T>[]; hasMore: boolean; total?: CappedCount }>;
+  /** Like `collection.findPage`. */
+  findPage(filter?: Filter, options?: FindPageOptions): BatchQuery<FoundPage<T>>;
+  count(filter?: Filter, options?: { maxCount?: number }): BatchQuery<CappedCount>;
+  /** The 200 most frequent values. */
+  countBy(field: string, filter?: Filter): BatchQuery<ValueCount[]>;
+  /** The first 200 distinct values. */
+  distinct(field: string, filter?: Filter): BatchQuery<unknown[]>;
+  /** The first 200 output rows. */
+  aggregate<R = Record<string, unknown>>(pipeline: Record<string, unknown>[]): BatchQuery<R[]>;
+  /** 1–100 distinct records by ID, as `collection.get`. */
+  get(ids: readonly string[], options?: { projection?: Projection }): BatchQuery<{ items: WithMeta<T>[]; missing: string[] }>;
 }
 
 export interface UpdateOptions {
@@ -211,22 +271,91 @@ function compact<T extends Record<string, unknown>>(value: T): T {
   return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as T;
 }
 
+function filterOrNothing(filter: Filter): Filter | undefined {
+  return Object.keys(filter).length > 0 ? filter : undefined;
+}
+
+/** `recordAggregatePipeline` body of one numbered page with its capped total. */
+function pageRequest(filter: Filter, options: FindPageOptions) {
+  const page = Math.max(1, Math.trunc(options.page ?? 1));
+  const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Math.trunc(options.pageSize ?? 20)));
+  const pipeline: Record<string, unknown>[] = [];
+  if (Object.keys(filter).length > 0) pipeline.push({ $match: filter });
+  const sort = toSortPairs(options.sort);
+  if (sort) pipeline.push({ $sort: sort });
+  if (options.projection) pipeline.push({ $project: options.projection });
+  const body = { pipeline, page: { mode: 'offset', page, size: pageSize }, count: options.maxCount === undefined ? {} : { max: options.maxCount } };
+  return { body, page, pageSize };
+}
+
+function countByPipeline(field: string, filter: Filter): Record<string, unknown>[] {
+  const pipeline: Record<string, unknown>[] = [];
+  if (Object.keys(filter).length > 0) pipeline.push({ $match: filter });
+  // `_id` breaks ties, so offset pages of equal counts neither repeat nor skip a group.
+  pipeline.push({ $group: { _id: `$${field}`, count: { $sum: 1 } } }, { $sort: { count: -1, _id: 1 } });
+  return pipeline;
+}
+
+const toValueCount = (row: { _id: unknown; count: number }): ValueCount => ({ value: row._id ?? null, count: row.count });
+
 function idsInOrder(ids: Record<string, string> | undefined): string[] {
   return Object.entries(ids ?? {})
     .sort(([a], [b]) => Number(a) - Number(b))
     .map(([, id]) => id);
 }
 
-function assertNoWriteErrors(result: WriteResult, operation: string, committed: Record<string, number> = {}) {
+/**
+ * Atomic batches pass no `committed` counts: their write errors rolled the
+ * whole batch back. Non-atomic runs pass their cumulative counts; `details`
+ * then has the shape `partialWrite` uses.
+ */
+function assertNoWriteErrors(result: ManyPage, operation: string, committed?: Record<string, number>) {
   if (result.writeErrors && result.writeErrors.length > 0) {
-    const counts = Object.entries(committed).map(([name, value]) => `${name}=${value}`).join(', ');
+    const counts = Object.entries(committed ?? {}).map(([name, value]) => `${name}=${value}`).join(', ');
+    const changed = committed !== undefined && Object.values(committed).some((value) => value > 0);
     throw new DataError({
       message: `${operation} stopped on ${result.writeErrors.length} write error(s)${counts ? `; already committed: ${counts}` : ''}.`,
       status: 409,
       code: 'WRITE_ERRORS',
-      details: { writeErrors: result.writeErrors, committed },
+      execution: changed ? 'committed' : 'rolledBack',
+      attempts: 1,
+      details: committed
+        ? { ...committed, status: changed ? 'partiallyCommitted' : 'failed', hasMore: Boolean(result.hasMore), resumeAfter: result.resumeAfter ?? null, writeErrors: result.writeErrors }
+        : { writeErrors: result.writeErrors },
     });
   }
+}
+
+/**
+ * A non-atomic run failed after some writes committed: on an earlier page, or
+ * within the failed page (UNS then answers `execution: "committed"` with the
+ * page's partial result as `data`). Like UNS, the error keeps its code and is
+ * `committed` with `retry.safe: false`; `details` is the cumulative result
+ * of the whole call in the shape of a success (`matchedCount` …, `status:
+ * "partiallyCommitted"`, `hasMore`, `resumeAfter`). Continue by passing
+ * `resumeAfter` back; repeating the call would apply `$inc` / `$push` twice.
+ */
+function partialWrite(operation: string, totals: Record<string, number>, resumeAfter: string | undefined, cause: DataError): DataError {
+  const counts = Object.entries(totals).map(([name, value]) => `${name}=${value}`).join(', ');
+  const writeErrors = Array.isArray(cause.details.writeErrors) ? { writeErrors: cause.details.writeErrors } : {};
+  return new DataError({
+    message:
+      `${operation} committed ${counts} and then failed: ${cause.message} ` +
+      (resumeAfter
+        ? `Continue with { resumeAfter: details.resumeAfter }${cause.outcomeUnknown ? ' after checking the failed page, whose outcome is unknown' : ''}; do not repeat the whole call.`
+        : 'Read back what changed before writing again; do not repeat the whole call.'),
+    status: cause.status,
+    code: cause.code,
+    reason: cause.reason,
+    upstreamStatus: cause.upstreamStatus,
+    requestId: cause.requestId,
+    // Earlier writes took effect; the failed page too, perhaps, when its outcome is unknown.
+    execution: cause.outcomeUnknown ? 'unknown' : 'committed',
+    retry: { safe: false },
+    attempts: cause.attempts,
+    details: { ...totals, status: 'partiallyCommitted', hasMore: true, resumeAfter: resumeAfter ?? null, ...writeErrors },
+    cause,
+  });
 }
 
 export class Collection<T extends object = Record<string, unknown>, TInput extends object = T> {
@@ -252,7 +381,11 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
 
   private async send<R>(operation: UnsV2OperationName, body: Record<string, unknown>, options: CallOptions = {}): Promise<R> {
     const collectionId = await this.runtime.resolve(this.definition);
-    return this.runtime.call<R>(operation, { collectionId, ...compact(body) }, { dataSubject: this.runtime.subject(), ...options });
+    return this.runtime.call<R>(operation, { collectionId, ...compact(body) }, {
+      dataSubject: this.runtime.subject(),
+      signal: this.runtime.signal(),
+      ...options,
+    });
   }
 
   /* ---------------------------------- reads --------------------------------- */
@@ -279,32 +412,113 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
   }
 
   /**
-   * One numbered page plus the total match count, for paged list screens.
-   * Uses `recordAggregatePipeline` offset paging.
+   * Records by ID, in the order asked for (each ID once, at its first
+   * position); IDs that do not exist, are deleted or are hidden by employee
+   * data rules are listed in `missing` alike. More than 100 IDs are read in
+   * chunks of 100 (not one snapshot).
    */
-  async findPage(
-    filter: Filter = {},
-    options: FindPageOptions = {},
-  ): Promise<{ items: WithMeta<T>[]; total: number; page: number; pageSize: number }> {
-    const page = Math.max(1, Math.trunc(options.page ?? 1));
-    const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Math.trunc(options.pageSize ?? 20)));
-    const pipeline: Record<string, unknown>[] = [];
-    if (Object.keys(filter).length > 0) pipeline.push({ $match: filter });
-    const sort = toSortPairs(options.sort);
-    if (sort) pipeline.push({ $sort: sort });
-    if (options.projection) pipeline.push({ $project: options.projection });
-    const [rows, total] = await Promise.all([
-      this.post<{ items: WithMeta<T>[] }>('recordAggregatePipeline', { pipeline, page: { mode: 'offset', page, size: pageSize } }),
-      this.countDocuments(filter),
-    ]);
-    return { items: rows.items, total, page, pageSize };
+  async get(ids: readonly string[], options: { projection?: Projection } = {}): Promise<{ items: WithMeta<T>[]; missing: string[] }> {
+    const unique = [...new Set(ids)];
+    const chunks: string[][] = [];
+    for (let start = 0; start < unique.length; start += MAX_GET_IDS) chunks.push(unique.slice(start, start + MAX_GET_IDS));
+    const results = await Promise.all(chunks.map((chunk) =>
+      this.post<RecordGetResult>('recordGet', { ids: chunk, projection: options.projection })));
+    return {
+      items: results.flatMap((result) => result.items.map((record) => toDoc<T>(record))),
+      missing: results.flatMap((result) => result.missing),
+    };
   }
 
-  async countDocuments(filter: Filter = {}): Promise<number> {
-    const result = await this.post<{ count: number }>('recordCount', {
-      filter: Object.keys(filter).length > 0 ? filter : undefined,
+  /**
+   * One numbered page plus the total match count, for paged list screens:
+   * one `recordAggregatePipeline` offset page whose `count` runs in the same
+   * snapshot. Show a capped total as "10000+".
+   */
+  async findPage(filter: Filter = {}, options: FindPageOptions = {}): Promise<FoundPage<T>> {
+    const { body, page, pageSize } = pageRequest(filter, options);
+    const result = await this.post<{ items: WithMeta<T>[]; total: CappedCount }>('recordAggregatePipeline', body);
+    return { items: result.items, total: result.total, page, pageSize };
+  }
+
+  /**
+   * Counts matches up to `maxCount` (1–100000, UNS default 100000). A
+   * `capped` result means "at least `count`".
+   */
+  async countDocuments(filter: Filter = {}, options: { maxCount?: number } = {}): Promise<CappedCount> {
+    const result = await this.post<CappedCount>('recordCount', { filter: filterOrNothing(filter), maxCount: options.maxCount });
+    return { count: result.count, capped: result.capped };
+  }
+
+  /**
+   * Match counts per value of `field`, largest first: one `$group` pipeline
+   * instead of a count per value. Records without the field count under
+   * `value: null`.
+   */
+  async countBy(field: string, filter: Filter = {}): Promise<ValueCount[]> {
+    const rows = await this.aggregate<{ _id: unknown; count: number }>(countByPipeline(field, filter)).toArray();
+    return rows.map(toValueCount);
+  }
+
+  /**
+   * Builders for `data.queryBatch`: each describes one read of this
+   * collection, run together with the others in one request and one
+   * snapshot. Each returns one page (at most 200 rows), unlike the cursor
+   * methods; `get` takes at most 100 IDs.
+   */
+  get query(): CollectionQueries<T> {
+    const one = <R>(op: string, build: () => Promise<Record<string, unknown>>, parse: (data: never) => R): BatchQuery<R> => ({
+      collection: this.definition,
+      prepare: async () => ({ op, ...compact(await build()) }),
+      parse: parse as (data: unknown) => R,
     });
-    return result.count;
+    return {
+      find: (filter = {}, options = {}) =>
+        one('find', async () => ({
+          filter: filterOrNothing(filter),
+          sort: toSortPairs(options.sort),
+          projection: options.projection,
+          limit: Math.min(MAX_PAGE_SIZE, options.limit ?? 20),
+          count: options.maxCount === undefined ? undefined : { max: options.maxCount },
+        }), (data: { items: UnsRecord[]; pageInfo: PageInfo; total?: CappedCount }) => ({
+          items: data.items.map((record) => toDoc<T>(record)),
+          hasMore: data.pageInfo.hasMore,
+          ...(data.total ? { total: data.total } : {}),
+        })),
+      findPage: (filter = {}, options = {}) => {
+        const { body, page, pageSize } = pageRequest(filter, options);
+        return one('aggregate', async () => body, (data: { items: WithMeta<T>[]; total: CappedCount }) => ({
+          items: data.items, total: data.total, page, pageSize,
+        }));
+      },
+      count: (filter = {}, options = {}) =>
+        one('count', async () => ({ filter: filterOrNothing(filter), maxCount: options.maxCount }),
+          (data: CappedCount) => ({ count: data.count, capped: data.capped })),
+      countBy: (field, filter = {}) =>
+        one('aggregate', async () => ({
+          pipeline: await this.prepareStages(countByPipeline(field, filter)),
+          page: { mode: 'offset', page: 1, size: MAX_PAGE_SIZE },
+        }), (data: { items: { _id: unknown; count: number }[] }) => data.items.map(toValueCount)),
+      distinct: (field, filter = {}) =>
+        one('distinct', async () => ({ field, filter: filterOrNothing(filter), page: { mode: 'offset', page: 1, size: MAX_PAGE_SIZE } }),
+          (data: { values: unknown[] }) => data.values),
+      aggregate: <R = Record<string, unknown>>(pipeline: Record<string, unknown>[]) =>
+        one('aggregate', async () => {
+          const stages = await this.prepareStages(pipeline);
+          const last = stages[stages.length - 1];
+          // A final $count returns one row and forbids an explicit page.
+          return last !== undefined && '$count' in last
+            ? { pipeline: stages }
+            : { pipeline: stages, page: isDirectPipeline(stages) ? { mode: 'cursor', size: MAX_PAGE_SIZE } : { mode: 'offset', page: 1, size: MAX_PAGE_SIZE } };
+        }, (data: { items: R[] }) => data.items),
+      get: (ids, options = {}) => {
+        const unique = [...new Set(ids)];
+        if (unique.length < 1 || unique.length > MAX_GET_IDS) {
+          throw new TypeError(`query.get takes 1–${MAX_GET_IDS} distinct IDs; use collection.get for more.`);
+        }
+        return one('get', async () => ({ ids: unique, projection: options.projection }),
+          (data: RecordGetResult) => ({ items: data.items.map((record) => toDoc<T>(record)), missing: data.missing }));
+      },
+    };
   }
 
   /** Distinct values of a field (every page). */
@@ -433,32 +647,55 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
   /**
    * Updates every match like Mongo's updateMany: documents commit one by one
    * (not atomically), following `resumeAfter` until every match is processed.
-   * A failure stops the run and reports the counts already committed. For
-   * all-or-nothing multi-document changes use `data.transact` (≤200 items).
+   * A failure after some documents committed keeps its code but is
+   * `execution: "committed"`, with the cumulative counts and
+   * `details.resumeAfter`; pass that back as `resumeAfter` to continue
+   * instead of repeating the call. For all-or-nothing multi-document changes
+   * use `data.transact` (≤200 items).
    */
   async updateMany(
     filter: Filter,
     update: Update,
-    options: Pick<UpdateOptions, 'arrayFilters'> = {},
+    options: Pick<UpdateOptions, 'arrayFilters'> & { resumeAfter?: string } = {},
   ): Promise<{ matchedCount: number; modifiedCount: number }> {
     const validated = validateUpdate(this.definition, update);
     let matchedCount = 0;
     let modifiedCount = 0;
-    let resumeAfter: string | undefined;
-    do {
-      const result: WriteResult = await this.post<WriteResult>('recordUpdateMany', {
-        filter,
-        update: validated,
-        arrayFilters: options.arrayFilters,
-        atomic: false,
-        resumeAfter,
-      });
+    await this.writeEach('updateMany', 'recordUpdateMany', { filter, update: validated, arrayFilters: options.arrayFilters }, options.resumeAfter, (result) => {
       matchedCount += result.matchedCount ?? 0;
       modifiedCount += result.modifiedCount ?? 0;
-      assertNoWriteErrors(result, 'updateMany', { matchedCount, modifiedCount });
+      return { matchedCount, modifiedCount };
+    });
+    return { matchedCount, modifiedCount };
+  }
+
+  /** Runs a non-atomic many-write page by page; see updateMany for failures. */
+  private async writeEach(
+    name: string,
+    operation: UnsV2OperationName,
+    body: Record<string, unknown>,
+    from: string | undefined,
+    add: (result: WriteResult) => Record<string, number>,
+  ): Promise<void> {
+    let resumeAfter = from;
+    let committed: Record<string, number> | undefined;
+    do {
+      let result: ManyPage;
+      try {
+        result = await this.post<ManyPage>(operation, { ...body, atomic: false, resumeAfter });
+      } catch (error) {
+        if (!(error instanceof DataError)) throw error;
+        // UNS reports what the failed page itself committed, with where to continue.
+        const page = error.execution === 'committed' ? (error.details as ManyPage) : undefined;
+        const totals = page ? add(page) : committed;
+        // Nothing of this call took effect: the page's own error tells the truth.
+        if (!totals || !Object.values(totals).some((value) => value > 0)) throw error;
+        throw partialWrite(name, totals, page ? (page.resumeAfter ?? undefined) : resumeAfter, error);
+      }
+      committed = add(result);
+      assertNoWriteErrors(result, name, committed);
       resumeAfter = result.hasMore && result.resumeAfter ? result.resumeAfter : undefined;
     } while (resumeAfter);
-    return { matchedCount, modifiedCount };
   }
 
   /**
@@ -493,17 +730,15 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
 
   /**
    * Soft-deletes every match, one document at a time like Mongo's deleteMany
-   * (not atomic), following `resumeAfter`; requires `uns.delete` on the App key.
+   * (not atomic), following `resumeAfter`; requires `uns.delete` on the App
+   * key. Failures after committed deletes report them as updateMany does.
    */
-  async deleteMany(filter: Filter): Promise<{ deletedCount: number }> {
+  async deleteMany(filter: Filter, options: { resumeAfter?: string } = {}): Promise<{ deletedCount: number }> {
     let deletedCount = 0;
-    let resumeAfter: string | undefined;
-    do {
-      const result: WriteResult = await this.post<WriteResult>('recordDeleteMany', { filter, atomic: false, resumeAfter });
+    await this.writeEach('deleteMany', 'recordDeleteMany', { filter }, options.resumeAfter, (result) => {
       deletedCount += result.deletedCount ?? 0;
-      assertNoWriteErrors(result, 'deleteMany', { deletedCount });
-      resumeAfter = result.hasMore && result.resumeAfter ? result.resumeAfter : undefined;
-    } while (resumeAfter);
+      return { deletedCount };
+    });
     return { deletedCount };
   }
 

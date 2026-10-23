@@ -33,6 +33,7 @@ export interface NormalizedIndex {
   paths?: string[];
   unique?: true;
   kind?: 'gin';
+  expireAfterSeconds?: number;
 }
 
 /** One ensure item, exactly as it is sent to `/uns/app/collections/ensure`. */
@@ -74,6 +75,9 @@ export const SCHEMA_LIMITS = {
   description: 2048,
   indexes: 16,
   indexPaths: 3,
+  ttlIndexes: 1,
+  minExpireAfterSeconds: 60,
+  maxExpireAfterSeconds: 31_536_000,
 } as const;
 
 const SAFE_INTEGER_BOUND = Number.MAX_SAFE_INTEGER;
@@ -389,9 +393,24 @@ function indexPathProblem(alias: string, schema: RecordSchema, path: string, kin
   return null;
 }
 
+/** A TTL index expires records by one integer field of Unix milliseconds. */
+function ttlProblem(alias: string, schema: RecordSchema, index: IndexSpec, kind: 'btree' | 'gin'): string | null {
+  const seconds = index.expireAfterSeconds as number;
+  if (!Number.isInteger(seconds) || seconds < SCHEMA_LIMITS.minExpireAfterSeconds || seconds > SCHEMA_LIMITS.maxExpireAfterSeconds) {
+    return `\`expireAfterSeconds\` is an integer from ${SCHEMA_LIMITS.minExpireAfterSeconds} to ${SCHEMA_LIMITS.maxExpireAfterSeconds} (one year).`;
+  }
+  if (index.path === undefined || kind !== 'btree' || index.unique) return 'A TTL index covers a single `path` and is neither unique nor GIN.';
+  const target = recordSchemaAt(schema, index.path);
+  if (target?.type !== 'integer') {
+    return `TTL field "${index.path}" of "${alias}" must be declared \`z.number().int()\` holding Unix milliseconds (e.g. \`Date.now()\`).`;
+  }
+  return null;
+}
+
 function normalizeIndexes(alias: string, indexes: readonly IndexSpec[], schema: RecordSchema, issues: SchemaIssue[]): NormalizedIndex[] {
   const out: NormalizedIndex[] = [];
   const seen = new Set<string>();
+  let ttl = 0;
   if (indexes.length > SCHEMA_LIMITS.indexes) {
     issues.push({ path: 'indexes', message: `At most ${SCHEMA_LIMITS.indexes} indexes per collection.` });
   }
@@ -426,16 +445,31 @@ function normalizeIndexes(alias: string, indexes: readonly IndexSpec[], schema: 
         return;
       }
     }
+    if (index.expireAfterSeconds !== undefined) {
+      const problem = ttlProblem(alias, schema, index, kind);
+      if (problem) {
+        issues.push({ path: at, message: problem });
+        return;
+      }
+      ttl += 1;
+      if (ttl > SCHEMA_LIMITS.ttlIndexes) {
+        issues.push({ path: at, message: 'A collection has at most one TTL index (`expireAfterSeconds`).' });
+        return;
+      }
+    }
     const normalized: NormalizedIndex = index.paths ? { paths: [...paths] } : { path: paths[0] };
     if (index.unique) normalized.unique = true;
     if (kind === 'gin') normalized.kind = 'gin';
+    if (index.expireAfterSeconds !== undefined) normalized.expireAfterSeconds = index.expireAfterSeconds;
     const key = JSON.stringify(normalized);
     if (!seen.has(key)) {
       seen.add(key);
       out.push(normalized);
     }
   });
-  return out;
+  // A TTL index is an ordinary B-tree on its path as well: a plain index on the same path would duplicate it.
+  const ttlPaths = new Set(out.filter((index) => index.expireAfterSeconds !== undefined).map((index) => index.path));
+  return out.filter((index) => index.expireAfterSeconds !== undefined || index.unique || index.kind || !ttlPaths.has(index.path));
 }
 
 const compiled = new WeakMap<CollectionDefinition, CompiledCollection>();

@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createUnsV2Client, createClient, UNS_V2_CODEC_SCHEMAS, UNS_V2_CONTRACT_PROVENANCE, UNS_V2_OPERATIONS, UnsV2Error, UnsV2OutcomeUnknownError, UnsV2RawNumber } from '../../src/index.js';
+import { createUnsV2Client, createClient, UNS_V2_CODEC_SCHEMAS, UNS_V2_CONTRACT_PROVENANCE, UNS_V2_OPERATIONS, UNS_V2_STREAM_OPERATIONS, UnsV2Error, UnsV2OutcomeUnknownError, UnsV2RawNumber } from '../../src/index.js';
 import { CloudTransport } from '../../src/cloud-transport.js';
 import { HttpClient } from '../../src/openapi/client.js';
 import type { UnsV2Response } from '../../src/uns-v2/generated.js';
@@ -192,7 +192,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
     const error = await createClient({ apiHost, apiKey: 'workspace-bound-key', unsV2AppDataSubject: proof, transportTimeoutMs: 150 })
       .uns.recordInsertOne({ collectionId: 'orders', data: {} }).catch(value => value);
     expect(error).toBeInstanceOf(UnsV2OutcomeUnknownError);
-    expect(error).toMatchObject({ retryable: false, code: kind === 'socket' ? 'UNS_V2_TRANSPORT_ERROR' :
+    expect(error).toMatchObject({ execution: 'unknown', retry: { safe: false }, outcomeUnknown: true, code: kind === 'socket' ? 'UNS_V2_TRANSPORT_ERROR' :
       kind === 'timeout' ? 'UNS_V2_TRANSPORT_TIMEOUT' : 'UNS_V2_PROTOCOL_ERROR' });
     const diagnostic = `${String(error)}\n${error.stack}\n${JSON.stringify(error)}`;
     for (const sensitive of [proof, 'private_subject', 'private_signature', 'workspace-bound-key']) {
@@ -335,17 +335,18 @@ describe('UNS v2 localhost HTTP fixture', () => {
     for (const name of ['CloudSourceCredentialCreateReq', 'CloudSourceCredentialCreateResponse', 'CloudSourceIngressGetReq', 'CloudSourceIngressRotateReq']) {
       expect(Object.hasOwn(UNS_V2_CODEC_SCHEMAS, name)).toBe(false);
     }
-    expect(UNS_V2_CONTRACT_PROVENANCE.version).toBe('4.0.0');
+    expect(UNS_V2_CONTRACT_PROVENANCE.version).toBe('5.0.0');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudContractRevision.split('+')).toEqual(expect.arrayContaining([
       'cloud-source-impact/1', 'app-create-capability/1', 'data/3', 'collection-namespace/1', 'http-acquisition/2',
       'app-collection/2', 'metadata/1', 'app-data/2', 'hosted-control/1', 'source-bindings/1',
       'record-notifications/1', 'record-delete-samples/1', 'stream-history/1',
+      'record-reads/1', 'app-context/2', 'collection-ttl/1', 'error-model/1',
     ]));
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('8d9fe632e958811778041398c4c3454a28c494bc');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('c665d82c5ff1f6744391226a206a3b17c4a90529');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(UNS_V2_CONTRACT_PROVENANCE.sourceDerivedContractSHA256).toBe(UNS_V2_CONTRACT_PROVENANCE.hashes.contract);
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(100);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(113);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(101);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(115);
     expect(received.slice(start)).toHaveLength(1);
   });
 
@@ -561,13 +562,14 @@ describe('UNS v2 localhost HTTP fixture', () => {
     const start = received.length;
     respond = (_req, res) => send(res, {
       code: 409, msg: 'locked', requestId: 'lease-conflict', data: null,
-      error: { code: 'LOCK_CONFLICT', retryable: false, details: [],
-        retryAdvice: { recommendedAction: 'doNotRetry', canRetrySameRequest: false, keepIdempotencyKey: true } },
+      error: { code: 'LOCK_CONFLICT', details: [], execution: 'rolledBack', retry: { safe: false } },
     }, 409);
     await expect(client().uns.recordInsertOne({
       collectionId: 'orders', id: 'order-1', data: { total: 10 },
       idempotencyKey: 'write-intent', assertLocks: [{ collectionId: 'stock', id: 'part-1', token: 'lease' }],
-    })).rejects.toMatchObject({ name: 'UnsV2Error', status: 409, code: 'LOCK_CONFLICT', requestId: 'lease-conflict', retryable: false });
+    })).rejects.toMatchObject({
+      name: 'UnsV2Error', status: 409, code: 'LOCK_CONFLICT', requestId: 'lease-conflict', execution: 'rolledBack', retry: { safe: false },
+    });
     expect(received.slice(start)).toHaveLength(1);
     expect(received[start].path).toBe('/openapi/v2/uns/collections/orders/records');
     expect(JSON.parse(received[start].body).assertLocks).toEqual([{ collectionId: 'stock', id: 'part-1', token: 'lease' }]);
@@ -620,30 +622,78 @@ describe('UNS v2 localhost HTTP fixture', () => {
     expect(received.length - start).toBe(1);
   });
 
-  it('preserves transaction retry advice without automatically retrying', async () => {
+  it('raises a server-reported unknown outcome as UnsV2OutcomeUnknownError with its retry advice, without retrying', async () => {
     const start = received.length;
     respond = (_req, res) => send(res, {
-      code: 409, msg: 'status first', requestId: 'req-conflict', data: null,
-      error: {
-        code: 'TRANSACTION_OUTCOME_UNKNOWN', retryable: false, rolledBack: false, details: [],
-        retryAdvice: {
-          recommendedAction: 'queryOriginalTransactionStatusDoNotReplaceKey',
-          canRetrySameRequest: false,
-          keepIdempotencyKey: true,
-        },
-      },
-    }, 409);
+      code: 503, msg: 'commit unconfirmed', requestId: 'req-unknown', data: null,
+      error: { code: 'OUTCOME_UNKNOWN', details: [], execution: 'unknown', retry: { safe: true, afterMs: 1000 }, repair: 'replay with the same key' },
+    }, 503);
     const error = await client().uns.metadataTransact({
       idempotencyKey: 'intent-1', operations: [{ opId: 'root', action: 'insertOne', kind: 'directory', id: 'root', data: { name: 'Root' } }],
     }).catch(value => value);
-    expect(error).toBeInstanceOf(UnsV2Error);
-    expect(error).not.toBeInstanceOf(UnsV2OutcomeUnknownError);
+    expect(error).toBeInstanceOf(UnsV2OutcomeUnknownError);
     expect(error).toMatchObject({
-      status: 409, operation: 'metadataTransact', code: 'TRANSACTION_OUTCOME_UNKNOWN', retryable: false,
-      rolledBack: false,
-      retryAdvice: { recommendedAction: 'queryOriginalTransactionStatusDoNotReplaceKey', canRetrySameRequest: false, keepIdempotencyKey: true },
+      status: 503, operation: 'metadataTransact', code: 'OUTCOME_UNKNOWN', requestId: 'req-unknown',
+      execution: 'unknown', retry: { safe: true, afterMs: 1000 }, repair: 'replay with the same key', outcomeUnknown: true,
     });
     expect(received.length - start).toBe(1);
+  });
+
+  it('keeps a rolled-back write a plain UnsV2Error', async () => {
+    respond = (_req, res) => send(res, {
+      code: 429, msg: 'overloaded', requestId: 'req-busy', data: null,
+      error: { code: 'OVERLOADED', details: [], execution: 'notStarted', retry: { safe: true, afterMs: 1500 } },
+    }, 429);
+    const error = await client().uns.recordInsertOne({ collectionId: 'orders', data: {} }).catch(value => value);
+    expect(error).toBeInstanceOf(UnsV2Error);
+    expect(error).not.toBeInstanceOf(UnsV2OutcomeUnknownError);
+    expect(error).toMatchObject({ status: 429, code: 'OVERLOADED', execution: 'notStarted', retry: { safe: true, afterMs: 1500 }, outcomeUnknown: false });
+  });
+
+  it.each([
+    ['the removed retryable/retryAdvice model', { code: 'FORBIDDEN', retryable: false, details: [], retryAdvice: { recommendedAction: 'doNotRetry', canRetrySameRequest: false, keepIdempotencyKey: false } }],
+    ['an unknown execution', { code: 'FORBIDDEN', details: [], execution: 'partial', retry: { safe: false } }],
+    ['a retry without safe', { code: 'FORBIDDEN', details: [], execution: 'notStarted', retry: {} }],
+  ])('rejects an error body with %s as a protocol error', async (_name, body) => {
+    respond = (_req, res) => send(res, { code: 403, msg: 'old', requestId: 'req-old', data: null, error: body }, 403);
+    await expect(client().uns.recordFind({ collectionId: 'orders' })).rejects.toMatchObject({
+      name: 'UnsV2Error', status: 403, code: 'UNS_V2_PROTOCOL_ERROR', execution: 'rolledBack', retry: { safe: false },
+    });
+  });
+
+  it.each([502, 503, 504])('marks an unenveloped %s safe to resend for a read only', async status => {
+    respond = (_req, res) => { res.writeHead(status); res.end('<html>bad gateway</html>'); };
+    await expect(client().uns.recordFind({ collectionId: 'orders' })).rejects.toMatchObject({
+      name: 'UnsV2Error', status, code: 'UNS_V2_PROTOCOL_ERROR', execution: 'rolledBack', retry: { safe: true },
+    });
+    await expect(client().uns.recordInsertOne({ collectionId: 'orders', data: {} })).rejects.toMatchObject({
+      name: 'UnsV2OutcomeUnknownError', status, code: 'UNS_V2_PROTOCOL_ERROR', execution: 'unknown', retry: { safe: false },
+    });
+  });
+
+  it('never reports an unknown outcome for a read', async () => {
+    respond = (_req, res) => send(res, { code: 503, msg: 'odd', requestId: 'req-read', data: null,
+      error: { code: 'TEMPORARILY_UNAVAILABLE', details: [], execution: 'unknown', retry: { safe: true } } }, 503);
+    const error = await client().uns.recordFind({ collectionId: 'orders' }).catch(value => value);
+    expect(error).not.toBeInstanceOf(UnsV2OutcomeUnknownError);
+    expect(error).toMatchObject({ execution: 'rolledBack', outcomeUnknown: false });
+  });
+
+  it.each([401, 413])('treats an unenveloped %s from an intermediary as not started, even for a write', async status => {
+    respond = (_req, res) => { res.writeHead(status, { 'Content-Type': 'text/html' }); res.end('<html>edge</html>'); };
+    const error = await client().uns.recordInsertOne({ collectionId: 'orders', data: {} }).catch(value => value);
+    expect(error).not.toBeInstanceOf(UnsV2OutcomeUnknownError);
+    expect(error).toMatchObject({ status, code: 'UNS_V2_PROTOCOL_ERROR', execution: 'notStarted', retry: { safe: false } });
+  });
+
+  it('keeps an unenveloped 408 unknown for a write', async () => {
+    respond = (_req, res) => { res.writeHead(408); res.end('timeout'); };
+    await expect(client().uns.recordInsertOne({ collectionId: 'orders', data: {} })).rejects.toMatchObject({ name: 'UnsV2OutcomeUnknownError', execution: 'unknown' });
+  });
+
+  it('reads Retry-After of an unenveloped 503 for a read', async () => {
+    respond = (_req, res) => { res.writeHead(503, { 'Retry-After': '2' }); res.end('busy'); };
+    await expect(client().uns.recordFind({ collectionId: 'orders' })).rejects.toMatchObject({ retry: { safe: true, afterMs: 2000 } });
   });
 
   it('requires canonical HTTP 200 and envelope code 200 for success', async () => {
@@ -656,7 +706,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
         code: testCase.code, msg: 'not canonical', requestId: 'req-mismatch', data: { results: [] },
       }, testCase.status);
       await expect(client().uns.recordFind({ collectionId: 'orders' })).rejects.toMatchObject({
-        name: 'UnsV2Error', status: testCase.status, code: 'UNS_V2_PROTOCOL_ERROR', retryable: false,
+        name: 'UnsV2Error', status: testCase.status, code: 'UNS_V2_PROTOCOL_ERROR', execution: 'rolledBack',
       });
     }
   });
@@ -664,13 +714,10 @@ describe('UNS v2 localhost HTTP fixture', () => {
   it('requires a non-success envelope code to match its HTTP status', async () => {
     respond = (_req, res) => send(res, {
       code: 403, msg: 'mismatched', requestId: 'req-mismatch', data: null,
-      error: {
-        code: 'FORBIDDEN', retryable: false, details: [],
-        retryAdvice: { recommendedAction: 'doNotRetry', canRetrySameRequest: false, keepIdempotencyKey: false },
-      },
+      error: { code: 'FORBIDDEN', details: [], execution: 'notStarted', retry: { safe: false } },
     }, 500);
     await expect(client().uns.recordFind({ collectionId: 'orders' })).rejects.toMatchObject({
-      name: 'UnsV2Error', status: 500, code: 'UNS_V2_PROTOCOL_ERROR', retryable: false,
+      name: 'UnsV2Error', status: 500, code: 'UNS_V2_PROTOCOL_ERROR', retry: { safe: false },
     });
   });
 
@@ -703,7 +750,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
       res.end('x'.repeat(513));
     };
     await expect(client(2_000, 512).uns.recordFind({ collectionId: 'orders' })).rejects.toMatchObject({
-      name: 'UnsV2Error', status: 200, code: 'UNS_V2_PROTOCOL_ERROR', retryable: false,
+      name: 'UnsV2Error', status: 200, code: 'UNS_V2_PROTOCOL_ERROR', retry: { safe: false },
     });
     await expect.poll(() => closed).toBe(true);
   });
@@ -733,7 +780,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
       lateWrite = setTimeout(() => res.end('z'), 1_000);
     };
     await expect(client(2_000, 512).uns.recordFind({ collectionId: 'orders' })).rejects.toMatchObject({
-      name: 'UnsV2Error', status: 200, code: 'UNS_V2_PROTOCOL_ERROR', retryable: false,
+      name: 'UnsV2Error', status: 200, code: 'UNS_V2_PROTOCOL_ERROR', retry: { safe: false },
     });
     await expect.poll(() => closed).toBe(true);
   });
@@ -746,7 +793,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
       res.write('x');
     };
     await expect(client(2_000, 512).uns.recordFind({ collectionId: 'orders' })).rejects.toMatchObject({
-      name: 'UnsV2Error', status: 200, code: 'UNS_V2_PROTOCOL_ERROR', retryable: false,
+      name: 'UnsV2Error', status: 200, code: 'UNS_V2_PROTOCOL_ERROR', retry: { safe: false },
     });
     await expect.poll(() => closed).toBe(true);
   });
@@ -758,7 +805,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
       dryRun: false, collectionId: 'orders', data: { status: 'new' },
     })).rejects.toMatchObject({
       name: 'UnsV2OutcomeUnknownError', status: 307, operation: 'recordInsertOne',
-      code: 'UNS_V2_PROTOCOL_ERROR', retryable: false, outcomeUnknown: true,
+      code: 'UNS_V2_PROTOCOL_ERROR', execution: 'unknown', outcomeUnknown: true,
     });
     expect(received.length - start).toBe(1);
   });
@@ -786,7 +833,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
     }).catch(value => value);
     expect(error).toMatchObject({
       name: 'UnsV2OutcomeUnknownError', operation: 'recordDeleteOne',
-      code: 'UNS_V2_TRANSPORT_TIMEOUT', status: 200, retryable: false, outcomeUnknown: true,
+      code: 'UNS_V2_TRANSPORT_TIMEOUT', status: 200, execution: 'unknown', retry: { safe: false }, outcomeUnknown: true,
     });
     await expect.poll(() => closed).toBe(true);
     await new Promise(resolve => setTimeout(resolve, 30));
@@ -795,30 +842,89 @@ describe('UNS v2 localhost HTTP fixture', () => {
 });
 
 
-describe('Record notifications over the existing isolated HTTP transport', () => {
-  it('exposes a readonly operation and preserves cursor plus exact integer notification identity', async () => {
+describe('records:subscribe over the isolated HTTP transport', () => {
+  const frame = (event: string, data: unknown, id?: string) => `${id ? `id: ${id}\n` : ''}event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  const change = { eventId: 'p-2', collectionId: 'orders', recordId: 'o-1', revision: 4, change: 'delete', occurredAt: 1700000000000, restricted: true };
+
+  it('is a GET stream outside the generated POST methods', () => {
+    expect(Object.keys(UNS_V2_OPERATIONS)).not.toContain('recordSubscribe');
+    expect(Object.keys(UNS_V2_OPERATIONS)).not.toContain('recordChangesPoll');
+    expect(UNS_V2_STREAM_OPERATIONS.recordSubscribe.path).toBe('/openapi/v2/uns/records:subscribe');
+  });
+
+  it('sends repeated query parameters, Last-Event-ID and the data subject, then parses frames until the server closes', async () => {
     const start = received.length;
     respond = (_req, res) => {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end('{"code":200,"msg":"ok","requestId":"changes","data":{"items":[{"eventId":"stable-event","collectionId":"orders","recordId":"9007199254740993","change":"record","occurredAt":9007199254740993}],"nextCursor":"rc1.sealed.fixture","retentionMs":3600000}}');
+      res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      res.write(frame('heartbeat', { at: 1 }, 'p-1'));
+      res.write(frame('change', change, 'p-2'));
+      res.end(frame('reset', { reason: 'SCOPE_CHANGED' }));
     };
-    const result = await client().uns.recordChangesPoll({ collectionId: 'orders', cursor: 'rc1.old.fixture', limit: 20, waitMs: 0 });
-    expect(UNS_V2_OPERATIONS.recordChangesPoll.mutation).toBe(false);
-    expect(result.data.nextCursor).toBe('rc1.sealed.fixture');
-    expect(String(result.data.items[0].occurredAt)).toBe('9007199254740993');
-    expect(result.data.items[0].recordId).toBe('9007199254740993');
-    expect(received.slice(start)).toHaveLength(1);
-    expect(received.at(-1)?.path).toBe('/openapi/v2/uns/records/changes');
-    expect(JSON.parse(received.at(-1)!.body)).toEqual({ collectionId: 'orders', cursor: 'rc1.old.fixture', limit: 20, waitMs: 0 });
+    const proof = 'gateway.subject.signature';
+    const events = [];
+    for await (const event of rawClient({ unsV2AppDataSubject: proof }).subscribeRecords({ collectionIds: ['orders'], recordIds: ['o-1', 'o-2'] }, { lastEventId: 'p-0' })) {
+      events.push(event);
+    }
+    expect(events).toEqual([{ type: 'heartbeat', eventId: 'p-1' }, { type: 'change', ...change }, { type: 'reset', reason: 'SCOPE_CHANGED' }]);
+    const sent = received[start];
+    expect(sent.method).toBe('GET');
+    expect(sent.path).toBe('/openapi/v2/uns/records:subscribe?collectionIds=orders&recordIds=o-1&recordIds=o-2');
+    expect(sent.headers.accept).toBe('text/event-stream');
+    expect(sent.headers['last-event-id']).toBe('p-0');
+    expect(sent.headers['x-tier0-app-data-subject']).toBe(proof);
   });
-  it.each([[409, 'CURSOR_EXPIRED'], [403, 'FORBIDDEN'], [503, 'TEMPORARILY_UNAVAILABLE']])('preserves %s/%s without automatic reconnect or write replay', async (status, code) => {
-    const start = received.length;
-    respond = (_req, res) => send(res, { code: status, msg: 'safe failure', requestId: 'changes', data: null,
-      error: { code, retryable: false, details: [], retryAdvice: { recommendedAction: 'restoreAuthorizationBeforeRetry', canRetrySameRequest: false, keepIdempotencyKey: true } } }, status);
-    const error = await client().uns.recordChangesPoll({ collectionId: 'orders', cursor: 'rc1.old' }).catch(value => value);
+
+  it.each([[429, 'OVERLOADED', true], [403, 'FORBIDDEN', false]])('raises a %s/%s refusal as a read error with its retry advice', async (status, code, safe) => {
+    respond = (_req, res) => send(res, { code: status, msg: code, requestId: 'sub', data: null,
+      error: { code, details: [], execution: 'notStarted', retry: safe ? { safe, afterMs: 500 } : { safe } } }, status);
+    const error = await rawClient().subscribeRecords({ collectionIds: ['orders'] }).next().catch(value => value);
     expect(error).toBeInstanceOf(UnsV2Error);
     expect(error).not.toBeInstanceOf(UnsV2OutcomeUnknownError);
-    expect(error).toMatchObject({ status, code, operation: 'recordChangesPoll' });
-    expect(received.slice(start)).toHaveLength(1);
+    expect(error).toMatchObject({ status, code, operation: 'recordSubscribe', execution: 'notStarted', retry: { safe } });
+  });
+
+  it('treats a malformed change frame as a protocol error safe to reconnect', async () => {
+    respond = (_req, res) => {
+      res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      res.end(frame('change', { ...change, restricted: undefined }, 'p-2'));
+    };
+    const error = await rawClient().subscribeRecords({ collectionIds: ['orders'] }).next().catch(value => value);
+    expect(error).toMatchObject({ name: 'UnsV2Error', code: 'UNS_V2_PROTOCOL_ERROR', retry: { safe: true } });
+  });
+
+  it('rejects requests over the contract limits before connecting, and lists no collection for all', async () => {
+    const start = received.length;
+    await expect(rawClient().subscribeRecords({ collectionIds: Array.from({ length: 65 }, (_, i) => `c${i}`) }).next()).rejects.toThrow(/1–64 collections/);
+    await expect(rawClient().subscribeRecords({ collectionIds: ['a', 'b'], recordIds: ['r'] }).next()).rejects.toThrow(/exactly one collection/);
+    await expect(rawClient().subscribeRecords({ recordIds: ['r'] }).next()).rejects.toThrow(/exactly one collection/);
+    expect(received.length).toBe(start);
+    respond = (_req, res) => { res.writeHead(200, { 'Content-Type': 'text/event-stream' }); res.end(); };
+    for await (const _event of rawClient().subscribeRecords({})) void _event;
+    expect(received[start].path).toBe('/openapi/v2/uns/records:subscribe');
+  });
+
+  it('ends a stream whose line never ends as a protocol error', async () => {
+    respond = (_req, res) => {
+      res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+      res.end('x'.repeat((1 << 20) + 10));
+    };
+    await expect(rawClient().subscribeRecords({ collectionIds: ['orders'] }).next()).rejects.toMatchObject({ code: 'UNS_V2_PROTOCOL_ERROR', retry: { safe: true } });
+  });
+
+  it('releases its abort listener when the stream ends', async () => {
+    respond = (_req, res) => { res.writeHead(200, { 'Content-Type': 'text/event-stream' }); res.end(frame('heartbeat', { at: 1 }, 'p-1')); };
+    const controller = new AbortController();
+    const added: unknown[] = [];
+    const removed: unknown[] = [];
+    const signal = controller.signal;
+    const add = signal.addEventListener.bind(signal);
+    const remove = signal.removeEventListener.bind(signal);
+    signal.addEventListener = ((type: string, listener: EventListener, opts?: AddEventListenerOptions) => { added.push(listener); add(type, listener, opts); }) as typeof signal.addEventListener;
+    signal.removeEventListener = ((type: string, listener: EventListener) => { removed.push(listener); remove(type, listener); }) as typeof signal.removeEventListener;
+    for (let round = 0; round < 3; round += 1) {
+      for await (const _event of rawClient().subscribeRecords({ collectionIds: ['orders'] }, { signal })) void _event;
+    }
+    expect(added.length).toBeGreaterThan(0);
+    expect(added.every(listener => removed.includes(listener))).toBe(true);
   });
 });

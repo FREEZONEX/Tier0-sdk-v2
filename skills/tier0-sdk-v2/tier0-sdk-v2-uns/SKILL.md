@@ -12,16 +12,16 @@ UNS 管数据命名空间、集合、Record 和 Sample；外部连接与脚本�
 | 用户任务 | 参考 | 方法 |
 | --- | --- | --- |
 | 创建集合、定义 Schema、新增记录 | [创建](references/create.md) | metadataInsertOne/Many、recordInsertOne |
-| 查询集合、筛选/排序记录 | [查询](references/read.md) | metadataFind/FindOne、collectionDescribe、recordFind |
+| 查询集合、筛选/排序记录 | [查询](references/read.md) | dataAppContext、metadataFind/FindOne（非 App 凭证）、collectionDescribe、recordFind |
 | 改记录、集合名称、扩展 Schema | [修改](references/update.md) | recordUpdateOne、metadataUpdateOne/Many、metadataFindOneAndUpdate |
 | 删记录、软删除集合 | [删除](references/delete.md) | recordDeleteOne、metadataDeleteOne/Many |
 | 恢复集合或记录 | [恢复](references/restore.md) | metadataRestore、recordRestore |
-| 分页、历史采样、事务、变更轮询 | [数据工作流](references/data-workflows.md) | sampleFind、recordTransactionExecute、recordChangesPoll |
+| 分页、历史采样、事务、写入结果 | [数据工作流](references/data-workflows.md) | sampleFind、recordTransactionExecute |
 | 目录、Topic 元数据及组合事务 | [命名空间](references/namespace.md) | metadata*、metadataBulkWrite、metadataTransact |
 
 ## 找到正确数据上下文
 
-托管 App 使用 dataAppContext，按业务 alias 精确选择授权集合；Workspace 集成用 dataDiscover/metadataFind，不强制 App 上下文。App 凭证的 metadataFind/FindOne 只读授权内 active Collection，查询和投影限 _id/_meta/name/parentId；通用元数据管理写入不向 App 凭证开放。
+托管 App 使用 dataAppContext，按业务 alias 精确选择授权集合；它同时给出每个集合的 revision、索引就绪状态（indexStatus）、TTL 和平台限额（limits）。App 凭证不能调用 metadataFind/FindOne、async 模式与 jobs 查询；Workspace 集成（会话、personal / agent Key）用 dataDiscover/metadataFind，不强制 App 上下文。通用元数据管理写入不向 App 凭证开放。App 自有业务数据优先用 [App 数据层](../tier0-sdk-v2-data/SKILL.md)（`@tier0/sdk-v2/data`），变更订阅只在那里提供（`data.subscribe`）。
 
 ```ts
 import { createClient } from '@tier0/sdk-v2';
@@ -52,4 +52,4 @@ export async function findAppCollection(alias: string) {
 
 响应为 code/msg/requestId/data。元数据 find 返回 items/pageInfo；findOne 与 findOneAnd* 返回 value；普通写入返回对应计数和 ID。metadataTransact 的 results 按 opId 对应。检查 committed、每项错误和实际计数；dryRun 只校验。metadataBulkWrite 默认原子，显式非原子时必须逐项检查 results/errors；跨 kind 的依赖写入使用 metadataTransact。recordBulkWrite 不保证跨集合事务。
 
-大整数与 JSON 精确数字可能为 bigint/UnsV2RawNumber；保留读取到的 revision 类型，不用 Number 或普通 JSON.stringify 做无损往返。UnsV2OutcomeUnknownError 先读回核对内容或查询 jobs；取消请求不撤销写入，SDK 不自动重试。
+大整数与 JSON 精确数字可能为 bigint/UnsV2RawNumber；保留读取到的 revision 类型，不用 Number 或普通 JSON.stringify 做无损往返。错误带 execution（notStarted / rolledBack / committed / unknown）与 retry（safe、afterMs）。UnsV2OutcomeUnknownError（execution 为 unknown）先读回核对内容；retry.safe 时可以用同一请求、同一幂等键原样重发。取消请求不撤销写入；client.uns 不自动重试。

@@ -31,4 +31,4 @@ export async function listCollections(page = 1, client: Tier0Client = createClie
 
 按 pageInfo.hasMore/nextPage 继续元数据分页；不要把第一页当全量。recordFind 的游标循环见[数据工作流](data-workflows.md)。sort 是数组元组。
 
-App 使用 dataAppContext 精确选择授权 alias；metadataFind/FindOne 仅允许读取已授权且 active 的 Collection，查询/投影限 _id/_meta/name/parentId，不可据隐藏 Schema 过滤。Workspace 集成可用 dataDiscover/metadataFind。数据授权不等于元数据管理授权。网络/权限错误必须传播，不能用空数组掩盖错误。
+以上 metadataFind/FindOne 示例用于 Workspace 集成（会话、personal / agent Key）。App 凭证不能调用 metadataFind/FindOne：用 dataAppContext 精确选择授权 alias，集合的 revision、indexStatus、ttl 也在其中。数据授权不等于元数据管理授权。网络/权限错误必须传播，不能用空数组掩盖错误。

@@ -5,7 +5,7 @@ description: 使用 @tier0/sdk-v2 开发或迁移 Tier0 云端 TypeScript/JavaSc
 
 # Tier0 SDK v2 应用集成
 
-面向应用代码编写；运行时为 Node.js 20.19+。独立包 `@tier0/sdk-v2` 的当前源码版本为 0.1.0，是否可从 npm 安装须检查实际发布状态；未发布时安装仓库构建的 tarball。不要改回旧包或旧 Flow API。
+面向应用代码编写；运行时为 Node.js 20.19+。独立包 `@tier0/sdk-v2` 的当前源码版本为 0.2.0（UNS v2 契约 5.0.0），是否可从 npm 安装须检查实际发布状态；未发布时安装仓库构建的 tarball。不要改回旧包或旧 Flow API。
 
 ## 选择业务入口
 
@@ -52,7 +52,7 @@ export async function inspectConnection() {
 
 方法存在不等于目标环境已部署或当前 Key 有权限。整数可能为 `bigint`；UNS 任意 JSON 中还可能含 `UnsV2RawNumber`。不要将标识符强制转为 Number；给浏览器返回数据时显式定义精确数字的序列化格式。
 
-HTTP 不自动重试。带 `outcomeUnknown` 的失败应先对账，保留原意图键；取消请求不代表服务端撤销。Source/Stream 仍使用底层 UNS v2 契约，所以错误类名保留 UNS，不代表它们仍属于数据入口。
+`createClient()` 的 HTTP 不自动重试。UNS 错误的 `execution` 说明执行到哪一步、`retry.safe` 说明能否用同一请求重发；带 `outcomeUnknown` 的失败应先对账，保留原意图键；取消请求不代表服务端撤销。App 数据层（`@tier0/sdk-v2/data`）会按 `retry.safe` 自动重试，见 App 数据 Skill。Source/Stream 仍使用底层 UNS v2 契约，所以错误类名保留 UNS，不代表它们仍属于数据入口。
 
 ## 从首版入口迁移
 

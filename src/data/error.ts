@@ -7,7 +7,7 @@
  * `ZodError`; programming or platform errors, such as invalid client options or
  * a malformed data subject from the gateway, throw `TypeError`.
  */
-import { UnsV2OutcomeUnknownError, type UnsV2Error } from '../uns-v2/client.js';
+import type { UnsV2Error, UnsV2Execution, UnsV2Retry } from '../uns-v2/client.js';
 
 /**
  * Stable `data.reason` codes UNS adds when it refuses App data access; the
@@ -33,9 +33,24 @@ export class DataError extends Error {
   /** HTTP status UNS answered with; 0 when no response arrived. */
   readonly upstreamStatus: number;
   readonly requestId?: string;
-  readonly retryable: boolean;
-  /** A write may have reached UNS: reconcile before replaying it with a new idempotency key. */
+  /**
+   * How far the failed request got: `notStarted` / `rolledBack` changed
+   * nothing, `committed` took effect, `unknown` (writes only) may have.
+   * Data-layer refusals raised before sending are `notStarted`.
+   */
+  readonly execution: UnsV2Execution;
+  /** Whether the same call may be repeated later, and after how long. The data layer already retried it. */
+  readonly retry: UnsV2Retry;
+  /** `execution === "unknown"`: a write may have landed. Read back before writing again. */
   readonly outcomeUnknown: boolean;
+  /** Requests sent for this call, retries included; 0 when nothing was sent. */
+  readonly attempts: number;
+  /**
+   * The idempotency key the write was sent with (generated unless the caller
+   * gave one). After `outcomeUnknown`, sending the same write with this key
+   * again cannot apply it twice.
+   */
+  readonly idempotencyKey?: string;
   /** The `data` object of the UNS error envelope, or data-layer details. */
   readonly details: Record<string, unknown>;
 
@@ -46,8 +61,10 @@ export class DataError extends Error {
     reason?: string;
     upstreamStatus?: number;
     requestId?: string;
-    retryable?: boolean;
-    outcomeUnknown?: boolean;
+    execution?: UnsV2Execution;
+    retry?: UnsV2Retry;
+    attempts?: number;
+    idempotencyKey?: string;
     details?: Record<string, unknown>;
     cause?: unknown;
   }) {
@@ -58,23 +75,28 @@ export class DataError extends Error {
     this.reason = init.reason;
     this.upstreamStatus = init.upstreamStatus ?? 0;
     this.requestId = init.requestId;
-    this.retryable = init.retryable ?? false;
-    this.outcomeUnknown = init.outcomeUnknown ?? false;
+    this.execution = init.execution ?? 'notStarted';
+    this.retry = init.retry ?? { safe: false };
+    this.outcomeUnknown = this.execution === 'unknown';
+    this.attempts = init.attempts ?? 0;
+    this.idempotencyKey = init.idempotencyKey;
     this.details = init.details ?? {};
   }
 }
 
+/** Platform states the App's caller cannot fix: they answer 503 whatever UNS answered. */
+const PLATFORM_CODES = new Set(['APP_NOT_READY', 'DEPENDENCY_UNAVAILABLE', 'CREDENTIAL_CHANGED', 'OUTCOME_UNKNOWN', 'TEMPORARILY_UNAVAILABLE']);
+
 /**
- * Maps an upstream UNS status to the status the App answers its own caller
- * with. Credential failures are the platform's problem, not the user's
- * session, so a 401 from UNS becomes 502 instead of looking like a logout,
- * and a retryable 403 becomes 503 instead of looking like a denied action.
+ * Maps an upstream UNS status and code to the status the App answers its own
+ * caller with. Credential failures are the platform's problem, not the user's
+ * session, so a 401 from UNS becomes 502 instead of looking like a logout;
+ * platform states (App not ready yet, a dependency down, the App key changed
+ * mid-request) become 503 instead of looking like a denied action or a conflict.
  */
-export function appStatus(upstream: number, retryable = false): number {
+export function appStatus(upstream: number, code = ''): number {
   if (upstream === 401) return 502;
-  // A retryable refusal is a platform state, not the caller's permission:
-  // e.g. FORBIDDEN "hosted App is not ready" right after an import.
-  if (upstream === 403 && retryable) return 503;
+  if (PLATFORM_CODES.has(code)) return 503;
   if (upstream === 400 || upstream === 403 || upstream === 404 || upstream === 409 || upstream === 413 || upstream === 422 || upstream === 429) {
     return upstream;
   }
@@ -95,6 +117,11 @@ const CODE_HINTS: Record<string, string> = {
     'The workspace index quota (200, counting every index that physically exists) is exhausted. Remove unused indexes through the tier0 MCP.',
   COLLECTION_TOO_LARGE:
     'archive / restore handle at most 2000 records; stop using a large collection in code instead of archiving it.',
+  OVERLOADED:
+    "This workspace's data requests are over their concurrency share; the data layer already waited and retried. Batch page reads with data.queryBatch and avoid per-record loops.",
+  APP_NOT_READY: 'The platform is still preparing this App (e.g. right after an import); retry shortly.',
+  QUERY_TIMEOUT: 'Narrow the query: add an indexed condition, a smaller limit or maxCount.',
+  OUTCOME_UNKNOWN: 'The write may have committed; read the record back before writing again.',
 };
 
 /** `APP_QUOTA_EXCEEDED` per `data.resource`; each per-App limit is 64. */
@@ -106,10 +133,12 @@ const QUOTA_HINTS: Record<string, string> = {
 };
 
 /** SDK transport failures: no UNS answer to map, so the data layer names them. */
-const TRANSPORT_FAILURES: Record<string, { code: string; status: number; retryable: boolean; message: string }> = {
-  UNS_V2_TRANSPORT_TIMEOUT: { code: 'DATA_TIMEOUT', status: 503, retryable: true, message: 'UNS did not answer in time' },
-  UNS_V2_TRANSPORT_ERROR: { code: 'DATA_UNREACHABLE', status: 503, retryable: true, message: 'Cannot reach the Tier0 data service' },
-  UNS_V2_PROTOCOL_ERROR: { code: 'DATA_BAD_RESPONSE', status: 502, retryable: false, message: 'UNS answered with an invalid response' },
+const TRANSPORT_FAILURES: Record<string, { code: string; status: number; message: string }> = {
+  UNS_V2_TRANSPORT_TIMEOUT: { code: 'DATA_TIMEOUT', status: 503, message: 'UNS did not answer in time' },
+  UNS_V2_TRANSPORT_ERROR: { code: 'DATA_UNREACHABLE', status: 503, message: 'Cannot reach the Tier0 data service' },
+  // The business request was aborted while the call was in flight (499: client closed request).
+  UNS_V2_TRANSPORT_ABORTED: { code: 'DATA_ABORTED', status: 499, message: 'The data call was aborted' },
+  UNS_V2_PROTOCOL_ERROR: { code: 'DATA_BAD_RESPONSE', status: 502, message: 'UNS answered with an invalid response' },
 };
 
 function codeHint(code: string, details: Record<string, unknown>): string | undefined {
@@ -124,49 +153,44 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** Translates a failed UNS call of the SDK client. */
-export function toDataError(error: UnsV2Error): DataError {
-  const outcomeUnknown = error instanceof UnsV2OutcomeUnknownError;
+/** Translates a failed UNS call of the SDK client after `attempts` requests, sent with `idempotencyKey`. */
+export function toDataError(error: UnsV2Error, attempts = 1, idempotencyKey?: string): DataError {
+  const common = {
+    upstreamStatus: error.status,
+    requestId: error.requestId,
+    execution: error.execution,
+    retry: error.retry,
+    attempts,
+    idempotencyKey,
+    cause: error,
+  };
+  const unknown = error.outcomeUnknown ? '; the write outcome is unknown' : '';
   // An ingress or load balancer answers 502/503/504 without the UNS envelope during
-  // rolling releases and pod restarts: retryable, like any unavailable upstream.
-  // UNS v2 routes answer every other error with the envelope (401/403/429 included),
-  // so other unenveloped responses stay DATA_BAD_RESPONSE.
+  // rolling releases and pod restarts, like any unavailable upstream. UNS v2 routes
+  // answer every other error with the envelope (401/403/429 included), so other
+  // unenveloped responses stay DATA_BAD_RESPONSE.
   if (error.code === 'UNS_V2_PROTOCOL_ERROR' && (error.status === 502 || error.status === 503 || error.status === 504)) {
     return new DataError({
-      message: `The Tier0 data gateway answered ${error.operation} with HTTP ${error.status}; retry shortly${outcomeUnknown ? ' (the write outcome is unknown)' : ''}.`,
+      ...common,
+      message: `The Tier0 data gateway answered ${error.operation} with HTTP ${error.status}${unknown}.`,
       status: 503,
       code: `HTTP_${error.status}`,
-      upstreamStatus: error.status,
-      retryable: true,
-      outcomeUnknown,
-      cause: error,
     });
   }
   const transport = TRANSPORT_FAILURES[error.code];
   if (transport) {
-    return new DataError({
-      message: `${transport.message} (${error.operation})${outcomeUnknown ? '; the write outcome is unknown' : ''}.`,
-      status: transport.status,
-      code: transport.code,
-      upstreamStatus: error.status,
-      retryable: transport.retryable,
-      outcomeUnknown,
-      cause: error,
-    });
+    return new DataError({ ...common, message: `${transport.message} (${error.operation})${unknown}.`, status: transport.status, code: transport.code });
   }
 
   const httpStatus = error.status ?? 0;
   const data = isObject(error.data) ? error.data : {};
   // Only `data.reason` is a code; `error.reason` repeats the message text.
   const reason = typeof data.reason === 'string' ? data.reason : undefined;
-  const retryable = error.retryable || httpStatus === 503 || httpStatus === 504;
   const code = error.code;
   const msg = error.message;
-  const hint = codeHint(code, data);
+  const hint = codeHint(code, data) ?? error.repair;
   let message = `${msg} (${code})`;
-  if (httpStatus === 403 && retryable) {
-    message = `${msg} (${code}). The platform is still preparing this App; retry shortly.`;
-  } else if (reason === ACCESS_REASONS.permissionMissing) {
+  if (reason === ACCESS_REASONS.permissionMissing) {
     message =
       data.missingPermission === 'uns.delete'
         ? `Deleting records requires the App key to hold uns.delete, and this App's key does not (${code}). ` +
@@ -182,16 +206,5 @@ export function toDataError(error: UnsV2Error): DataError {
     message = `${message} ${hint}`;
   }
 
-  return new DataError({
-    message,
-    status: appStatus(httpStatus, retryable),
-    code,
-    reason,
-    upstreamStatus: httpStatus,
-    requestId: error.requestId,
-    retryable,
-    outcomeUnknown,
-    details: data,
-    cause: error,
-  });
+  return new DataError({ ...common, message, status: appStatus(httpStatus, code), code, reason, upstreamStatus: httpStatus, details: data });
 }

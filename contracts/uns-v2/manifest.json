@@ -1,6 +1,6 @@
 {
-  "version": "4.0.0",
-  "cloudContractRevision": "cloud-source-impact/1+app-create-capability/1+data/3+collection-namespace/1+http-acquisition/2+app-collection/2+metadata/1+app-data/2+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/1",
+  "version": "5.0.0",
+  "cloudContractRevision": "cloud-source-impact/1+app-create-capability/1+data/3+record-reads/1+collection-namespace/1+http-acquisition/2+app-collection/2+metadata/1+app-context/2+collection-ttl/1+error-model/1+app-data/2+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/1+http-in/1",
   "operations": [
     {
       "name": "dataDiscover",
@@ -15,16 +15,17 @@
       },
       "response": "UnsV2DataDiscoverResponse",
       "appAllowed": true,
+      "method": "POST",
       "permission": "uns.read",
       "permissionAnyOf": [],
       "minPermission": 1,
       "scope": "uns:read",
+      "readOnly": true,
       "tags": [
         "集合管理"
       ],
       "operation": "dataDiscover",
       "path": "/uns/discovery/search",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2DiscoverySearchReq"
@@ -44,16 +45,17 @@
       },
       "response": "UnsV2CollectionDescribeResponse",
       "appAllowed": true,
+      "method": "POST",
       "permission": "uns.read",
       "permissionAnyOf": [],
       "minPermission": 1,
       "scope": "uns:read",
+      "readOnly": true,
       "tags": [
         "集合管理"
       ],
       "operation": "collectionDescribe",
       "path": "/uns/discovery/describe",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2CollectionDescribeReq"
@@ -70,6 +72,7 @@
       "resourceId": 212,
       "example": {},
       "appAllowed": true,
+      "method": "POST",
       "response": "UnsV2Envelope",
       "permission": "uns.read",
       "permissionAnyOf": [
@@ -79,12 +82,12 @@
       ],
       "minPermission": 1,
       "scope": "uns:read",
+      "readOnly": true,
       "tags": [
         "接口能力"
       ],
       "operation": "catalog",
       "path": "/uns/catalog/get",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2CatalogReq"
@@ -101,17 +104,18 @@
       "resourceId": 212,
       "coreOnly": true,
       "appAllowed": false,
+      "method": "POST",
       "response": "UnsV2Envelope",
       "permission": "uns.read",
       "permissionAnyOf": [],
       "minPermission": 1,
       "scope": "uns:read",
+      "readOnly": true,
       "tags": [
         "元数据"
       ],
       "operation": "graph",
       "path": "/uns/graph/query",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2QueryReq"
@@ -136,17 +140,18 @@
         ]
       },
       "appAllowed": false,
+      "method": "POST",
       "response": "UnsV2Envelope",
       "permission": "uns.read",
       "permissionAnyOf": [],
       "minPermission": 1,
       "scope": "uns:read",
+      "readOnly": true,
       "tags": [
         "命名空间"
       ],
       "operation": "namespace",
       "path": "/uns/namespace/query",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2NamespaceDocumentedRequest"
@@ -177,17 +182,18 @@
         ]
       },
       "appAllowed": false,
+      "method": "POST",
       "response": "UnsV2Envelope",
       "permission": "uns.read",
       "permissionAnyOf": [],
       "minPermission": 1,
       "scope": "uns:read",
+      "readOnly": true,
       "tags": [
         "命名空间"
       ],
       "operation": "topics",
       "path": "/uns/topics/view",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2TopicsDocumentedRequest"
@@ -218,17 +224,18 @@
         ]
       },
       "appAllowed": false,
+      "method": "POST",
       "response": "UnsV2Envelope",
       "permission": "uns.read",
       "permissionAnyOf": [],
       "minPermission": 1,
       "scope": "uns:read",
+      "readOnly": true,
       "tags": [
         "元数据管理"
       ],
       "operation": "references",
       "path": "/uns/references/query",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2ReferencesDocumentedRequest"
@@ -253,7 +260,8 @@
           }
         ]
       },
-      "appAllowed": true,
+      "appAllowed": false,
+      "method": "POST",
       "response": "UnsV2Envelope",
       "permission": "uns.read",
       "permissionAnyOf": [
@@ -263,12 +271,12 @@
       ],
       "minPermission": 1,
       "scope": "uns:read",
+      "readOnly": true,
       "tags": [
         "任务"
       ],
       "operation": "jobs",
       "path": "/uns/jobs/query",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2JobsDocumentedRequest"
@@ -333,6 +341,7 @@
       "response": "UnsV2RecordTransactionExecuteResponse",
       "summary": "执行跨集合业务事务",
       "appAllowed": true,
+      "method": "POST",
       "permission": "uns.write",
       "permissionAnyOf": [
         "uns.write",
@@ -340,12 +349,12 @@
       ],
       "minPermission": 2,
       "scope": "uns:write",
+      "readOnly": false,
       "tags": [
         "业务数据"
       ],
       "operation": "recordTransactionExecute",
       "path": "/uns/records:transact",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2RecordTransactionReq"
@@ -367,15 +376,16 @@
       "summary": "List sources; archived=true selects archived objects only",
       "example": {},
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 1,
       "scope": "source:read",
+      "readOnly": true,
       "tags": [
         "数据源"
       ],
       "operation": "sourceList",
       "path": "/uns/sources/list",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2SourceListReq"
@@ -399,15 +409,16 @@
         "id": "example-id"
       },
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 1,
       "scope": "source:read",
+      "readOnly": true,
       "tags": [
         "数据源"
       ],
       "operation": "sourceGet",
       "path": "/uns/sources/get",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2SourceGetReq"
@@ -445,15 +456,16 @@
         ]
       },
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "source:manage",
+      "readOnly": false,
       "tags": [
         "数据源"
       ],
       "operation": "sourceCreate",
       "path": "/uns/sources/create",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2SourceCreateReq"
@@ -483,15 +495,16 @@
         ]
       },
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "source:manage",
+      "readOnly": false,
       "tags": [
         "数据源"
       ],
       "operation": "sourceUpdate",
       "path": "/uns/sources/update",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2SourceUpdateReq"
@@ -528,15 +541,16 @@
         ]
       },
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "source:manage",
+      "readOnly": false,
       "tags": [
         "数据源"
       ],
       "operation": "sourceConnectionUpdate",
       "path": "/uns/sources/connection/update",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2SourceConnectionUpdateReq"
@@ -566,15 +580,16 @@
         ]
       },
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "source:manage",
+      "readOnly": false,
       "tags": [
         "数据源"
       ],
       "operation": "sourceStateUpdate",
       "path": "/uns/sources/state/update",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2SourceStateUpdateReq"
@@ -598,15 +613,16 @@
         "id": "example-id"
       },
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 1,
       "scope": "source:read",
+      "readOnly": true,
       "tags": [
         "数据源"
       ],
       "operation": "sourceRuntimeGet",
       "path": "/uns/sources/runtime/get",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2SourceRuntimeGetReq"
@@ -629,15 +645,16 @@
       "runtime": true,
       "example": {},
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 1,
       "scope": "source:read",
+      "readOnly": true,
       "tags": [
         "数据源"
       ],
       "operation": "sourceProtocolsList",
       "path": "/uns/sources/protocols/list",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2SourceProtocolsListReq"
@@ -671,15 +688,16 @@
         }
       },
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "source:manage",
+      "readOnly": true,
       "tags": [
         "数据源"
       ],
       "operation": "sourceValidate",
       "path": "/uns/sources/validate",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2SourceValidateReq"
@@ -706,15 +724,16 @@
         "timeoutMs": 5000
       },
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "source:manage",
+      "readOnly": false,
       "tags": [
         "数据源"
       ],
       "operation": "sourceProbe",
       "path": "/uns/sources/probe",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2SourceProbeReq"
@@ -744,15 +763,16 @@
         }
       },
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "stream:manage",
+      "readOnly": true,
       "tags": [
         "处理流"
       ],
       "operation": "streamProgramValidate",
       "path": "/uns/streams/program/validate",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2StreamProgramValidateReq"
@@ -783,15 +803,16 @@
         }
       },
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "stream:manage",
+      "readOnly": false,
       "tags": [
         "处理流"
       ],
       "operation": "streamProgramCreate",
       "path": "/uns/streams/program/create",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2StreamProgramCreateReq"
@@ -823,15 +844,16 @@
         }
       },
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "stream:manage",
+      "readOnly": false,
       "tags": [
         "处理流"
       ],
       "operation": "streamProgramUpdate",
       "path": "/uns/streams/program/update",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2StreamProgramUpdateReq"
@@ -856,15 +878,16 @@
         "id": "example-id"
       },
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 1,
       "scope": "stream:read",
+      "readOnly": true,
       "tags": [
         "处理流"
       ],
       "operation": "streamProgramGet",
       "path": "/uns/streams/program/get",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2StreamProgramGetReq"
@@ -889,15 +912,16 @@
         "id": "example-id"
       },
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 1,
       "scope": "stream:read",
+      "readOnly": true,
       "tags": [
         "处理流"
       ],
       "operation": "streamProgramVersionsList",
       "path": "/uns/streams/program/versions/list",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2StreamProgramVersionsListReq"
@@ -923,15 +947,16 @@
         "id": "example-id"
       },
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "stream:manage",
+      "readOnly": false,
       "tags": [
         "处理流"
       ],
       "operation": "streamProgramDeploy",
       "path": "/uns/streams/program/deploy",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2StreamProgramDeployReq"
@@ -957,15 +982,16 @@
         "id": "example-id"
       },
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "stream:manage",
+      "readOnly": false,
       "tags": [
         "处理流"
       ],
       "operation": "streamProgramDisable",
       "path": "/uns/streams/program/disable",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2StreamProgramDisableReq"
@@ -992,15 +1018,16 @@
         "versionId": "123456789"
       },
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "stream:manage",
+      "readOnly": false,
       "tags": [
         "处理流"
       ],
       "operation": "streamProgramRollback",
       "path": "/uns/streams/program/rollback",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2StreamProgramRollbackReq"
@@ -1038,15 +1065,16 @@
         "recordId"
       ],
       "appAllowed": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 2,
       "scope": "uns:write",
+      "readOnly": false,
       "tags": [
         "时序数据"
       ],
       "operation": "sampleAppend",
       "path": "/uns/collections/:collectionId/records/:recordId/samples",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2SampleAppendReq"
@@ -1075,15 +1103,16 @@
         "collectionId": "example-collection"
       },
       "appAllowed": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 1,
       "scope": "uns:read",
+      "readOnly": true,
       "tags": [
         "业务数据"
       ],
       "operation": "recordFind",
       "path": "/uns/collections/:collectionId/records:find",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2RecordFindReq"
@@ -1112,15 +1141,16 @@
         "collectionId": "example-collection"
       },
       "appAllowed": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 1,
       "scope": "uns:read",
+      "readOnly": true,
       "tags": [
         "业务数据"
       ],
       "operation": "recordCount",
       "path": "/uns/collections/:collectionId/records:count",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2RecordCountReq"
@@ -1150,15 +1180,16 @@
         "field": "name"
       },
       "appAllowed": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 1,
       "scope": "uns:read",
+      "readOnly": true,
       "tags": [
         "业务数据"
       ],
       "operation": "recordDistinct",
       "path": "/uns/collections/:collectionId/records:distinct",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2RecordDistinctReq"
@@ -1188,15 +1219,16 @@
         "pipeline": []
       },
       "appAllowed": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 1,
       "scope": "uns:read",
+      "readOnly": true,
       "tags": [
         "业务数据"
       ],
       "operation": "recordAggregatePipeline",
       "path": "/uns/collections/:collectionId/records:aggregate",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2RecordAggregatePipelineReq"
@@ -1225,15 +1257,16 @@
         "collectionId": "example-collection"
       },
       "appAllowed": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 1,
       "scope": "uns:read",
+      "readOnly": true,
       "tags": [
         "业务数据"
       ],
       "operation": "recordExplain",
       "path": "/uns/collections/:collectionId/records:explain",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2RecordExplainReq"
@@ -1266,15 +1299,16 @@
         }
       },
       "appAllowed": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 2,
       "scope": "uns:write",
+      "readOnly": false,
       "tags": [
         "业务数据"
       ],
       "operation": "recordInsertOne",
       "path": "/uns/collections/:collectionId/records",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2RecordInsertOneReq"
@@ -1312,15 +1346,17 @@
         ]
       },
       "appAllowed": true,
+      "partialCommit": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 2,
       "scope": "uns:write",
+      "readOnly": false,
       "tags": [
         "业务数据"
       ],
       "operation": "recordInsertMany",
       "path": "/uns/collections/:collectionId/records:insertMany",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2RecordInsertManyReq"
@@ -1358,15 +1394,16 @@
         }
       },
       "appAllowed": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 2,
       "scope": "uns:write",
+      "readOnly": false,
       "tags": [
         "业务数据"
       ],
       "operation": "recordUpdateOne",
       "path": "/uns/collections/:collectionId/records:updateOne",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2RecordUpdateOneReq"
@@ -1404,15 +1441,16 @@
         }
       },
       "appAllowed": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 2,
       "scope": "uns:write",
+      "readOnly": false,
       "tags": [
         "业务数据"
       ],
       "operation": "recordFindOneAndUpdate",
       "path": "/uns/collections/:collectionId/records:findOneAndUpdate",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2RecordFindOneAndUpdateReq"
@@ -1448,15 +1486,16 @@
         }
       },
       "appAllowed": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 2,
       "scope": "uns:write",
+      "readOnly": false,
       "tags": [
         "业务数据"
       ],
       "operation": "recordReplaceOne",
       "path": "/uns/collections/:collectionId/records:replaceOne",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2RecordReplaceOneReq"
@@ -1492,15 +1531,16 @@
         }
       },
       "appAllowed": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 2,
       "scope": "uns:write",
+      "readOnly": false,
       "tags": [
         "业务数据"
       ],
       "operation": "recordFindOneAndReplace",
       "path": "/uns/collections/:collectionId/records:findOneAndReplace",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2RecordFindOneAndReplaceReq"
@@ -1533,15 +1573,16 @@
         }
       },
       "appAllowed": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 2,
       "scope": "uns:write",
+      "readOnly": false,
       "tags": [
         "业务数据"
       ],
       "operation": "recordDeleteOne",
       "path": "/uns/collections/:collectionId/records:deleteOne",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2RecordDeleteOneReq"
@@ -1574,15 +1615,16 @@
         }
       },
       "appAllowed": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 2,
       "scope": "uns:write",
+      "readOnly": false,
       "tags": [
         "业务数据"
       ],
       "operation": "recordFindOneAndDelete",
       "path": "/uns/collections/:collectionId/records:findOneAndDelete",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2RecordFindOneAndDeleteReq"
@@ -1620,15 +1662,17 @@
         }
       },
       "appAllowed": true,
+      "partialCommit": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 2,
       "scope": "uns:write",
+      "readOnly": false,
       "tags": [
         "业务数据"
       ],
       "operation": "recordUpdateMany",
       "path": "/uns/collections/:collectionId/records:updateMany",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2RecordUpdateManyReq"
@@ -1661,15 +1705,17 @@
         }
       },
       "appAllowed": true,
+      "partialCommit": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 2,
       "scope": "uns:write",
+      "readOnly": false,
       "tags": [
         "业务数据"
       ],
       "operation": "recordDeleteMany",
       "path": "/uns/collections/:collectionId/records:deleteMany",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2RecordDeleteManyReq"
@@ -1700,15 +1746,17 @@
         "operations": []
       },
       "appAllowed": true,
+      "partialCommit": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 2,
       "scope": "uns:write",
+      "readOnly": false,
       "tags": [
         "业务数据"
       ],
       "operation": "recordBulkWrite",
       "path": "/uns/collections/:collectionId/records:bulkWrite",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2RecordBulkWriteReq"
@@ -1739,15 +1787,16 @@
         "collectionId"
       ],
       "appAllowed": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 1,
       "scope": "uns:read",
+      "readOnly": true,
       "tags": [
         "时序数据"
       ],
       "operation": "sampleLatestValues",
       "path": "/uns/collections/:collectionId/samples:latest",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2SampleLatestValuesReq"
@@ -1783,15 +1832,16 @@
         "dryRun": true
       },
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "uns:update",
+      "readOnly": false,
       "tags": [
         "时序数据"
       ],
       "operation": "sampleDeleteRange",
       "path": "/uns/collections/:collectionId/samples:delete",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2SampleDeleteRangeReq"
@@ -1817,13 +1867,14 @@
       "description": "Cloud extension reusing existing SourceStream logic and storage; internal and external requests share this schema. No shared transform or acquisition runtime is implied.",
       "cloudExtension": true,
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
+      "readOnly": false,
       "tags": [
         "数据源"
       ],
       "operation": "sourceDelete",
       "path": "/uns/sources/delete",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudSourceDeleteReq"
@@ -1849,13 +1900,14 @@
       "description": "Cloud extension reusing existing SourceStream logic and storage; internal and external requests share this schema. No shared transform or acquisition runtime is implied.",
       "cloudExtension": true,
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
+      "readOnly": true,
       "tags": [
         "处理流"
       ],
       "operation": "streamProgramList",
       "path": "/uns/streams/program/list",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudStreamProgramListReq"
@@ -1881,13 +1933,14 @@
       "description": "Cloud extension reusing existing SourceStream logic and storage; internal and external requests share this schema. No shared transform or acquisition runtime is implied.",
       "cloudExtension": true,
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
+      "readOnly": false,
       "tags": [
         "处理流"
       ],
       "operation": "streamProgramDelete",
       "path": "/uns/streams/program/delete",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudStreamProgramDeleteReq"
@@ -1918,12 +1971,13 @@
       ],
       "cloudExtension": true,
       "appAllowed": false,
+      "method": "POST",
+      "readOnly": true,
       "tags": [
         "处理流"
       ],
       "operation": "streamRuntimeCapabilitiesGet",
       "path": "/uns/streams/runtime/capabilities/get",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudStreamRuntimeCapabilitiesGetReq"
@@ -1949,16 +2003,17 @@
       "description": "Cloud extension reusing existing SourceStream logic and storage; internal and external requests share this schema. No shared transform or acquisition runtime is implied.",
       "cloudExtension": true,
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [
         "control.read",
         "control.manage"
       ],
+      "readOnly": true,
       "tags": [
         "控制"
       ],
       "operation": "controlDiscover",
       "path": "/uns/controls/discover",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudControlDiscoverReq"
@@ -1984,16 +2039,17 @@
       "description": "Cloud extension reusing existing SourceStream logic and storage; internal and external requests share this schema. No shared transform or acquisition runtime is implied.",
       "cloudExtension": true,
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [
         "control.read",
         "control.manage"
       ],
+      "readOnly": true,
       "tags": [
         "控制"
       ],
       "operation": "controlDescribe",
       "path": "/uns/controls/describe",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudControlDescribeReq"
@@ -2019,13 +2075,14 @@
       "description": "Cloud extension reusing existing SourceStream logic and storage; internal and external requests share this schema. No shared transform or acquisition runtime is implied. Uses the original frozen Control contract and durable invocation receipt. Outcome unknown is never treated as a safe new write.",
       "cloudExtension": true,
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
+      "readOnly": false,
       "tags": [
         "控制"
       ],
       "operation": "controlInvoke",
       "path": "/uns/controls/invoke",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudControlInvokeReq"
@@ -2051,13 +2108,14 @@
       "description": "Cloud extension reusing existing SourceStream logic and storage; internal and external requests share this schema. No shared transform or acquisition runtime is implied.",
       "cloudExtension": true,
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
+      "readOnly": true,
       "tags": [
         "数据源"
       ],
       "operation": "sourceDocumentGet",
       "path": "/uns/sources/documents/get",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudSourceDocumentGetReq"
@@ -2083,13 +2141,14 @@
       "description": "Cloud extension reusing existing SourceStream logic and storage; internal and external requests share this schema. No shared transform or acquisition runtime is implied.",
       "cloudExtension": true,
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
+      "readOnly": false,
       "tags": [
         "数据源"
       ],
       "operation": "sourceDocumentCreate",
       "path": "/uns/sources/documents/create",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudSourceDocumentCreateReq"
@@ -2115,13 +2174,14 @@
       "description": "Cloud extension reusing existing SourceStream logic and storage; internal and external requests share this schema. No shared transform or acquisition runtime is implied.",
       "cloudExtension": true,
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
+      "readOnly": false,
       "tags": [
         "数据源"
       ],
       "operation": "sourceDocumentUpdate",
       "path": "/uns/sources/documents/update",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudSourceDocumentUpdateReq"
@@ -2147,13 +2207,14 @@
       "description": "Cloud extension reusing existing SourceStream logic and storage; internal and external requests share this schema. No shared transform or acquisition runtime is implied.",
       "cloudExtension": true,
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
+      "readOnly": true,
       "tags": [
         "处理流"
       ],
       "operation": "streamDocumentGet",
       "path": "/uns/streams/documents/get",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudStreamDocumentGetReq"
@@ -2179,13 +2240,14 @@
       "description": "Cloud extension reusing existing SourceStream logic and storage; internal and external requests share this schema. No shared transform or acquisition runtime is implied.",
       "cloudExtension": true,
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
+      "readOnly": false,
       "tags": [
         "处理流"
       ],
       "operation": "streamDocumentCreate",
       "path": "/uns/streams/documents/create",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudStreamDocumentCreateReq"
@@ -2211,13 +2273,14 @@
       "description": "Cloud extension reusing existing SourceStream logic and storage; internal and external requests share this schema. No shared transform or acquisition runtime is implied.",
       "cloudExtension": true,
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
+      "readOnly": false,
       "tags": [
         "处理流"
       ],
       "operation": "streamDocumentUpdate",
       "path": "/uns/streams/documents/update",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudStreamDocumentUpdateReq"
@@ -2243,13 +2306,14 @@
       "description": "List all existing cloud Source protocols. Default safe summaries require view permission; includeDocument=true additionally requires current manage permission and returns complete native configuration.",
       "cloudExtension": true,
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
+      "readOnly": true,
       "tags": [
         "数据源"
       ],
       "operation": "sourceDocumentList",
       "path": "/uns/sources/documents/list",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudSourceDocumentListReq"
@@ -2275,13 +2339,14 @@
       "description": "Cloud extension reusing existing native lifecycle. Full documents require manage permission; disable retains both caller guards and never requires an execution worker.",
       "cloudExtension": true,
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
+      "readOnly": false,
       "tags": [
         "处理流"
       ],
       "operation": "streamDocumentDisable",
       "path": "/uns/streams/documents/disable",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudStreamDocumentDisableReq"
@@ -2307,13 +2372,14 @@
       "description": "Reuses existing StreamValidate logic. Reports original validation issues and only returns normalizedDocument when native validation actually produced it; no script execution or deployment is implied.",
       "cloudExtension": true,
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
+      "readOnly": true,
       "tags": [
         "处理流"
       ],
       "operation": "streamDocumentValidate",
       "path": "/uns/streams/documents/validate",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudStreamDocumentValidateReq"
@@ -2339,13 +2405,14 @@
       "description": "Cloud source-impact/1; current authorization required. No endpoint, headers, credential references or secret material in responses.",
       "cloudExtension": true,
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
+      "readOnly": true,
       "tags": [
         "数据源"
       ],
       "operation": "sourceImpact",
       "path": "/uns/sources/impact",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudSourceImpactReq"
@@ -2371,16 +2438,17 @@
       "description": "Cloud source-impact/1; current authorization required. No endpoint, headers, credential references or secret material in responses.",
       "cloudExtension": true,
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [
         "uns.source.view",
         "uns.source.manage"
       ],
+      "readOnly": true,
       "tags": [
         "数据源"
       ],
       "operation": "sourceHistory",
       "path": "/uns/sources/history",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudSourceHistoryReq"
@@ -2407,13 +2475,14 @@
       "description": "Create an immutable encrypted credential and endpoint-bound reference for the authenticated principal. Secret material is never returned.",
       "cloudExtension": true,
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
+      "readOnly": false,
       "tags": [
         "数据源"
       ],
       "operation": "sourceCredentialCreate",
       "path": "/uns/sources/credentials/create",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudSourceCredentialCreateReq"
@@ -2440,13 +2509,14 @@
       "description": "Returns configured ingestion address and status without token material.",
       "cloudExtension": true,
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
+      "readOnly": true,
       "tags": [
         "数据源"
       ],
       "operation": "sourceIngressGet",
       "path": "/uns/sources/ingress/get",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudSourceIngressGetReq"
@@ -2473,13 +2543,14 @@
       "description": "Replaces the token for the exact enabled Source revision. The token is returned only once.",
       "cloudExtension": true,
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
+      "readOnly": false,
       "tags": [
         "数据源"
       ],
       "operation": "sourceIngressRotate",
       "path": "/uns/sources/ingress/rotate",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudSourceIngressRotateReq"
@@ -2505,13 +2576,14 @@
       "description": "Connect durable ledger metadata or isolated sample execution. Statistics cover admitted work only. Samples cannot access external hosts or commit writes.",
       "cloudExtension": true,
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
+      "readOnly": true,
       "tags": [
         "数据源"
       ],
       "operation": "sourceObservationsGet",
       "path": "/uns/sources/observations/get",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudSourceObservationsGetReq"
@@ -2537,13 +2609,14 @@
       "description": "Connect durable ledger metadata or isolated sample execution. Statistics cover admitted work only. Samples cannot access external hosts or commit writes.",
       "cloudExtension": true,
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
+      "readOnly": true,
       "tags": [
         "处理流"
       ],
       "operation": "streamObservationGet",
       "path": "/uns/streams/observation/get",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudStreamObservationGetReq"
@@ -2569,13 +2642,14 @@
       "description": "Connect durable ledger metadata or isolated sample execution. Statistics cover admitted work only. Samples cannot access external hosts or commit writes.",
       "cloudExtension": true,
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
+      "readOnly": true,
       "tags": [
         "处理流"
       ],
       "operation": "streamRunsList",
       "path": "/uns/streams/runs/list",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudStreamRunsListReq"
@@ -2601,13 +2675,14 @@
       "description": "Connect durable ledger metadata or isolated sample execution. Statistics cover admitted work only. Samples cannot access external hosts or commit writes.",
       "cloudExtension": true,
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
+      "readOnly": true,
       "tags": [
         "处理流"
       ],
       "operation": "streamSampleTest",
       "path": "/uns/streams/sample/test",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudStreamSampleTestReq"
@@ -2631,15 +2706,16 @@
       "summary": "Cloud control App registration: Capabilities",
       "description": "Internal authenticated governance; registration does not issue credentials or Control/Source grants.",
       "cloudExtension": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "app:manage",
+      "readOnly": true,
       "tags": [
         "控制"
       ],
       "operation": "controlAppCapabilities",
       "path": "/uns/control-apps/capabilities",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudControlAppCapabilitiesReq"
@@ -2663,15 +2739,16 @@
       "summary": "Cloud control App registration: List",
       "description": "Internal authenticated governance; registration does not issue credentials or Control/Source grants.",
       "cloudExtension": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "app:manage",
+      "readOnly": true,
       "tags": [
         "控制"
       ],
       "operation": "controlAppList",
       "path": "/uns/control-apps/list",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudControlAppListReq"
@@ -2695,15 +2772,16 @@
       "summary": "Cloud control App registration: Get",
       "description": "Internal authenticated governance; registration does not issue credentials or Control/Source grants.",
       "cloudExtension": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "app:manage",
+      "readOnly": true,
       "tags": [
         "控制"
       ],
       "operation": "controlAppGet",
       "path": "/uns/control-apps/get",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudControlAppGetReq"
@@ -2727,15 +2805,16 @@
       "summary": "Cloud control App registration: Create",
       "description": "Internal authenticated governance; registration does not issue credentials or Control/Source grants.",
       "cloudExtension": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "app:manage",
+      "readOnly": false,
       "tags": [
         "控制"
       ],
       "operation": "controlAppCreate",
       "path": "/uns/control-apps/create",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudControlAppCreateReq"
@@ -2759,15 +2838,16 @@
       "summary": "Cloud control App registration: Update",
       "description": "Internal authenticated governance; registration does not issue credentials or Control/Source grants.",
       "cloudExtension": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "app:manage",
+      "readOnly": false,
       "tags": [
         "控制"
       ],
       "operation": "controlAppUpdate",
       "path": "/uns/control-apps/update",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudControlAppUpdateReq"
@@ -2791,15 +2871,16 @@
       "summary": "Cloud control App registration: PermissionsUpdate",
       "description": "Internal authenticated governance; registration does not issue credentials or Control/Source grants.",
       "cloudExtension": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "app:manage",
+      "readOnly": false,
       "tags": [
         "控制"
       ],
       "operation": "controlAppPermissionsUpdate",
       "path": "/uns/control-apps/permissions/update",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudControlAppPermissionsUpdateReq"
@@ -2823,15 +2904,16 @@
       "summary": "Hosted App Collection policy: Get",
       "description": "Manage Collection access for an existing hosted App. Requires a current Builder session or full_access personal/Agent key. Shared data is granted to the recipient App collections; runtime App credentials cannot manage grants. Existing session governance may revoke grants.",
       "cloudExtension": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "uns:update",
+      "readOnly": true,
       "tags": [
         "App 与授权"
       ],
       "operation": "appDataPolicyGet",
       "path": "/uns/app-data-policy/get",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudAppDataPolicyGetReq"
@@ -2855,15 +2937,16 @@
       "summary": "Hosted App Collection policy: Update",
       "description": "Manage Collection access for an existing hosted App. Requires a current Builder session or full_access personal/Agent key. Shared data is granted to the recipient App collections; runtime App credentials cannot manage grants. Existing session governance may revoke grants.",
       "cloudExtension": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "uns:update",
+      "readOnly": false,
       "tags": [
         "App 与授权"
       ],
       "operation": "appDataPolicyUpdate",
       "path": "/uns/app-data-policy/update",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudAppDataPolicyUpdateReq"
@@ -2890,13 +2973,14 @@
       "description": "Uses existing MQTT Auth generation, credential format and quota; atomically binds it to and enables the Source so the returned credentials can connect immediately.",
       "cloudExtension": true,
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
+      "readOnly": false,
       "tags": [
         "数据源"
       ],
       "operation": "sourceMqttAuthCreate",
       "path": "/uns/sources/mqtt-auth/create",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudSourceMqttAuthCreateReq"
@@ -2924,17 +3008,18 @@
       "example": {},
       "cloudExtension": true,
       "appAllowed": true,
+      "method": "POST",
       "permissionAnyOf": [
         "uns.read",
         "uns.write",
         "uns.delete"
       ],
+      "readOnly": true,
       "tags": [
         "App 与授权"
       ],
       "operation": "dataAppContext",
       "path": "/uns/app/context",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudDataAppContextReq"
@@ -2958,15 +3043,16 @@
       "summary": "Hosted App independent Control policy: Get",
       "description": "Internal human session governance for the same real hosted App identity. Requires workspace API management and control.manage; preserves data policy and never upgrades default data credentials.",
       "cloudExtension": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "app:manage",
+      "readOnly": true,
       "tags": [
         "元数据"
       ],
       "operation": "hostedAppControlPolicyGet",
       "path": "/uns/hosted-app-control-policy/get",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudHostedAppControlPolicyGetReq"
@@ -2990,15 +3076,16 @@
       "summary": "Hosted App independent Control policy: Update",
       "description": "Internal human session governance for the same real hosted App identity. Requires workspace API management and control.manage; preserves data policy and never upgrades default data credentials.",
       "cloudExtension": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "app:manage",
+      "readOnly": false,
       "tags": [
         "元数据"
       ],
       "operation": "hostedAppControlPolicyUpdate",
       "path": "/uns/hosted-app-control-policy/update",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudHostedAppControlPolicyUpdateReq"
@@ -3008,32 +3095,35 @@
       }
     },
     {
-      "name": "recordChangesPoll",
-      "suffix": "/uns/records/changes",
-      "handler": "UnsV2RecordChangesPoll",
-      "request": "CloudRecordChangesPollReq",
-      "response": "CloudRecordChangesPollResponse",
+      "name": "recordSubscribe",
+      "method": "GET",
+      "transport": "sse",
+      "suffix": "/uns/records:subscribe",
+      "handler": "UnsV2RecordSubscribe",
+      "request": "CloudRecordSubscribeReq",
+      "response": "CloudRecordSubscribeResponse",
       "resourceId": 212,
-      "appAllowed": true,
       "permission": "uns.read",
       "scope": "uns:read",
       "minPermission": 1,
-      "summary": "读取当前授权的Record变更通知",
-      "description": "Bounded read-only notification polling over existing EVENTS. No cursor establishes a live baseline before a scoped snapshot read. Resume within retention using the sealed nextCursor; notifications contain no business fields. CURSOR_EXPIRED (409) requires a new baseline and current snapshot. Current App/Key/employee/Collection/owner grants are rechecked on each response. No protected Samples, leases or background delegation are enabled.",
+      "mcp": false,
+      "summary": "订阅记录变更（SSE）",
+      "description": "Server-Sent Events stream of change notifications for authorized Records. Notifications carry identity and revision only, never business fields.",
       "cloudExtension": true,
+      "appAllowed": true,
       "permissionAnyOf": [],
+      "readOnly": true,
       "tags": [
         "业务数据"
       ],
-      "operation": "recordChangesPoll",
-      "path": "/uns/records/changes",
-      "method": "POST",
+      "operation": "recordSubscribe",
+      "path": "/uns/records:subscribe",
       "supported": true,
       "requestSchema": {
-        "$ref": "#/components/schemas/CloudRecordChangesPollReq"
+        "$ref": "#/components/schemas/CloudRecordSubscribeReq"
       },
       "responseSchema": {
-        "$ref": "#/components/schemas/CloudRecordChangesPollResponse"
+        "$ref": "#/components/schemas/CloudRecordSubscribeResponse"
       }
     },
     {
@@ -3086,13 +3176,14 @@
       },
       "cloudExtension": true,
       "appAllowed": true,
+      "method": "POST",
       "permissionAnyOf": [],
+      "readOnly": false,
       "tags": [
         "App 与授权"
       ],
       "operation": "appCollectionsEnsure",
       "path": "/uns/app/collections/ensure",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudAppCollectionsEnsureReq"
@@ -3137,13 +3228,14 @@
       },
       "cloudExtension": true,
       "appAllowed": true,
+      "method": "POST",
       "permissionAnyOf": [],
+      "readOnly": false,
       "tags": [
         "App 与授权"
       ],
       "operation": "appCollectionsSchemaReplace",
       "path": "/uns/app/collections/schema:replace",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudAppCollectionsSchemaReplaceReq"
@@ -3173,13 +3265,14 @@
       },
       "cloudExtension": true,
       "appAllowed": true,
+      "method": "POST",
       "permissionAnyOf": [],
+      "readOnly": false,
       "tags": [
         "App 与授权"
       ],
       "operation": "appCollectionsArchive",
       "path": "/uns/app/collections/archive",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudAppCollectionAliasReq"
@@ -3209,13 +3302,14 @@
       },
       "cloudExtension": true,
       "appAllowed": true,
+      "method": "POST",
       "permissionAnyOf": [],
+      "readOnly": false,
       "tags": [
         "App 与授权"
       ],
       "operation": "appCollectionsRestore",
       "path": "/uns/app/collections/restore",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudAppCollectionAliasReq"
@@ -3243,13 +3337,14 @@
       },
       "cloudExtension": true,
       "appAllowed": false,
+      "method": "POST",
       "permissionAnyOf": [],
+      "readOnly": true,
       "tags": [
         "App 与授权"
       ],
       "operation": "appCollectionsList",
       "path": "/uns/app/collections/list",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/CloudAppCollectionsListReq"
@@ -3280,15 +3375,16 @@
         "to": 1792454400000
       },
       "appAllowed": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 1,
       "scope": "uns:read",
+      "readOnly": true,
       "tags": [
         "时序数据"
       ],
       "operation": "sampleFind",
       "path": "/uns/collections/:collectionId/samples:find",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2SampleFindReq"
@@ -3320,15 +3416,16 @@
         "pipeline": []
       },
       "appAllowed": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 1,
       "scope": "uns:read",
+      "readOnly": true,
       "tags": [
         "时序数据"
       ],
       "operation": "sampleAggregate",
       "path": "/uns/collections/:collectionId/samples:aggregate",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2SampleAggregateReq"
@@ -3361,15 +3458,16 @@
         "ttlMs": 30000
       },
       "appAllowed": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 2,
       "scope": "uns:write",
+      "readOnly": false,
       "tags": [
         "业务数据"
       ],
       "operation": "recordLock",
       "path": "/uns/collections/:collectionId/records:lock",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2RecordLockReq"
@@ -3404,15 +3502,16 @@
         ]
       },
       "appAllowed": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 2,
       "scope": "uns:write",
+      "readOnly": false,
       "tags": [
         "业务数据"
       ],
       "operation": "recordRenew",
       "path": "/uns/collections/:collectionId/records:renew",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2RecordRenewReq"
@@ -3447,21 +3546,64 @@
         ]
       },
       "appAllowed": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 2,
       "scope": "uns:write",
+      "readOnly": false,
       "tags": [
         "业务数据"
       ],
       "operation": "recordUnlock",
       "path": "/uns/collections/:collectionId/records:unlock",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2RecordUnlockReq"
       },
       "responseSchema": {
         "$ref": "#/components/schemas/UnsV2RecordUnlockResponse"
+      }
+    },
+    {
+      "name": "recordGet",
+      "handler": "UnsV2RecordGet",
+      "request": "UnsV2RecordGetReq",
+      "response": "UnsV2RecordGetResponse",
+      "suffix": "/uns/collections/:collectionId/records:get",
+      "pathParams": [
+        "collectionId"
+      ],
+      "resource": "record",
+      "novaAction": "get",
+      "resourceId": 212,
+      "permission": "uns.read",
+      "mutation": "",
+      "destructive": false,
+      "summary": "按 ID 读取记录",
+      "example": {
+        "collectionId": "devices",
+        "ids": [
+          "device-1",
+          "device-2"
+        ]
+      },
+      "appAllowed": true,
+      "method": "POST",
+      "permissionAnyOf": [],
+      "minPermission": 1,
+      "scope": "uns:read",
+      "readOnly": true,
+      "tags": [
+        "业务数据"
+      ],
+      "operation": "recordGet",
+      "path": "/uns/collections/:collectionId/records:get",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/UnsV2RecordGetReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/UnsV2RecordGetResponse"
       }
     },
     {
@@ -3488,21 +3630,97 @@
         ]
       },
       "appAllowed": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 2,
       "scope": "uns:write",
+      "readOnly": false,
       "tags": [
         "业务数据"
       ],
       "operation": "recordRestore",
       "path": "/uns/collections/:collectionId/records:restore",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2RecordRestoreReq"
       },
       "responseSchema": {
         "$ref": "#/components/schemas/UnsV2RecordRestoreResponse"
+      }
+    },
+    {
+      "name": "recordQueryBatch",
+      "handler": "UnsV2RecordQueryBatch",
+      "request": "UnsV2RecordQueryBatchReq",
+      "response": "UnsV2RecordQueryBatchResponse",
+      "suffix": "/uns/records:queryBatch",
+      "resource": "record",
+      "resourceId": 212,
+      "permission": "uns.read",
+      "mutation": "",
+      "appAllowed": true,
+      "summary": "批量读取页面数据",
+      "example": {
+        "queries": [
+          {
+            "id": "open",
+            "op": "find",
+            "collectionId": "work_orders",
+            "filter": {
+              "status": "open"
+            },
+            "sort": [
+              [
+                "_meta.updatedAt",
+                -1
+              ]
+            ],
+            "limit": 20,
+            "count": {
+              "max": 10000
+            }
+          },
+          {
+            "id": "byStatus",
+            "op": "aggregate",
+            "collectionId": "work_orders",
+            "pipeline": [
+              {
+                "$group": {
+                  "_id": "$status",
+                  "count": {
+                    "$sum": 1
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "id": "pinned",
+            "op": "get",
+            "collectionId": "work_orders",
+            "ids": [
+              "wo-1"
+            ]
+          }
+        ]
+      },
+      "method": "POST",
+      "permissionAnyOf": [],
+      "minPermission": 1,
+      "scope": "uns:read",
+      "readOnly": true,
+      "tags": [
+        "业务数据"
+      ],
+      "operation": "recordQueryBatch",
+      "path": "/uns/records:queryBatch",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/UnsV2RecordQueryBatchReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/UnsV2RecordQueryBatchResponse"
       }
     },
     {
@@ -3517,7 +3735,7 @@
       "mutation": "",
       "permission": "uns.read",
       "destructive": false,
-      "appAllowed": true,
+      "appAllowed": false,
       "summary": "查询元数据",
       "description": "查询目录、主题、集合。配置字段直接使用字段名；_id 和 _meta.* 访问系统字段。返回 items/pageInfo。",
       "example": {
@@ -3535,15 +3753,16 @@
           "size": 20
         }
       },
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 1,
       "scope": "uns:read",
+      "readOnly": true,
       "tags": [
         "元数据管理"
       ],
       "operation": "metadataFind",
       "path": "/uns/metadata:find",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2MetadataFindReq"
@@ -3564,7 +3783,7 @@
       "mutation": "",
       "permission": "uns.read",
       "destructive": false,
-      "appAllowed": true,
+      "appAllowed": false,
       "summary": "读取一条元数据",
       "description": "按 filter/sort 选取一个对象，未匹配返回 value:null。",
       "example": {
@@ -3573,15 +3792,16 @@
           "_id": "workshop-1"
         }
       },
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 1,
       "scope": "uns:read",
+      "readOnly": true,
       "tags": [
         "元数据管理"
       ],
       "operation": "metadataFindOne",
       "path": "/uns/metadata:findOne",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2MetadataFindOneReq"
@@ -3611,15 +3831,16 @@
         ],
         "filter": {}
       },
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 1,
       "scope": "uns:read",
+      "readOnly": true,
       "tags": [
         "元数据管理"
       ],
       "operation": "metadataCount",
       "path": "/uns/metadata:count",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2MetadataCountReq"
@@ -3649,15 +3870,16 @@
         ],
         "field": "parentId"
       },
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 1,
       "scope": "uns:read",
+      "readOnly": true,
       "tags": [
         "元数据管理"
       ],
       "operation": "metadataDistinct",
       "path": "/uns/metadata:distinct",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2MetadataDistinctReq"
@@ -3696,15 +3918,16 @@
           }
         ]
       },
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 1,
       "scope": "uns:read",
+      "readOnly": true,
       "tags": [
         "元数据管理"
       ],
       "operation": "metadataAggregate",
       "path": "/uns/metadata:aggregate",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2MetadataAggregateReq"
@@ -3735,15 +3958,16 @@
           "parentId": null
         }
       },
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "uns:update",
+      "readOnly": false,
       "tags": [
         "元数据管理"
       ],
       "operation": "metadataInsertOne",
       "path": "/uns/metadata",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2MetadataInsertOneReq"
@@ -3779,15 +4003,16 @@
         ],
         "atomic": true
       },
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "uns:update",
+      "readOnly": false,
       "tags": [
         "元数据管理"
       ],
       "operation": "metadataInsertMany",
       "path": "/uns/metadata:insertMany",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2MetadataInsertManyReq"
@@ -3822,15 +4047,16 @@
           }
         }
       },
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "uns:update",
+      "readOnly": false,
       "tags": [
         "元数据管理"
       ],
       "operation": "metadataUpdateOne",
       "path": "/uns/metadata:updateOne",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2MetadataUpdateOneReq"
@@ -3866,15 +4092,16 @@
         },
         "returnDocument": "after"
       },
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "uns:update",
+      "readOnly": false,
       "tags": [
         "元数据管理"
       ],
       "operation": "metadataFindOneAndUpdate",
       "path": "/uns/metadata:findOneAndUpdate",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2MetadataFindOneAndUpdateReq"
@@ -3908,15 +4135,16 @@
           "parentId": null
         }
       },
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "uns:update",
+      "readOnly": false,
       "tags": [
         "元数据管理"
       ],
       "operation": "metadataReplaceOne",
       "path": "/uns/metadata:replaceOne",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2MetadataReplaceOneReq"
@@ -3951,15 +4179,16 @@
         },
         "returnDocument": "after"
       },
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "uns:update",
+      "readOnly": false,
       "tags": [
         "元数据管理"
       ],
       "operation": "metadataFindOneAndReplace",
       "path": "/uns/metadata:findOneAndReplace",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2MetadataFindOneAndReplaceReq"
@@ -3989,15 +4218,16 @@
           "_id": "workshop-1"
         }
       },
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "uns:update",
+      "readOnly": false,
       "tags": [
         "元数据管理"
       ],
       "operation": "metadataDeleteOne",
       "path": "/uns/metadata:deleteOne",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2MetadataDeleteOneReq"
@@ -4027,15 +4257,16 @@
           "_id": "workshop-1"
         }
       },
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "uns:update",
+      "readOnly": false,
       "tags": [
         "元数据管理"
       ],
       "operation": "metadataFindOneAndDelete",
       "path": "/uns/metadata:findOneAndDelete",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2MetadataFindOneAndDeleteReq"
@@ -4077,15 +4308,16 @@
         "atomic": true,
         "maxDocs": 200
       },
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "uns:update",
+      "readOnly": false,
       "tags": [
         "元数据管理"
       ],
       "operation": "metadataUpdateMany",
       "path": "/uns/metadata:updateMany",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2MetadataUpdateManyReq"
@@ -4122,15 +4354,16 @@
         "atomic": true,
         "maxDocs": 200
       },
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "uns:update",
+      "readOnly": false,
       "tags": [
         "元数据管理"
       ],
       "operation": "metadataDeleteMany",
       "path": "/uns/metadata:deleteMany",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2MetadataDeleteManyReq"
@@ -4163,15 +4396,16 @@
           }
         ]
       },
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "uns:update",
+      "readOnly": false,
       "tags": [
         "元数据管理"
       ],
       "operation": "metadataRestore",
       "path": "/uns/metadata:restore",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2MetadataRestoreReq"
@@ -4194,7 +4428,7 @@
       "destructive": true,
       "appAllowed": false,
       "summary": "执行元数据混合批量写入",
-      "description": "同一 kind 下最多 200 个操作。默认原子；非原子时 ordered 控制失败后是否继续，按原始序号返回逐项结果。",
+      "description": "同一 kind 下最多 200 个操作。默认原子；非原子时 ordered 控制失败后是否继续，按原始序号返回逐项结果。非原子执行只要有任一项已提交，失败响应的 error.execution=committed、retry.safe=false，错误信封 data 为与成功响应相同结构的累计结果（含 nextIndex，结局未知时另有 unknownUntil）：序号小于 nextIndex 且不在 errors 里的操作都已提交；[nextIndex, unknownUntil) 结局未知，带幂等键时同键重试，不带键时只有带客户端 id 的新增与按 id 的替换 / 删除能先按 id 读取状态再续做，服务端生成 id 的新增、按 filter 选择目标的操作与 $inc 等增量更新无法核对，结局未知时不能安全续做（这类写入应始终带幂等键）；没有 unknownUntil 时从 nextIndex 续做是安全的。只有全部未提交时才是 rolledBack 或 notStarted。",
       "example": {
         "kind": "directory",
         "operations": [
@@ -4208,15 +4442,17 @@
           }
         ]
       },
+      "partialCommit": true,
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "uns:update",
+      "readOnly": false,
       "tags": [
         "元数据管理"
       ],
       "operation": "metadataBulkWrite",
       "path": "/uns/metadata:bulkWrite",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2MetadataBulkWriteReq"
@@ -4267,15 +4503,16 @@
           }
         ]
       },
+      "method": "POST",
       "permissionAnyOf": [],
       "minPermission": 3,
       "scope": "uns:update",
+      "readOnly": false,
       "tags": [
         "元数据管理"
       ],
       "operation": "metadataTransact",
       "path": "/uns/metadata:transact",
-      "method": "POST",
       "supported": true,
       "requestSchema": {
         "$ref": "#/components/schemas/UnsV2MetadataTransactReq"
@@ -5246,13 +5483,37 @@
         },
         "createCapability": {
           "$ref": "#/components/schemas/CloudAppCreateCapability"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "集合定义版本；结构或索引变化时递增。"
+        },
+        "indexStatus": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/IndexState"
+          },
+          "description": "当前索引状态；只有 state=ready 的唯一索引可用于 upsert，ready 的 TTL 索引才开始过期删除。"
+        },
+        "ttl": {
+          "allOf": [
+            {
+              "$ref": "#/components/schemas/CloudCollectionTTL"
+            }
+          ],
+          "nullable": true,
+          "description": "集合的 TTL 规则；没有时为 null。"
         }
       },
       "required": [
         "alias",
         "collectionId",
         "permissions",
-        "recordSchema"
+        "recordSchema",
+        "revision",
+        "indexStatus",
+        "ttl"
       ],
       "type": "object"
     },
@@ -5294,6 +5555,9 @@
         },
         "revision": {
           "type": "integer"
+        },
+        "limits": {
+          "$ref": "#/components/schemas/CloudAppDataLimits"
         }
       },
       "required": [
@@ -5301,7 +5565,8 @@
         "name",
         "revision",
         "collections",
-        "platformPermissions"
+        "platformPermissions",
+        "limits"
       ],
       "type": "object"
     },
@@ -5983,59 +6248,79 @@
       "type": "object"
     },
     "Fault": {
+      "type": "object",
       "additionalProperties": false,
       "properties": {
-        "candidates": {
-          "items": {
-            "additionalProperties": {},
-            "type": "object"
-          },
-          "type": "array"
-        },
         "code": {
-          "type": "string"
+          "type": "string",
+          "description": "可编程判断的错误码，例如 OVERLOADED、VERSION_CONFLICT。"
         },
-        "conditionIndex": {
-          "type": "integer"
+        "reason": {
+          "type": "string",
+          "description": "面向开发者的错误原因。"
         },
-        "objectId": {
-          "type": "string"
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "description": "结构化定位信息；没有时为空数组。"
+        },
+        "execution": {
+          "type": "string",
+          "enum": [
+            "notStarted",
+            "rolledBack",
+            "committed",
+            "unknown"
+          ],
+          "description": "notStarted：进入写路径前被拒绝；rolledBack：已执行但整体回滚；committed：已提交；unknown：无法证明是否提交，只出现在写操作上，读请求永远不是 unknown。notStarted/rolledBack 可证明没有副作用。非原子批量（partialCommit 操作）只要有任一块或任一项已提交即为 committed（部分提交），此时 retry.safe=false，错误信封 data 为累计结果。"
+        },
+        "retry": {
+          "$ref": "#/components/schemas/ErrorRetry"
+        },
+        "repair": {
+          "type": "string",
+          "description": "修正建议，例如缩小查询范围。"
+        },
+        "opId": {
+          "type": "string",
+          "description": "事务或批量写入中出错的输入项标识。"
+        },
+        "queryId": {
+          "type": "string",
+          "description": "批量查询中出错的查询项标识。"
+        },
+        "path": {
+          "type": "string",
+          "description": "可定位时指向出错的输入位置。"
         },
         "objectKind": {
           "type": "string"
         },
-        "opId": {
-          "type": "string",
-          "description": "本事务内唯一操作标识，供依赖和结果引用使用。"
-        },
-        "path": {
+        "objectId": {
           "type": "string"
         },
-        "queryId": {
-          "type": "string",
-          "description": "本批查询内唯一标识，用于对应结果。"
+        "candidates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
         },
-        "reason": {
-          "type": "string"
-        },
-        "repair": {
-          "type": "string"
-        },
-        "retryAdvice": {
-          "$ref": "#/components/schemas/RetryAdvice"
-        },
-        "retryable": {
-          "type": "boolean"
-        },
-        "rolledBack": {
-          "type": "boolean"
+        "conditionIndex": {
+          "type": "integer"
         }
       },
       "required": [
         "code",
-        "retryable"
+        "reason",
+        "details",
+        "execution",
+        "retry"
       ],
-      "type": "object"
+      "description": "线上错误对象。错误信封的 error、批量写入逐项 error、queryBatch 逐项 error 与作业 error 使用同一形状。"
     },
     "FieldBinding": {
       "additionalProperties": false,
@@ -6278,10 +6563,67 @@
         },
         "unique": {
           "type": "boolean"
+        },
+        "expireAfterSeconds": {
+          "type": "integer",
+          "minimum": 60,
+          "maximum": 31536000,
+          "description": "TTL 索引：记录在该字段时间加上此秒数后被物理删除，不可恢复。只用于单个 path、btree、records、非唯一索引；字段须在 RecordSchema 中声明为 integer（Unix 毫秒）。每集合最多 1 个；ensure 只能新增或加大，缩短或删除需 schema:replace；被数据源写入的集合不支持。"
         }
       },
       "required": [],
-      "type": "object"
+      "type": "object",
+      "allOf": [
+        {
+          "anyOf": [
+            {
+              "not": {
+                "required": [
+                  "expireAfterSeconds"
+                ]
+              }
+            },
+            {
+              "required": [
+                "path"
+              ],
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "paths"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "unique"
+                    ],
+                    "properties": {
+                      "unique": {
+                        "enum": [
+                          true
+                        ]
+                      }
+                    }
+                  }
+                ]
+              },
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "btree"
+                  ]
+                },
+                "target": {
+                  "enum": [
+                    "records"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
     },
     "IndexState": {
       "additionalProperties": false,
@@ -6851,42 +7193,6 @@
         "status"
       ],
       "type": "object"
-    },
-    "RetryAdvice": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "recommendedAction",
-        "canRetrySameRequest",
-        "keepIdempotencyKey"
-      ],
-      "properties": {
-        "recommendedAction": {
-          "type": "string",
-          "description": "下一步恢复动作，不构成额外业务授权。",
-          "enum": [
-            "inspectErrorAndCorrectRequest",
-            "queryTransactionStatusBeforeRetry",
-            "rereadAndReplan",
-            "queryTransactionStatusBeforeReplanning",
-            "queryOriginalTransactionStatusDoNotReplaceKey",
-            "restoreAuthorizationBeforeRetry",
-            "narrowQueryAndRetry",
-            "retryOriginalRequestWithSameKey",
-            "useCommittedOutcomeDoNotExecuteAgain",
-            "pollTransactionStatus",
-            "inspectJobFailureBeforeReplanning"
-          ]
-        },
-        "canRetrySameRequest": {
-          "type": "boolean",
-          "description": "是否可重发完全相同的请求；若建议先查状态，必须先查。"
-        },
-        "keepIdempotencyKey": {
-          "type": "boolean",
-          "description": "恢复原意图时保留原幂等键；不能换键重复执行。"
-        }
-      }
     },
     "Role": {
       "additionalProperties": false,
@@ -14306,17 +14612,7 @@
           "type": "string"
         },
         "data": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "count": {
-              "type": "integer",
-              "minimum": 0
-            }
-          },
-          "required": [
-            "count"
-          ]
+          "$ref": "#/components/schemas/CloudCappedCount"
         }
       },
       "required": [
@@ -14340,21 +14636,7 @@
           "type": "string"
         },
         "data": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "values": {
-              "type": "array",
-              "items": {}
-            },
-            "pageInfo": {
-              "$ref": "#/components/schemas/CloudPageInfo"
-            }
-          },
-          "required": [
-            "values",
-            "pageInfo"
-          ]
+          "$ref": "#/components/schemas/CloudDistinctResult"
         }
       },
       "required": [
@@ -14378,7 +14660,7 @@
           "type": "string"
         },
         "data": {
-          "$ref": "#/components/schemas/CloudDataPage"
+          "$ref": "#/components/schemas/CloudRecordAggregatePage"
         }
       },
       "required": [
@@ -14419,7 +14701,8 @@
               "minimum": 0
             },
             "capped": {
-              "type": "boolean"
+              "type": "boolean",
+              "description": "true 表示真实匹配数大于 limit，此时 matchedCount 等于 limit。"
             },
             "sampleIds": {
               "type": "array",
@@ -14525,6 +14808,16 @@
               },
               "description": "键为原始输入中从 0 开始的操作索引，值为对应成功记录 ID；部分失败时不重新编号。"
             },
+            "nextIndex": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "第一个未执行操作的零基序号。序号小于它且不在 writeErrors 里的操作都已提交。"
+            },
+            "unknownUntil": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "中断原因结局未知时给出：[nextIndex, unknownUntil) 的操作结局未知，带幂等键时用同一个键重试，不带键时只有带客户端 id 的新增与按 id 的替换 / 删除能先按 id 读取状态再续做，服务端生成 id 的新增、按 filter 选择目标的操作与 $inc 等增量更新无法核对，结局未知时不能安全续做（这类写入应始终带幂等键）。没有它时从 nextIndex 续做是安全的。"
+            },
             "status": {
               "type": "string",
               "description": "执行状态；validated 为回滚预检，committed 为提交成功，partiallyCommitted/failed 表示部分写入结果。"
@@ -14541,11 +14834,6 @@
             },
             "hasMore": {
               "type": "boolean"
-            },
-            "resumeAfter": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
             }
           },
           "required": [
@@ -14884,6 +15172,11 @@
               "type": "integer",
               "minimum": 0
             },
+            "resumeAfter": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
             "status": {
               "type": "string",
               "description": "执行状态；validated 为回滚预检，committed 为提交成功，partiallyCommitted/failed 表示部分写入结果。"
@@ -14900,11 +15193,6 @@
             },
             "hasMore": {
               "type": "boolean"
-            },
-            "resumeAfter": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
             }
           },
           "required": [
@@ -14943,6 +15231,11 @@
               "type": "integer",
               "minimum": 0
             },
+            "resumeAfter": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
             "status": {
               "type": "string",
               "description": "执行状态；validated 为回滚预检，committed 为提交成功，partiallyCommitted/failed 表示部分写入结果。"
@@ -14959,11 +15252,6 @@
             },
             "hasMore": {
               "type": "boolean"
-            },
-            "resumeAfter": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
             }
           },
           "required": [
@@ -15035,6 +15323,16 @@
               },
               "description": "键为原始输入中从 0 开始的操作索引，值为对应成功记录 ID；部分失败时不重新编号。"
             },
+            "nextIndex": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "第一个未执行操作的零基序号。序号小于它且不在 writeErrors 里的操作都已提交。"
+            },
+            "unknownUntil": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "中断原因结局未知时给出：[nextIndex, unknownUntil) 的操作结局未知，带幂等键时用同一个键重试，不带键时只有带客户端 id 的新增与按 id 的替换 / 删除能先按 id 读取状态再续做，服务端生成 id 的新增、按 filter 选择目标的操作与 $inc 等增量更新无法核对，结局未知时不能安全续做（这类写入应始终带幂等键）。没有它时从 nextIndex 续做是安全的。"
+            },
             "status": {
               "type": "string",
               "description": "执行状态；validated 为回滚预检，committed 为提交成功，partiallyCommitted/failed 表示部分写入结果。"
@@ -15051,11 +15349,6 @@
             },
             "hasMore": {
               "type": "boolean"
-            },
-            "resumeAfter": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
             }
           },
           "required": [
@@ -18704,72 +18997,34 @@
     },
     "UnsV2ErrorResponse": {
       "type": "object",
-      "required": [
-        "code",
-        "msg",
-        "requestId",
-        "error"
-      ],
+      "additionalProperties": false,
       "properties": {
         "code": {
-          "type": "integer"
+          "type": "integer",
+          "description": "真实 HTTP 状态码。"
         },
         "msg": {
           "type": "string"
         },
         "requestId": {
-          "type": "string"
+          "type": "string",
+          "description": "请求标识，用于排查。"
         },
         "data": {
-          "nullable": true
+          "nullable": true,
+          "description": "结构化错误详情；没有时为 null。"
         },
         "error": {
-          "type": "object",
-          "required": [
-            "code",
-            "retryable",
-            "details",
-            "retryAdvice"
-          ],
-          "properties": {
-            "code": {
-              "type": "string"
-            },
-            "retryable": {
-              "type": "boolean"
-            },
-            "rolledBack": {
-              "type": "boolean"
-            },
-            "opId": {
-              "type": "string"
-            },
-            "path": {
-              "type": "string"
-            },
-            "details": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "additionalProperties": true
-              }
-            },
-            "repair": {
-              "type": "string"
-            },
-            "reason": {
-              "type": "string"
-            },
-            "retryAdvice": {
-              "$ref": "#/components/schemas/RetryAdvice"
-            },
-            "queryId": {
-              "type": "string",
-              "description": "独立查询失败时标识对应 queries 项；error.path 同时指出输入位置。整批失败，不返回此前查询的部分结果。"
-            }
-          }
+          "$ref": "#/components/schemas/Fault"
         }
-      }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data",
+        "error"
+      ]
     },
     "PlatformV2CompletedPart": {
       "type": "object",
@@ -18799,57 +19054,21 @@
       "properties": {
         "code": {
           "type": "integer",
-          "format": "int64",
           "description": "真实 HTTP 状态码。"
         },
         "msg": {
           "type": "string"
         },
         "requestId": {
-          "type": "string"
+          "type": "string",
+          "description": "请求标识，用于排查。"
         },
         "data": {
-          "nullable": true
+          "nullable": true,
+          "description": "结构化错误详情；没有时为 null。"
         },
         "error": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "code": {
-              "type": "string",
-              "description": "可编程判断的错误码。"
-            },
-            "retryable": {
-              "type": "boolean",
-              "description": "当前业务错误仅 429 标为可重试。500/504 结果可能不明，应先按 recommendedAction 核查。"
-            },
-            "details": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "additionalProperties": true
-              },
-              "description": "结构化错误明细，当前平台业务错误为空数组。"
-            },
-            "path": {
-              "type": "string",
-              "description": "有定位信息时返回的参数路径。"
-            },
-            "recommendedAction": {
-              "type": "string",
-              "description": "500/504 时说明先检查操作状态；通知保留原幂等键。"
-            },
-            "retryAdvice": {
-              "type": "object",
-              "additionalProperties": true,
-              "description": "认证中间件可附带的结构化恢复建议。"
-            }
-          },
-          "required": [
-            "code",
-            "retryable",
-            "details"
-          ]
+          "$ref": "#/components/schemas/Fault"
         }
       },
       "required": [
@@ -23610,9 +23829,6 @@
         "jobId": {
           "type": "string"
         },
-        "retryAdvice": {
-          "$ref": "#/components/schemas/RetryAdvice"
-        },
         "status": {
           "type": "string",
           "enum": [
@@ -23623,12 +23839,26 @@
             "succeeded",
             "failed"
           ],
-          "description": "unknown 不是已回滚的证明；按 retryAdvice 使用原请求和原 key 恢复。succeeded 表示异步作业已成功，committed 表示已有提交回执。"
+          "description": "unknown 不是已回滚的证明；execution=unknown 时复用原请求和原幂等键恢复。succeeded 表示异步作业已成功，committed 表示已有提交回执。"
+        },
+        "execution": {
+          "type": "string",
+          "enum": [
+            "notStarted",
+            "rolledBack",
+            "committed",
+            "unknown"
+          ],
+          "description": "原请求的数据提交状态：committed/succeeded 为 committed；queued 为 notStarted；running 与无法判定的 unknown 为 unknown。"
+        },
+        "retry": {
+          "$ref": "#/components/schemas/ErrorRetry"
         }
       },
       "required": [
         "status",
-        "retryAdvice"
+        "execution",
+        "retry"
       ],
       "type": "object"
     },
@@ -23862,20 +24092,43 @@
         "collectionId": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 128,
-          "description": "集合 ID，业务记录和采样所属的 Collection。"
+          "maxLength": 128
         },
-        "id": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 128,
-          "description": "对象 ID（字符串），从发现或读取接口取得；不要把名称当成 ID。"
+        "ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "minItems": 1,
+          "maxItems": 100,
+          "uniqueItems": true
+        },
+        "projection": {
+          "type": "object",
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  0,
+                  1
+                ]
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "description": "Include or exclude declared fields; computed expressions use aggregate-pipeline. System identity is retained."
         }
       },
       "required": [
         "collectionId",
-        "id"
-      ]
+        "ids"
+      ],
+      "description": "按主键读取最多 100 条有效记录，items 按请求顺序返回。不存在、已软删除或被员工数据规则过滤的 ID 统一列入 missing，不区分不存在与无权读取。"
     },
     "UnsV2RecordGetResponse": {
       "type": "object",
@@ -23891,8 +24144,7 @@
           "type": "string"
         },
         "data": {
-          "type": "object",
-          "description": "Record identity, collectionId, revision, data and timestamps"
+          "$ref": "#/components/schemas/CloudRecordGetResult"
         }
       },
       "required": [
@@ -24232,10 +24484,23 @@
         },
         "cursor": {
           "type": "string"
+        },
+        "count": {
+          "$ref": "#/components/schemas/CloudRecordTotalOption"
         }
       },
       "required": [
         "collectionId"
+      ],
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "count",
+              "cursor"
+            ]
+          }
+        }
       ]
     },
     "UnsV2RecordCountReq": {
@@ -24250,11 +24515,19 @@
         },
         "filter": {
           "$ref": "#/components/schemas/UnsV2DataFilter"
+        },
+        "maxCount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000,
+          "default": 100000,
+          "description": "计数上限；真实匹配数大于 maxCount 时返回 count=maxCount、capped=true，等于 maxCount 时 capped=false。"
         }
       },
       "required": [
         "collectionId"
-      ]
+      ],
+      "description": "统计符合 filter 的有效记录数，最多数到 maxCount。"
     },
     "UnsV2RecordDistinctReq": {
       "type": "object",
@@ -24322,6 +24595,9 @@
         },
         "page": {
           "$ref": "#/components/schemas/UnsV2PipelinePage"
+        },
+        "count": {
+          "$ref": "#/components/schemas/CloudRecordTotalOption"
         }
       },
       "required": [
@@ -24335,6 +24611,21 @@
               "page",
               "limit"
             ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "count",
+              "page"
+            ],
+            "properties": {
+              "page": {
+                "required": [
+                  "cursor"
+                ]
+              }
+            }
           }
         }
       ]
@@ -27789,6 +28080,11 @@
       "properties": {
         "document": {
           "$ref": "#/components/schemas/CloudStreamDocument"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$",
+          "description": "Stable current Stream ID when validating edits. Omit for new drafts; names never identify which active routes to exclude."
         }
       },
       "required": [
@@ -28411,7 +28707,8 @@
           "enum": [
             "basic",
             "bearer",
-            "usernamePassword"
+            "usernamePassword",
+            "anonymous"
           ]
         },
         "method": {
@@ -28495,6 +28792,21 @@
               "method"
             ]
           }
+        },
+        {
+          "properties": {
+            "protocol": {
+              "const": "opcua"
+            },
+            "kind": {
+              "const": "anonymous"
+            }
+          },
+          "not": {
+            "required": [
+              "method"
+            ]
+          }
         }
       ]
     },
@@ -28529,6 +28841,38 @@
                 },
                 "clientIdentityRef": {
                   "type": "string"
+                }
+              }
+            },
+            "options": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "serverApplicationUri",
+                "clientApplicationUri",
+                "serverName",
+                "serverSha256"
+              ],
+              "properties": {
+                "serverApplicationUri": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                "clientApplicationUri": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                "serverName": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 253
+                },
+                "serverSha256": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
                 }
               }
             }
@@ -28655,6 +28999,112 @@
                   ]
                 }
               }
+            },
+            "httpIn": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "available",
+                "prefix",
+                "endpoint",
+                "mode",
+                "maxBodyBytes",
+                "maxResponseBytes",
+                "maxTimeoutMs",
+                "routes"
+              ],
+              "properties": {
+                "available": {
+                  "type": "integer",
+                  "enum": [
+                    1,
+                    2
+                  ],
+                  "description": "Independent synchronous HTTP In capability; 1 enabled, 2 disabled. Does not enable legacy asynchronous reception."
+                },
+                "prefix": {
+                  "type": "string",
+                  "pattern": "^/ingest/v1/[1-9][0-9]*/[1-9][0-9]*$"
+                },
+                "endpoint": {
+                  "type": "string",
+                  "description": "Server-configured public origin plus fixed prefix; empty while unavailable. Never inferred from the browser origin."
+                },
+                "mode": {
+                  "type": "string",
+                  "enum": [
+                    "synchronous"
+                  ]
+                },
+                "maxBodyBytes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1048576
+                },
+                "maxResponseBytes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1048576
+                },
+                "maxTimeoutMs": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 30000
+                },
+                "routes": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "streamId",
+                      "versionId",
+                      "entryId",
+                      "method",
+                      "path",
+                      "urlPath"
+                    ],
+                    "properties": {
+                      "streamId": {
+                        "type": "string",
+                        "pattern": "^[1-9][0-9]*$"
+                      },
+                      "versionId": {
+                        "type": "string",
+                        "pattern": "^[1-9][0-9]*$"
+                      },
+                      "entryId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      },
+                      "method": {
+                        "type": "string",
+                        "enum": [
+                          "GET",
+                          "POST",
+                          "PUT",
+                          "PATCH",
+                          "DELETE",
+                          "HEAD",
+                          "OPTIONS"
+                        ]
+                      },
+                      "path": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2048,
+                        "pattern": "^/"
+                      },
+                      "urlPath": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^/ingest/v1/[1-9][0-9]*/[1-9][0-9]*/"
+                      }
+                    }
+                  }
+                }
+              }
             }
           }
         }
@@ -28742,6 +29192,112 @@
             },
             "token": {
               "type": "string"
+            },
+            "httpIn": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "available",
+                "prefix",
+                "endpoint",
+                "mode",
+                "maxBodyBytes",
+                "maxResponseBytes",
+                "maxTimeoutMs",
+                "routes"
+              ],
+              "properties": {
+                "available": {
+                  "type": "integer",
+                  "enum": [
+                    1,
+                    2
+                  ],
+                  "description": "Independent synchronous HTTP In capability; 1 enabled, 2 disabled. Does not enable legacy asynchronous reception."
+                },
+                "prefix": {
+                  "type": "string",
+                  "pattern": "^/ingest/v1/[1-9][0-9]*/[1-9][0-9]*$"
+                },
+                "endpoint": {
+                  "type": "string",
+                  "description": "Server-configured public origin plus fixed prefix; empty while unavailable. Never inferred from the browser origin."
+                },
+                "mode": {
+                  "type": "string",
+                  "enum": [
+                    "synchronous"
+                  ]
+                },
+                "maxBodyBytes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1048576
+                },
+                "maxResponseBytes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1048576
+                },
+                "maxTimeoutMs": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 30000
+                },
+                "routes": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "streamId",
+                      "versionId",
+                      "entryId",
+                      "method",
+                      "path",
+                      "urlPath"
+                    ],
+                    "properties": {
+                      "streamId": {
+                        "type": "string",
+                        "pattern": "^[1-9][0-9]*$"
+                      },
+                      "versionId": {
+                        "type": "string",
+                        "pattern": "^[1-9][0-9]*$"
+                      },
+                      "entryId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      },
+                      "method": {
+                        "type": "string",
+                        "enum": [
+                          "GET",
+                          "POST",
+                          "PUT",
+                          "PATCH",
+                          "DELETE",
+                          "HEAD",
+                          "OPTIONS"
+                        ]
+                      },
+                      "path": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2048,
+                        "pattern": "^/"
+                      },
+                      "urlPath": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^/ingest/v1/[1-9][0-9]*/[1-9][0-9]*/"
+                      }
+                    }
+                  }
+                }
+              }
             }
           }
         }
@@ -30342,136 +30898,6 @@
         "principals"
       ]
     },
-    "CloudRecordChangesPollReq": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "collectionId": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 128
-        },
-        "recordIds": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 128
-          },
-          "maxItems": 20,
-          "uniqueItems": true
-        },
-        "cursor": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 8192
-        },
-        "limit": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 100,
-          "default": 50
-        },
-        "waitMs": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 5000,
-          "default": 0
-        }
-      },
-      "required": [
-        "collectionId"
-      ]
-    },
-    "CloudRecordChangeNotification": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "eventId": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 256
-        },
-        "collectionId": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 128
-        },
-        "recordId": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 128
-        },
-        "change": {
-          "type": "string",
-          "enum": [
-            "record",
-            "delete"
-          ]
-        },
-        "occurredAt": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Event occurrence time in Unix milliseconds; delivery order is not commit order."
-        }
-      },
-      "required": [
-        "eventId",
-        "collectionId",
-        "recordId",
-        "change",
-        "occurredAt"
-      ]
-    },
-    "CloudRecordChangesPollResponse": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "code": {
-          "type": "integer"
-        },
-        "msg": {
-          "type": "string"
-        },
-        "requestId": {
-          "type": "string"
-        },
-        "data": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "items": {
-              "type": "array",
-              "maxItems": 100,
-              "items": {
-                "$ref": "#/components/schemas/CloudRecordChangeNotification"
-              }
-            },
-            "nextCursor": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 8192
-            },
-            "retentionMs": {
-              "type": "integer",
-              "minimum": 1,
-              "description": "Configured bounded stream retention, not a guarantee of permanent history."
-            }
-          },
-          "required": [
-            "items",
-            "nextCursor",
-            "retentionMs"
-          ]
-        }
-      },
-      "required": [
-        "code",
-        "msg",
-        "requestId",
-        "data"
-      ]
-    },
     "CloudAppCollectionDeclaration": {
       "type": "object",
       "additionalProperties": false,
@@ -31087,6 +31513,294 @@
         "requestId",
         "data"
       ]
+    },
+    "CloudRecordSubscribeReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "collectionIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "description": "订阅的集合，最多 64 个；每个集合都需要 record:read 授权。省略表示当前主体有权读取的全部集合（App 凭据即本 App 授权的全部集合），授权范围变化时发送 reset。"
+        },
+        "recordIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "minItems": 1,
+          "maxItems": 100,
+          "uniqueItems": true,
+          "description": "只订阅这些记录，最多 100 个；需要且只能配合一个 collectionId。"
+        },
+        "cursor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8192,
+          "description": "续传位置，即上次收到的事件 id（SSE Last-Event-ID）；省略时从当前位置开始。"
+        },
+        "waitMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15000,
+          "default": 0,
+          "description": "网关内部长轮询的最长等待时间（不超过 UNS 服务端的请求超时）；SSE 调用方不传。"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 100,
+          "description": "单次长轮询返回的最多事件数；SSE 调用方不传。"
+        }
+      },
+      "required": [],
+      "allOf": [
+        {
+          "anyOf": [
+            {
+              "not": {
+                "required": [
+                  "recordIds"
+                ]
+              }
+            },
+            {
+              "required": [
+                "collectionIds"
+              ],
+              "properties": {
+                "collectionIds": {
+                  "maxItems": 1
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "description": "公开接口为 GET /uns/records:subscribe，collectionIds、recordIds 作为重复的查询参数，续传位置放在 Last-Event-ID 请求头；网关据此循环调用 UNS 的内部长轮询（同一 schema，补充 cursor、waitMs、limit）。"
+    },
+    "CloudRecordChangeEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "eventId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8192,
+          "description": "事件位置，与 SSE 帧的 id 相同；断线后作为 Last-Event-ID 续传。不透明，不能解析或拼接。"
+        },
+        "collectionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "recordId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "变更后的记录版本；delete 为删除时的版本。"
+        },
+        "change": {
+          "type": "string",
+          "enum": [
+            "record",
+            "delete"
+          ],
+          "description": "record：新增、更新或恢复；delete：软删除或 TTL 物理删除。按 recordId 重新读取获得当前内容。"
+        },
+        "occurredAt": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "写入时间（写入事务内的服务端时间），Unix 毫秒。事件按写入事务的顺序投递，不是提交顺序：同一记录的事件不保证 revision 单调，客户端按 recordId 重读，忽略不大于已见 revision 的非 delete 事件；delete 事件一律处理（迟到的 delete 也处理），并清除该 recordId 已见的 revision，之后同 id 的事件按新记录处理（软删除后重新写入时 revision 继续递增，物理删除后从 1 开始）。"
+        },
+        "restricted": {
+          "type": "boolean",
+          "description": "集合存在员工数据规则时为 true。以 App 身份合并上游再转发给浏览器的服务端，对 restricted 事件只能转发集合级通知（不带 recordId / revision），由浏览器通过受员工规则约束的接口重新读取，避免泄漏无权查看记录的存在性。"
+        }
+      },
+      "required": [
+        "eventId",
+        "collectionId",
+        "recordId",
+        "revision",
+        "change",
+        "occurredAt",
+        "restricted"
+      ]
+    },
+    "CloudRecordSubscribeReset": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "reason": {
+          "type": "string",
+          "enum": [
+            "CURSOR_EXPIRED",
+            "SCOPE_CHANGED"
+          ],
+          "description": "CURSOR_EXPIRED：续传位置之后的变更已超出 24 小时保留期被清理、游标已无法解开（例如密钥轮换）或租户库已迁移到别的实例；SCOPE_CHANGED：授权范围变化（含省略 collectionIds 时可读集合的增减、续传时集合不再可读）。两者都要求重新读取当前数据后不带续传位置重新订阅。"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "description": "服务端发送 reset 后关闭连接。客户端重新读取当前数据，再不带 Last-Event-ID 重新订阅。"
+    },
+    "CloudRecordSubscribeResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "events": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "$ref": "#/components/schemas/CloudRecordChangeEvent"
+              }
+            },
+            "cursor": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8192,
+              "nullable": true,
+              "description": "下一次长轮询的位置；reset 时为 null。"
+            },
+            "reset": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/CloudRecordSubscribeReset"
+                }
+              ],
+              "nullable": true
+            }
+          },
+          "required": [
+            "events",
+            "cursor",
+            "reset"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ],
+      "description": "网关内部长轮询的结果；公开接口以 SSE 帧投递（见 CloudRecordSubscribeFrame）。"
+    },
+    "CloudRecordSubscribeFrame": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "event": {
+              "type": "string",
+              "enum": [
+                "change"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8192
+            },
+            "data": {
+              "$ref": "#/components/schemas/CloudRecordChangeEvent"
+            }
+          },
+          "required": [
+            "event",
+            "id",
+            "data"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "event": {
+              "type": "string",
+              "enum": [
+                "heartbeat"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8192
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "at": {
+                  "type": "integer",
+                  "description": "服务端时间，Unix 毫秒。"
+                }
+              },
+              "required": [
+                "at"
+              ]
+            }
+          },
+          "required": [
+            "event",
+            "id",
+            "data"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "event": {
+              "type": "string",
+              "enum": [
+                "reset"
+              ]
+            },
+            "data": {
+              "$ref": "#/components/schemas/CloudRecordSubscribeReset"
+            }
+          },
+          "required": [
+            "event",
+            "data"
+          ]
+        }
+      ],
+      "description": "SSE 帧：event 为帧类型，id 为续传位置，data 为 JSON。连接建立后立即发送一次 heartbeat（id 为当前位置），之后每 15 秒一次；change 按写入事务的顺序投递（同一记录的 revision 不保证单调，见 CloudRecordChangeEvent.occurredAt）；reset 后连接关闭。"
     },
     "UnsV2SampleFindReq": {
       "type": "object",
@@ -31727,6 +32441,21 @@
         "data"
       ]
     },
+    "CloudRecordTotalOption": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000,
+          "default": 10000,
+          "description": "总数上限；真实总数大于 max 时 total.count=max、total.capped=true。"
+        }
+      },
+      "required": [],
+      "description": "在同一只读快照中附带符合条件的总数，响应返回 total:{count,capped}。只能用于第一页或 offset 页，与续页 cursor 同用返回 INVALID_REQUEST。"
+    },
     "CloudAppCreateCapability": {
       "type": "object",
       "additionalProperties": false,
@@ -32041,6 +32770,25 @@
         "snapshotScope"
       ]
     },
+    "CloudCappedCount": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "capped": {
+          "type": "boolean",
+          "description": "capped=true 表示真实匹配数大于上限（服务端按上限 +1 行判断），此时 count 等于上限；capped=false 时 count 是完整总数。"
+        }
+      },
+      "required": [
+        "count",
+        "capped"
+      ],
+      "description": "封顶计数。"
+    },
     "CloudRecordPage": {
       "type": "object",
       "additionalProperties": false,
@@ -32053,6 +32801,10 @@
         },
         "pageInfo": {
           "$ref": "#/components/schemas/CloudPageInfo"
+        },
+        "total": {
+          "$ref": "#/components/schemas/CloudCappedCount",
+          "description": "仅在请求带 count 时返回，与本页同一快照。"
         }
       },
       "required": [
@@ -32078,6 +32830,73 @@
         "items",
         "pageInfo"
       ]
+    },
+    "CloudRecordAggregatePage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "pageInfo": {
+          "$ref": "#/components/schemas/CloudPageInfo"
+        },
+        "total": {
+          "$ref": "#/components/schemas/CloudCappedCount",
+          "description": "仅在请求带 count 时返回，与本页同一快照。"
+        }
+      },
+      "required": [
+        "items",
+        "pageInfo"
+      ],
+      "description": "聚合管线的输出文档；total 为管线输出的封顶总数。"
+    },
+    "CloudDistinctResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "values": {
+          "type": "array",
+          "items": {}
+        },
+        "pageInfo": {
+          "$ref": "#/components/schemas/CloudPageInfo"
+        }
+      },
+      "required": [
+        "values",
+        "pageInfo"
+      ]
+    },
+    "CloudRecordGetResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/RecordDocument"
+          }
+        },
+        "missing": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      },
+      "required": [
+        "items",
+        "missing"
+      ],
+      "description": "items 按请求 ids 的顺序返回；不存在、已软删除或无权读取的 ID 列入 missing。"
     },
     "CloudDistinctPage": {
       "type": "object",
@@ -32153,6 +32972,421 @@
         "expiresAt",
         "fence",
         "record"
+      ]
+    },
+    "CloudRecordBatchQuery": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.-]{1,64}$",
+              "description": "批内唯一的查询标识，结果按它返回。"
+            },
+            "op": {
+              "type": "string",
+              "enum": [
+                "find"
+              ]
+            },
+            "collectionId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "集合 ID，业务记录和采样所属的 Collection。"
+            },
+            "filter": {
+              "$ref": "#/components/schemas/UnsV2DataFilter"
+            },
+            "sort": {
+              "$ref": "#/components/schemas/UnsV2PipelineSort"
+            },
+            "projection": {
+              "type": "object",
+              "additionalProperties": {
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1
+                    ]
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              },
+              "description": "Include or exclude declared fields; computed expressions use aggregate-pipeline. System identity is retained."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "cursor": {
+              "type": "string"
+            },
+            "count": {
+              "$ref": "#/components/schemas/CloudRecordTotalOption"
+            }
+          },
+          "required": [
+            "id",
+            "op",
+            "collectionId"
+          ],
+          "allOf": [
+            {
+              "not": {
+                "required": [
+                  "count",
+                  "cursor"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.-]{1,64}$",
+              "description": "批内唯一的查询标识，结果按它返回。"
+            },
+            "op": {
+              "type": "string",
+              "enum": [
+                "count"
+              ]
+            },
+            "collectionId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "集合 ID，业务记录和采样所属的 Collection。"
+            },
+            "filter": {
+              "$ref": "#/components/schemas/UnsV2DataFilter"
+            },
+            "maxCount": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000,
+              "default": 100000,
+              "description": "计数上限；真实匹配数大于 maxCount 时返回 count=maxCount、capped=true，等于 maxCount 时 capped=false。"
+            }
+          },
+          "required": [
+            "id",
+            "op",
+            "collectionId"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.-]{1,64}$",
+              "description": "批内唯一的查询标识，结果按它返回。"
+            },
+            "op": {
+              "type": "string",
+              "enum": [
+                "distinct"
+              ]
+            },
+            "collectionId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "集合 ID，业务记录和采样所属的 Collection。"
+            },
+            "filter": {
+              "$ref": "#/components/schemas/UnsV2DataFilter"
+            },
+            "field": {
+              "type": "string"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "page": {
+              "$ref": "#/components/schemas/CloudDistinctPage"
+            }
+          },
+          "required": [
+            "id",
+            "op",
+            "collectionId",
+            "field"
+          ],
+          "allOf": [
+            {
+              "not": {
+                "required": [
+                  "limit",
+                  "page"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.-]{1,64}$",
+              "description": "批内唯一的查询标识，结果按它返回。"
+            },
+            "op": {
+              "type": "string",
+              "enum": [
+                "aggregate"
+              ]
+            },
+            "collectionId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "description": "集合 ID，业务记录和采样所属的 Collection。"
+            },
+            "pipeline": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/UnsV2PipelineStage"
+              },
+              "minItems": 0,
+              "maxItems": 32
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            },
+            "page": {
+              "$ref": "#/components/schemas/UnsV2PipelinePage"
+            },
+            "count": {
+              "$ref": "#/components/schemas/CloudRecordTotalOption"
+            }
+          },
+          "required": [
+            "id",
+            "op",
+            "collectionId",
+            "pipeline"
+          ],
+          "allOf": [
+            {
+              "not": {
+                "required": [
+                  "page",
+                  "limit"
+                ]
+              }
+            },
+            {
+              "not": {
+                "required": [
+                  "count",
+                  "page"
+                ],
+                "properties": {
+                  "page": {
+                    "required": [
+                      "cursor"
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.-]{1,64}$",
+              "description": "批内唯一的查询标识，结果按它返回。"
+            },
+            "op": {
+              "type": "string",
+              "enum": [
+                "get"
+              ]
+            },
+            "collectionId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "minItems": 1,
+              "maxItems": 100,
+              "uniqueItems": true
+            },
+            "projection": {
+              "type": "object",
+              "additionalProperties": {
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "enum": [
+                      0,
+                      1
+                    ]
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              },
+              "description": "Include or exclude declared fields; computed expressions use aggregate-pipeline. System identity is retained."
+            }
+          },
+          "required": [
+            "id",
+            "op",
+            "collectionId",
+            "ids"
+          ]
+        }
+      ],
+      "description": "字段与对应单项接口（records:find / count / distinct / aggregate / get）的请求相同，另加 id 与 op。"
+    },
+    "CloudRecordBatchQueryResult": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ok": {
+              "type": "boolean",
+              "enum": [
+                true
+              ]
+            },
+            "data": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/CloudRecordPage"
+                },
+                {
+                  "$ref": "#/components/schemas/CloudCappedCount"
+                },
+                {
+                  "$ref": "#/components/schemas/CloudDistinctResult"
+                },
+                {
+                  "$ref": "#/components/schemas/CloudRecordAggregatePage"
+                },
+                {
+                  "$ref": "#/components/schemas/CloudRecordGetResult"
+                }
+              ],
+              "description": "与对应单项接口成功响应的 data 相同。"
+            }
+          },
+          "required": [
+            "ok",
+            "data"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ok": {
+              "type": "boolean",
+              "enum": [
+                false
+              ]
+            },
+            "error": {
+              "$ref": "#/components/schemas/Fault"
+            }
+          },
+          "required": [
+            "ok",
+            "error"
+          ]
+        }
+      ],
+      "description": "单项结果。校验、编译、授权与单项 SQL 错误只影响该项；语句超时或整批读预算超限时整批失败。"
+    },
+    "UnsV2RecordQueryBatchReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "queries": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/components/schemas/CloudRecordBatchQuery"
+          }
+        }
+      },
+      "required": [
+        "queries"
+      ],
+      "description": "最多 20 个查询，在同一个可重复读只读事务中执行，结果来自同一快照。整批最多返回 2000 行、8 MiB，超出返回 413 RESPONSE_TOO_LARGE；任一语句超时返回 504 QUERY_TIMEOUT，整批不返回部分结果。"
+    },
+    "UnsV2RecordQueryBatchResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "results": {
+              "type": "object",
+              "maxProperties": 20,
+              "additionalProperties": {
+                "$ref": "#/components/schemas/CloudRecordBatchQueryResult"
+              },
+              "description": "键为查询 id。"
+            }
+          },
+          "required": [
+            "results"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
       ]
     },
     "CloudSourceCreateCredentials": {
@@ -34861,6 +36095,16 @@
                 ]
               }
             },
+            "nextIndex": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "按序执行提前停下或部分提交时，第一个未执行操作的零基序号。序号小于它且不在 errors 里的操作都已提交。"
+            },
+            "unknownUntil": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "部分提交的中断原因结局未知时给出：[nextIndex, unknownUntil) 的操作结局未知，带幂等键时用同一个键重试，不带键时只有带客户端 id 的新增与按 id 的替换 / 删除能先按 id 读取状态再续做，服务端生成 id 的新增、按 filter 选择目标的操作与 $inc 等增量更新无法核对，结局未知时不能安全续做（这类写入应始终带幂等键）。没有它时从 nextIndex 续做是安全的。"
+            },
             "status": {
               "type": "string",
               "enum": [
@@ -34974,6 +36218,233 @@
         "requestId",
         "data"
       ]
+    },
+    "CloudCollectionTTL": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "description": "过期时间字段。"
+        },
+        "expireAfterSeconds": {
+          "type": "integer",
+          "minimum": 60,
+          "maximum": 31536000
+        }
+      },
+      "required": [
+        "path",
+        "expireAfterSeconds"
+      ],
+      "description": "集合的 TTL 规则：记录在 path 时间加 expireAfterSeconds 后被物理删除，不可恢复。"
+    },
+    "CloudAppDataLimits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "defaultMax": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "records:count 默认上限。"
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "maxCount 最大值。"
+            }
+          },
+          "required": [
+            "defaultMax",
+            "max"
+          ]
+        },
+        "total": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "defaultMax": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "find / aggregate 附带总数的默认上限。"
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "count.max 最大值。"
+            }
+          },
+          "required": [
+            "defaultMax",
+            "max"
+          ]
+        },
+        "queryBatch": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maxQueries": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "单次最多查询数。"
+            },
+            "maxRows": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "整批最多返回行数。"
+            },
+            "maxBytes": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "整批最多返回字节数。"
+            }
+          },
+          "required": [
+            "maxQueries",
+            "maxRows",
+            "maxBytes"
+          ]
+        },
+        "get": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maxIds": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "records:get 单次最多 ID 数。"
+            }
+          },
+          "required": [
+            "maxIds"
+          ]
+        },
+        "subscribe": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maxCollections": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "单个订阅显式列出的最多集合数；省略 collectionIds 表示全部可读集合。"
+            },
+            "maxRecordIds": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "单个订阅最多记录数。"
+            },
+            "heartbeatMs": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "心跳间隔毫秒。"
+            },
+            "retentionMs": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "变更保留时长毫秒，超出后续传收到 reset。"
+            }
+          },
+          "required": [
+            "maxCollections",
+            "maxRecordIds",
+            "heartbeatMs",
+            "retentionMs"
+          ]
+        },
+        "ttl": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "minSeconds": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "expireAfterSeconds 最小值。"
+            },
+            "maxSeconds": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "expireAfterSeconds 最大值。"
+            },
+            "maxPerCollection": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "每个集合最多 TTL 索引数。"
+            }
+          },
+          "required": [
+            "minSeconds",
+            "maxSeconds",
+            "maxPerCollection"
+          ]
+        },
+        "concurrency": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "reads": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "本工作区在单个 UNS 副本上的并发读名额。"
+            },
+            "writes": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "本工作区在单个 UNS 副本上的并发写名额。"
+            },
+            "queueMs": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "名额已满时的最长排队毫秒数，超时返回 429 OVERLOADED。"
+            }
+          },
+          "required": [
+            "reads",
+            "writes",
+            "queueMs"
+          ]
+        },
+        "idempotencyWindowMs": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "写入幂等键的保留窗口毫秒；窗口外复用同一键视为新请求。"
+        }
+      },
+      "required": [
+        "count",
+        "total",
+        "queryBatch",
+        "get",
+        "subscribe",
+        "ttl",
+        "concurrency",
+        "idempotencyWindowMs"
+      ],
+      "description": "当前数据面边界，供 SDK 与 MCP 自适应批量大小与并发；值由服务端按当前配置返回。"
+    },
+    "ErrorRetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "safe": {
+          "type": "boolean",
+          "description": "true 表示可以原样重发同一请求（写入复用原幂等键）；false 时必须先修正请求或恢复授权。"
+        },
+        "afterMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "建议的最短等待毫秒数，只在 safe=true 时出现；HTTP 响应同时给出 Retry-After（秒）。"
+        }
+      },
+      "required": [
+        "safe"
+      ],
+      "description": "能否原样重试。读失败按 safe 重试；写失败只在 safe=true 时重试，且必须复用原幂等键。"
     },
     "CloudAppCollectionCreateReq": {
       "type": "object",

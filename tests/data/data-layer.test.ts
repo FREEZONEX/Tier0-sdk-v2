@@ -29,6 +29,7 @@ const lines = defineCollection({
 });
 
 const SUBJECT_HEADER = 'x-tier0-app-data-subject';
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 interface Sent {
   url: string;
@@ -60,8 +61,11 @@ function mockUns(routes: Record<string, Reply | Reply[]>) {
 
 const ok = (data: unknown) => ({ body: { code: 200, msg: 'ok', requestId: 'req-1', data } });
 
-/** UNS error envelope; `error.reason` repeats the message text, App data-access refusals add a stable `data.reason`. */
-function failure(status: number, code: string, data: Record<string, unknown> | null = null, msg = code, retryable = status === 503) {
+/**
+ * UNS error envelope; `error.reason` repeats the message text, App data-access refusals add a stable `data.reason`.
+ * Safe errors carry `afterMs: 0` so the data layer's retries do not wait in tests.
+ */
+function failure(status: number, code: string, data: Record<string, unknown> | null = null, msg = code, safe = status === 503, execution = 'rolledBack') {
   return {
     status,
     body: {
@@ -69,19 +73,13 @@ function failure(status: number, code: string, data: Record<string, unknown> | n
       msg,
       requestId: 'req-err',
       data,
-      error: {
-        code,
-        reason: msg,
-        retryable,
-        details: [],
-        retryAdvice: { recommendedAction: 'inspectErrorAndCorrectRequest', canRetrySameRequest: retryable, keepIdempotencyKey: true },
-      },
+      error: { code, reason: msg, details: [], execution, retry: safe ? { safe: true, afterMs: 0 } : { safe: false } },
     },
   };
 }
 const fail = (status: number, code: string, data: Record<string, unknown> | null = null, msg = code) => failure(status, code, data, msg);
-const fault = (status: number, code: string, message: string, data: Record<string, unknown> | null = null, retryable = false) =>
-  failure(status, code, data, message, retryable);
+const fault = (status: number, code: string, message: string, data: Record<string, unknown> | null = null, safe = false) =>
+  failure(status, code, data, message, safe);
 
 const NOT_GRANTED = fault(403, 'FORBIDDEN', 'App has no permission for this Collection operation', {
   reason: 'COLLECTION_NOT_GRANTED',
@@ -133,8 +131,8 @@ afterEach(() => {
 
 describe('transport', () => {
   it('sends the App key through the SDK client and unwraps the envelope', async () => {
-    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, '/uns/collections/c-orders/records:count': ok({ count: 7 }) });
-    expect(await client(mock).collection(orders).countDocuments({ status: 'OPEN' })).toBe(7);
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, '/uns/collections/c-orders/records:count': ok({ count: 7, capped: false }) });
+    expect(await client(mock).collection(orders).countDocuments({ status: 'OPEN' })).toEqual({ count: 7, capped: false });
     const count = mock.calls('/uns/collections/c-orders/records:count')[0];
     expect(count.url).toBe('http://gw.local:8795/openapi/v2/uns/collections/c-orders/records:count');
     expect(count.headers['x-api-key']).toBe('sk-app');
@@ -167,13 +165,19 @@ describe('transport', () => {
     expect(deleteNotGranted.reason).toBe('COLLECTION_NOT_GRANTED');
     expect(deleteNotGranted.message).not.toMatch(/uns\.delete/);
 
-    const notReady = await run(fault(403, 'FORBIDDEN', 'hosted App is not ready', null, true), insert);
-    expect(notReady).toMatchObject({ status: 503, upstreamStatus: 403, retryable: true });
+    const notReady = await run(failure(503, 'APP_NOT_READY', null, 'hosted App is not ready', true, 'notStarted'), insert);
+    expect(notReady).toMatchObject({ status: 503, upstreamStatus: 503, execution: 'notStarted', retry: { safe: true }, attempts: 3 });
     expect(notReady.message).toMatch(/retry shortly/);
     const denied = await run(fault(403, 'FORBIDDEN', 'employee cannot access this Record'), insert);
-    expect(denied).toMatchObject({ status: 403, retryable: false });
-
-    expect(await run(fail(503, 'TEMPORARILY_UNAVAILABLE'), insert)).toMatchObject({ status: 503, retryable: true });
+    expect(denied).toMatchObject({ status: 403, execution: 'rolledBack', retry: { safe: false }, attempts: 1, outcomeUnknown: false });
+    // Platform states are 503 for the App's caller whatever UNS answered.
+    expect(await run(failure(409, 'CREDENTIAL_CHANGED', null, 'key changed', true), insert)).toMatchObject({ status: 503, upstreamStatus: 409 });
+    expect(await run(fail(503, 'TEMPORARILY_UNAVAILABLE'), insert)).toMatchObject({ status: 503, retry: { safe: true } });
+    const unknown = await run(failure(503, 'OUTCOME_UNKNOWN', null, 'commit unconfirmed', false, 'unknown'), insert);
+    expect(unknown).toMatchObject({ status: 503, execution: 'unknown', outcomeUnknown: true, attempts: 1 });
+    const slow = await run({ ...fail(504, 'QUERY_TIMEOUT'), body: { ...fail(504, 'QUERY_TIMEOUT').body, error: { ...fail(504, 'QUERY_TIMEOUT').body.error, repair: 'add an indexed filter' } } }, insert);
+    expect(slow).toMatchObject({ status: 503, code: 'QUERY_TIMEOUT' });
+    expect(slow.message).toMatch(/Narrow the query/);
 
     const archivedQuota = await run(fail(409, 'APP_QUOTA_EXCEEDED', { resource: 'archivedCollections', limit: 64 }), insert);
     expect(archivedQuota.status).toBe(409);
@@ -197,7 +201,8 @@ describe('transport', () => {
       logger: silent,
     });
     const unreachable = await failed(down.ensure());
-    expect(unreachable).toMatchObject({ code: 'DATA_UNREACHABLE', status: 503, retryable: true, outcomeUnknown: true });
+    // ensure is a mutation: without an answer its outcome is unknown and it is not resent.
+    expect(unreachable).toMatchObject({ code: 'DATA_UNREACHABLE', status: 503, execution: 'unknown', retry: { safe: false }, outcomeUnknown: true, attempts: 1 });
     expect(unreachable.message).not.toMatch(/secret-gw/);
 
     vi.stubEnv('TIER0_API_HOST', '');
@@ -208,21 +213,23 @@ describe('transport', () => {
     expect(await failed(keyless.ensure())).toMatchObject({ code: 'DATA_NOT_CONFIGURED' });
   });
 
-  it('treats unenveloped 502/503/504 from the gateway as retryable unavailability', async () => {
+  it('treats unenveloped 502/503/504 from the gateway as unavailability, resending only reads', async () => {
     const html = (status: number) => ({ status, body: `<html><body>${status} Service Temporarily Unavailable</body></html>` });
     const ensure = await failed(client(mockUns({ [ENSURE]: html(503) })).ensure());
-    expect(ensure).toMatchObject({ code: 'HTTP_503', status: 503, upstreamStatus: 503, retryable: true, outcomeUnknown: true });
+    expect(ensure).toMatchObject({ code: 'HTTP_503', status: 503, upstreamStatus: 503, retry: { safe: false }, outcomeUnknown: true, attempts: 1 });
     expect(ensure.message).toMatch(/write outcome is unknown/);
 
-    const read = await failed(client(mockUns({ [ENSURE]: BOTH_UNCHANGED, '/uns/collections/c-orders/records:count': html(502) })).collection(orders).countDocuments());
-    expect(read).toMatchObject({ code: 'HTTP_502', status: 503, upstreamStatus: 502, retryable: true, outcomeUnknown: false });
+    const flaky = mockUns({ [ENSURE]: BOTH_UNCHANGED, '/uns/collections/c-orders/records:count': html(502) });
+    const read = await failed(client(flaky).collection(orders).countDocuments());
+    expect(read).toMatchObject({ code: 'HTTP_502', status: 503, upstreamStatus: 502, execution: 'rolledBack', retry: { safe: true }, outcomeUnknown: false, attempts: 3 });
+    expect(flaky.calls('/uns/collections/c-orders/records:count')).toHaveLength(3);
 
     const legacy = await failed(client(mockUns({ [ENSURE]: { status: 504, body: { code: 504, msg: 'gateway timeout' } } })).ensure());
-    expect(legacy).toMatchObject({ code: 'HTTP_504', status: 503, retryable: true });
+    expect(legacy).toMatchObject({ code: 'HTTP_504', status: 503, outcomeUnknown: true });
 
     // UNS v2 answers other errors with its envelope; an unenveloped one stays a bad response.
     const unenveloped = await failed(client(mockUns({ [ENSURE]: { status: 401, body: { code: 401, msg: 'unauthorized' } } })).ensure());
-    expect(unenveloped).toMatchObject({ code: 'DATA_BAD_RESPONSE', status: 502, retryable: false });
+    expect(unenveloped).toMatchObject({ code: 'DATA_BAD_RESPONSE', status: 502, retry: { safe: false } });
   });
 
   it('marks a timed-out write as outcome unknown', async () => {
@@ -230,14 +237,158 @@ describe('transport', () => {
     const stalled = (async (input: RequestInfo | URL, init?: RequestInit) =>
       String(input).endsWith('/records') ? new Promise<Response>(() => undefined) : mock.fetch(input, init)) as typeof fetch;
     const error = await failed(client(mock, { fetch: stalled, transportTimeoutMs: 20 }).collection(orders).insertOne({ code: 'A', status: 'OPEN' }));
-    expect(error).toMatchObject({ code: 'DATA_TIMEOUT', status: 503, retryable: true, outcomeUnknown: true });
+    expect(error).toMatchObject({ code: 'DATA_TIMEOUT', status: 503, execution: 'unknown', retry: { safe: false }, outcomeUnknown: true, attempts: 1 });
     expect(error.message).toMatch(/write outcome is unknown/);
+  });
+});
+
+describe('call policy', () => {
+  const COUNT = '/uns/collections/c-orders/records:count';
+  const INSERT = '/uns/collections/c-orders/records';
+  const busy = () => failure(429, 'OVERLOADED', null, 'overloaded', true, 'notStarted') as { status: number; body: { error: Record<string, unknown> } };
+  const busyAfter = (afterMs: number) => {
+    const reply = busy();
+    return { ...reply, body: { ...reply.body, error: { ...reply.body.error, retry: { safe: true, afterMs } } } };
+  };
+
+  it('resends a read that UNS marks safe, after retry.afterMs', async () => {
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, [COUNT]: [busyAfter(30), ok({ count: 3, capped: false })] });
+    const started = Date.now();
+    expect(await client(mock).collection(orders).countDocuments()).toEqual({ count: 3, capped: false });
+    expect(Date.now() - started).toBeGreaterThanOrEqual(25);
+    expect(mock.calls(COUNT)).toHaveLength(2);
+  });
+
+  it('resends a safe write with the same generated idempotency key, and keeps an explicit key', async () => {
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, [INSERT]: [busy(), ok({ insertedId: 'o-1' }), ok({ insertedId: 'o-2' }), ok({ insertedId: 'o-3' })] });
+    const handle = client(mock).collection(orders);
+    await handle.insertOne({ code: 'A', status: 'OPEN' });
+    await handle.insertOne({ code: 'B', status: 'OPEN' });
+    await handle.insertOne({ code: 'C', status: 'OPEN' }, { idempotencyKey: 'order-C' });
+    const keys = mock.calls(INSERT).map(sent => sent.body.idempotencyKey);
+    expect(keys).toHaveLength(4);
+    expect(keys[0]).toMatch(UUID);
+    expect(keys[1]).toBe(keys[0]);
+    expect(keys[2]).toMatch(UUID);
+    expect(keys[2]).not.toBe(keys[0]);
+    expect(keys[3]).toBe('order-C');
+  });
+
+  it('never resends a write UNS does not mark safe, nor waits longer than 5 s', async () => {
+    const conflict = mockUns({ [ENSURE]: BOTH_UNCHANGED, [INSERT]: fail(409, 'DUPLICATE_KEY') });
+    expect(await failed(client(conflict).collection(orders).insertOne({ code: 'A', status: 'OPEN' }))).toMatchObject({ code: 'DUPLICATE_KEY', attempts: 1 });
+    expect(conflict.calls(INSERT)).toHaveLength(1);
+
+    const later = mockUns({ [ENSURE]: BOTH_UNCHANGED, [COUNT]: busyAfter(60_000) });
+    expect(await failed(client(later).collection(orders).countDocuments())).toMatchObject({
+      status: 429, code: 'OVERLOADED', retry: { safe: true, afterMs: 60_000 }, attempts: 1,
+    });
+    expect(later.calls(COUNT)).toHaveLength(1);
+  });
+
+  it('keeps at most six data requests in flight per process', async () => {
+    let active = 0;
+    let peak = 0;
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED });
+    const slow = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (!String(input).endsWith(':count')) return mock.fetch(input, init);
+      active += 1;
+      peak = Math.max(peak, active);
+      await new Promise(resolve => setTimeout(resolve, 10));
+      active -= 1;
+      return new Response(JSON.stringify(ok({ count: 1, capped: false }).body));
+    }) as typeof fetch;
+    const one = client(mock, { fetch: slow });
+    const two = client(mock, { fetch: slow });
+    await one.ensure();
+    await two.ensure();
+    const counts = await Promise.all(Array.from({ length: 20 }, (_, index) => (index % 2 ? one : two).collection(orders).countDocuments()));
+    expect(counts).toEqual(Array(20).fill({ count: 1, capped: false }));
+    expect(peak).toBe(6);
+  });
+});
+
+describe('call deadline and cancellation', () => {
+  const COUNT = '/uns/collections/c-orders/records:count';
+  const INSERT = '/uns/collections/c-orders/records';
+
+  /** A fetch whose :count requests hang until released; everything else goes to `mock`. */
+  function holding(mock: ReturnType<typeof mockUns>) {
+    const pending: (() => void)[] = [];
+    let held = 0;
+    const fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (!String(input).endsWith(':count')) return mock.fetch(input, init);
+      held += 1;
+      await new Promise<void>(resolve => pending.push(resolve));
+      return new Response(JSON.stringify(ok({ count: 1, capped: false }).body));
+    }) as typeof globalThis.fetch;
+    return { fetch, release: () => pending.splice(0).forEach(resolve => resolve()), held: () => held };
+  }
+
+  /** Fills the 6 request slots of the process while `run` executes. */
+  async function withFullGate(mock: ReturnType<typeof mockUns>, run: () => Promise<void>) {
+    const hold = holding(mock);
+    const busy = client(mock, { fetch: hold.fetch });
+    await busy.ensure();
+    const held = Array.from({ length: 6 }, () => busy.collection(orders).countDocuments());
+    try {
+      await vi.waitFor(() => expect(hold.held()).toBe(6));
+      await run();
+    } finally {
+      hold.release();
+      await Promise.all(held);
+    }
+  }
+
+  it('drops a call that waits out its deadline in the queue, unsent', async () => {
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, [INSERT]: ok({ insertedId: 'o-1' }) });
+    const late = client(mock, { transportTimeoutMs: 30 });
+    await late.ensure();
+    await withFullGate(mock, async () => {
+      const error = await failed(late.collection(orders).insertOne({ code: 'A', status: 'OPEN' }));
+      expect(error).toMatchObject({ code: 'DATA_OVERLOADED', status: 503, execution: 'notStarted', retry: { safe: true }, attempts: 0, outcomeUnknown: false });
+      expect(error.idempotencyKey).toMatch(UUID);
+    });
+    expect(mock.calls(INSERT)).toHaveLength(0);
+  });
+
+  it('never sends a queued call whose business request was aborted', async () => {
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, [INSERT]: ok({ insertedId: 'o-1' }) });
+    const data = client(mock);
+    await data.ensure();
+    await withFullGate(mock, async () => {
+      const controller = new AbortController();
+      const request = new Request('http://app.local/orders', { signal: controller.signal });
+      const queued = runWithRequestContext(request, () => data.collection(orders).insertOne({ code: 'A', status: 'OPEN' }));
+      controller.abort();
+      expect(await failed(queued)).toMatchObject({ code: 'DATA_ABORTED', status: 499, execution: 'notStarted', retry: { safe: false } });
+    });
+    expect(mock.calls(INSERT)).toHaveLength(0);
+  });
+
+  it('counts retries against the deadline of the call', async () => {
+    const busy = failure(503, 'TEMPORARILY_UNAVAILABLE', null, 'busy', true);
+    const slow = { ...busy, body: { ...busy.body, error: { ...busy.body.error, retry: { safe: true, afterMs: 200 } } } };
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, [COUNT]: slow });
+    const data = client(mock, { transportTimeoutMs: 100 });
+    await data.ensure();
+    expect(await failed(data.collection(orders).countDocuments())).toMatchObject({ code: 'TEMPORARILY_UNAVAILABLE', attempts: 1 });
+    expect(mock.calls(COUNT)).toHaveLength(1);
+  });
+
+  it('exposes the idempotency key of a write whose outcome is unknown', async () => {
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, [INSERT]: failure(503, 'OUTCOME_UNKNOWN', null, 'commit unconfirmed', false, 'unknown') });
+    const error = await failed(client(mock).collection(orders).insertOne({ code: 'A', status: 'OPEN' }));
+    expect(error.outcomeUnknown).toBe(true);
+    expect(error.idempotencyKey).toBe(mock.calls(INSERT)[0].body.idempotencyKey);
+    const explicit = await failed(client(mock).collection(orders).insertOne({ code: 'B', status: 'OPEN' }, { idempotencyKey: 'order-B' }));
+    expect(explicit.idempotencyKey).toBe('order-B');
   });
 });
 
 describe('bootstrap', () => {
   it('ensures every declaration in one batch, once', async () => {
-    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, '/uns/collections/c-orders/records:count': ok({ count: 1 }), '/uns/collections/c-lines/records:count': ok({ count: 2 }) });
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, '/uns/collections/c-orders/records:count': ok({ count: 1, capped: false }), '/uns/collections/c-lines/records:count': ok({ count: 2, capped: false }) });
     const data = client(mock);
     await Promise.all([data.collection(orders).countDocuments(), data.collection('lines').countDocuments(), data.collection(orders).countDocuments()]);
     const calls = mock.calls(ENSURE);
@@ -249,13 +400,14 @@ describe('bootstrap', () => {
 
   it('does not cache a failed ensure', async () => {
     const mock = mockUns({
-      [ENSURE]: [fail(503, 'TEMPORARILY_UNAVAILABLE', null, 'hosted App is not ready'), BOTH_UNCHANGED],
-      '/uns/collections/c-orders/records:count': ok({ count: 0 }),
+      // The call itself is resent twice; the third failure surfaces.
+      [ENSURE]: [...Array(3).fill(failure(503, 'APP_NOT_READY', null, 'hosted App is not ready', true, 'notStarted')), BOTH_UNCHANGED],
+      '/uns/collections/c-orders/records:count': ok({ count: 0, capped: false }),
     });
     const data = client(mock);
     await expect(data.collection(orders).countDocuments()).rejects.toThrow(/hosted App is not ready/);
-    expect(await data.collection(orders).countDocuments()).toBe(0);
-    expect(mock.calls(ENSURE)).toHaveLength(2);
+    expect(await data.collection(orders).countDocuments()).toEqual({ count: 0, capped: false });
+    expect(mock.calls(ENSURE)).toHaveLength(4);
   });
 
   it('writes seeds only for collections ensure created', async () => {
@@ -303,6 +455,19 @@ describe('bootstrap', () => {
     expect(errors).toHaveLength(0);
   });
 
+  it('replays a seed chunk whose outcome is unknown with the same key after a wait', async () => {
+    const mock = mockUns({
+      [ENSURE]: ensured({ alias: 'orders', collectionId: 'c-orders', status: 'created' }, { alias: 'lines', collectionId: 'c-lines' }),
+      '/uns/collections/c-orders/records:insertMany': [failure(503, 'OUTCOME_UNKNOWN', null, 'commit unconfirmed', false, 'unknown'), ok({ insertedCount: 2, replayed: true })],
+    });
+    const started = Date.now();
+    await client(mock).ensure();
+    const chunks = mock.calls('/uns/collections/c-orders/records:insertMany');
+    expect(chunks).toHaveLength(2);
+    expect(chunks[1].body.idempotencyKey).toBe(chunks[0].body.idempotencyKey);
+    expect(Date.now() - started).toBeGreaterThanOrEqual(900);
+  });
+
   it('logs a failed seed and keeps serving', async () => {
     const errors: unknown[] = [];
     const mock = mockUns({
@@ -330,10 +495,10 @@ describe('bootstrap', () => {
         fail(409, 'SCHEMA_CONFLICT', { conflicts: [{ alias: 'orders', collectionId: 'c-orders', path: 'qty', reason: 'type' }] }),
         ensured({ alias: 'lines', collectionId: 'c-lines' }),
       ],
-      '/uns/collections/c-orders/records:count': ok({ count: 3 }),
+      '/uns/collections/c-orders/records:count': ok({ count: 3, capped: false }),
     });
     const data = client(mock, { environment: 'deployed', logger: { ...silent, error: (...args: unknown[]) => logged.push(args) } });
-    expect(await data.collection(orders).countDocuments()).toBe(3);
+    expect(await data.collection(orders).countDocuments()).toEqual({ count: 3, capped: false });
     const [first, retry] = mock.calls(ENSURE);
     expect(first.body.collections as unknown[]).toHaveLength(2);
     expect((retry.body.collections as { alias: string }[]).map(item => item.alias)).toEqual(['lines']);
@@ -462,7 +627,7 @@ describe('bootstrap', () => {
 
 describe('stale collection recovery', () => {
   const RECREATED = ensured({ alias: 'orders', collectionId: 'c-orders-2', status: 'created' }, { alias: 'lines', collectionId: 'c-lines' });
-  const count = (n: number) => ok({ count: n });
+  const count = (n: number) => ok({ count: n, capped: false });
 
   it('re-ensures, reseeds and retries once when the App grant went with the collection', async () => {
     const mock = mockUns({
@@ -471,7 +636,7 @@ describe('stale collection recovery', () => {
       '/uns/collections/c-orders-2/records:insertMany': ok({ insertedCount: 2 }),
       '/uns/collections/c-orders-2/records:count': count(2),
     });
-    expect(await client(mock).collection(orders).countDocuments()).toBe(2);
+    expect(await client(mock).collection(orders).countDocuments()).toEqual({ count: 2, capped: false });
     expect(mock.calls(ENSURE)).toHaveLength(2);
     expect(mock.calls('/uns/collections/c-orders/records:count')).toHaveLength(1);
     expect(mock.calls('/uns/collections/c-orders-2/records:insertMany'), 'created again → seeded again').toHaveLength(1);
@@ -589,19 +754,52 @@ describe('collection operations', () => {
     expect(mock.calls('/uns/collections/c-orders/records:find')[0].body.limit).toBe(1);
   });
 
-  it('serves numbered pages through aggregate offset paging plus count', async () => {
+  it('serves a numbered page and its capped total in one aggregate request', async () => {
     const mock = mockUns({
       [ENSURE]: BOTH_UNCHANGED,
-      '/uns/collections/c-orders/records:aggregate': ok({ items: [{ _id: 'o-3', code: 'C', status: 'OPEN', _meta: { revision: 1 } }], pageInfo: { hasMore: false } }),
-      '/uns/collections/c-orders/records:count': ok({ count: 21 }),
+      '/uns/collections/c-orders/records:aggregate': ok({
+        items: [{ _id: 'o-3', code: 'C', status: 'OPEN', _meta: { revision: 1 } }],
+        pageInfo: { hasMore: false },
+        total: { count: 10000, capped: true },
+      }),
     });
-    const page = await client(mock).collection(orders).findPage({ status: 'OPEN' }, { sort: { '_meta.createdAt': -1 }, page: 2, pageSize: 20 });
-    expect(page.total).toBe(21);
+    const handle = client(mock).collection(orders);
+    const page = await handle.findPage({ status: 'OPEN' }, { sort: { '_meta.createdAt': -1 }, page: 2, pageSize: 20 });
+    expect(page).toMatchObject({ total: { count: 10000, capped: true }, page: 2, pageSize: 20 });
     expect(page.items[0]._id).toBe('o-3');
+    await handle.findPage({}, { maxCount: 500 });
+    const sent = mock.calls('/uns/collections/c-orders/records:aggregate').map(call => call.body);
+    expect(sent).toEqual([
+      {
+        collectionId: 'c-orders',
+        pipeline: [{ $match: { status: 'OPEN' } }, { $sort: [['_meta.createdAt', -1]] }],
+        page: { mode: 'offset', page: 2, size: 20 },
+        count: {},
+      },
+      { collectionId: 'c-orders', pipeline: [], page: { mode: 'offset', page: 1, size: 20 }, count: { max: 500 } },
+    ]);
+    expect(mock.calls('/uns/collections/c-orders/records:count')).toHaveLength(0);
+  });
+
+  it('counts up to maxCount and reports capped counts', async () => {
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, '/uns/collections/c-orders/records:count': ok({ count: 100, capped: true }) });
+    expect(await client(mock).collection(orders).countDocuments({ status: 'OPEN' }, { maxCount: 100 })).toEqual({ count: 100, capped: true });
+    expect(mock.calls('/uns/collections/c-orders/records:count')[0].body).toEqual({ collectionId: 'c-orders', filter: { status: 'OPEN' }, maxCount: 100 });
+  });
+
+  it('counts per field value with one $group pipeline', async () => {
+    const mock = mockUns({
+      [ENSURE]: BOTH_UNCHANGED,
+      '/uns/collections/c-orders/records:aggregate': ok({ items: [{ _id: 'OPEN', count: 5 }, { _id: null, count: 1 }], pageInfo: { hasMore: false } }),
+    });
+    expect(await client(mock).collection(orders).countBy('status', { qty: { $gt: 0 } })).toEqual([
+      { value: 'OPEN', count: 5 },
+      { value: null, count: 1 },
+    ]);
     expect(mock.calls('/uns/collections/c-orders/records:aggregate')[0].body).toEqual({
       collectionId: 'c-orders',
-      pipeline: [{ $match: { status: 'OPEN' } }, { $sort: [['_meta.createdAt', -1]] }],
-      page: { mode: 'offset', page: 2, size: 20 },
+      pipeline: [{ $match: { qty: { $gt: 0 } } }, { $group: { _id: '$status', count: { $sum: 1 } } }, { $sort: [['count', -1], ['_id', 1]] }],
+      page: { mode: 'offset', page: 1, size: 200 },
     });
   });
 
@@ -675,7 +873,9 @@ describe('collection operations', () => {
     expect(mock.calls('/uns/collections/c-orders/records')).toHaveLength(0);
 
     expect(await handle.insertOne({ _id: 'o-9', code: 'A', status: 'OPEN' })).toEqual({ insertedId: 'o-9' });
-    expect(mock.calls('/uns/collections/c-orders/records')[0].body).toEqual({ collectionId: 'c-orders', id: 'o-9', data: { code: 'A', status: 'OPEN' } });
+    expect(mock.calls('/uns/collections/c-orders/records')[0].body).toEqual({
+      collectionId: 'c-orders', id: 'o-9', data: { code: 'A', status: 'OPEN' }, idempotencyKey: expect.stringMatching(UUID),
+    });
 
     await handle.updateOne({ _id: 'o-9' }, { $set: { status: 'DONE' }, $inc: { qty: 1 } }, { expectedRevision: 2 });
     expect(mock.calls('/uns/collections/c-orders/records:updateOne')[0].body).toEqual({
@@ -683,6 +883,7 @@ describe('collection operations', () => {
       filter: { _id: 'o-9' },
       update: { $set: { status: 'DONE' }, $inc: { qty: 1 } },
       expectedRevision: 2,
+      idempotencyKey: expect.stringMatching(UUID),
     });
 
     const moved = await handle.findOneAndUpdate({ _id: 'o-9', status: 'OPEN' }, { $set: { status: 'DONE' } });
@@ -710,6 +911,58 @@ describe('collection operations', () => {
     expect(partial.message).toMatch(/already committed: matchedCount=1, modifiedCount=1/);
     expect(await handle.deleteMany({ status: 'DONE' })).toEqual({ deletedCount: 4 });
     expect(mock.calls('/uns/collections/c-orders/records:deleteMany')[0].body.atomic).toBe(false);
+  });
+
+  it('reports writes already committed when a later page of updateMany / deleteMany fails, and resumes from there', async () => {
+    const UPDATE = '/uns/collections/c-orders/records:updateMany';
+    const DELETE = '/uns/collections/c-orders/records:deleteMany';
+    const mock = mockUns({
+      [ENSURE]: BOTH_UNCHANGED,
+      [UPDATE]: [
+        ok({ matchedCount: 2, modifiedCount: 2, hasMore: true, resumeAfter: 'r1' }),
+        fault(504, 'QUERY_TIMEOUT', 'statement timeout'),
+        ok({ matchedCount: 1, modifiedCount: 1, hasMore: false }),
+      ],
+      [DELETE]: [ok({ deletedCount: 3, hasMore: true, resumeAfter: 'd1' }), failure(503, 'OUTCOME_UNKNOWN', null, 'commit unconfirmed', false, 'unknown')],
+    });
+    const handle = client(mock).collection(orders);
+    const partial = await failed(handle.updateMany({ status: 'OPEN' }, { $inc: { qty: 1 } }));
+    expect(partial).toMatchObject({
+      code: 'QUERY_TIMEOUT',
+      status: 503,
+      execution: 'committed',
+      outcomeUnknown: false,
+      retry: { safe: false },
+      details: { matchedCount: 2, modifiedCount: 2, status: 'partiallyCommitted', hasMore: true, resumeAfter: 'r1' },
+    });
+    expect((partial.cause as DataError).execution).toBe('rolledBack');
+    expect(partial.message).toMatch(/resumeAfter/);
+    expect(await handle.updateMany({ status: 'OPEN' }, { $inc: { qty: 1 } }, { resumeAfter: 'r1' })).toEqual({ matchedCount: 1, modifiedCount: 1 });
+    expect(mock.calls(UPDATE).map(call => call.body.resumeAfter)).toEqual([undefined, 'r1', 'r1']);
+
+    const lost = await failed(handle.deleteMany({ status: 'DONE' }));
+    expect(lost).toMatchObject({ code: 'OUTCOME_UNKNOWN', execution: 'unknown', outcomeUnknown: true, details: { deletedCount: 3, resumeAfter: 'd1' } });
+  });
+
+  it('adds what UNS reports committed within the failed page, as UNS does for one request', async () => {
+    const UPDATE = '/uns/collections/c-orders/records:updateMany';
+    const chunkFailed = failure(503, 'TEMPORARILY_UNAVAILABLE', { matchedCount: 50, modifiedCount: 50, status: 'partiallyCommitted', replayed: false, hasMore: true, resumeAfter: 'r150' }, 'chunk failed after partial commit', false, 'committed');
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, [UPDATE]: [ok({ matchedCount: 100, modifiedCount: 100, hasMore: true, resumeAfter: 'r100' }), chunkFailed] });
+    const partial = await failed(client(mock).collection(orders).updateMany({}, { $inc: { qty: 1 } }));
+    expect(partial).toMatchObject({
+      code: 'TEMPORARILY_UNAVAILABLE', execution: 'committed', retry: { safe: false },
+      details: { matchedCount: 150, modifiedCount: 150, status: 'partiallyCommitted', resumeAfter: 'r150' },
+    });
+    // The first page itself may commit partly: still committed, with UNS's own counts.
+    const first = mockUns({ [ENSURE]: BOTH_UNCHANGED, [UPDATE]: chunkFailed });
+    expect(await failed(client(first).collection(orders).updateMany({}, { $inc: { qty: 1 } }))).toMatchObject({
+      execution: 'committed', details: { matchedCount: 50, resumeAfter: 'r150' },
+    });
+  });
+
+  it('surfaces a failure before anything committed unchanged', async () => {
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, '/uns/collections/c-orders/records:updateMany': fault(504, 'QUERY_TIMEOUT', 'statement timeout') });
+    expect(await failed(client(mock).collection(orders).updateMany({}, { $set: { status: 'DONE' } }))).toMatchObject({ code: 'QUERY_TIMEOUT', execution: 'rolledBack' });
   });
 
   it('rejects atomic batches over 200 items before sending', async () => {
@@ -745,6 +998,26 @@ describe('collection operations', () => {
     ]);
   });
 
+  it('sends insertMany and bulkWrite atomically: write errors roll the batch back, with no resume position', async () => {
+    const writeErrors = [{ index: 1, code: 'DUPLICATE_KEY', message: 'code exists' }];
+    const mock = mockUns({
+      [ENSURE]: BOTH_UNCHANGED,
+      '/uns/collections/c-orders/records:insertMany': ok({ insertedCount: 0, insertedIds: {}, status: 'failed', replayed: false, writeErrors }),
+      '/uns/collections/c-orders/records:bulkWrite': ok({ insertedCount: 0, matchedCount: 0, modifiedCount: 0, deletedCount: 0, upsertedCount: 0, status: 'failed', replayed: false, writeErrors }),
+    });
+    const handle = client(mock).collection(orders);
+    const docs = [{ code: 'A', status: 'OPEN' as const }, { code: 'A', status: 'OPEN' as const }];
+    for (const promise of [handle.insertMany(docs), handle.bulkWrite(docs.map(document => ({ insertOne: { document } })))]) {
+      const error = await failed(promise);
+      expect(error).toMatchObject({ code: 'WRITE_ERRORS', execution: 'rolledBack' });
+      expect(error.details).toEqual({ writeErrors });
+    }
+    for (const path of ['/uns/collections/c-orders/records:insertMany', '/uns/collections/c-orders/records:bulkWrite']) {
+      expect(mock.calls(path)[0].body).toMatchObject({ atomic: true });
+      expect(mock.calls(path)[0].body).not.toHaveProperty('resumeAfter');
+    }
+  });
+
   it('runs transactions synchronously with resolved collection IDs', async () => {
     const mock = mockUns({
       [ENSURE]: BOTH_UNCHANGED,
@@ -768,6 +1041,131 @@ describe('collection operations', () => {
     const error = await failed(data.transact([{ opId: 'check', action: 'record.check', collection: orders, filter: { _id: 'o-1' } }]));
     expect(error.code).toBe('TRANSACTION_FAILED');
     expect(error.message).toMatch(/CHECK_FAILED/);
+  });
+});
+
+describe('reads by ID and query batches', () => {
+  const doc = (id: string, data: Record<string, unknown>, collectionId = 'c-orders') =>
+    ({ id, collectionId, data, revision: 2, createdAt: 1, updatedAt: 5, sourceId: null, sourceTime: null });
+  const GET = '/uns/collections/c-orders/records:get';
+  const BATCH = '/uns/records:queryBatch';
+  const pageInfo = { mode: 'offset', hasMore: false, nextCursor: null, nextPage: null, snapshotScope: 'thisRequestOnly' };
+
+  it('reads records by ID in order, lists missing ones, and chunks more than 100 IDs', async () => {
+    const mock = mockUns({
+      [ENSURE]: BOTH_UNCHANGED,
+      [GET]: (sent: Sent) => ok({
+        items: (sent.body.ids as string[]).filter(id => id !== 'gone').map(id => doc(id, { code: id, status: 'OPEN' })),
+        missing: (sent.body.ids as string[]).filter(id => id === 'gone'),
+      }),
+    });
+    const handle = client(mock).collection(orders);
+    const found = await handle.get(['o-2', 'gone', 'o-1'], { projection: { code: 1 } });
+    expect(found.items.map(item => item._id)).toEqual(['o-2', 'o-1']);
+    expect(found.items[0]).toEqual({ code: 'o-2', status: 'OPEN', _id: 'o-2', _meta: { revision: 2, createdAt: 1, updatedAt: 5 } });
+    expect(found.missing).toEqual(['gone']);
+    expect(mock.calls(GET)[0].body).toEqual({ collectionId: 'c-orders', ids: ['o-2', 'gone', 'o-1'], projection: { code: 1 } });
+
+    const many = Array.from({ length: 150 }, (_, index) => `o-${index}`);
+    expect((await handle.get(many)).items.map(item => item._id)).toEqual(many);
+    expect(mock.calls(GET).slice(1).map(call => (call.body.ids as string[]).length)).toEqual([100, 50]);
+  });
+
+  it('sends each ID once, at its first position, also across chunks and in query batches', async () => {
+    const mock = mockUns({
+      [ENSURE]: BOTH_UNCHANGED,
+      [GET]: (sent: Sent) => ok({ items: (sent.body.ids as string[]).map(id => doc(id, { code: id, status: 'OPEN' })), missing: [] }),
+      [BATCH]: ok({ results: { line: { ok: true, data: { items: [], missing: ['l-1', 'l-2'] } } } }),
+    });
+    const data = client(mock);
+    const handle = data.collection(orders);
+    const ids = ['o-2', 'o-1', 'o-2', ...Array.from({ length: 120 }, (_, index) => `o-${index % 101}`)];
+    const found = await handle.get(ids);
+    const unique = [...new Set(ids)];
+    expect(found.items.map(item => item._id)).toEqual(unique);
+    expect(mock.calls(GET).flatMap(call => call.body.ids as string[])).toEqual(unique);
+    await data.queryBatch({ line: data.collection(lines).query.get(['l-1', 'l-2', 'l-1']) });
+    expect((mock.calls(BATCH)[0].body.queries as { ids: string[] }[])[0].ids).toEqual(['l-1', 'l-2']);
+  });
+
+  it('sends a page\'s reads as one request and returns typed results by name', async () => {
+    const mock = mockUns({
+      [ENSURE]: BOTH_UNCHANGED,
+      [BATCH]: ok({
+        results: {
+          open: { ok: true, data: { items: [doc('o-1', { code: 'A', status: 'OPEN' })], pageInfo: { ...pageInfo, mode: 'cursor', hasMore: true }, total: { count: 10000, capped: true } } },
+          page: { ok: true, data: { items: [{ _id: 'o-3', code: 'C', status: 'OPEN' }], pageInfo, total: { count: 21, capped: false } } },
+          done: { ok: true, data: { count: 4, capped: false } },
+          byStatus: { ok: true, data: { items: [{ _id: 'OPEN', count: 3 }], pageInfo } },
+          codes: { ok: true, data: { values: ['A', 'B'], pageInfo } },
+          joined: { ok: true, data: { items: [{ n: 1 }], pageInfo } },
+          line: { ok: true, data: { items: [doc('l-1', { orderId: 'o-1', sku: 'S' }, 'c-lines')], missing: ['l-9'] } },
+        },
+      }),
+    });
+    const data = client(mock);
+    const o = data.collection(orders);
+    const result = await data.queryBatch({
+      open: o.query.find({ status: 'OPEN' }, { sort: { code: 1 }, limit: 5, maxCount: 10000 }),
+      page: o.query.findPage({ status: 'OPEN' }, { page: 2, pageSize: 10 }),
+      done: o.query.count({ status: 'DONE' }, { maxCount: 100 }),
+      byStatus: o.query.countBy('status'),
+      codes: o.query.distinct('code'),
+      joined: o.query.aggregate<{ n: number }>([{ $lookup: { from: lines, localField: '_id', foreignField: 'orderId', as: 'lines' } }]),
+      line: data.collection(lines).query.get(['l-1', 'l-9']),
+    });
+    expect(result.open).toMatchObject({ hasMore: true, total: { count: 10000, capped: true } });
+    expect(result.open.items[0]._id).toBe('o-1');
+    expect(result.page).toMatchObject({ total: { count: 21, capped: false }, page: 2, pageSize: 10 });
+    expect(result.done).toEqual({ count: 4, capped: false });
+    expect(result.byStatus).toEqual([{ value: 'OPEN', count: 3 }]);
+    expect(result.codes).toEqual(['A', 'B']);
+    const n: number = result.joined[0].n;
+    expect(n).toBe(1);
+    expect(result.line).toMatchObject({ items: [{ _id: 'l-1', sku: 'S' }], missing: ['l-9'] });
+
+    expect(mock.calls(BATCH)).toHaveLength(1);
+    expect(mock.calls(BATCH)[0].body).toEqual({
+      queries: [
+        { id: 'open', collectionId: 'c-orders', op: 'find', filter: { status: 'OPEN' }, sort: [['code', 1]], limit: 5, count: { max: 10000 } },
+        { id: 'page', collectionId: 'c-orders', op: 'aggregate', pipeline: [{ $match: { status: 'OPEN' } }], page: { mode: 'offset', page: 2, size: 10 }, count: {} },
+        { id: 'done', collectionId: 'c-orders', op: 'count', filter: { status: 'DONE' }, maxCount: 100 },
+        { id: 'byStatus', collectionId: 'c-orders', op: 'aggregate', pipeline: [{ $group: { _id: '$status', count: { $sum: 1 } } }, { $sort: [['count', -1], ['_id', 1]] }], page: { mode: 'offset', page: 1, size: 200 } },
+        { id: 'codes', collectionId: 'c-orders', op: 'distinct', field: 'code', page: { mode: 'offset', page: 1, size: 200 } },
+        { id: 'joined', collectionId: 'c-orders', op: 'aggregate', pipeline: [{ $lookup: { collectionId: 'c-lines', localField: '_id', foreignField: 'orderId', as: 'lines' } }], page: { mode: 'offset', page: 1, size: 200 } },
+        { id: 'line', collectionId: 'c-lines', op: 'get', ids: ['l-1', 'l-9'] },
+      ],
+    });
+  });
+
+  it('rejects with the first failed item, or settles every item', async () => {
+    const refused = { ok: false, error: { code: 'INVALID_REQUEST', reason: 'unknown field', details: [{ path: 'filter.nope' }], execution: 'unknown', retry: { safe: false }, queryId: 'bad' } };
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, [BATCH]: ok({ results: { good: { ok: true, data: { count: 1, capped: false } }, bad: refused } }) });
+    const data = client(mock);
+    const o = data.collection(orders);
+    const queries = { good: o.query.count(), bad: o.query.count({ nope: 1 }) };
+    const error = await failed(data.queryBatch(queries));
+    // A read item is never unknown, whatever it says.
+    expect(error).toMatchObject({ code: 'INVALID_REQUEST', status: 400, execution: 'rolledBack', outcomeUnknown: false, details: { queryId: 'bad', details: [{ path: 'filter.nope' }] } });
+    expect(error.message).toMatch(/unknown field/);
+
+    const settled = await data.queryBatch(queries, { settle: true });
+    expect(settled.good).toEqual({ ok: true, value: { count: 1, capped: false } });
+    expect(settled.bad.ok).toBe(false);
+    if (!settled.bad.ok) expect(settled.bad.error).toBeInstanceOf(DataError);
+  });
+
+  it('checks batch size, names and declarations before sending', async () => {
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED });
+    const data = client(mock);
+    const count = data.collection(orders).query.count();
+    await expect(data.queryBatch({})).rejects.toThrow(/1–20 queries/);
+    await expect(data.queryBatch(Object.fromEntries(Array.from({ length: 21 }, (_, i) => [`q${i}`, count])))).rejects.toThrow(/1–20 queries/);
+    await expect(data.queryBatch({ 'bad name': count })).rejects.toThrow(/must match/);
+    expect(() => data.collection(orders).query.get([])).toThrow(/1–100 distinct IDs/);
+    const other = client(mock, { collections: [orders] });
+    await expect(other.queryBatch({ l: data.collection(lines).query.count() })).rejects.toThrow(/missing from the `collections`/);
+    expect(mock.calls(BATCH)).toHaveLength(0);
   });
 });
 
@@ -817,7 +1215,7 @@ describe('transaction step validation', () => {
 describe('data subject', () => {
   const routes = () => ({
     [ENSURE]: BOTH_UNCHANGED,
-    '/uns/collections/c-orders/records:count': ok({ count: 1 }),
+    '/uns/collections/c-orders/records:count': ok({ count: 1, capped: false }),
     '/uns/collections/c-orders/records:insertMany': ok({ insertedCount: 0 }),
   });
   const subjectOf = (entry: Sent) => entry.headers[SUBJECT_HEADER];

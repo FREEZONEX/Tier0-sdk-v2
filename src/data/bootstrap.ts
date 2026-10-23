@@ -9,8 +9,9 @@
  *   answer "hosted App is not ready").
  * - Seed documents are inserted only for collections ensure reports as
  *   `created`: fixed `_id`s, atomic chunks of 200 with a stable idempotency
- *   key per chunk so a retried chunk replays instead of duplicating. Seed
- *   writes never carry a data subject.
+ *   key per chunk, so a failed chunk (outcome unknown, or marked safe to
+ *   resend) is replayed after a short wait instead of duplicated. Seed writes
+ *   never carry a data subject.
  * - Preview throws on SCHEMA_CONFLICT and warnings so the worker sees them;
  *   a deployment logs them and keeps serving with the IDs it has.
  * - Self-healing: a Preview reset hard-deletes collections, and a worker or
@@ -88,6 +89,8 @@ export interface BootstrapConfig {
 }
 
 const SEED_ATTEMPTS = 3;
+/** Wait before replaying seed chunk attempt n+1: n × this. */
+export const SEED_RETRY_MS = 1_000;
 
 /** At most one self-healing rebuild per client in this window. */
 export const REBUILD_INTERVAL_MS = 30_000;
@@ -180,8 +183,10 @@ export function createBootstrap(config: BootstrapConfig) {
         });
         return;
       } catch (error) {
-        // Same key on retry: a chunk that did commit replays instead of failing on duplicate IDs.
-        if (!(error instanceof DataError) || !error.retryable || attempt >= SEED_ATTEMPTS) throw error;
+        // The chunk key is stable, so replaying is safe even when the outcome is unknown: a chunk
+        // that did commit replays its receipt. Wait first, so a write still running can finish.
+        if (!(error instanceof DataError) || !(error.outcomeUnknown || error.retry.safe) || attempt >= SEED_ATTEMPTS) throw error;
+        await new Promise((resolve) => setTimeout(resolve, SEED_RETRY_MS * attempt));
       }
     }
   }
@@ -229,6 +234,8 @@ export function createBootstrap(config: BootstrapConfig) {
             code: 'SCHEMA_CONFLICT',
             upstreamStatus: error.upstreamStatus,
             requestId: error.requestId,
+            execution: error.execution,
+            attempts: error.attempts,
             details: error.details,
           });
         }
@@ -280,6 +287,8 @@ export function createBootstrap(config: BootstrapConfig) {
             'INDEX_BUILD_FAILED: fix the duplicate or invalid data, then the next ensure retries the index.',
           status: 500,
           code: 'SCHEMA_WARNINGS',
+          // ensure did apply; only the warnings fail the Preview request.
+          execution: 'committed',
           details: { results },
         });
       }
@@ -349,5 +358,5 @@ export function createBootstrap(config: BootstrapConfig) {
     return id;
   }
 
-  return { ensure, resolve, recover };
+  return { ensure, resolve, recover, rebuild };
 }

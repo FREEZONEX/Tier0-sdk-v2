@@ -43,13 +43,13 @@ export async function nextOrderNumber() {
 
 每次调用都使用平台注入的 App Key。处理业务请求时，数据层还会转发网关签发的员工断言（`X-Tier0-App-Data-Subject`），让 UNS 的数据规则与记录租约作用于该员工。集合 ensure 与种子写入以 App 身份执行。
 
-App 的请求入口用 `runWithRequestContext(request.headers, next)` 打开请求上下文；脱离请求的工作（定时器、队列、发出即不管的后续任务）放进 `runAsApp(() => ...)`，这些调用不带员工身份；员工身份下取得的租约不能由这类 App 级工作释放。断言格式由 SDK 校验（三段 base64url），格式不合法时调用在发出请求前失败。
+App 的请求入口用 `runWithRequestContext(request, next)` 打开请求上下文（传 `Request` 本身：调用方断开时，还在排队的数据调用不再发出，进行中的被取消；只传 `request.headers` 则没有取消）；脱离请求的工作（定时器、队列、发出即不管的后续任务）放进 `runAsApp(() => ...)`，这些调用不带员工身份；员工身份下取得的租约不能由这类 App 级工作释放。断言格式由 SDK 校验（三段 base64url），格式不合法时调用在发出请求前失败。
 
 ```ts
 import { currentDataSubject, runAsApp, runWithRequestContext } from '@tier0/sdk-v2/data';
 
 export function handleRequest<T>(request: Request, next: () => Promise<T>): Promise<T> {
-  return runWithRequestContext(request.headers, next);
+  return runWithRequestContext(request, next);
 }
 
 export function scheduleFollowUp(task: () => Promise<void>) {
@@ -63,7 +63,7 @@ export function servingEmployee(): boolean {
 
 ## 首次访问与自愈
 
-进程内第一次数据访问会一次性 ensure 全部声明：缺失的集合会被创建（随后写入种子），更宽的声明会放宽存储，存储永远不会被收窄。ensure 失败不缓存，下一次请求会重试（刚导入的 App 可能短暂返回 “hosted App is not ready”，数据层按可重试的 503 回答）。
+进程内第一次数据访问会一次性 ensure 全部声明：缺失的集合会被创建（随后写入种子），更宽的声明会放宽存储，存储永远不会被收窄。ensure 失败不缓存，下一次请求会重试（刚导入的 App 可能短暂返回 `APP_NOT_READY`，数据层先自动重试，仍失败时按 503 回答）。
 
 运行中的进程在所用集合消失时会自愈（Preview 重置会删除集合，worker 或管理员可能归档集合）：UNS 以 `data.reason` 为 `COLLECTION_NOT_FOUND` 或 `COLLECTION_NOT_GRANTED` 拒绝调用时，数据层重新 ensure（重建并重新写入种子），并在集合 ID 确实变化时把该调用重试一次。每个 client 每 30 秒最多重建一次；`APP_GRANT_REVOKED`（管理员决定）从不重试。延续旧集合游标的分页、`updateMany` / `deleteMany` 的续写直接失败，不会重试。
 

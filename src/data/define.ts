@@ -29,6 +29,14 @@ export interface IndexSpec {
   unique?: boolean;
   /** `btree` (default) or `gin` for one object/array path; GIN cannot be unique. */
   kind?: 'btree' | 'gin';
+  /**
+   * TTL index: UNS physically deletes a record this many seconds
+   * (60–31536000) after the instant in `path`, an integer field of Unix
+   * milliseconds. At most one per collection, on a single non-unique `path`. Expired
+   * records cannot be restored. ensure may add a TTL or lengthen it;
+   * shortening or removing it takes schema:replace.
+   */
+  expireAfterSeconds?: number;
 }
 
 /** System metadata of a stored record. Times are Unix milliseconds. */

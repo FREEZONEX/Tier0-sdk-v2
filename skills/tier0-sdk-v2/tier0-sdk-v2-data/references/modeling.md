@@ -65,6 +65,27 @@ export const createSalesOrderInput = salesOrders.schema
 
 `{ path }` 或复合 `{ paths }`（最多 3 个不同路径）；业务键加 `unique: true`；一个数组/对象字段用 `kind: 'gin'`；每个集合最多 16 个。路径只能沿对象属性走：数组元素里的字段（`lines.sku`）不能直接建索引，改为给 `lines` 建 GIN 或把值放到顶层字段。列表页过滤和排序用到的字段要建索引。
 
+### 过期自动删除（TTL）
+
+会话、验证码、临时预约这类到期就该消失的记录，用 TTL 索引让 UNS 自动删除，不要写定时清理任务：
+
+```ts
+import { z } from 'zod';
+import { defineCollection } from '@tier0/sdk-v2/data/define';
+
+export const loginCodes = defineCollection({
+  alias: 'login_codes',
+  schema: z.object({ phone: z.string(), code: z.string(), issuedAt: z.number().int() }),
+  // issuedAt 存 Date.now()；签发 5 分钟后删除。
+  indexes: [{ path: 'phone' }, { path: 'issuedAt', expireAfterSeconds: 300 }],
+});
+```
+
+- 字段声明为 `z.number().int()`，存 Unix 毫秒（通常是 `Date.now()`）；记录在该时刻再过 `expireAfterSeconds`（60–31536000 秒）后被删除。删除有分钟级延迟，读取时仍要自己比较时间。
+- 每个集合最多 1 个 TTL 索引，只能是单个 `path`、不能 `unique`。缺这个字段的记录不会过期。
+- 过期删除是**物理删除**，不能 restore；软删除的记录同样按 TTL 清理。
+- ensure 只能新增 TTL 或把时间加长；缩短或去掉要通过 tier0 MCP 的 `schema:replace`。
+
 ## 种子数据
 
 种子是基线记录：固定 `_id`，各生命周期状态自洽，相互引用用这些 ID；每个集合最多 1000 条。只在 ensure 报告集合为 `created` 时写入一次（每 200 条一个原子分块，分块带固定幂等键，重试安全）；修改 `seed` 不会改动已存在的集合。不要在服务启动或列表为空时从代码插入基线数据。构建期可以对每条种子调用 `validateDocument(definition, document)` 校验。
