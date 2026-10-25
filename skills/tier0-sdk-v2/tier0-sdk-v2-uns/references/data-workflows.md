@@ -55,19 +55,19 @@ export async function insertRecord(collectionId: string, id: string, data: Recor
       return { state: 'unknown' as const, requestId: error.requestId };
     }
     if (error instanceof UnsV2Error) {
-      return { state: 'rejected' as const, code: error.code, retryAdvice: error.retryAdvice };
+      return { state: error.execution ?? 'rejected', code: error.code, retry: error.retry, details: error.data };
     }
     throw error;
   }
 }
 ```
 
-该函数执行真实写入，仅用于已授权的新增意图。unknown 时按指定 id 读取并核对业务内容；不能只凭记录存在就判定本次成功。
+该函数执行真实写入，仅用于已授权的新增意图。unknown 时按指定 id 读取并核对业务内容；不能只凭记录存在就判定本次成功。错误的 execution 区分 notStarted/rolledBack/committed/unknown；committed 可代表部分提交，必须检查 data 的累计结果。只有 retry.safe=true 才允许原样重发，写入保留原意图键；SDK 不自动重试。旧服务器的 retryAdvice 仅作兼容读取。
 
 recordTransactionExecute 用 opId/dependsOn 表达依赖；不要拆成若干普通请求后声称具备事务性。allowPartial 适用于支持它的普通数组写入，事务不接受。部分成功检查每项结果，修正后的失败项是新的业务请求，不能原样重放整个批次。
 
 recordLock 返回的 token 是租约凭据，更新/续租/解锁按原记录匹配；超时或租约失效不能继续假定持锁。只读响应中的 lock 状态不包含可用于写入的令牌。
 
-## 变更轮询
+## 变更订阅
 
-recordChangesPoll 使用 collectionId、可选 recordIds/cursor/limit/waitMs；limit 最大 100，waitMs 最大 5000。保存返回游标并在取消或目标完成后停止。收到变更后按事件语义重新读取需要的记录；这不是任意 SQL CDC，也不代表有 Source/Stream 管理权限。
+公开订阅为 GET `/openapi/v2/uns/records:subscribe`，使用独立 SSE 客户端；它在目录中可发现，但本 SDK 的 JSON POST 客户端不提供订阅方法。collectionIds/recordIds 作为重复查询参数，续传位置通过 Last-Event-ID 请求头传入；waitMs/limit 仅供网关内部使用。旧 recordChangesPoll 已从后端公开契约移除。收到事件或 reset 后按当前授权重新查询记录，不把通知当作完整业务数据，也不推断 Source/Stream 管理权限。

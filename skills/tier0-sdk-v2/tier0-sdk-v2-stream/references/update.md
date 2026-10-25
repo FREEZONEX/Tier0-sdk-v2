@@ -5,7 +5,7 @@
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | id | string | 是 | 十进制字符串 |
-| document | CloudStreamDocument | 是 | name、model、script、sources、entries 完整文档 |
+| document / program | 生成类型 | 二选一 | 完整原生文档，或 RuntimeStreamDefinition 程序输入 |
 | expectedRevision | integer | 建议始终提供 | get 返回修订，防止覆盖他人修改 |
 | dryRun | boolean | 是 | true 预检；false 保存 |
 | idempotencyKey | string | 否 | 本次更新独立意图键 |

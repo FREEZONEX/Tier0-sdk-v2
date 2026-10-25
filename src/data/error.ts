@@ -159,7 +159,9 @@ export function toDataError(error: UnsV2Error): DataError {
   const data = isObject(error.data) ? error.data : {};
   // Only `data.reason` is a code; `error.reason` repeats the message text.
   const reason = typeof data.reason === 'string' ? data.reason : undefined;
-  const retryable = error.retryable || httpStatus === 503 || httpStatus === 504;
+  // A canonical server decision overrides status-based legacy heuristics:
+  // a 503 can describe a partial commit that must not be retried automatically.
+  const retryable = error.retry?.safe ?? (error.retryable || httpStatus === 503 || httpStatus === 504);
   const code = error.code;
   const msg = error.message;
   const hint = codeHint(code, data);

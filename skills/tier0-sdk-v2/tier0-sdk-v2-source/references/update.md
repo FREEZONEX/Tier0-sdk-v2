@@ -5,11 +5,13 @@
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | id | string | 是 | get 返回的 ID |
-| document | CloudSourceDocument | 是 | 完整新文档，保留未改字段和认证引用 |
+| document / patch | 生成类型 | 二选一 | 完整文档，或仅给变化字段的补丁；不能同时传 |
 | expectedRevision | integer | 是 | 读取时的 revision，原样传回 |
 | confirmedImpactRevision | string | 是 | 相同文档和修订的 impact 回执 |
 | dryRun | boolean | 是 | true 预检；false 提交 |
 | idempotencyKey | string | 否 | 最多 128 字符 |
+
+`patch` 允许 name、description、config；省略字段保留，config 是完整连接配置替换，不做递归合并，必须保留认证/TLS 引用。影响确认使用同一个 patch。批量使用 `items`，每项都有 id、expectedRevision、confirmedImpactRevision 及 document/patch 二选一；与顶层单条字段互斥，最多 200 项且原子。完整请求由 `UnsV2Request<'sourceDocumentUpdate'>` 检查，不手工拼另一套 DTO。
 
 ## 示例：修改名称并保留连接
 

@@ -22,15 +22,15 @@ const operation = (name: string) => manifest.operations.find(item => item.name =
 
 describe('Backend App UNS access contract without generic record audit', () => {
   it('pins the exact upstream commit and all generator inputs', () => {
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('8d9fe632e958811778041398c4c3454a28c494bc');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('25fdac7d707c8c119d73efb3b5c826ba0caa758e');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     for (const [key, file] of Object.entries({ contract: 'contract.json', cloudSupport: 'cloud-support.json', manifest: 'manifest.json', provenance: 'provenance.json', registry: 'registry_generated.go' })) {
       expect(UNS_V2_CONTRACT_PROVENANCE.hashes[key as keyof typeof UNS_V2_CONTRACT_PROVENANCE.hashes]).toBe(
         createHash('sha256').update(read(file)).digest('hex')
       );
     }
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(100);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(113);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(107);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(118);
   });
 
   it.each([
@@ -41,11 +41,11 @@ describe('Backend App UNS access contract without generic record audit', () => {
   ] as const)('%s preserves the upstream resource alternatives without inventing read/manage rights', (name, permissions) => {
     const metadata = operation(name);
     expect(metadata.permissionAnyOf).toEqual(permissions);
-    expect(metadata.appAllowed).toBe(true);
+    expect(metadata.appAllowed).toBe(name !== 'jobs');
     expect(contract.operations.find(item => item.name === name)?.permissionAnyOf).toEqual(permissions);
     const line = registry.split('\n').find(row => row.includes(`Name: "${name}"`));
     expect(line).toContain(`PermissionAnyOf: []string{${permissions.map(permission => `"${permission}"`).join(', ')}}`);
-    expect(line).toContain('AppAllowed: true');
+    expect(line).toContain(`AppAllowed: ${name !== 'jobs'}`);
     expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(true);
   });
 
@@ -77,8 +77,9 @@ describe('Backend App UNS access contract without generic record audit', () => {
       expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(true);
     }
     for (const name of ['hostedAppControlPolicyGet', 'hostedAppControlPolicyUpdate']) {
-      expect(operation(name)).toMatchObject({ appAllowed: false, coreOnly: true, permission: 'workspace.api.manage', minPermission: 3 });
-      expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(false);
+      expect(operation(name)).toMatchObject({ appAllowed: false, permission: 'control.manage', minPermission: 3 });
+      expect(Boolean(operation(name).coreOnly)).toBe(false);
+      expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(true);
     }
     for (const name of ['appAccessGet', 'appAccessUpdate']) {
       expect(manifest.operations.some(item => item.name === name)).toBe(false);

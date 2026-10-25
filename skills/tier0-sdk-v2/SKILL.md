@@ -25,6 +25,26 @@ description: 使用 @tier0/sdk-v2 开发或迁移 Tier0 云端 TypeScript/JavaSc
 
 每个领域 Skill 可单独使用，无需先加载本文件。Source → Stream → UNS 是接入、处理与数据存储三个领域；不是要求每个数据读取场景都创建一套流水线。通知和系统能力独立于这条链路。
 
+新接入先用 `listUnsV2Operations('starter')` 查看 15 个起步操作，完整推荐目录用 `listUnsV2Operations()`（86 项），兼容维护才用 `'all'`（107 项）。目录与 `UNS_V2_OPERATION_GROUPS` 由固定版本 manifest 生成，可按 app/builder/governance/operations/platform 分组；分组不是权限授予，执行仍由服务端验证。`listUnsV2Methods` 只列 SDK 的 JSON POST 方法；目录中的 GET SSE 订阅必须使用流式传输，不能当作 POST 调用。
+
+21 个兼容入口仍可调用。只对新意图选择推荐入口，不能把已发出的旧请求换到新路由重试；保留原 action、载荷和幂等键。`bindUnsV2NewRequests(raw)` 提供显式的新请求包装，现有 raw 方法和高层方法不会自动迁移。
+
+```ts
+import { bindUnsV2NewRequests, createUnsV2Client, listUnsV2Operations } from '@tier0/sdk-v2';
+
+export const starter = listUnsV2Operations('starter');
+const newRequests = bindUnsV2NewRequests(createUnsV2Client());
+// intentKey 属于这次新的 bulkWrite 意图，不能复用已发送的旧 insertMany 请求键。
+export async function insertNewBatch(collectionId: string, intentKey: string) {
+  return newRequests.recordInsertMany({ collectionId, atomic: true, idempotencyKey: intentKey,
+    documents: [{ id: 'order-1', data: { status: 'OPEN' } }] });
+}
+export async function distinctStatuses(collectionId: string) {
+  const result = await newRequests.recordDistinct({ collectionId, field: 'status', limit: 20 });
+  return result.data; // values + pageInfo；续页仅传 page，不与 limit 混传。
+}
+```
+
 ## 初始化与身份
 
 ```ts
@@ -56,7 +76,7 @@ HTTP 不自动重试。带 `outcomeUnknown` 的失败应先对账，保留原意
 
 ## 从首版入口迁移
 
-- `client.uns.sourceList(body)` → `client.source.list(body)`。
+- `client.uns.sourceList(body)` 对应兼容的 `client.source.list(body)`；新读取选择 `client.source.documents.list(body)`，按其生成类型构造请求。
 - `client.uns.sourceDocumentGet(body)` → `client.source.documents.get(body)`。
 - `client.uns.streamProgramDeploy(body)` → `client.stream.programs.deploy(body)`。
 - `client.uns.streamDocumentValidate(body)` → `client.stream.documents.validate(body)`。

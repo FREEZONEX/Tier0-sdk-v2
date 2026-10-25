@@ -328,24 +328,24 @@ describe('UNS v2 localhost HTTP fixture', () => {
     expect(received.slice(start)).toHaveLength(1);
     expect(received[start].path).toBe('/openapi/v2/uns/streams/sample/test');
     const core = rawClient() as unknown as { call(name: string, request: unknown): Promise<unknown> };
-    for (const name of ['graph', 'sourceCredentialCreate', 'sourceIngressGet', 'sourceIngressRotate', 'hostedAppControlPolicyGet', 'hostedAppControlPolicyUpdate']) {
+    for (const name of ['graph', 'sourceCredentialCreate', 'sourceIngressGet', 'sourceIngressRotate']) {
       expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(false);
       await expect(core.call(name, {})).rejects.toThrow('unknown UNS v2 operation');
     }
     for (const name of ['CloudSourceCredentialCreateReq', 'CloudSourceCredentialCreateResponse', 'CloudSourceIngressGetReq', 'CloudSourceIngressRotateReq']) {
       expect(Object.hasOwn(UNS_V2_CODEC_SCHEMAS, name)).toBe(false);
     }
-    expect(UNS_V2_CONTRACT_PROVENANCE.version).toBe('4.0.0');
+    expect(UNS_V2_CONTRACT_PROVENANCE.version).toBe('5.0.0');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudContractRevision.split('+')).toEqual(expect.arrayContaining([
       'cloud-source-impact/1', 'app-create-capability/1', 'data/3', 'collection-namespace/1', 'http-acquisition/2',
       'app-collection/2', 'metadata/1', 'app-data/2', 'hosted-control/1', 'source-bindings/1',
       'record-notifications/1', 'record-delete-samples/1', 'stream-history/1',
     ]));
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('8d9fe632e958811778041398c4c3454a28c494bc');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('25fdac7d707c8c119d73efb3b5c826ba0caa758e');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(UNS_V2_CONTRACT_PROVENANCE.sourceDerivedContractSHA256).toBe(UNS_V2_CONTRACT_PROVENANCE.hashes.contract);
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(100);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(113);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(107);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(118);
     expect(received.slice(start)).toHaveLength(1);
   });
 
@@ -646,6 +646,35 @@ describe('UNS v2 localhost HTTP fixture', () => {
     expect(received.length - start).toBe(1);
   });
 
+  it.each([
+    ['notStarted', true, false], ['rolledBack', true, false],
+    ['committed', false, false], ['unknown', false, true],
+  ] as const)('preserves canonical execution %s and retry advice without replay', async (execution, safe, unknown) => {
+    const start = received.length;
+    respond = (_req, res) => send(res, { code: 503, msg: 'execution status', requestId: 'execution-receipt',
+      data: { insertedCount: execution === 'committed' ? 1 : 0 },
+      error: { code: 'TEMPORARILY_UNAVAILABLE', reason: 'execution status', details: [], execution,
+        retry: { safe, ...(safe ? { afterMs: 1000 } : {}) } } }, 503);
+    const error = await client().uns.recordInsertOne({ collectionId: 'orders', data: {}, idempotencyKey: 'same-intent' }).catch(value => value);
+    expect(error).toBeInstanceOf(UnsV2Error);
+    expect(error instanceof UnsV2OutcomeUnknownError).toBe(unknown);
+    expect(error).toMatchObject({ execution, retry: { safe }, retryable: safe, data: { insertedCount: execution === 'committed' ? 1 : 0 } });
+    expect(error.retryAdvice).toBeUndefined();
+    expect(received.length - start).toBe(1);
+  });
+
+  it('preserves outcome ambiguity after an earlier many-write chunk committed', async () => {
+    const start = received.length;
+    respond = (_req, res) => send(res, { code: 503, msg: 'later chunk unknown', requestId: 'partial-unknown',
+      data: { matchedCount: 200, modifiedCount: 200, outcomeUnknown: true },
+      error: { code: 'OUTCOME_UNKNOWN', reason: 'later chunk unknown', details: [], execution: 'committed', retry: { safe: false } } }, 503);
+    const error = await client().uns.recordUpdateMany({ collectionId: 'orders', filter: {}, update: { $set: { status: 'DONE' } }, atomic: false }).catch(value => value);
+    expect(error).toBeInstanceOf(UnsV2OutcomeUnknownError);
+    expect(error).toMatchObject({ execution: 'committed', retryable: false, retry: { safe: false }, outcomeUnknown: true,
+      data: { matchedCount: 200, modifiedCount: 200, outcomeUnknown: true } });
+    expect(received.length - start).toBe(1);
+  });
+
   it('requires canonical HTTP 200 and envelope code 200 for success', async () => {
     for (const testCase of [
       { status: 200, code: 403 },
@@ -795,30 +824,11 @@ describe('UNS v2 localhost HTTP fixture', () => {
 });
 
 
-describe('Record notifications over the existing isolated HTTP transport', () => {
-  it('exposes a readonly operation and preserves cursor plus exact integer notification identity', async () => {
+describe('Record notification transport boundary', () => {
+  it('rejects the retired polling route before any request is encoded', async () => {
     const start = received.length;
-    respond = (_req, res) => {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end('{"code":200,"msg":"ok","requestId":"changes","data":{"items":[{"eventId":"stable-event","collectionId":"orders","recordId":"9007199254740993","change":"record","occurredAt":9007199254740993}],"nextCursor":"rc1.sealed.fixture","retentionMs":3600000}}');
-    };
-    const result = await client().uns.recordChangesPoll({ collectionId: 'orders', cursor: 'rc1.old.fixture', limit: 20, waitMs: 0 });
-    expect(UNS_V2_OPERATIONS.recordChangesPoll.mutation).toBe(false);
-    expect(result.data.nextCursor).toBe('rc1.sealed.fixture');
-    expect(String(result.data.items[0].occurredAt)).toBe('9007199254740993');
-    expect(result.data.items[0].recordId).toBe('9007199254740993');
-    expect(received.slice(start)).toHaveLength(1);
-    expect(received.at(-1)?.path).toBe('/openapi/v2/uns/records/changes');
-    expect(JSON.parse(received.at(-1)!.body)).toEqual({ collectionId: 'orders', cursor: 'rc1.old.fixture', limit: 20, waitMs: 0 });
-  });
-  it.each([[409, 'CURSOR_EXPIRED'], [403, 'FORBIDDEN'], [503, 'TEMPORARILY_UNAVAILABLE']])('preserves %s/%s without automatic reconnect or write replay', async (status, code) => {
-    const start = received.length;
-    respond = (_req, res) => send(res, { code: status, msg: 'safe failure', requestId: 'changes', data: null,
-      error: { code, retryable: false, details: [], retryAdvice: { recommendedAction: 'restoreAuthorizationBeforeRetry', canRetrySameRequest: false, keepIdempotencyKey: true } } }, status);
-    const error = await client().uns.recordChangesPoll({ collectionId: 'orders', cursor: 'rc1.old' }).catch(value => value);
-    expect(error).toBeInstanceOf(UnsV2Error);
-    expect(error).not.toBeInstanceOf(UnsV2OutcomeUnknownError);
-    expect(error).toMatchObject({ status, code, operation: 'recordChangesPoll' });
-    expect(received.slice(start)).toHaveLength(1);
+    const raw = rawClient() as unknown as { call(name: string, request: unknown): Promise<unknown> };
+    await expect(raw.call('recordChangesPoll', { collectionId: 'orders' })).rejects.toThrow('unknown UNS v2 operation');
+    expect(received.length - start).toBe(0);
   });
 });

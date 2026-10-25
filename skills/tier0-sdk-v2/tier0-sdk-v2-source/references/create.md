@@ -1,5 +1,7 @@
 # 创建 Source
 
+新请求使用 documents.create。单条 document 与原子批量 items 互斥；批量最多 200 项，每项 `{id?,document}`，使用已有凭据引用。只写 credentials 仅保留在单条创建中。source.create 是旧路由兼容方法，旧请求不能换入口恢复。
+
 方法：`source.documents.create`；POST `/openapi/v2/uns/sources/documents/create`。需要 Source manage 权限。
 
 | 字段 | 类型 | 必填 | 说明 |

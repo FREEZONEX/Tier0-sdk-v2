@@ -3,8 +3,7 @@
 | 方法 | POST 路径 | 输入 | 结果 |
 | --- | --- | --- | --- |
 | programs.list | /openapi/v2/uns/streams/program/list | page、size、search、sourceId、model、status、archived | list、total、hasMore、nextPage |
-| programs.get | /openapi/v2/uns/streams/program/get | id | 运行摘要，document 已脱敏 |
-| documents.get | /openapi/v2/uns/streams/documents/get | id | 完整草稿、revision、status、activeRelease、可选 activeDocument |
+| documents.get | /openapi/v2/uns/streams/documents/get | id、view:summary/full | 摘要或完整草稿；省略 view 为 full |
 | observations.get | /openapi/v2/uns/streams/observation/get | id | 运行观测 |
 | runs.list | /openapi/v2/uns/streams/runs/list | id、size、cursor | 执行记录 |
 | programs.versions.list | /openapi/v2/uns/streams/program/versions/list | id、page、size | list、total，含 versionId |
@@ -15,8 +14,8 @@ page 从 1 开始，size 最大 200。完整文档需要 Stream manage 权限；
 import { createClient, type Tier0Client } from '@tier0/sdk-v2';
 
 export async function readStream(id: string, client: Tier0Client = createClient()) {
-  const draft = await client.stream.documents.get({ id });
-  const summary = await client.stream.programs.get({ id });
+  const draft = await client.stream.documents.get({ id, view: 'full' });
+  const summary = await client.stream.documents.get({ id, view: 'summary' });
   const observation = await client.stream.observations.get({ id });
   return { draft: draft.data, summary: summary.data, observation: observation.data };
 }

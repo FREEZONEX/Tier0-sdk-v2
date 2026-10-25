@@ -63,7 +63,9 @@ const programs = await tier0.stream.programs.list({ page: 1, size: 20 });
 const runtime = await tier0.stream.runtime.capabilities({});
 ```
 
-Source/Stream 仍保留 `{ code, msg, requestId, data }` 响应以及 `UnsV2Error` 错误类型。`source.documents` 是云端原生文档，`source.create/validate` 等是通用投影；`stream.programs` 与 `stream.documents` 使用不同文档结构，不可混用。保存、部署、运行成功分别判断。
+Source/Stream 保留 `{ code, msg, requestId, data }` 响应以及 `UnsV2Error` 错误类型。新读写使用 `source.documents` / `stream.documents`：读取支持 `view:'summary'|'full'`，Source 更新支持 `document` 或 `patch` 及原子 `items`；Stream 接受原生 `document` 或运行时 `program`，两种输入互斥。旧快捷方法保留原路由和回执。保存、部署、运行成功分别判断。
+
+API 目录由固定 manifest 生成：`listUnsV2Operations('starter')` 为 15 项，默认推荐目录为 86 项，`'all'` 为 107 项（含 21 项兼容入口）。可按 app/builder/governance/operations/platform 过滤；分组不授予权限。`listUnsV2Methods` 只列 JSON POST 方法，SSE GET 订阅不通过 POST 客户端调用。`bindUnsV2NewRequests(raw)` 为新意图提供批量写入、单条元数据查询和去重查询包装；已经发出的旧请求必须按原路由、原载荷、原幂等键恢复。
 
 从最初提交迁移：`uns.sourceList` → `source.list`；`uns.sourceDocumentGet` → `source.documents.get`；`uns.streamProgramDeploy` → `stream.programs.deploy`；`uns.streamDocumentValidate` → `stream.documents.validate`。这些管理方法已移出主入口的 `uns`。底层 `createUnsV2Client()` 仍提供完整生成契约供契约工具使用；数据专用客户端可用 `createUnsDataClient()`。
 
@@ -89,7 +91,7 @@ UNS 保留 `{ code, msg, requestId, data }` 完整响应。普通 v1 包装接�
 
 `int64` 和普通 v1 整数字段使用 `number | bigint`：安全范围内返回 number，超出范围返回 bigint。UNS 任意 JSON 中无法无损表示的数字用 `UnsV2RawNumber`；传回 SDK 可保持原值。对外输出 JSON 时自行确定 bigint/精确数字的表示，不要直接 `JSON.stringify` 包含这些值的对象。
 
-HTTP 操作不自动重试。`UnsV2OutcomeUnknownError`、`ControlResultUnknownError` 或 `ApiError.outcomeUnknown` 表示写操作可能已执行；先查询结果/作业，按业务意图保留原幂等键，不自动生成新键重放。查询与写入均可受配置超时约束。
+HTTP 操作不自动重试。UNS 错误保留 `execution` 和 `retry.safe/afterMs`；单条 updateOne/replaceOne 可用 `returnDocument:'before'|'after'` 在计数之外返回文档，deleteOne 仅支持 before。`UnsV2OutcomeUnknownError`、`ControlResultUnknownError` 或 `ApiError.outcomeUnknown` 表示写操作可能已执行；部分批次已提交但后续结果未知也会标记。先查询结果/作业，按业务意图保留原幂等键，不自动生成新键重放。查询与写入均可受配置超时约束。
 
 ## 通知
 
@@ -167,7 +169,7 @@ Vue 由 `execute()` 显式执行，后发请求的结果优先；取消不表示
 
 ## 契约更新与验证
 
-上游：`FREEZONEX/Tier0-Backend`，固定提交 `8d9fe632e958811778041398c4c3454a28c494bc`。`contracts/upstream.json` 记录来源和 SHA-256。
+上游：`FREEZONEX/Tier0-Backend`，固定提交 `25fdac7d707c8c119d73efb3b5c826ba0caa758e`。`contracts/upstream.json` 记录来源和 SHA-256。
 
 ```sh
 npm ci
@@ -181,7 +183,7 @@ npm run check
 
 v1 来自网关 Swagger，并按实际 handler 补齐响应外层；UNS 来自 `contract_generated.go#ContractJSON` 中已经应用 Cloud 扩展的契约，结合 manifest/registry 生成。不能直接使用仍含 Enterprise 基础操作的 `share/unscontract/contract.json` 作为最终云端契约。
 
-`npm run check` 包含契约一致性、Skill 注册及递归引用检查、所有 Skill TypeScript 示例的源码/安装包类型校验、单元和本地 HTTP 测试、ESM/CJS 构建、实际 npm 包安装、浏览器打包及导入验证。完整行为测试还会在独立 consumer 中对已安装的 `.tgz` 再跑一遍，导入目标严格指向包内 `dist`；包内调试映射包含源内容。当前 652 项测试包含全部 157 个公开操作的路由检查。路由检查使用本地 HTTP fixture，不等于每个操作的业务验收。
+`npm run check` 包含契约一致性、Skill 注册及递归引用检查、所有 Skill TypeScript 示例的源码/安装包类型校验、单元和本地 HTTP 测试、ESM/CJS 构建、实际 npm 包安装、浏览器打包及导入验证。完整行为测试还会在独立 consumer 中对已安装的 `.tgz` 再跑一遍，导入目标严格指向包内 `dist`；包内调试映射包含源内容。全部 JSON HTTP 方法都有路由检查，SSE 另行验证不会误发 POST。路由检查使用本地 HTTP fixture，不等于每个操作的业务验收。
 
 `tests/skill-workflows.test.ts` 直接提取 Markdown 示例，验证 Source/Stream/UNS 的创建、查询、修改、删除或归档恢复，影响分页和结果未知分支，以及通知请求、状态查询和成员展示。默认检查不调用线上接口。
 

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createClient, createUnsV2Client, UNS_V2_OPERATIONS, UNS_V2_CONTRACT_PROVENANCE } from '../src/index.js';
+import { createClient, createUnsV2Client, UNS_V2_OPERATIONS, UNS_V2_CONTRACT_PROVENANCE, type UnsV2OperationName } from '../src/index.js';
 import { HttpClient } from '../src/openapi/client.js';
 import { OPENAPI_OPERATIONS } from '../src/openapi/api.generated.js';
 
@@ -33,6 +33,7 @@ const config = () => ({ apiHost, apiKey: 'transport-fixture-key', transportTimeo
 
 describe('all UNS v2 public operations reach their upstream route', () => {
   for (const [name, operation] of Object.entries(UNS_V2_OPERATIONS)) {
+    if (operation.method !== 'POST') continue;
     it(name, async () => {
       observed.length = 0;
       responseMode = 'envelope';
@@ -45,7 +46,7 @@ describe('all UNS v2 public operations reach their upstream route', () => {
         expectedPath = expectedPath.replace(`:${key}`, body[key]);
       }
       const client = createUnsV2Client(() => new HttpClient(config()), config());
-      const result = await (client[name as keyof typeof UNS_V2_OPERATIONS] as (body: object) => Promise<unknown>)(body);
+      const result = await (client[name as UnsV2OperationName] as (body: object) => Promise<unknown>)(body);
       expect(result).toMatchObject({ code: 200, requestId: 'fixture' });
       expect(observed).toEqual([{ method: 'POST', path: expectedPath, key: 'transport-fixture-key', body }]);
     });

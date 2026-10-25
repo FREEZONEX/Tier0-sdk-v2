@@ -38,13 +38,14 @@ for (const [path, entry] of Object.entries(pkg.exports)) {
   }
 }
 run(['--input-type=module', '-e', `
-  import { createClient, createUnsV2Client, UNS_V2_OPERATIONS, UNS_V2_CONTRACT_PROVENANCE } from '@tier0/sdk-v2';
+  import { createClient, createUnsV2Client, listUnsV2Methods, listUnsV2Operations, UNS_V2_OPERATIONS, UNS_V2_CONTRACT_PROVENANCE } from '@tier0/sdk-v2';
   import * as sdk from '@tier0/sdk-v2';
   const client = createClient({ apiHost: 'https://fixture.invalid' });
   if ('getCurrentProjectId' in sdk || 'flow' in client || 'launchpad' in client.api) throw new Error('Legacy API leaked');
   const operations = Object.keys(UNS_V2_OPERATIONS);
   const raw = createUnsV2Client();
-  if (operations.length !== UNS_V2_CONTRACT_PROVENANCE.publicOperationCount || operations.some(name => typeof raw[name] !== 'function')) throw new Error('Missing generated operations');
+  if (operations.length !== UNS_V2_CONTRACT_PROVENANCE.publicOperationCount || listUnsV2Methods('all').some(name => typeof raw[name] !== 'function')) throw new Error('Missing generated operations');
+  if (listUnsV2Operations().length !== 86 || listUnsV2Operations('starter').length !== 15 || 'recordSubscribe' in raw) throw new Error('Invalid recommended/SSE surface');
   if (typeof client.uns.metadataFindOne !== 'function' || typeof client.uns.metadataBulkWrite !== 'function') throw new Error('Missing metadata operations');
   if ('collectionCreate' in client.uns || 'metaBatchExecute' in client.uns) throw new Error('Retired metadata routes leaked');
   if ('sourceList' in client.uns || 'streamProgramDeploy' in client.uns || 'controlInvoke' in client.uns) throw new Error('Mixed domain entrypoints');
