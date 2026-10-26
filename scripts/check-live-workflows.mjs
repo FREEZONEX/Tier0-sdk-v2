@@ -159,10 +159,10 @@ try {
       assert.equal(result.data.status, 'committed');
       assert.equal(result.data.value.data.name, prefix + '-edited');
     });
-    await step('Skill UNS record create + read', async () => {
+    await step('Skill UNS record create + snapshot', async () => {
       const result = await recordCreate.insertDevice(collectionId, 'device-1', 'SDK device', intent('record-create'), client);
       assert.equal(result.state, 'committed');
-      assert.equal(result.current.data.name, 'SDK device');
+      assert.equal(result.created.data.name, 'SDK device');
     });
     await step('Skill UNS record update + read', async () => {
       const result = await recordUpdate.renameDevice(collectionId, 'device-1', 'SDK edited', intent('record-update'), client);

@@ -64,8 +64,38 @@ void declared;
 void compileCollection(orders);
 const order: Promise<Doc<typeof orders> | null> = createDataClient({ collections: [orders] }).collection(orders).findOne({ code: 'A' });
 void order;
+const handle = createDataClient({ collections: [orders] }).collection(orders);
+const plainInsert: Promise<{ insertedId: string }> = handle.insertOne({ code: 'A' });
+const insertSnapshot: Promise<{ insertedId: string; value: Doc<typeof orders> }> = handle.insertOne({ code: 'A' }, { returnDocument: 'after' });
+void [plainInsert, insertSnapshot];
+const nested = defineCollection({ alias: 'nested', schema: z.object({
+  code: z.string(), customer: z.object({ name: z.string(), email: z.string() }),
+  lines: z.array(z.object({ sku: z.string(), quantity: z.number() })),
+}) });
+const nestedHandle = createDataClient({ collections: [nested] }).collection(nested);
+const input = { code: 'A', customer: { name: 'A', email: 'a@example.invalid' }, lines: [{ sku: 'A', quantity: 1 }] };
+const fullSnapshot: Promise<{ insertedId: string; value: Doc<typeof nested> }> = nestedHandle.insertOne(input, { returnDocument: 'after' });
+void fullSnapshot;
+nestedHandle.insertOne(input, { returnDocument: 'after', projection: { 'customer.name': 1, 'lines.sku': 1 } }).then(result => {
+  const revision: number = result.value._meta.revision;
+  const id: string = result.value._id;
+  // @ts-expect-error projected top-level fields may be missing
+  const code: string = result.value.code;
+  if (result.value.customer) {
+    // @ts-expect-error nested fields remain optional after narrowing the parent
+    const email: string = result.value.customer.email;
+    void email;
+  }
+  if (result.value.lines?.[0]) {
+    // @ts-expect-error nested fields in array elements may also be omitted
+    const quantity: number = result.value.lines[0].quantity;
+    void quantity;
+  }
+  void [revision, id, code];
+});
 const client: Tier0Client = createClient({ apiHost: 'https://fixture.invalid' });
 client.uns.recordFind({ collectionId: 'orders' });
+client.uns.recordInsertOne({ collectionId: 'orders', data: { code: 'A' }, returnDocument: 'after' });
 client.uns.metadataFindOne({ kind: 'collection', filter: { _id: 'orders' } });
 createSourceClient().documents.list({});
 createStreamClient().programs.list({});

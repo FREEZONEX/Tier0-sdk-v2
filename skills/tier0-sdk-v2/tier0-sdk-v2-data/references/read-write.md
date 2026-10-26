@@ -88,12 +88,16 @@ export async function ordersScreen(page: number, selectedId: string) {
 
 | 写入 | 说明 |
 | --- | --- |
-| `insertOne(doc)`、`insertMany(docs)` | 可带 `_id`；`insertMany` 最多 200 条、原子 |
+| `insertOne(doc, options)`、`insertMany(docs)` | 可带 `_id`；单条默认返回 `{ insertedId }`，`returnDocument:'after'` 同次写入返回 `{ insertedId, value }`；`insertMany` 最多 200 条、原子 |
 | `updateOne` / `updateMany` / `replaceOne` | 更新用操作符（`$set` `$inc` `$push` `$unset`…）；`replaceOne` 会丢掉其他代码版本写入的字段 |
 | `deleteOne` / `deleteMany` | 软删除，App Key 需要 `uns.delete` |
 | `findOneAndUpdate` / `findOneAndReplace` / `findOneAndDelete` | 原子读改写，默认返回更新后的文档 |
 | `bulkWrite(ops)` | `insertOne` / `updateOne` / `replaceOne` / `deleteOne` 混合，最多 200 项、原子 |
 | `data.transact(steps)` | 跨集合原子写，见 [一致性](consistency.md) |
+
+新建后需要显示保存结果或继续按版本编辑时，使用 `insertOne(doc, { returnDocument: 'after', idempotencyKey })`。`value` 与查询结果一样是 `{ _id, ...业务字段, _meta }`，包含服务端生成的数据和 `_meta.revision`，无需额外查询。返回快照需要当前读取权限；`projection` 只能与 `after` 一起提供。重放返回当次创建的快照，不能当成记录当前最新版本；之后的版本冲突仍需显式读取并处理。
+
+带 `projection` 时，返回类型将业务字段递归标为可选，包括嵌套对象和数组元素的字段；读取前需判断是否存在。`_id` 和 `_meta` 仍然必有。不带 `projection` 的 `after` 保持完整文档类型。
 
 ## 批量与原子性
 

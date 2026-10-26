@@ -34,7 +34,9 @@ export async function createDeviceCollection(
 }
 ```
 
-单条新增返回 insertedId/status/replayed；批量新增返回 insertedCount/insertedIds 及适用的逐项错误。insertedIds 的键是原始输入从 0 开始的索引。省略自定义 ID 时从成功回执取得实际 ID，不能把名称当成 ID。
+单条新增默认返回 insertedId/status/replayed。需要创建后的数据、revision 和时间戳时，传 returnDocument:'after'，同一次写入返回 value，无需再查询；可配合 projection，调用者必须同时具有读取权限。幂等重放返回原始创建快照，后续读取最新状态仍用 recordGet/recordFind。dryRun 的 value 是未提交预览。
+
+批量新增返回 insertedCount/insertedIds 及适用的逐项错误。insertedIds 的键是原始输入从 0 开始的索引。省略自定义 ID 时从成功回执取得实际 ID，不能把名称当成 ID。
 
 ```ts
 import { createClient, type Tier0Client } from '@tier0/sdk-v2';
@@ -44,12 +46,11 @@ export async function insertDevice(
   client: Tier0Client = createClient(),
 ) {
   const receipt = await client.uns.recordInsertOne({
-    collectionId, id, data: { name, enabled: true }, dryRun: false, idempotencyKey: intentKey,
+    collectionId, id, data: { name, enabled: true }, dryRun: false, idempotencyKey: intentKey, returnDocument: 'after',
   });
   if (receipt.data.status !== 'committed') return { state: 'unconfirmed' as const, receipt };
-  const found = await client.uns.recordFind({ collectionId, filter: { _id: receipt.data.insertedId }, limit: 1 });
-  if (!found.data.items[0]) throw new Error('新增有回执，但读回未找到记录');
-  return { state: 'committed' as const, receipt, current: found.data.items[0] };
+  if (!receipt.data.value) throw new Error('创建回执缺少请求的快照');
+  return { state: 'committed' as const, receipt, created: receipt.data.value };
 }
 ```
 

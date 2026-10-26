@@ -24,6 +24,10 @@ export const MAX_PAGE_SIZE = 200;
 export const MAX_ATOMIC_ITEMS = 200;
 
 export type WithMeta<T> = T & { _id: string; _meta: RecordMeta };
+/** A projection may omit business fields at any depth; array and tuple containers retain their shape. */
+export type DeepPartial<T> = T extends readonly unknown[]
+  ? { [K in keyof T]: DeepPartial<T[K]> }
+  : T extends object ? { [K in keyof T]?: DeepPartial<T[K]> } : T;
 export type Projection = Record<string, 0 | 1 | boolean>;
 export type Update = Record<string, unknown>;
 
@@ -260,6 +264,11 @@ export interface FindOneAndOptions extends UpdateOptions {
   returnDocument?: 'before' | 'after';
   projection?: Projection;
 }
+
+export type InsertOneOptions = { idempotencyKey?: string } & (
+  | { returnDocument?: 'none'; projection?: never }
+  | { returnDocument: 'after'; projection?: Projection }
+);
 
 export type BulkOperation =
   | { insertOne: { document: Record<string, unknown> } }
@@ -603,9 +612,17 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
 
   /* --------------------------------- writes --------------------------------- */
 
-  async insertOne(document: TInput & { _id?: string }, options: { idempotencyKey?: string } = {}): Promise<{ insertedId: string }> {
+  /** Returns the creation snapshot in the same write; replay preserves that snapshot and requires current read access. */
+  async insertOne(document: TInput & { _id?: string }, options: Extract<InsertOneOptions, { returnDocument: 'after' }> & { projection?: never }): Promise<{ insertedId: string; value: WithMeta<T> }>;
+  async insertOne(document: TInput & { _id?: string }, options: Extract<InsertOneOptions, { returnDocument: 'after' }>): Promise<{ insertedId: string; value: WithMeta<DeepPartial<T>> }>;
+  async insertOne(document: TInput & { _id?: string }, options?: Extract<InsertOneOptions, { returnDocument?: 'none' }>): Promise<{ insertedId: string }>;
+  async insertOne(document: TInput & { _id?: string }, options: InsertOneOptions): Promise<{ insertedId: string; value?: WithMeta<DeepPartial<T>> }>;
+  async insertOne(document: TInput & { _id?: string }, options: InsertOneOptions = {}): Promise<{ insertedId: string; value?: WithMeta<T> | WithMeta<DeepPartial<T>> }> {
     const { id, data } = validateDocument(this.definition, document as Record<string, unknown>);
-    const result = await this.post<{ insertedId: string }>('recordInsertOne', { id, data, idempotencyKey: options.idempotencyKey });
+    const result = await this.post<{ insertedId: string; value: UnsRecord }>('recordInsertOne', {
+      id, data, idempotencyKey: options.idempotencyKey, returnDocument: options.returnDocument, projection: options.projection,
+    });
+    if (options.returnDocument === 'after') return { insertedId: result.insertedId, value: toDoc<T>(result.value) };
     return { insertedId: result.insertedId };
   }
 

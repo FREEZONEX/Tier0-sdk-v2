@@ -39,6 +39,14 @@ const unknownCreateHint: CloudAppCreateCapability = { ...createHint, version: 'c
 client.uns.recordInsertOne({ collectionId: 'orders', data: {}, binding: createHint.binding });
 void [createHint, currentCreateHint, unknownCreateHint];
 void ownAppContext;
+const inserted = client.uns.recordInsertOne({ collectionId: 'orders', data: { code: 'A' }, returnDocument: 'after', projection: { code: 1 } });
+inserted.then(response => {
+  const id: string = response.data.insertedId;
+  const revision = response.data.value?.revision;
+  void [id, revision];
+});
+// @ts-expect-error insert has no previous document
+client.uns.recordInsertOne({ collectionId: 'orders', data: {}, returnDocument: 'before' });
 const list = client.uns.recordFind({ collectionId: 'orders', limit: 20, cursor: 'opaque' });
 const jobs = client.uns.jobs({ queries: [{ queryId: 'job', jobIds: ['job-1'] }] });
 const transaction = client.uns.recordTransactionExecute({ items: [] });

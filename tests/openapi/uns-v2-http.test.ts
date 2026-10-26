@@ -39,6 +39,21 @@ const rawClient = (overrides: Parameters<typeof createClient>[0] = {}) => {
 };
 
 describe('UNS v2 localhost HTTP fixture', () => {
+  it('carries the insert snapshot and exact revision in one request', async () => {
+    const start = received.length;
+    respond = (_req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end('{"code":200,"msg":"","requestId":"inserted","data":{"insertedId":"r1","status":"committed","replayed":false,"value":{"id":"r1","collectionId":"orders","data":{"code":"A"},"revision":9007199254740993,"createdAt":1792994000000,"updatedAt":1792994000000,"sourceId":null,"sourceTime":null}}}');
+    };
+    const result = await client().uns.recordInsertOne({ collectionId: 'orders', data: { code: 'A' }, returnDocument: 'after', projection: { code: 1 }, idempotencyKey: 'create-order' });
+    expect(received.slice(start)).toHaveLength(1);
+    expect(received.at(-1)?.path).toBe('/openapi/v2/uns/collections/orders/records');
+    expect(JSON.parse(received.at(-1)!.body)).toEqual({ collectionId: 'orders', data: { code: 'A' }, returnDocument: 'after', projection: { code: 1 }, idempotencyKey: 'create-order' });
+    expect(result.data.insertedId).toBe('r1');
+    expect(result.data.value?.data).toEqual({ code: 'A' });
+    expect(result.data.value?.revision).toEqual(new UnsV2RawNumber('9007199254740993'));
+  });
+
   it('isolates concurrent per-request clients and snapshots their proof configuration', async () => {
     const start = received.length;
     const proofA = 'gateway.user_A.signature-A';
@@ -340,9 +355,9 @@ describe('UNS v2 localhost HTTP fixture', () => {
       'cloud-source-impact/2', 'app-create-capability/1', 'data/3', 'collection-namespace/1', 'http-acquisition/2',
       'app-collection/2', 'metadata/1', 'app-data/2', 'hosted-control/1', 'source-bindings/1',
       'record-notifications/1', 'record-delete-samples/1', 'stream-history/1',
-      'record-reads/1', 'app-context/2', 'collection-ttl/1', 'error-model/1',
+      'record-reads/1', 'app-context/2', 'collection-ttl/1', 'error-model/1', 'record-insert-return/1',
     ]));
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('ca6af8b78cdcd042b1120212f8ade54e7413bc38');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('6d0fbbca15ddbfd4d9b313b1abbc843b36d14dd0');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(UNS_V2_CONTRACT_PROVENANCE.sourceDerivedContractSHA256).toBe(UNS_V2_CONTRACT_PROVENANCE.hashes.contract);
     expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(106);
