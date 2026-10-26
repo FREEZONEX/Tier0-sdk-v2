@@ -26,16 +26,16 @@ const operation = (name: string) => manifest.operations.find(item => item.name =
 
 describe('Backend App UNS access contract without generic record audit', () => {
   it('pins the exact upstream commit and all generator inputs', () => {
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('c665d82c5ff1f6744391226a206a3b17c4a90529');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('e24499fb2fcd7a55a12a5d42088d6b8f64589621');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     for (const [key, file] of Object.entries({ contract: 'contract.json', cloudSupport: 'cloud-support.json', manifest: 'manifest.json', provenance: 'provenance.json', registry: 'registry_generated.go' })) {
       expect(UNS_V2_CONTRACT_PROVENANCE.hashes[key as keyof typeof UNS_V2_CONTRACT_PROVENANCE.hashes]).toBe(
         createHash('sha256').update(read(file)).digest('hex')
       );
     }
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(101);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(106);
     expect(UNS_V2_CONTRACT_PROVENANCE.streamOperationCount).toBe(1);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(115);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(118);
   });
 
   it.each([
@@ -124,8 +124,9 @@ describe('Backend App UNS access contract without generic record audit', () => {
       expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(true);
     }
     for (const name of ['hostedAppControlPolicyGet', 'hostedAppControlPolicyUpdate']) {
-      expect(operation(name)).toMatchObject({ appAllowed: false, coreOnly: true, permission: 'workspace.api.manage', minPermission: 3 });
-      expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(false);
+      expect(operation(name)).toMatchObject({ appAllowed: false, permission: 'control.manage', minPermission: 3 });
+      expect(operation(name).coreOnly).not.toBe(true);
+      expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(true);
     }
     for (const name of ['appAccessGet', 'appAccessUpdate']) {
       expect(manifest.operations.some(item => item.name === name)).toBe(false);

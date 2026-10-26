@@ -12,7 +12,8 @@ import { createClient, type Tier0Client, type UnsV2JSONValue } from '@tier0/sdk-
 export async function testStreamSample(
   id: string, entryId: string, input: UnsV2JSONValue, client: Tier0Client = createClient(),
 ) {
-  const { data: current } = await client.stream.documents.get({ id });
+  const { data: current } = await client.stream.documents.get({ id, view: 'full' });
+  if (!('document' in current)) throw new Error('需要完整 Stream 文档');
   if (!current.document.entries?.some(entry => entry.id === entryId)) throw new Error('入口不在草稿中');
   const response = await client.stream.sampleTest({ document: current.document, entryId, input });
   return { status: response.data.status, errorCode: response.data.errorCode,

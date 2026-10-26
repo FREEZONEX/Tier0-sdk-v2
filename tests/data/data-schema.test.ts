@@ -28,6 +28,23 @@ function schemaError(schema: z.ZodType): CollectionSchemaError {
 
 describe('zod 4 toJSONSchema output (snapshot)', () => {
   // Pins what zod actually emits; the normalizer below depends on this shape.
+  it('preserves explicit numeric format metadata without assigning formats to plain numbers', () => {
+    const raw = zodJsonSchema(z.object({
+      count: z.int().meta({ format: 'int32' }),
+      reading: z.number().meta({ format: 'float' }),
+      precise: z.number().meta({ format: 'double' }),
+      number: z.number(),
+      integer: z.int(),
+    }));
+    expect(raw.properties).toEqual({
+      count: { type: 'integer', minimum: -SAFE, maximum: SAFE, format: 'int32' },
+      reading: { type: 'number', format: 'float' },
+      precise: { type: 'number', format: 'double' },
+      number: { type: 'number' },
+      integer: { type: 'integer', minimum: -SAFE, maximum: SAFE },
+    });
+  });
+
   it('emits closed objects, safe-integer bounds and output-mode required lists', () => {
     expect(zodJsonSchema(workOrderSchema)).toEqual({
       $schema: 'https://json-schema.org/draft/2020-12/schema',
@@ -81,6 +98,48 @@ describe('zod 4 toJSONSchema output (snapshot)', () => {
 });
 
 describe('toRecordSchema', () => {
+  it('preserves numeric annotations on fields and array items without adding bounds', () => {
+    const schema = toRecordSchema('measurements', z.object({
+      count: z.int().meta({ format: 'int32' }),
+      reading: z.number().meta({ format: 'float' }),
+      samples: z.array(z.number().meta({ format: 'double' })),
+      legacyNumber: z.number(),
+      legacyInteger: z.int(),
+      bounded: z.number().min(0).max(100).meta({ format: 'float' }),
+    }));
+    expect(schema.properties).toEqual({
+      count: { type: 'integer', format: 'int32' },
+      reading: { type: 'number', format: 'float' },
+      samples: { type: 'array', items: { type: 'number', format: 'double' } },
+      legacyNumber: { type: 'number' },
+      legacyInteger: { type: 'integer' },
+      bounded: { type: 'number', format: 'float', minimum: 0, maximum: 100 },
+    });
+  });
+
+  it('rejects unsupported formats and mismatched numeric type-format pairs', () => {
+    const cases = [
+      z.number().meta({ format: 'int32' }),
+      z.int().meta({ format: 'float' }),
+      z.int().meta({ format: 'double' }),
+      z.number().meta({ format: 'decimal' }),
+      z.number().meta({ format: '' }),
+      z.number().meta({ format: null }),
+      z.number().meta({ format: 32 }),
+      z.boolean().meta({ format: 'int32' }),
+      z.object({}).meta({ format: 'double' }),
+      z.array(z.number()).meta({ format: 'float' }),
+    ];
+    for (const field of cases) {
+      const error = schemaError(z.object({ field }));
+      expect(error.issues).toEqual([{
+        path: 'field',
+        message: '`format` must be "int32" on integer fields, or "float" / "double" on number fields. Other types and formats are not storable.',
+      }]);
+    }
+    expect(schemaError(z.object({ field: z.string().meta({ format: 'float' }) })).message).toMatch(/String formats/);
+  });
+
   it('normalizes to the UNS subset', () => {
     expect(toRecordSchema('work_orders', workOrderSchema)).toEqual({
       type: 'object',
@@ -236,6 +295,25 @@ describe('write validation', () => {
     line: { id: 'l1', name: 'Line 1' },
     lines: [{ sku: 'A', count: 1 }],
   };
+
+  it('treats numeric formats as annotations without new range limits or rounding', () => {
+    const measurements = defineCollection({
+      alias: 'measurements',
+      schema: z.object({
+        count: z.int().meta({ format: 'int32' }),
+        reading: z.number().meta({ format: 'float' }),
+        precise: z.number().meta({ format: 'double' }),
+      }),
+    });
+    const data = { count: 2 ** 40, reading: 1e100, precise: 0.1234567890123456 };
+    expect(compileCollection(measurements).recordSchema.properties).toEqual({
+      count: { type: 'integer', format: 'int32' },
+      reading: { type: 'number', format: 'float' },
+      precise: { type: 'number', format: 'double' },
+    });
+    expect(validateDocument(measurements, { _id: 'm1', ...data })).toEqual({ id: 'm1', data });
+    expect(validateUpdate(measurements, { $set: data })).toEqual({ $set: data });
+  });
 
   it('splits _id, drops _meta and strictly validates the body', () => {
     expect(validateDocument(orders, { ...doc, _id: 'wo-1', _meta: { revision: 3 } })).toEqual({ id: 'wo-1', data: doc });

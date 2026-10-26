@@ -19,7 +19,8 @@ prepare 读取文档、形成新文档并收集全部影响分页。在已有授
 import { createClient, type Tier0Client, type CloudSourceDocument, type UnsV2Request } from '@tier0/sdk-v2';
 
 export async function prepareSourceRename(id: string, name: string, client: Tier0Client = createClient()) {
-  const { data: current } = await client.source.documents.get({ id });
+  const { data: current } = await client.source.documents.get({ id, view: 'full' });
+  if (!('document' in current)) throw new Error('需要完整 Source 文档');
   const document: CloudSourceDocument = { ...current.document, name };
   const intent: UnsV2Request<'sourceImpact'> = {
     id, expectedRevision: current.revision, action: 'update', document,

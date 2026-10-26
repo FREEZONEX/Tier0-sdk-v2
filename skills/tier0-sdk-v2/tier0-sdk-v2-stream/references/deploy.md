@@ -13,7 +13,8 @@
 import { createClient, type Tier0Client } from '@tier0/sdk-v2';
 
 export async function deployStream(id: string, intentKey: string, client: Tier0Client = createClient()) {
-  const { data: current } = await client.stream.documents.get({ id });
+  const { data: current } = await client.stream.documents.get({ id, view: 'full' });
+  if (!('document' in current)) throw new Error('需要完整 Stream 文档');
   const sources = current.document.sources ?? [];
   const request = {
     id, expectedRevision: current.revision,

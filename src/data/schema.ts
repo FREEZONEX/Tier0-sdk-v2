@@ -3,7 +3,7 @@
  *
  * UNS stores one closed JSON-schema subset per collection: `type`,
  * `properties`, `required`, `additionalProperties: false`, `items`, `enum`,
- * `minimum`, `maximum`, `title`, `description`. `toRecordSchema` converts the
+ * `minimum`, `maximum`, numeric `format`, `title`, `description`. `toRecordSchema` converts the
  * `z.toJSONSchema` output into exactly that subset and rejects every other
  * keyword with a concrete replacement, so a declaration that cannot be stored
  * fails when it is compiled (an App can compile its declarations at build
@@ -17,6 +17,8 @@ export type EnumValue = string | number | boolean;
 
 export interface RecordSchema {
   type: RecordSchemaType;
+  /** Numeric display annotation; does not add range checks or round stored values. */
+  format?: 'int32' | 'float' | 'double';
   title?: string;
   description?: string;
   properties?: Record<string, RecordSchema>;
@@ -84,6 +86,7 @@ const SAFE_INTEGER_BOUND = Number.MAX_SAFE_INTEGER;
 const SCHEMA_TYPES = new Set<string>(['object', 'array', 'string', 'number', 'integer', 'boolean']);
 const KEPT_KEYWORDS = new Set([
   'type',
+  'format',
   'title',
   'description',
   'properties',
@@ -180,7 +183,7 @@ function normalizeNode(node: unknown, path: string, depth: number, issues: Schem
     valid = false;
     issues.push({
       path,
-      message: `\`${key}\` is not supported. ${KEYWORD_HINTS[key] ?? 'Only type, properties, items, enum, minimum, maximum, title and description are storable; remove this constraint from the collection schema.'}`,
+      message: `\`${key}\` is not supported. ${KEYWORD_HINTS[key] ?? 'Only type, properties, items, enum, minimum, maximum, numeric format, title and description are storable; remove this constraint from the collection schema.'}`,
     });
   }
 
@@ -206,6 +209,20 @@ function normalizeNode(node: unknown, path: string, depth: number, issues: Schem
   }
 
   const out: RecordSchema = { type: type as RecordSchemaType };
+  const format = node.format;
+  if (format !== undefined) {
+    if ((type === 'integer' && format === 'int32') || (type === 'number' && (format === 'float' || format === 'double'))) {
+      out.format = format;
+    } else {
+      issues.push({
+        path,
+        message: type === 'string'
+          ? `\`format\` is not supported on strings. ${KEYWORD_HINTS.format}`
+          : '`format` must be "int32" on integer fields, or "float" / "double" on number fields. Other types and formats are not storable.',
+      });
+      valid = false;
+    }
+  }
   for (const key of ['title', 'description'] as const) {
     const value = node[key];
     if (value === undefined) continue;
