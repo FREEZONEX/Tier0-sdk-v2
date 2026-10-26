@@ -6,7 +6,7 @@
 | --- | --- | --- | --- |
 | id / expectedRevision | string / integer | 是 | 当前 ID 和读取到的修订 |
 | action | update/enable/disable/delete | 是 | 精确变更类型 |
-| document | CloudSourceDocument | 更新时 | 完整拟提交文档 |
+| document / patch | CloudSourceDocument / CloudSourceDocumentPatch | 更新时 | 二选一，必须与后续提交的意图完全一致；启停/删除不传 |
 | offset / size | integer | 否 | 首次 0；size 1–200 |
 | impactRevision | string | 翻页时 | 沿用首次返回的确认值 |
 
@@ -14,7 +14,7 @@
 import { createClient, type Tier0Client, type UnsV2Request } from '@tier0/sdk-v2';
 
 export async function collectSourceImpact(
-  intent: Pick<UnsV2Request<'sourceImpact'>, 'id' | 'expectedRevision' | 'action' | 'document'>,
+  intent: UnsV2Request<'sourceImpact'>,
   client: Tier0Client = createClient(),
 ) {
   const first = await client.source.impact({ ...intent, offset: 0, size: 200 });

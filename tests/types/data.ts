@@ -28,6 +28,20 @@ orders.findOneAndUpdate({ _id: 'wo-1', status: 'DRAFT' }, { $set: { status: 'DON
   const code: string = moved.code;
   void code;
 });
+orders.updateOne({ _id: 'wo-1' }, { $set: { status: 'DONE' } }, { returnDocument: 'after' }).then(result => {
+  const count: number = result.modifiedCount;
+  if (result.value !== null) {
+    const status: 'DRAFT' | 'DONE' = result.value.status;
+    void status;
+  }
+  void count;
+});
+orders.replaceOne({ _id: 'wo-1' }, draft, { returnDocument: 'before' }).then(result => {
+  if (result.value !== null) { const code: string = result.value.code; void code; }
+});
+orders.deleteOne({ _id: 'wo-1' }, { returnDocument: 'before' });
+// @ts-expect-error deleting cannot return an after document
+orders.deleteOne({ _id: 'wo-1' }, { returnDocument: 'after' });
 data.transact([{ opId: 'done', action: 'record.update', collection: workOrders, filter: { _id: 'wo-1' }, update: { $set: { status: 'DONE' } } }]);
 runAsApp(() => data.collection<{ code: string }>('work_orders').countDocuments());
 const failure: unknown = undefined;

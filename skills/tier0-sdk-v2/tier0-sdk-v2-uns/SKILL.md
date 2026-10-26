@@ -11,12 +11,12 @@ UNS 管数据命名空间、集合、Record 和 Sample；外部连接与脚本�
 
 | 用户任务 | 参考 | 方法 |
 | --- | --- | --- |
-| 创建集合、定义 Schema、新增记录 | [创建](references/create.md) | metadataInsertOne/Many、recordInsertOne |
-| 查询集合、筛选/排序记录 | [查询](references/read.md) | metadataFind/FindOne、collectionDescribe、recordFind |
-| 改记录、集合名称、扩展 Schema | [修改](references/update.md) | recordUpdateOne、metadataUpdateOne/Many、metadataFindOneAndUpdate |
+| 创建集合、定义 Schema、新增记录 | [创建](references/create.md) | metadataInsertOne、metadataBulkWrite、recordInsertOne |
+| 查询集合、筛选/排序记录 | [查询](references/read.md) | metadataFind、collectionDescribe、recordFind |
+| 改记录、集合名称、扩展 Schema | [修改](references/update.md) | recordUpdateOne、metadataUpdateOne/Many |
 | 删记录、软删除集合 | [删除](references/delete.md) | recordDeleteOne、metadataDeleteOne/Many |
 | 恢复集合或记录 | [恢复](references/restore.md) | metadataRestore、recordRestore |
-| 分页、历史采样、事务、变更轮询 | [数据工作流](references/data-workflows.md) | sampleFind、recordTransactionExecute、recordChangesPoll |
+| 分页、历史采样、事务、变更订阅 | [数据工作流](references/data-workflows.md) | sampleFind、recordTransactionExecute；订阅使用独立 SSE GET |
 | 目录、Topic 元数据及组合事务 | [命名空间](references/namespace.md) | metadata*、metadataBulkWrite、metadataTransact |
 
 ## 找到正确数据上下文
@@ -50,6 +50,8 @@ export async function findAppCollection(alias: string) {
 
 ## 结果与异常
 
-响应为 code/msg/requestId/data。元数据 find 返回 items/pageInfo；findOne 与 findOneAnd* 返回 value；普通写入返回对应计数和 ID。metadataTransact 的 results 按 opId 对应。检查 committed、每项错误和实际计数；dryRun 只校验。metadataBulkWrite 默认原子，显式非原子时必须逐项检查 results/errors；跨 kind 的依赖写入使用 metadataTransact。recordBulkWrite 不保证跨集合事务。
+响应为 code/msg/requestId/data。元数据 find 返回 items/pageInfo；单条查询用 limit:1 后取 items[0]，不存在时为 null。updateOne/replaceOne 默认返回计数，显式 returnDocument:'before'|'after' 时额外返回 value；deleteOne 只接受 none/before。projection 必须与显式 before/after 同传。metadataTransact 的 results 按 opId 对应。检查 committed、每项错误和实际计数；dryRun 只校验。metadataBulkWrite 默认原子，显式非原子时必须逐项检查 results/errors；跨 kind 的依赖写入使用 metadataTransact。recordBulkWrite 不保证跨集合事务。
+
+旧 findOneAnd*、insertMany、distinct 与 metadataFindOne 保留原路由和回执身份。新意图可用 bindUnsV2NewRequests 的便利包装，批量写入返回 canonical bulk 回执；不得拿旧操作已发送的幂等键改投新路由。推荐目录由 listUnsV2Operations('recommended'|'starter'|'all') 生成，分组不改变权限。
 
 大整数与 JSON 精确数字可能为 bigint/UnsV2RawNumber；保留读取到的 revision 类型，不用 Number 或普通 JSON.stringify 做无损往返。UnsV2OutcomeUnknownError 先读回核对内容或查询 jobs；取消请求不撤销写入，SDK 不自动重试。

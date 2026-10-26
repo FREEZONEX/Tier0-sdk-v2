@@ -99,9 +99,6 @@ export async function checkExtendedUns(client, collectionId, prefix, step, repor
       committed(await client.uns.recordTransactionExecute({ items, dryRun: false, idempotencyKey: idempotencyKey('transaction') }));
       assert.equal((await client.uns.recordFind({ collectionId, filter: { _id: 'device-1' }, limit: 1 })).data.items[0].data.name, 'SDK transaction');
     });
-    await step('UNS changes poll', async () => {
-      const result = await client.uns.recordChangesPoll({ collectionId, recordIds: ['device-1'], limit: 10, waitMs: 0 });
-      assert.equal(typeof result.data.nextCursor, 'string');
-    });
+    // Record notifications now require SSE GET, outside this JSON POST smoke test.
   } catch { /* Caller will delete the record and archive the collection. */ }
 }

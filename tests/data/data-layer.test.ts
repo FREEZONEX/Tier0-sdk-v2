@@ -208,6 +208,34 @@ describe('transport', () => {
     expect(await failed(keyless.ensure())).toMatchObject({ code: 'DATA_NOT_CONFIGURED' });
   });
 
+  it('does not override canonical retry.safe=false with a 503 status', async () => {
+    for (const execution of ['committed', 'unknown'] as const) {
+      const path = '/uns/collections/c-orders/records';
+      const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, [path]: {
+        status: 503, body: { code: 503, msg: 'write status', requestId: 'canonical-error', data: { insertedCount: 1 },
+          error: { code: 'TEMPORARILY_UNAVAILABLE', reason: 'write status', details: [], execution, retry: { safe: false } } },
+      } });
+      const error = await failed(client(mock).collection(orders).insertOne({ code: 'A', status: 'OPEN' }));
+      expect(error).toMatchObject({ status: 503, retryable: false, outcomeUnknown: execution === 'unknown', details: { insertedCount: 1 } });
+      expect(error.cause).toMatchObject({ execution, retry: { safe: false } });
+      expect(mock.calls(path)).toHaveLength(1);
+    }
+  });
+
+  it('keeps committed-prefix counts and unknown remainder on a failed updateMany', async () => {
+    const path = '/uns/collections/c-orders/records:updateMany';
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, [path]: { status: 503,
+      body: { code: 503, msg: 'later chunk unknown', requestId: 'partial-unknown',
+        data: { matchedCount: 200, modifiedCount: 200, outcomeUnknown: true },
+        error: { code: 'OUTCOME_UNKNOWN', reason: 'later chunk unknown', details: [], execution: 'committed', retry: { safe: false } } },
+    } });
+    const error = await failed(client(mock).collection(orders).updateMany({}, { $set: { status: 'DONE' } }));
+    expect(error).toMatchObject({ retryable: false, outcomeUnknown: true,
+      details: { matchedCount: 200, modifiedCount: 200, outcomeUnknown: true } });
+    expect(error.cause).toMatchObject({ execution: 'committed', retry: { safe: false } });
+    expect(mock.calls(path)).toHaveLength(1);
+  });
+
   it('treats unenveloped 502/503/504 from the gateway as retryable unavailability', async () => {
     const html = (status: number) => ({ status, body: `<html><body>${status} Service Temporarily Unavailable</body></html>` });
     const ensure = await failed(client(mockUns({ [ENSURE]: html(503) })).ensure());
@@ -688,6 +716,33 @@ describe('collection operations', () => {
     const moved = await handle.findOneAndUpdate({ _id: 'o-9', status: 'OPEN' }, { $set: { status: 'DONE' } });
     expect(moved?.status).toBe('DONE');
     expect(mock.calls('/uns/collections/c-orders/records:findOneAndUpdate')[0].body.returnDocument).toBe('after');
+  });
+
+  it('returns canonical write counts with optional atomic document values without changing old defaults', async () => {
+    const mock = mockUns({
+      [ENSURE]: BOTH_UNCHANGED,
+      '/uns/collections/c-orders/records:updateOne': [
+        ok({ matchedCount: 1, modifiedCount: 1, value: record('o-9', { code: 'A', status: 'DONE' }) }),
+        ok({ matchedCount: 0, modifiedCount: 0, value: null }),
+        ok({ matchedCount: 1, modifiedCount: 1 }),
+      ],
+      '/uns/collections/c-orders/records:replaceOne': ok({ matchedCount: 1, modifiedCount: 1, value: record('o-9', { code: 'A', status: 'OPEN' }) }),
+      '/uns/collections/c-orders/records:deleteOne': ok({ deletedCount: 1, value: record('o-9', { code: 'A', status: 'DONE' }) }),
+    });
+    const handle = client(mock).collection(orders);
+    const updated = await handle.updateOne({ _id: 'o-9' }, { $set: { status: 'DONE' } }, { returnDocument: 'after', projection: { code: 1, status: 1 }, idempotencyKey: 'update-new' });
+    expect(updated).toMatchObject({ matchedCount: 1, modifiedCount: 1, upsertedId: null, value: { _id: 'o-9', status: 'DONE' } });
+    expect(mock.calls('/uns/collections/c-orders/records:updateOne')[0].body).toMatchObject({ returnDocument: 'after', projection: { code: 1, status: 1 }, idempotencyKey: 'update-new' });
+    expect((await handle.updateOne({ _id: 'missing' }, { $set: { status: 'DONE' } }, { returnDocument: 'before' })).value).toBeNull();
+    expect(await handle.updateOne({ _id: 'o-9' }, { $set: { status: 'DONE' } })).toEqual({ matchedCount: 1, modifiedCount: 1, upsertedId: null });
+    expect(mock.calls('/uns/collections/c-orders/records:updateOne')[2].body).not.toHaveProperty('returnDocument');
+    expect((await handle.replaceOne({ _id: 'o-9' }, { code: 'A', status: 'DONE' }, { returnDocument: 'before' })).value?.status).toBe('OPEN');
+    expect(await handle.deleteOne({ _id: 'o-9' }, { returnDocument: 'before' })).toMatchObject({ deletedCount: 1, value: { _id: 'o-9' } });
+    const sent = mock.sent.length;
+    await expect(handle.updateOne({}, { $set: { status: 'DONE' } }, { projection: { status: 1 } })).rejects.toThrow('returnDocument');
+    await expect(handle.deleteOne({}, { returnDocument: 'after' } as never)).rejects.toThrow('after');
+    expect(mock.sent).toHaveLength(sent);
+    expect(mock.sent.some(call => call.path.includes('findOneAnd'))).toBe(false);
   });
 
   it('runs updateMany and deleteMany non-atomically through resumeAfter', async () => {

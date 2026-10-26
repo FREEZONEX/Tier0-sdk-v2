@@ -48,13 +48,15 @@ export async function addNote(id: string, notes: string, revision: number) {
 | 写入 | 说明 |
 | --- | --- |
 | `insertOne(doc)`、`insertMany(docs)` | 可带 `_id`；`insertMany` 最多 200 条、原子 |
-| `updateOne` / `updateMany` / `replaceOne` | 更新用操作符（`$set` `$inc` `$push` `$unset`…）；`replaceOne` 会丢掉其他代码版本写入的字段 |
-| `deleteOne` / `deleteMany` | 软删除，App Key 需要 `uns.delete` |
-| `findOneAndUpdate` / `findOneAndReplace` / `findOneAndDelete` | 原子读改写，默认返回更新后的文档 |
+| `updateOne` / `updateMany` / `replaceOne` | 更新用操作符（`$set` `$inc` `$push` `$unset`…）；单条 update/replace 默认只返回计数，returnDocument:'before'|'after' 额外返回 value；`replaceOne` 会丢掉其他代码版本写入的字段 |
+| `deleteOne` / `deleteMany` | 软删除，App Key 需要 `uns.delete`；deleteOne 可用 returnDocument:'before' 额外返回删除前的 value |
+| `findOneAndUpdate` / `findOneAndReplace` / `findOneAndDelete` | 兼容入口，保留原路由、原返回值与默认模式；新请求用单条 canonical 写入的 returnDocument |
 | `bulkWrite(ops)` | `insertOne` / `updateOne` / `replaceOne` / `deleteOne` 混合，最多 200 项、原子 |
 | `data.transact(steps)` | 跨集合原子写，见 [一致性](consistency.md) |
 
 ## 批量与原子性
+
+`projection` 必须与显式 `returnDocument:'before'|'after'` 同传；未匹配时 `value` 为 null。所有旧方法的路由不变，恢复已发送的请求必须保留操作与幂等键，不能改投新方法。
 
 | 调用 | 上限 | 原子 |
 | --- | --- | --- |

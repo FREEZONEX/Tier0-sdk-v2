@@ -8,14 +8,40 @@ import { getClient, type HttpClient, type RequestOptions } from '../openapi/clie
 import { decodeUnsV2JSON, encodeUnsV2JSON } from './codec.js';
 import {
   UNS_V2_OPERATIONS,
-  type RetryAdvice,
+  UNS_V2_OPERATION_SETS,
+  type ErrorRetry,
+  type Fault,
+  type UnsV2Audience,
+  type UnsV2CatalogOperationName,
   type UnsV2OperationName,
   type UnsV2Operations,
   type UnsV2Request,
   type UnsV2Response,
+  type UnsV2Surface,
 } from './generated.js';
 
 type RecordValue = Record<string, unknown>;
+
+/** @deprecated Compatibility shape for error responses from older servers. */
+export interface RetryAdvice {
+  recommendedAction: string;
+  canRetrySameRequest: boolean;
+  keepIdempotencyKey: boolean;
+}
+
+/** Manifest-backed discovery. It neither grants authority nor redirects compatibility calls. */
+export function listUnsV2Operations(surface: UnsV2Surface = 'recommended', audience?: UnsV2Audience) {
+  return UNS_V2_OPERATION_SETS[surface]
+    .filter(name => audience === undefined || UNS_V2_OPERATIONS[name].audience === audience)
+    .map(name => ({ name, ...UNS_V2_OPERATIONS[name] }));
+}
+
+/** JSON HTTP methods only. SSE subscriptions require their own streaming transport. */
+export function listUnsV2Methods(surface: UnsV2Surface = 'recommended', audience?: UnsV2Audience): UnsV2OperationName[] {
+  return listUnsV2Operations(surface, audience)
+    .filter(operation => operation.method === 'POST')
+    .map(operation => operation.name as UnsV2OperationName);
+}
 
 export interface UnsV2ErrorInfo {
   status?: number;
@@ -23,6 +49,8 @@ export interface UnsV2ErrorInfo {
   code: string;
   requestId?: string;
   retryable: boolean;
+  execution?: Fault['execution'];
+  retry?: ErrorRetry;
   retryAdvice?: RetryAdvice;
   rolledBack?: boolean;
   opId?: string;
@@ -42,6 +70,8 @@ export class UnsV2Error extends Error implements UnsV2ErrorInfo {
   readonly code: string;
   readonly requestId?: string;
   readonly retryable: boolean;
+  readonly execution?: Fault['execution'];
+  readonly retry?: ErrorRetry;
   readonly retryAdvice?: RetryAdvice;
   readonly rolledBack?: boolean;
   readonly opId?: string;
@@ -91,19 +121,28 @@ function resourcePath(operation: { path: string; readonly pathParams: readonly s
 
 function errorInfo(value: unknown, status: number, operation: UnsV2OperationName): UnsV2ErrorInfo | undefined {
   if (!record(value) || !record(value.error) || typeof value.error.code !== 'string' ||
-      typeof value.error.retryable !== 'boolean' || !Array.isArray(value.error.details) ||
-      !record(value.error.retryAdvice)) return undefined;
-  const advice = value.error.retryAdvice;
-  if (typeof advice.recommendedAction !== 'string' || typeof advice.canRetrySameRequest !== 'boolean' ||
-      typeof advice.keepIdempotencyKey !== 'boolean') return undefined;
+      !Array.isArray(value.error.details)) return undefined;
+  const fault = value.error;
+  let retryFields: Pick<UnsV2ErrorInfo, 'retryable' | 'retryAdvice' | 'execution' | 'retry' | 'rolledBack'>;
+  if ('execution' in fault || 'retry' in fault) {
+    if (!['notStarted', 'rolledBack', 'committed', 'unknown'].includes(String(fault.execution)) ||
+        !record(fault.retry) || typeof fault.retry.safe !== 'boolean') return undefined;
+    retryFields = { execution: fault.execution as Fault['execution'], retry: fault.retry as ErrorRetry,
+      retryable: fault.retry.safe, rolledBack: fault.execution === 'rolledBack' };
+  } else {
+    const advice = fault.retryAdvice;
+    if (typeof fault.retryable !== 'boolean' || !record(advice) ||
+        typeof advice.recommendedAction !== 'string' || typeof advice.canRetrySameRequest !== 'boolean' ||
+        typeof advice.keepIdempotencyKey !== 'boolean') return undefined;
+    retryFields = { retryable: fault.retryable, retryAdvice: advice as unknown as RetryAdvice,
+      rolledBack: typeof fault.rolledBack === 'boolean' ? fault.rolledBack : undefined };
+  }
   return {
     status,
     operation,
     code: value.error.code,
     requestId: typeof value.requestId === 'string' ? value.requestId : undefined,
-    retryable: value.error.retryable,
-    retryAdvice: advice as unknown as RetryAdvice,
-    rolledBack: typeof value.error.rolledBack === 'boolean' ? value.error.rolledBack : undefined,
+    ...retryFields,
     opId: typeof value.error.opId === 'string' ? value.error.opId : undefined,
     path: typeof value.error.path === 'string' ? value.error.path : undefined,
     details: value.error.details.every(record) ? value.error.details : undefined,
@@ -126,7 +165,10 @@ export class UnsV2ClientCore {
     if (typeof name !== 'string' || !Object.prototype.hasOwnProperty.call(UNS_V2_OPERATIONS, name)) {
       throw new TypeError('Tier0 SDK: unknown UNS v2 operation.');
     }
-    const operation = UNS_V2_OPERATIONS[name];
+    const operation = UNS_V2_OPERATIONS[name as UnsV2CatalogOperationName];
+    if (operation.method !== 'POST') {
+      throw new TypeError('Tier0 SDK: SSE subscriptions cannot use the JSON POST client; use a streaming transport.');
+    }
     const mutation = operation.mutation;
     const path = resourcePath(operation, request);
     const body = encodeUnsV2JSON(request, operation.request);
@@ -167,7 +209,7 @@ export class UnsV2ClientCore {
 
     if (response.status !== 200) {
       const info = errorInfo(value, response.status, name);
-      if (!info || !record(value) || value.code !== response.status) {
+      if (!info || !record(value) || value.code !== response.status || (!mutation && info.execution === 'unknown')) {
         const invalid: UnsV2ErrorInfo = {
           status: response.status,
           operation: name,
@@ -178,6 +220,10 @@ export class UnsV2ClientCore {
         throw new UnsV2Error('Invalid UNS v2 error response.', invalid);
       }
       const message = record(value) && typeof value.msg === 'string' ? value.msg : info.code;
+      // A multi-chunk write can have a known committed prefix and an unknown
+      // later chunk. Its execution stays committed; accumulated data flags the ambiguity.
+      if (mutation && (info.execution === 'unknown' || info.code === 'OUTCOME_UNKNOWN' ||
+          (record(info.data) && info.data.outcomeUnknown === true))) throw new UnsV2OutcomeUnknownError(message, info);
       throw new UnsV2Error(message, info);
     }
 
@@ -200,7 +246,7 @@ export type UnsV2Client = UnsV2ClientCore & UnsV2Operations;
 
 export function createUnsV2Client(resolveClient: () => HttpClient = getClient, config: CloudTransportConfig = {}): UnsV2Client {
   const core = new UnsV2ClientCore(resolveClient, config);
-  const methods = Object.fromEntries(Object.keys(UNS_V2_OPERATIONS).map(name => [name, (request: unknown, options?: RequestOptions) =>
+  const methods = Object.fromEntries(listUnsV2Methods('all').map(name => [name, (request: unknown, options?: RequestOptions) =>
     core.call(name as UnsV2OperationName, request as UnsV2Request<UnsV2OperationName>, options)]));
   return Object.assign(core, methods) as unknown as UnsV2Client;
 }

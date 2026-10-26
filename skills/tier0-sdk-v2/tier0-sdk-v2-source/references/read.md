@@ -3,11 +3,11 @@
 | 方法 | POST 路径 | 输入 | data |
 | --- | --- | --- | --- |
 | source.documents.list | /openapi/v2/uns/sources/documents/list | page、size、search、protocol、desiredState、health、archived、includeDocument | list、total、page、hasMore、nextPage |
-| source.documents.get | /openapi/v2/uns/sources/documents/get | id（必填） | id、revision、完整 document、状态 |
+| source.documents.get | /openapi/v2/uns/sources/documents/get | id（必填）、view:summary/full | 摘要或完整 document；省略 view 为 full |
 | source.runtime.get | /openapi/v2/uns/sources/runtime/get | id（必填） | 运行状态 |
 | source.observations.get | /openapi/v2/uns/sources/observations/get | items：id、expectedRevision | 指定源和修订的观测 |
 
-page 从 1 开始，size 1–200。列表默认安全摘要；完整文档需要管理权限，编辑时显式 get。
+page 从 1 开始，size 1–200。列表默认安全摘要；详情只读展示用 view:'summary'，完整文档需要管理权限，编辑时用 view:'full'。兼容 source.get 不自动切换到此入口。
 
 ```ts
 import { createClient, type Tier0Client } from '@tier0/sdk-v2';
@@ -23,7 +23,7 @@ export async function* listSources(client: Tier0Client = createClient()) {
   }
 }
 export async function readSource(id: string, client: Tier0Client = createClient()) {
-  const current = await client.source.documents.get({ id });
+  const current = await client.source.documents.get({ id, view: 'full' });
   const observation = await client.source.observations.get({
     items: [{ id, expectedRevision: current.data.revision }],
   });

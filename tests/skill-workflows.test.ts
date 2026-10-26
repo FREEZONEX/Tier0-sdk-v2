@@ -151,11 +151,11 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
   it('executes Stream Source binding, full-document update, deploy, guarded disable and deletion', async () => {
     steps = [
       { path: 'sources/documents/get', data: source() },
-      { path: 'streams/program/validate', check: b => {
-        expect(b.document.sourceBindings).toEqual([{ sourceId: source().id, configRevision: 1, acquisition: {} }]);
-        expect(b.document.script).toContain('api.sources.use');
+      { path: 'streams/documents/validate', check: b => {
+        expect(b.program.sourceBindings).toEqual([{ sourceId: source().id, configRevision: 1, acquisition: {} }]);
+        expect(b.program.script).toContain('api.sources.use');
       }, data: { valid: true, sideEffects: false } },
-      { path: 'streams/program/create', data: { id: stream().id, revision: 1, activeVersion: '0' } },
+      { path: 'streams/documents/create', data: { id: stream().id, revision: 1, activeVersion: '0' } },
       { path: 'streams/documents/get', data: stream() },
       { path: 'streams/documents/get', data: stream() },
       { path: 'streams/documents/validate', data: { valid: true, issues: [] } },
@@ -206,7 +206,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
       }, data: outcome('validated') },
       { path: 'metadata:updateOne', data: outcome() },
       { path: 'metadata:findOne', data: { value: collection(2) } },
-      { path: 'metadata:findOneAndUpdate', check: b => expect(b).toMatchObject({
+      { path: 'metadata:updateOne', check: b => expect(b).toMatchObject({
         kind: 'collection', filter: { _id: 'devices' }, expectedRevision: 2,
         update: { $set: { name: 'renamed' } }, returnDocument: 'after', upsert: false,
       }), data: { ...outcome(), value: { ...collection(3), data: { ...collection().data, name: 'renamed' } } } },

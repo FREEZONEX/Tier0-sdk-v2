@@ -51,6 +51,7 @@ interface Page<T> {
 }
 
 interface WriteResult {
+  value?: UnsRecord | null;
   matchedCount?: number;
   modifiedCount?: number;
   deletedCount?: number;
@@ -194,11 +195,28 @@ export interface UpdateOptions {
   sort?: Sort;
   arrayFilters?: Record<string, unknown>[];
   idempotencyKey?: string;
+  /** The canonical write keeps counts and optionally returns a document atomically. */
+  returnDocument?: 'none' | 'before' | 'after';
+  /** Only valid with an explicit before/after returnDocument. */
+  projection?: Projection;
 }
 
 export interface FindOneAndOptions extends UpdateOptions {
   returnDocument?: 'before' | 'after';
   projection?: Projection;
+}
+
+export type DeleteOneOptions = Pick<UpdateOptions, 'expectedRevision' | 'sort' | 'idempotencyKey' | 'projection'> & {
+  returnDocument?: 'none' | 'before';
+};
+export type UpdateOneResult<T> = { matchedCount: number; modifiedCount: number; upsertedId: string | null; value?: WithMeta<T> | null };
+export type DeleteOneResult<T> = { deletedCount: number; value?: WithMeta<T> | null };
+
+function validateReturnDocument(options: Pick<UpdateOptions, 'returnDocument' | 'projection'>, deletion = false) {
+  if (options.projection !== undefined && (!options.returnDocument || options.returnDocument === 'none')) {
+    throw new TypeError('projection requires returnDocument before or after.');
+  }
+  if (deletion && options.returnDocument === 'after') throw new TypeError('deleteOne cannot return an after document.');
 }
 
 export type BulkOperation =
@@ -413,11 +431,14 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
     return { insertedCount: result.insertedCount ?? 0, insertedIds: idsInOrder(result.insertedIds) };
   }
 
+  updateOne(filter: Filter, update: Update, options: UpdateOptions & { returnDocument: 'before' | 'after' }): Promise<UpdateOneResult<T> & { value: WithMeta<T> | null }>;
+  updateOne(filter: Filter, update: Update, options?: UpdateOptions): Promise<UpdateOneResult<T>>;
   async updateOne(
     filter: Filter,
     update: Update,
     options: UpdateOptions = {},
-  ): Promise<{ matchedCount: number; modifiedCount: number; upsertedId: string | null }> {
+  ): Promise<UpdateOneResult<T>> {
+    validateReturnDocument(options);
     const result = await this.post<WriteResult>('recordUpdateOne', {
       filter,
       update: validateUpdate(this.definition, update),
@@ -426,8 +447,11 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
       sort: toSortPairs(options.sort),
       arrayFilters: options.arrayFilters,
       idempotencyKey: options.idempotencyKey,
+      returnDocument: options.returnDocument,
+      projection: options.projection,
     });
-    return { matchedCount: result.matchedCount ?? 0, modifiedCount: result.modifiedCount ?? 0, upsertedId: result.upsertedId ?? null };
+    return { matchedCount: result.matchedCount ?? 0, modifiedCount: result.modifiedCount ?? 0, upsertedId: result.upsertedId ?? null,
+      ...(options.returnDocument && options.returnDocument !== 'none' ? { value: result.value ? toDoc<T>(result.value) : null } : {}) };
   }
 
   /**
@@ -465,11 +489,14 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
    * Replaces the whole body. Fields written by another App version and not in
    * this declaration are lost — prefer `updateOne` with `$set`.
    */
+  replaceOne(filter: Filter, replacement: TInput, options: Omit<UpdateOptions, 'arrayFilters'> & { returnDocument: 'before' | 'after' }): Promise<UpdateOneResult<T> & { value: WithMeta<T> | null }>;
+  replaceOne(filter: Filter, replacement: TInput, options?: Omit<UpdateOptions, 'arrayFilters'>): Promise<UpdateOneResult<T>>;
   async replaceOne(
     filter: Filter,
     replacement: TInput,
     options: Omit<UpdateOptions, 'arrayFilters'> = {},
-  ): Promise<{ matchedCount: number; modifiedCount: number; upsertedId: string | null }> {
+  ): Promise<UpdateOneResult<T>> {
+    validateReturnDocument(options);
     const { data } = validateDocument(this.definition, replacement as Record<string, unknown>);
     const result = await this.post<WriteResult>('recordReplaceOne', {
       filter,
@@ -478,17 +505,25 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
       expectedRevision: options.expectedRevision,
       sort: toSortPairs(options.sort),
       idempotencyKey: options.idempotencyKey,
+      returnDocument: options.returnDocument,
+      projection: options.projection,
     });
-    return { matchedCount: result.matchedCount ?? 0, modifiedCount: result.modifiedCount ?? 0, upsertedId: result.upsertedId ?? null };
+    return { matchedCount: result.matchedCount ?? 0, modifiedCount: result.modifiedCount ?? 0, upsertedId: result.upsertedId ?? null,
+      ...(options.returnDocument && options.returnDocument !== 'none' ? { value: result.value ? toDoc<T>(result.value) : null } : {}) };
   }
 
   /** Soft-deletes one record; requires `uns.delete` on the App key. */
-  async deleteOne(filter: Filter, options: Pick<UpdateOptions, 'expectedRevision' | 'sort' | 'idempotencyKey'> = {}): Promise<{ deletedCount: number }> {
+  deleteOne(filter: Filter, options: DeleteOneOptions & { returnDocument: 'before' }): Promise<DeleteOneResult<T> & { value: WithMeta<T> | null }>;
+  deleteOne(filter: Filter, options?: DeleteOneOptions): Promise<DeleteOneResult<T>>;
+  async deleteOne(filter: Filter, options: DeleteOneOptions = {}): Promise<DeleteOneResult<T>> {
+    validateReturnDocument(options, true);
     const result = await this.post<WriteResult>(
       'recordDeleteOne',
-      { filter, expectedRevision: options.expectedRevision, sort: toSortPairs(options.sort), idempotencyKey: options.idempotencyKey },
+      { filter, expectedRevision: options.expectedRevision, sort: toSortPairs(options.sort), idempotencyKey: options.idempotencyKey,
+        returnDocument: options.returnDocument, projection: options.projection },
     );
-    return { deletedCount: result.deletedCount ?? 0 };
+    return { deletedCount: result.deletedCount ?? 0,
+      ...(options.returnDocument === 'before' ? { value: result.value ? toDoc<T>(result.value) : null } : {}) };
   }
 
   /**
@@ -508,7 +543,8 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
   }
 
   /**
-   * Atomic read-modify-write. A state transition puts the expected state in
+   * Compatibility operation: keeps its original route, return default and receipt identity.
+   * New requests can use updateOne with returnDocument. A state transition puts the expected state in
    * the filter: `findOneAndUpdate({ _id, status: "DRAFT" }, { $set: { status: "SUBMITTED" } })`
    * returns null when another request moved the record first.
    */

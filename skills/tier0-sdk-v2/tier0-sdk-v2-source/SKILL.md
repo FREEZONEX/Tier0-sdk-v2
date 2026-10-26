@@ -23,8 +23,8 @@ Source 维护连接配置、认证引用与源状态。脚本处理用 [Stream](
 
 ## 核心约束
 
-1. 原生文档 `{name,protocol,config}` 使用 documents.*；通用投影使用 source.list/get/create/update。http 原生协议与 http-api adapter 不可互换。
-2. 编辑前读取完整 documents.get；安全列表摘要不能无损回写。原生 ID 是十进制字符串，revision 原样传递，不转 Number。
+1. 新请求统一使用 documents.*，支持原生文档、明确的 patch 和原子 items 批量，互斥关系以生成类型为准。source.list/get/create/update/connection.update 是兼容方法，保留原路由，不用于新写法；旧请求恢复继续原入口、原载荷和原键。http 原生协议与 http-api adapter 不可互换。
+2. documents.get({id,view:'summary'}) 用于摘要；编辑用 view:'full'（省略仍为 full），需要管理权限。摘要不能无损回写。原生 ID 是十进制字符串，revision 原样传递，不转 Number。
 3. 现有 Source 修改、启停、删除都要 expectedRevision + confirmedImpactRevision。先形成精确意图，再读取全部影响分页；回执不可合成、跨意图复用或静默刷新。
 4. 配置中保留认证/TLS 引用，不写明文秘密；HTTP 新凭据走创建专用 credentials。
 5. desiredState 不代表实际健康，保存配置不代表 Stream 已切换至新 configRevision。运行状态另行读取。

@@ -3,10 +3,10 @@
 ## 一致性写法
 
 - 单个文档的写入是原子的：必须一起变化的数据放在同一个文档里。
-- 状态流转把期望状态写进过滤条件：`findOneAndUpdate({ _id, status: 'DRAFT' }, { $set: { status: 'RELEASED' } })`；返回 `null` 表示记录不存在或已被别人改走，回 409。
+- 状态流转把期望状态写进过滤条件：`updateOne({ _id, status: 'DRAFT' }, { $set: { status: 'RELEASED' } }, { returnDocument: 'after' })`；结果 value 为 `null` 表示记录不存在或已被别人改走，回 409。
 - 并发编辑：编辑表单带回 `_meta.revision`，作为 `expectedRevision` 发送；`VERSION_CONFLICT`（409）表示重新读取后再试。
 - 跨文档不变量（库存 + 预留、订单 + 审计记录）：一次 `data.transact([...])`（≤200 步），用 `record.check` / `record.update` / `record.create` 步骤、`dependsOn` 与 `bindings`；`record.query` 步骤可断言 `expectCount: { min, max }`。整体全部提交或全不提交；它不是会话，不能在里面“先读再决定”。步骤的 `data` 不能含 `_id`（在步骤上设 `id`）；由 `bindings` 填充的字段在 UNS 提交时校验，其余字面量字段在发送前校验。
-- 计数器与流水号：声明一个计数器集合，`findOneAndUpdate({ _id: 'work_orders' }, { $inc: { value: 1 } }, { upsert: true })`。
+- 计数器与流水号：声明一个计数器集合，`updateOne({ _id: 'work_orders' }, { $inc: { value: 1 } }, { upsert: true, returnDocument: 'after' })`，从结果 value 读取新值。
 - upsert 的过滤条件必须含 `_id` 或某个已就绪唯一索引的全部字段，否则 `UPSERT_REQUIRES_UNIQUE_INDEX`；新声明的唯一索引是异步构建的。
 - `DUPLICATE_KEY`（409）表示唯一索引拒绝了该值，按字段错误展示。
 
@@ -32,8 +32,8 @@ export async function reserve(sku: string, qty: number, orderId: string) {
 }
 
 export async function nextOrderNumber() {
-  const counter = await data.collection(counters).findOneAndUpdate({ _id: 'sales_orders' }, { $inc: { value: 1 } }, { upsert: true });
-  return counter?.value;
+  const result = await data.collection(counters).updateOne({ _id: 'sales_orders' }, { $inc: { value: 1 } }, { upsert: true, returnDocument: 'after' });
+  return result.value?.value;
 }
 ```
 

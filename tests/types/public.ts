@@ -4,6 +4,33 @@ import { useTier0Request } from '../../src/vue.js';
 const sdk: Tier0Client = createClient({ apiHost: 'https://api.example.invalid', apiKey: 'placeholder' });
 sdk.uns.recordFind({ collectionId: 'orders' }, { signal: new AbortController().signal });
 sdk.source.documents.list({ includeDocument: false });
+sdk.source.documents.get({ id: '101' }).then(result => result.data.document.config);
+sdk.source.documents.get({ id: '101', view: 'full' }).then(result => result.data.document.config);
+sdk.source.documents.get({ id: '101', view: 'summary' }).then(result => {
+  // @ts-expect-error Summary reads do not expose connection configuration.
+  return result.data.document;
+});
+sdk.stream.documents.get({ id: '202' }).then(result => result.data.document.script);
+sdk.stream.documents.get({ id: '202', view: 'summary' }).then(result => {
+  // @ts-expect-error Summary reads do not expose scripts.
+  return result.data.document;
+});
+const sourceDocument = { name: 'orders', protocol: 'http' as const, config: { configVersion: 2 as const, endpoint: 'https://fixture.invalid', options: {} } };
+sdk.source.documents.create({ dryRun: true, items: [{ document: sourceDocument }] });
+// @ts-expect-error Exactly one of document/items is accepted.
+sdk.source.documents.create({ dryRun: true, document: sourceDocument, items: [{ document: sourceDocument }] });
+// @ts-expect-error Batch creation cannot provision inline credentials.
+sdk.source.documents.create({ dryRun: true, items: [{ document: sourceDocument }], credentials: { auth: {} } });
+sdk.source.documents.update({ dryRun: true, id: '101', expectedRevision: 1, confirmedImpactRevision: 'confirmation', patch: { name: 'renamed' } });
+// @ts-expect-error A patch requires CAS and exact-intent impact confirmation.
+sdk.source.documents.update({ dryRun: true, id: '101', patch: { name: 'renamed' } });
+// @ts-expect-error document and patch are mutually exclusive, including batch items.
+sdk.source.documents.update({ dryRun: true, items: [{ id: '101', expectedRevision: 1, confirmedImpactRevision: 'confirmation', patch: { name: 'renamed' }, document: sourceDocument }] });
+const runtimeProgram = { name: 'orders-stream', sdkVersion: 'tier0-stream/v2' as const, script: 'module.exports = api => {};', sourceBindings: [] };
+sdk.stream.documents.create({ dryRun: true, program: runtimeProgram });
+sdk.stream.documents.validate({ program: runtimeProgram });
+// @ts-expect-error Exactly one native document or runtime program is required.
+sdk.stream.documents.create({ dryRun: true });
 sdk.stream.programs.deploy({ id: '123', dryRun: true });
 // @ts-expect-error Source management belongs to its own domain
 sdk.uns.sourceList({});

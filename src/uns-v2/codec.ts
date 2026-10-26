@@ -123,16 +123,23 @@ function variants(codec: Codec | undefined, seen = new Set<string>()): Codec[] {
 }
 
 function kind(codec: Codec | undefined, expected: string): Codec | undefined {
-  return variants(codec).find(item => item.k === expected);
+  const matches = variants(codec).filter(item => item.k === expected);
+  if (expected === 'a' && matches.length > 1) {
+    return { k: 'a', i: { k: 'u', a: matches.flatMap(item => item.i ? [item.i] : []) } };
+  }
+  return matches[0];
 }
 
 function property(codec: Codec | undefined, name: string): Codec | undefined {
+  const matches: Codec[] = [];
   for (const candidate of variants(codec)) {
     if (candidate.k !== 'o') continue;
-    if (candidate.p && Object.prototype.hasOwnProperty.call(candidate.p, name)) return candidate.p[name];
-    if (candidate.x) return candidate.x;
+    if (candidate.p && Object.prototype.hasOwnProperty.call(candidate.p, name)) matches.push(candidate.p[name]);
+    else if (candidate.x) matches.push(candidate.x);
   }
-  return undefined;
+  // Parent properties and union branches constrain the same value together.
+  // A generic parent object/array must not hide a branch's numeric fields.
+  return matches.length > 1 ? { k: 'u', a: matches } : matches[0];
 }
 
 function decimalIdentity(token: string): string {

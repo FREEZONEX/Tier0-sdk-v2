@@ -1,15 +1,15 @@
 # 创建 Stream
 
-方法：`stream.programs.create`；POST `/openapi/v2/uns/streams/program/create`。
+方法：`stream.documents.create`；POST `/openapi/v2/uns/streams/documents/create`。
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | dryRun | boolean | 是 | true 预检，false 保存草稿 |
-| document.name | string | 是 | 1–63 字符 |
-| document.sdkVersion | tier0-stream/v2 | 是 | 运行时脚本版本 |
-| document.script | string | 是 | 完整 module.exports 程序 |
-| document.timeoutMs | integer | 否 | 当前云端上限 30000 ms |
-| document.sourceBindings | array | 否 | sourceId、configRevision、acquisition |
+| program.name | string | 是 | 1–63 字符 |
+| program.sdkVersion | tier0-stream/v2 | 是 | 运行时脚本版本 |
+| program.script | string | 是 | 完整 module.exports 程序 |
+| program.timeoutMs | integer | 否 | 当前云端上限 30000 ms |
+| program.sourceBindings | array | 否 | sourceId、configRevision、acquisition |
 | idempotencyKey | string | 否 | 最多 128 字符，本次创建的固定意图键 |
 
 ## HTTP Source 绑定示例
@@ -38,12 +38,12 @@ export async function createHttpStream(
       '};',
     ].join('\n'),
   };
-  const validation = await client.stream.programs.validate({ document });
+  const validation = await client.stream.documents.validate({ program: document });
   if (validation.data.valid !== true) throw new Error('Stream 校验未通过');
-  const saved = await client.stream.programs.create({
-    dryRun: false, document, idempotencyKey: intentKey,
+  const saved = await client.stream.documents.create({
+    dryRun: false, program: document, idempotencyKey: intentKey,
   });
-  if (typeof saved.data.id !== 'string') throw new Error('创建回执缺少 ID');
+  if (!('id' in saved.data) || typeof saved.data.id !== 'string') throw new Error('创建回执缺少 ID');
   return { receipt: saved, current: (await client.stream.documents.get({ id: saved.data.id })).data };
 }
 ```
@@ -52,4 +52,4 @@ export async function createHttpStream(
 
 创建 data 是开放对象，成功返回 id、revision、activeVersion、executionState、脱敏 document；以实际字段判断，预检不生成 ID。当前后端创建/校验需要注册 Worker 可用。TEMPORARILY_UNAVAILABLE 不代表脚本一定错误；不要自动改用旧 Flow。
 
-原生编辑器形态 `documents.create({dryRun, document})` 的 document 为 name/model/script对象/sources/entries，script 为 `{sdkVersion,code,timeoutMs}`，sources 用 alias/sourceId/configRevision/resources/acquisition。不要把上面的 script 字符串直接塞入原生文档。
+原生编辑器形态 `documents.create({dryRun, document})` 的 document 为 name/model/script对象/sources/entries，script 为 `{sdkVersion,code,timeoutMs}`，sources 用 alias/sourceId/configRevision/resources/acquisition。document 与 program 互斥，不能混传；旧 programs.create 仍使用其原 document 字段，不自动迁移。

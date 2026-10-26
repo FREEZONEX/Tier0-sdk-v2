@@ -54,7 +54,7 @@ for (const operation of manifest.operations) {
     }
   }
   if ((source && operation.path !== source.suffix) || !operation.path?.startsWith('/uns/') ||
-      operation.method !== 'POST' || operation.supported !== true) {
+      (operation.method !== 'POST' && !(operation.method === 'GET' && operation.transport === 'sse')) || operation.supported !== true) {
     fail(`${operation.name} has an unsupported route contract`);
   }
   const pathParams = operation.path.split('/').filter(part => part.startsWith(':')).map(part => part.slice(1));
@@ -80,6 +80,26 @@ if (registryNames.length !== manifest.operations.length || registryNames.some((n
 }
 
 const publicOperations = manifest.operations.filter(operation => !operation.coreOnly);
+const audiences = ['app', 'builder', 'governance', 'operations', 'platform'];
+const compatibilityStrategies = ['returnDocument', 'bulkInsert', 'aggregateDistinct', 'findOne', 'sourceDocument', 'streamDocument'];
+for (const operation of publicOperations) {
+  if (!audiences.includes(operation.audience) || typeof operation.starter !== 'boolean') fail(`${operation.name} is missing its public audience/starter classification`);
+  if (operation.compatibility) {
+    const replacement = publicOperations.find(item => item.name === operation.compatibility.replacement);
+    if (!replacement || replacement.compatibility || !compatibilityStrategies.includes(operation.compatibility.strategy) || operation.starter) {
+      fail(`${operation.name} has an invalid compatibility replacement`);
+    }
+  }
+}
+const callableOperations = publicOperations.filter(operation => operation.method === 'POST');
+const operationSets = {
+  recommended: publicOperations.filter(operation => !operation.compatibility).map(operation => operation.name),
+  starter: publicOperations.filter(operation => operation.starter).map(operation => operation.name),
+  all: publicOperations.map(operation => operation.name),
+};
+const operationGroups = Object.fromEntries(Object.entries(operationSets).map(([surface, names]) => [surface,
+  Object.fromEntries(audiences.map(audience => [audience, names.filter(name => publicOperations.find(operation => operation.name === name).audience === audience)])),
+]));
 const refName = ref => ref?.startsWith('#/components/schemas/') ? ref.slice('#/components/schemas/'.length) : undefined;
 const requestType = operation => refName(operation.requestSchema?.$ref) || operation.request;
 const responseType = operation => refName(operation.responseSchema?.$ref) || operation.response;
@@ -130,18 +150,25 @@ const union = values => [...new Set(values.filter(Boolean))].join(' | ') || 'nev
 
 function typeFor(schema, nested = false) {
   if (!schema || typeof schema !== 'object' || Object.keys(schema).length === 0) return 'UnsV2JSONValue';
-  // Required-only object alternatives inherit the parent's field definitions.
-  // IndexSpec uses this to require exactly one of path/paths.
+  // Required-only alternatives inherit the parent's fields, including nested
+  // alternatives and not/anyOf exclusions used by document, patch and items.
+  const excludedFields = branch => {
+    if (!branch.not) return [];
+    if (Object.keys(branch.not).length !== 1) return undefined;
+    if (Array.isArray(branch.not.required) && branch.not.required.length === 1) return branch.not.required;
+    if (Array.isArray(branch.not.anyOf) && branch.not.anyOf.every(item => Object.keys(item).length === 1 && Array.isArray(item.required) && item.required.length === 1)) return branch.not.anyOf.flatMap(item => item.required);
+    return undefined;
+  };
   if (schema.type === 'object' && schema.properties && Array.isArray(schema.oneOf) &&
-      schema.oneOf.every(branch => Array.isArray(branch.required) &&
-        Object.keys(branch).every(key => key === 'required' || key === 'not') &&
-        (!branch.not || (Object.keys(branch.not).length === 1 && Array.isArray(branch.not.required) && branch.not.required.length === 1)))) {
+      schema.oneOf.every(branch => (Array.isArray(branch.required) || branch.properties) &&
+        Object.keys(branch).every(key => key === 'required' || key === 'not' || key === 'oneOf' || key === 'properties') && excludedFields(branch))) {
     const own = { ...schema };
     delete own.oneOf;
     const alternatives = schema.oneOf.map(branch => {
-      const shape = typeFor({ ...own, required: [...new Set([...(own.required || []), ...branch.required])] });
-      const excluded = branch.not?.required?.[0];
-      return `(${shape}${excluded ? ` & { ${JSON.stringify(excluded)}?: never }` : ''})`;
+      const shape = typeFor({ ...own, properties: { ...own.properties, ...branch.properties },
+        ...(branch.oneOf ? { oneOf: branch.oneOf } : {}), required: [...new Set([...(own.required || []), ...(branch.required || [])])] });
+      const excluded = excludedFields(branch);
+      return `(${shape}${excluded.length ? ` & { ${excluded.map(name => `${JSON.stringify(name)}?: never`).join('; ')} }` : ''})`;
     });
     return `(${union(alternatives)}${schema.nullable === true ? ' | null' : ''})`;
   }
@@ -182,10 +209,17 @@ function typeFor(schema, nested = false) {
     let object = properties.length ? `{\n${properties.join('\n')}\n}` : '{}';
     if (schema.additionalProperties === true) object = properties.length ? `${object} & Record<string, UnsV2JSONValue>` : 'Record<string, UnsV2JSONValue>';
     else if (schema.additionalProperties && typeof schema.additionalProperties === 'object') {
-      object = `${object} & Record<string, ${typeFor(schema.additionalProperties, true)}>`;
+      // TS index signatures also cover named fields, unlike JSON Schema's
+      // additionalProperties. Include named field types to keep e.g. $group._id usable.
+      const values = [typeFor(schema.additionalProperties, true),
+        ...Object.values(schema.properties || {}).map(property => typeFor(property, true))];
+      object = `${object} & { [key: string]: ${union(values)} }`;
     }
     result = object;
-  } else result = 'UnsV2JSONValue';
+  } else if (schema.not && Array.isArray(schema.not.required)) {
+    // not:{required:[a,b]} means at least one field must be absent.
+    result = `(${union(schema.not.required.map(name => `{ ${JSON.stringify(name)}?: never }`))})`;
+  } else result = 'unknown'; // Validation-only fragments add no independent JSON value shape.
   if (schema.nullable === true && !result.split(' | ').includes('null')) result = `${result} | null`;
   return nested && (result.includes('\n') || result.includes(' & ')) ? `(${result})` : result;
 }
@@ -194,13 +228,21 @@ function codecFor(schema) {
   if (!schema || typeof schema !== 'object') return undefined;
   const reference = refName(schema.$ref);
   if (reference) return { r: reference };
+  // Composition constraints do not replace the parent's property codecs.
+  // Required-only alternatives otherwise discard int64 fields such as revision.
+  if (schema.allOf || schema.oneOf || schema.anyOf) {
+    const own = { ...schema };
+    delete own.allOf;
+    delete own.oneOf;
+    delete own.anyOf;
+    return { k: 'u', a: [codecFor(own),
+      ...(schema.allOf || []).map(codecFor), ...(schema.oneOf || []).map(codecFor),
+      ...(schema.anyOf || []).map(codecFor)].filter(Boolean) };
+  }
   if (schema.format === 'int64') return { k: 'i' };
   if (schema.type === 'integer') return { k: 'j' };
   if (schema.type === 'number') return { k: 'n' };
   if (schema.type === 'array') return { k: 'a', ...(schema.items ? { i: codecFor(schema.items) || {} } : {}) };
-  if (Array.isArray(schema.allOf)) return { k: 'u', a: schema.allOf.map(codecFor).filter(Boolean) };
-  if (Array.isArray(schema.oneOf)) return { k: 'u', a: schema.oneOf.map(codecFor).filter(Boolean) };
-  if (Array.isArray(schema.anyOf)) return { k: 'u', a: schema.anyOf.map(codecFor).filter(Boolean) };
   if (schema.type === 'object' || schema.properties || schema.additionalProperties !== undefined) {
     const properties = Object.fromEntries(Object.entries(schema.properties || {})
       .map(([name, value]) => [name, codecFor(value)])
@@ -215,11 +257,23 @@ function codecFor(schema) {
 const schemaTypes = Object.entries(exportedSchemas).map(([name, schema]) =>
   `export type ${name} = ${typeFor(schema)};`).join('\n\n');
 const operationRows = publicOperations.map(operation =>
-  `  ${JSON.stringify(operation.name)}: { path: ${JSON.stringify(`/openapi/v2${operation.path}`)}, pathParams: ${JSON.stringify(operation.pathParams || [])}, request: ${JSON.stringify(requestType(operation))}, response: ${JSON.stringify(responseType(operation))}, mutation: ${JSON.stringify(Boolean(operation.mutation))}, scope: ${JSON.stringify(operation.scope)} },`).join('\n');
-const operationTypes = publicOperations.map(operation =>
+  `  ${JSON.stringify(operation.name)}: { path: ${JSON.stringify(`/openapi/v2${operation.path}`)}, method: ${JSON.stringify(operation.method)}, transport: ${JSON.stringify(operation.transport || 'http')}, pathParams: ${JSON.stringify(operation.pathParams || [])}, request: ${JSON.stringify(requestType(operation))}, response: ${JSON.stringify(responseType(operation))}, mutation: ${JSON.stringify(Boolean(operation.mutation))}, scope: ${JSON.stringify(operation.scope)}, audience: ${JSON.stringify(operation.audience)}, starter: ${operation.starter}, compatibility: ${JSON.stringify(operation.compatibility || null)} },`).join('\n');
+const operationTypes = callableOperations.map(operation =>
   `  ${JSON.stringify(operation.name)}: { request: ${requestType(operation)}; response: ${responseType(operation)} };`).join('\n');
-const operationMethods = publicOperations.map(operation =>
-  `  ${operation.name}(request: ${requestType(operation)}, options?: RequestOptions): Promise<${responseType(operation)}>;`).join('\n');
+const operationMethods = callableOperations.map(operation => {
+  const request = requestType(operation), response = responseType(operation);
+  const declarations = [];
+  const views = manifest.schemas[response]?.properties?.data?.oneOf?.map(branch => refName(branch.$ref));
+  if (manifest.schemas[request]?.properties?.view?.default === 'full' && views?.length === 2 && views.every(Boolean)) {
+    const full = views.find(name => manifest.schemas[name]?.required?.includes('document'));
+    const summary = views.find(name => name !== full);
+    if (!full || !summary) fail(`${operation.name} has ambiguous document view responses`);
+    declarations.push(`  ${operation.name}(request: ${request} & { view: 'summary' }, options?: RequestOptions): Promise<Omit<${response}, 'data'> & { data: ${summary} }>;`);
+    declarations.push(`  ${operation.name}(request: ${request} & { view?: 'full' }, options?: RequestOptions): Promise<Omit<${response}, 'data'> & { data: ${full} }>;`);
+  }
+  declarations.push(`${operation.compatibility ? `  /** @deprecated For a new request use ${operation.compatibility.replacement}; pending retries must keep this original operation and payload. */\n` : ''}  ${operation.name}(request: ${request}, options?: RequestOptions): Promise<${response}>;`);
+  return declarations.join('\n');
+}).join('\n');
 const codecSchemas = Object.fromEntries(Object.entries(exportedSchemas).map(([name, schema]) => [name, codecFor(schema) || {}]));
 const hashes = Object.fromEntries(Object.entries(inputs).map(([name, path]) => [name, hash(read(path))]));
 
@@ -234,6 +288,12 @@ const generated = `// Generated by scripts/generate-uns-v2.mjs from the frozen B
 `export type UnsV2JSONValue = null | boolean | number | string | UnsV2RawNumber | UnsV2JSONValue[] | { [key: string]: UnsV2JSONValue };\n\n` +
 `${schemaTypes}\n\n` +
 `export const UNS_V2_OPERATIONS = {\n${operationRows}\n} as const;\n\n` +
+`/** Discovery only; audience does not grant permission or change request routing. */\n` +
+`export const UNS_V2_OPERATION_SETS = ${JSON.stringify(operationSets, null, 2)} as const;\n\n` +
+`export const UNS_V2_OPERATION_GROUPS = ${JSON.stringify(operationGroups, null, 2)} as const;\n\n` +
+`export type UnsV2CatalogOperationName = keyof typeof UNS_V2_OPERATIONS;\n` +
+`export type UnsV2Surface = keyof typeof UNS_V2_OPERATION_SETS;\n` +
+`export type UnsV2Audience = typeof UNS_V2_OPERATIONS[UnsV2CatalogOperationName]['audience'];\n\n` +
 `export interface UnsV2OperationMap {\n${operationTypes}\n}\n\n` +
 `export interface UnsV2Operations {\n${operationMethods}\n}\n\n` +
 `export type UnsV2OperationName = keyof UnsV2OperationMap;\n` +
