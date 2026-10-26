@@ -9657,6 +9657,37 @@
         }
       }
     },
+    "UnsV2ErrorResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer",
+          "description": "真实 HTTP 状态码。"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string",
+          "description": "请求标识，用于排查。"
+        },
+        "data": {
+          "nullable": true,
+          "description": "结构化错误详情；没有时为 null。"
+        },
+        "error": {
+          "$ref": "#/components/schemas/Fault"
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data",
+        "error"
+      ]
+    },
     "UnsV2RecordFilter": {
       "type": "object",
       "additionalProperties": false,
@@ -19690,7 +19721,7 @@
           ]
         }
       ],
-      "description": "字段与对应单项接口（records:find / count / distinct / aggregate / get）的请求相同，另加 id 与 op。"
+      "description": "批内支持 find/count/distinct/aggregate/get，字段以各 op 分支为准，另加 id 与 op。distinct 仅由 queryBatch 提供，不存在独立记录去重入口。"
     },
     "CloudRecordBatchQueryResult": {
       "oneOf": [

@@ -20,13 +20,13 @@ const manifest = JSON.parse(read('manifest.json')) as {
   operations: Operation[];
   schemas: Record<string, { properties?: Record<string, unknown> }>;
 };
-const contract = JSON.parse(read('contract.json')) as { operations: Operation[] };
+const contract = JSON.parse(read('contract.json')) as { operations: Operation[]; schemas: Record<string, unknown> };
 const registry = read('registry_generated.go');
 const operation = (name: string) => manifest.operations.find(item => item.name === name)!;
 
 describe('Backend App UNS access contract without generic record audit', () => {
   it('pins the exact upstream commit and all generator inputs', () => {
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('2c462f6a2d1f467bc063da52c558b3ed96f50701');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('692e5dd8718d191c8049f8e00931ea3f492b122e');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     for (const [key, file] of Object.entries({ contract: 'contract.json', cloudSupport: 'cloud-support.json', manifest: 'manifest.json', provenance: 'provenance.json', registry: 'registry_generated.go' })) {
       expect(UNS_V2_CONTRACT_PROVENANCE.hashes[key as keyof typeof UNS_V2_CONTRACT_PROVENANCE.hashes]).toBe(
@@ -36,6 +36,9 @@ describe('Backend App UNS access contract without generic record audit', () => {
     expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(85);
     expect(UNS_V2_CONTRACT_PROVENANCE.streamOperationCount).toBe(1);
     expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(97);
+    // Error envelopes are decoded by every operation, although success DTOs do not reference them.
+    expect(Object.hasOwn(UNS_V2_CODEC_SCHEMAS, 'UnsV2ErrorResponse')).toBe(true);
+    expect(Object.hasOwn(manifest.schemas, 'UnsV2ErrorResponse')).toBe(true);
   });
 
   it.each([
@@ -63,6 +66,11 @@ describe('Backend App UNS access contract without generic record audit', () => {
       expect(manifest.operations.some(item => item.name === name), name).toBe(false);
       expect(contract.operations.some(item => item.name === name), name).toBe(false);
       expect(registry).not.toContain(`Name: "${name}"`);
+    }
+    for (const name of ['UnsV2RecordInsertManyReq', 'UnsV2RecordFindOneAndUpdateReq', 'UnsV2MetadataFindOneReq', 'UnsV2SourceCreateReq']) {
+      expect(Object.hasOwn(contract.schemas, name), name).toBe(false);
+      expect(Object.hasOwn(manifest.schemas, name), name).toBe(false);
+      expect(Object.hasOwn(UNS_V2_CODEC_SCHEMAS, name), name).toBe(false);
     }
   });
 
