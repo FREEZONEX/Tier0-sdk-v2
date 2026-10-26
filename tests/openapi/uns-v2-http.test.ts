@@ -342,7 +342,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
       'record-notifications/1', 'record-delete-samples/1', 'stream-history/1',
       'record-reads/1', 'app-context/2', 'collection-ttl/1', 'error-model/1',
     ]));
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('ef2fa94089a26e8e0021e0d25e7f13e87ff5c722');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('048e85c28038ef13fb6b42db7f847537663ba2c3');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(UNS_V2_CONTRACT_PROVENANCE.sourceDerivedContractSHA256).toBe(UNS_V2_CONTRACT_PROVENANCE.hashes.contract);
     expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(106);
@@ -606,6 +606,75 @@ describe('UNS v2 localhost HTTP fixture', () => {
       document: { sources: [{ alias: 'plant', sourceId: 'source-1', configRevision: 2, resources: ['line/1', 'line/2'] }] },
     });
     expect(received[start].path).toBe('/openapi/v2/uns/streams/documents/validate');
+  });
+
+  it('uses write receipts for create, deploy and release-specific observation without document reads', async () => {
+    const start = received.length;
+    const view = { id: '301', name: 'receipts', model: 'program', revision: 3, activeVersion: '0',
+      status: 'draft', executionState: 'draft', createdAt: 1, updatedAt: 2 };
+    respond = (req, res) => {
+      if (req.url?.endsWith('/create')) send(res, { code: 200, msg: '', requestId: 'created', data: view });
+      else if (req.url?.endsWith('/deploy')) send(res, { code: 200, msg: '', requestId: 'deployed', data: {
+        ...view, activeVersion: '991', activeRelease: 7, status: 'active', executionState: 'active',
+      } });
+      else if (req.url?.endsWith('/runs/list')) send(res, { code: 200, msg: '', requestId: 'runs', data: {
+        items: [{ id: 'other', kind: 'delivery', release: '8', entryId: 'tick', trigger: 'timer', status: 'completed', createdAt: 4 },
+          { id: 'this', kind: 'delivery', release: '7', entryId: 'tick', trigger: 'timer', status: 'completed', createdAt: 3 }],
+        nextCursor: '', checkedAt: 5,
+      } });
+      else send(res, { error: 'unexpected read' }, 500);
+    };
+    const api = client();
+    const created = await api.stream.programs.create({ dryRun: false, idempotencyKey: 'create-receipt',
+      document: { name: 'receipts', sdkVersion: 'tier0-stream/v2', script: 'module.exports=api=>{};' } });
+    if (!('id' in created.data)) throw new Error('Expected committed create receipt');
+    expect(created.data).not.toHaveProperty('activeRelease');
+    const deployed = await api.stream.programs.deploy({ id: created.data.id, expectedRevision: created.data.revision,
+      dryRun: false, idempotencyKey: 'deploy-receipt' });
+    if (!('id' in deployed.data)) throw new Error('Expected committed deployment receipt');
+    const runs = await api.stream.runs.list({ id: deployed.data.id, size: 10 });
+    expect(runs.data.items.filter(run => String(run.release) === String(deployed.data.activeRelease)).map(run => run.id)).toEqual(['this']);
+    expect(received.slice(start).map(row => row.path)).toEqual([
+      '/openapi/v2/uns/streams/program/create', '/openapi/v2/uns/streams/program/deploy', '/openapi/v2/uns/streams/runs/list',
+    ]);
+    expect(JSON.parse(received[start + 1].body).expectedRevision).toBe(3);
+  });
+
+  it('preserves inactive program receipts without an active release number', async () => {
+    const inactive = { id: '301', name: 'stopped', model: 'program', revision: 3, activeVersion: '0',
+      status: 'disabled', executionState: 'disabled', createdAt: 1, updatedAt: 2 };
+    respond = (_req, res) => send(res, { code: 200, msg: '', requestId: 'inactive', data: inactive });
+    const api = client();
+    const stopped = await api.stream.programs.disable({ id: '301', expectedRevision: 3,
+      dryRun: false, idempotencyKey: 'disable-receipt' });
+    const current = await api.stream.programs.get({ id: '301' });
+    expect(stopped.data).toEqual(inactive);
+    expect(current.data).toEqual(inactive);
+    expect(stopped.data).not.toHaveProperty('activeRelease');
+    expect(current.data).not.toHaveProperty('activeRelease');
+  });
+
+  it('keeps deployment previews and historical receipts without a release number intact', async () => {
+    const start = received.length;
+    const preview = { validated: true, sideEffects: false };
+    respond = (_req, res) => send(res, { code: 200, msg: '', requestId: 'preview', data: preview });
+    expect((await client().stream.programs.deploy({ id: '301', dryRun: true })).data).toEqual(preview);
+    const legacy = { id: '301', name: 'old', model: 'program', revision: 1, activeVersion: '991',
+      status: 'active', executionState: 'active', createdAt: 1, updatedAt: 1 };
+    respond = (_req, res) => send(res, { code: 200, msg: '', requestId: 'replayed', data: legacy });
+    const replay = await client().stream.programs.deploy({ id: '301', dryRun: false, idempotencyKey: 'historical-request' });
+    expect(replay.data).toEqual(legacy);
+    expect(replay.data).not.toHaveProperty('activeRelease');
+    expect(received.slice(start)).toHaveLength(2);
+  });
+
+  it('decodes Stream revision and release integers exactly in typed mutation receipts', async () => {
+    respond = (_req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end('{"code":200,"msg":"","requestId":"large","data":{"id":"301","name":"large","model":"program","revision":9007199254740993,"activeRelease":9007199254740995,"activeVersion":"991","status":"active","executionState":"active","createdAt":1,"updatedAt":1}}');
+    };
+    const result = await client().stream.programs.deploy({ id: '301', dryRun: false, idempotencyKey: 'large-receipt' });
+    expect(result.data).toMatchObject({ revision: new UnsV2RawNumber('9007199254740993'), activeRelease: new UnsV2RawNumber('9007199254740995') });
   });
 
   it('treats an ambiguous Stream deployment response as outcome unknown without retrying', async () => {
