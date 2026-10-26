@@ -1,6 +1,6 @@
 {
   "name": "@tier0/sdk-v2",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Tier0 Cloud new-architecture SDK for TypeScript and JavaScript",
   "license": "MIT",
   "type": "module",
@@ -58,12 +58,24 @@
       }
     },
     "./source": {
-      "import": { "types": "./dist/esm/source.d.ts", "default": "./dist/esm/source.js" },
-      "require": { "types": "./dist/cjs/source.d.ts", "default": "./dist/cjs/source.js" }
+      "import": {
+        "types": "./dist/esm/source.d.ts",
+        "default": "./dist/esm/source.js"
+      },
+      "require": {
+        "types": "./dist/cjs/source.d.ts",
+        "default": "./dist/cjs/source.js"
+      }
     },
     "./stream": {
-      "import": { "types": "./dist/esm/stream.d.ts", "default": "./dist/esm/stream.js" },
-      "require": { "types": "./dist/cjs/stream.d.ts", "default": "./dist/cjs/stream.js" }
+      "import": {
+        "types": "./dist/esm/stream.d.ts",
+        "default": "./dist/esm/stream.js"
+      },
+      "require": {
+        "types": "./dist/cjs/stream.d.ts",
+        "default": "./dist/cjs/stream.js"
+      }
     },
     "./files": {
       "import": {

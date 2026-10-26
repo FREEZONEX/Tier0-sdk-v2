@@ -2,14 +2,16 @@
 
 Tier0 云端新架构的独立 TypeScript / JavaScript SDK。新仓库、新 npm 包，不覆盖 `@tier0/sdk`。
 
-当前版本 `0.2.1` 对应 UNS v2 契约 5.0.0，与 0.1.0 不兼容（新错误模型 `execution` / `retry`、封顶计数、删除 `recordChangesPoll` 等）。Collection 支持 int、float、double 和 datetime 声明；格式注解不新增数值范围或日期格式校验，Sample 外层 time 保持不变。使用时需确认目标环境已部署对应后端。要求 Node.js 20.19+。浏览器 HTTP、MQTT、React、Vue 和服务端身份验签分别提供独立入口。
+当前版本 `0.2.2` 对应 UNS v2 契约 5.0.0，与 0.1.0 不兼容（新错误模型 `execution` / `retry`、封顶计数、删除 `recordChangesPoll` 等）。Collection 支持 int、float、double 和 datetime 声明；格式注解不新增数值范围或日期格式校验，Sample 外层 time 保持不变。使用时需确认目标环境已部署对应后端。要求 Node.js 20.19+。浏览器 HTTP、MQTT、React、Vue 和服务端身份验签分别提供独立入口。
+
+本次更新：Source 无引用时支持直接修改、停用和删除；Stream 发布与回滚返回带类型的发布回执；UNS 插入可在同一次写入中返回创建快照，App 数据层同步支持 `returnDocument` / `projection` 和投影字段的可选类型。
 
 ## 安装与初始化
 
 发布前在本仓库运行 `npm ci`、`npm run check`，验证生成的 `.tgz`。业务项目安装精确版本：
 
 ```sh
-npm install --save-exact @tier0/sdk-v2@0.2.1
+npm install --save-exact @tier0/sdk-v2@0.2.2
 ```
 
 ```ts
@@ -167,7 +169,7 @@ Vue 由 `execute()` 显式执行，后发请求的结果优先；取消不表示
 
 ## 契约更新与验证
 
-上游：`FREEZONEX/Tier0-Backend`，固定提交 `8d9fe632e958811778041398c4c3454a28c494bc`。`contracts/upstream.json` 记录来源和 SHA-256。
+上游：`FREEZONEX/Tier0-Backend`，固定提交 `6d0fbbca15ddbfd4d9b313b1abbc843b36d14dd0`。`contracts/upstream.json` 记录来源和 SHA-256。
 
 ```sh
 npm ci
@@ -181,7 +183,7 @@ npm run check
 
 v1 来自网关 Swagger，并按实际 handler 补齐响应外层；UNS 来自 `contract_generated.go#ContractJSON` 中已经应用 Cloud 扩展的契约，结合 manifest/registry 生成。不能直接使用仍含 Enterprise 基础操作的 `share/unscontract/contract.json` 作为最终云端契约。
 
-`npm run check` 包含契约一致性、Skill 注册及递归引用检查、所有 Skill TypeScript 示例的源码/安装包类型校验、单元和本地 HTTP 测试、ESM/CJS 构建、实际 npm 包安装、浏览器打包及导入验证。完整行为测试还会在独立 consumer 中对已安装的 `.tgz` 再跑一遍，导入目标严格指向包内 `dist`；包内调试映射包含源内容。当前 715 项测试包含全部 157 个公开操作的路由检查。路由检查使用本地 HTTP fixture，不等于每个操作的业务验收。
+`npm run check` 包含契约一致性、Skill 注册及递归引用检查、所有 Skill TypeScript 示例的源码/安装包类型校验、单元和本地 HTTP 测试、ESM/CJS 构建、实际 npm 包安装、浏览器打包及导入验证。完整行为测试还会在独立 consumer 中对已安装的 `.tgz` 再跑一遍，导入目标严格指向包内 `dist`；包内调试映射包含源内容。测试覆盖全部公开操作的路由检查。路由检查使用本地 HTTP fixture，不等于每个操作的业务验收。
 
 `tests/skill-workflows.test.ts` 直接提取 Markdown 示例，验证 Source/Stream/UNS 的创建、查询、修改、删除或归档恢复，影响分页和结果未知分支，以及通知请求、状态查询和成员展示。默认检查不调用线上接口。
 
@@ -199,4 +201,4 @@ node scripts/check-live-transports.mjs <consumer> <workspaceId> .tmp/live-transp
 
 写入验收不发布 Stream、不启用 Source、不发送通知。归档资源保留正常产品恢复能力；报告区分通过、服务端拒绝和未验证范围。分片上传失败会保留错误原因，确认尚未尝试 complete 时清理本次会话；完成结果未知时先对账。完整结果见 [2026-10-22 验收报告](docs/acceptance-2026-10-22.md)。
 
-业务接入时仍需核对验收报告中的环境限制并补齐未验收范围、将 App 脚手架精确依赖更新为 `"@tier0/sdk-v2": "0.2.1"`，并按需更新已安装的 Skill。
+业务接入时仍需核对验收报告中的环境限制并补齐未验收范围、将 App 脚手架精确依赖更新为 `"@tier0/sdk-v2": "0.2.2"`，并按需更新已安装的 Skill。
