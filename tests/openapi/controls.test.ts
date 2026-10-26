@@ -8,9 +8,19 @@ const contract = {
   idempotency: 'required', timeoutMs: 12000, status: 'active',
 };
 const result = { code: 'pump.start', contractVersion: 'v1', result: null, runID: 'run-1', status: 'succeeded', replayed: false };
+
+function wire(value: unknown, status = 200) {
+  const data = value && typeof value === 'object' ? { ...value } as Record<string, unknown> : value;
+  if (data && typeof data === 'object' && 'runID' in data) { data.runId = data.runID; delete data.runID; }
+  if (status !== 200 && data && typeof data === 'object' && 'errorCode' in data) {
+    return { code: status, msg: data.message, requestId: 'control-request', data,
+      error: { code: data.errorCode, details: [], execution: data.errorCode === 'CONTROL_RESULT_UNKNOWN' ? 'unknown' : 'notStarted', retry: { safe: false } } };
+  }
+  return { code: 200, msg: '', requestId: 'control-request', data };
+}
 const client = () => createClient({ apiHost: 'https://cloud.example', apiKey: 'fixture-key' });
 const handle = () => client().controls.use({ code: 'pump.start' });
-const reply = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status });
+const reply = (value: unknown, status = 200) => new Response(JSON.stringify(wire(value, status)), { status });
 
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); configureClient({}); });
 
@@ -20,24 +30,24 @@ describe('Cloud Control single-attempt transport', () => {
     vi.stubGlobal('fetch', fetch);
     const input = { streamId: 'business', entryId: 'row', deploymentVersion: 'value', timeoutMs: 42 };
     expect(await handle().invoke(input, { idempotencyKey: 'intent-1' })).toEqual(result);
-    expect(fetch).toHaveBeenCalledExactlyOnceWith('https://cloud.example/openapi/v1/controls/pump.start/invoke', {
+    expect(fetch).toHaveBeenCalledExactlyOnceWith('https://cloud.example/openapi/v2/uns/controls/invoke', {
       method: 'POST', redirect: 'manual', signal: expect.any(AbortSignal),
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer fixture-key', 'X-API-Key': 'fixture-key' },
-      body: JSON.stringify({ input, idempotencyKey: 'intent-1' }),
+      body: JSON.stringify({ code: 'pump.start', input, idempotencyKey: 'intent-1' }),
     });
   });
 
-  it('describe/discover each issue exactly one POST and do not unwrap a data envelope', async () => {
+  it('describe/discover each issue exactly one canonical POST and unwrap the UNS envelope', async () => {
     const fetch = vi.fn().mockResolvedValueOnce(reply(contract)).mockResolvedValueOnce(reply({ total: 1, list: [contract] }))
       .mockResolvedValueOnce(reply({ code: 200, data: contract }));
     vi.stubGlobal('fetch', fetch);
     expect(await handle().describe()).toEqual(contract);
     expect(fetch).toHaveBeenCalledTimes(1);
-    expect(fetch.mock.calls[0][0]).toBe('https://cloud.example/openapi/v1/controls/pump.start/describe');
-    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({});
+    expect(fetch.mock.calls[0][0]).toBe('https://cloud.example/openapi/v2/uns/controls/describe');
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ code: 'pump.start' });
     expect(await client().controls.discover({ page: 2, size: 5, search: 'pump' })).toEqual({ total: 1, list: [contract] });
     expect(fetch).toHaveBeenCalledTimes(2);
-    expect(fetch.mock.calls[1][0]).toBe('https://cloud.example/openapi/v1/controls/discover');
+    expect(fetch.mock.calls[1][0]).toBe('https://cloud.example/openapi/v2/uns/controls/discover');
     expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({ page: 2, size: 5, search: 'pump' });
     await expect(handle().describe()).rejects.toMatchObject({ errorCode: 'CONTROL_PROTOCOL_ERROR', status: 200 });
     expect(fetch).toHaveBeenCalledTimes(3);
@@ -59,7 +69,7 @@ describe('Cloud Control single-attempt transport', () => {
     vi.stubGlobal('fetch', fetch);
     await handle().invoke(null);
     expect(fetch).toHaveBeenCalledTimes(1);
-    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ input: null });
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ code: 'pump.start', input: null });
   });
 
   it.each([
@@ -114,12 +124,14 @@ describe('Cloud Control single-attempt transport', () => {
   it.each([200, 401, 502, 307])('does not retry unreadable HTTP %s', async status => {
     const fetch = vi.fn().mockResolvedValue(new Response('not JSON', { status }));
     vi.stubGlobal('fetch', fetch);
-    await expect(handle().invoke({})).rejects.toBeInstanceOf(ControlResultUnknownError);
+    const error = await handle().invoke({}).catch(e => e);
+    expect(error).toBeInstanceOf(ControlError);
+    expect(error instanceof ControlResultUnknownError).toBe(status !== 401);
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it('classifies interrupted response reads as unknown while retaining HTTP status', async () => {
-    const fetch = vi.fn().mockResolvedValue({ status: 200, ok: true, json: () => Promise.reject(new Error('secret')) });
+    const fetch = vi.fn().mockResolvedValue({ status: 200, ok: true, headers: new Headers(), body: new ReadableStream({ start(controller) { controller.error(new Error('secret')); } }) });
     vi.stubGlobal('fetch', fetch);
     await expect(handle().invoke({})).rejects.toMatchObject({ status: 200, outcomeUnknown: true });
     expect(fetch).toHaveBeenCalledTimes(1);
@@ -204,7 +216,7 @@ describe('Control HTTP transport deadline', () => {
     // Deliberately ignore AbortSignal: the SDK must still settle within its budget.
     const pending = () => new Promise<never>(() => {});
     const fetch = vi.fn().mockImplementation(phase === 'headers' ? pending : async () => ({
-      status: 200, ok: true, json: pending,
+      status: 200, ok: true, headers: new Headers(), body: { getReader: () => ({ read: pending, cancel: async () => {} }) },
     }));
     vi.stubGlobal('fetch', fetch);
     const settled = bounded().use({ code: 'pump.start' }).invoke({}).catch(error => error);
@@ -226,7 +238,7 @@ describe('Control HTTP transport deadline', () => {
     vi.useFakeTimers();
     const fetch = vi.fn().mockImplementation(async () => {
       await new Promise(resolve => setTimeout(resolve, 75));
-      return { status: 200, ok: true, json: () => new Promise(() => {}) };
+      return { status: 200, ok: true, headers: new Headers(), body: { getReader: () => ({ read: () => new Promise(() => {}), cancel: async () => {} }) } };
     });
     vi.stubGlobal('fetch', fetch);
     const settled = bounded().use({ code: 'pump.start' }).invoke({}).catch(error => error);
@@ -274,7 +286,7 @@ describe('Control HTTP transport deadline', () => {
     const fetch = vi.fn().mockImplementation(async () => {
       if (outcome === 'network-error') throw new DOMException('aborted transport', 'AbortError');
       if (outcome === 'gateway-error') return reply({ errorCode: 'CONTROL_FORBIDDEN', message: 'forbidden' }, 403);
-      if (outcome === 'body-error') return { status: 200, ok: true, json: async () => { throw new DOMException('aborted body', 'AbortError'); } };
+      if (outcome === 'body-error') return new Response(new ReadableStream({ start(controller) { controller.error(new DOMException('aborted body', 'AbortError')); } }));
       if (outcome === 'consumed-body') return consumed;
       return reply(result);
     });

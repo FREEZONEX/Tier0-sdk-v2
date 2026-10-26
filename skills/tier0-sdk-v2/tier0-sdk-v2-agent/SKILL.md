@@ -5,7 +5,7 @@ description: 使用 @tier0/sdk-v2 的 client.agent 查询和管理 Agent 作业�
 
 # Agent 作业与结果
 
-Agent 是平台应用能力，区别于 Stream 数据处理程序。使用服务端 client.agent；本领域普通 v1 响应已解包，直接读取 list/job/run/result 等字段。
+Agent 是平台应用能力，区别于 Stream 数据处理程序。使用服务端 client.agent；本领域平台 v2 响应已解包，直接读取 list/job/run/result 等字段。
 
 ## 入口选择
 
@@ -18,10 +18,8 @@ Agent 是平台应用能力，区别于 Stream 数据处理程序。使用服务
 | cards | list/get/update/delete，操作画布卡片 |
 | canvases | list，查找画布 |
 | library | list/get/create/update/delete，复用卡片定义 |
-| nodes | searchSemantic/indexSync，语义搜索与索引同步 |
-| relations | list/teach，读取和写入数据关系 |
 
-dispatch、trigger、indexSync、teach 都有副作用，不能在普通查询流程中悄悄执行。
+dispatch、trigger 都有副作用，不能在普通查询流程中悄悄执行。
 
 ## 查询作业与运行
 
@@ -71,3 +69,5 @@ result.create 的 operationId 由调用方持有；保存超时后可用 `result
 cards.update 要带读取时的完整 expectedCardSpec；library.update 要带完整 expectedItem 快照。409 表示内容已变化，应重新读取并合并用户意图，不能自动覆盖。具体示例见 [结果与卡片编辑](references/results.md)。
 
 结果附件/图片使用 [文件 Skill](../tier0-sdk-v2-files/SKILL.md) 的持久化 filePath，不保存签名 URL 作为长期资源。失败保留 ApiError.status/code/errorCode；写入 outcomeUnknown 时先查询对应资源，不自动重发。
+
+旧 Namespace 节点的语义索引和 path 关系接口未纳入 v2，不再提供 nodes/relations 方法。

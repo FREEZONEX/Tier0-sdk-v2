@@ -413,18 +413,18 @@ describe('bootstrap', () => {
   it('writes seeds only for collections ensure created', async () => {
     const mock = mockUns({
       [ENSURE]: ensured({ alias: 'orders', collectionId: 'c-orders', status: 'created' }, { alias: 'lines', collectionId: 'c-lines', status: 'widened' }),
-      '/uns/collections/c-orders/records:insertMany': ok({ insertedCount: 2, insertedIds: { 0: 'o-1', 1: 'o-2' }, status: 'committed', replayed: false }),
+      '/uns/collections/c-orders/records:bulkWrite': ok({ insertedCount: 2, insertedIds: { 0: 'o-1', 1: 'o-2' }, status: 'committed', replayed: false }),
     });
     await client(mock).ensure();
-    const inserts = mock.sent.filter(entry => entry.path.endsWith('records:insertMany'));
+    const inserts = mock.sent.filter(entry => entry.path.endsWith('records:bulkWrite'));
     expect(inserts).toHaveLength(1);
     const { idempotencyKey, ...body } = inserts[0].body;
     expect(String(idempotencyKey)).toMatch(/^seed-[0-9a-f]{40}-0$/);
     expect(body).toEqual({
       collectionId: 'c-orders',
-      documents: [
-        { id: 'o-1', data: { code: 'A-1', status: 'OPEN' } },
-        { id: 'o-2', data: { code: 'A-2', status: 'DONE' } },
+      operations: [
+        { insertOne: { id: 'o-1', data: { code: 'A-1', status: 'OPEN' } } },
+        { insertOne: { id: 'o-2', data: { code: 'A-2', status: 'DONE' } } },
       ],
       ordered: true,
       atomic: true,
@@ -439,7 +439,7 @@ describe('bootstrap', () => {
     });
     const mock = mockUns({
       [ENSURE]: ensured({ alias: 'big', collectionId: 'c-big', status: 'created' }),
-      '/uns/collections/c-big/records:insertMany': [
+      '/uns/collections/c-big/records:bulkWrite': [
         ok({ insertedCount: 200 }),
         fail(503, 'TEMPORARILY_UNAVAILABLE'),
         ok({ insertedCount: 200, replayed: true }),
@@ -448,21 +448,21 @@ describe('bootstrap', () => {
     });
     const errors: unknown[] = [];
     await client(mock, { collections: [big], logger: { ...silent, error: (...args: unknown[]) => errors.push(args) } }).ensure();
-    const chunks = mock.calls('/uns/collections/c-big/records:insertMany');
-    expect(chunks.map(entry => (entry.body.documents as unknown[]).length)).toEqual([200, 200, 200, 50]);
+    const chunks = mock.calls('/uns/collections/c-big/records:bulkWrite');
+    expect(chunks.map(entry => (entry.body.operations as unknown[]).length)).toEqual([200, 200, 200, 50]);
     expect(chunks.map(entry => String(entry.body.idempotencyKey).split('-').pop())).toEqual(['0', '1', '1', '2']);
-    expect((chunks[3].body.documents as { id: string }[])[0].id).toBe('b-400');
+    expect((chunks[3].body.operations as { insertOne: { id: string } }[])[0].insertOne.id).toBe('b-400');
     expect(errors).toHaveLength(0);
   });
 
   it('replays a seed chunk whose outcome is unknown with the same key after a wait', async () => {
     const mock = mockUns({
       [ENSURE]: ensured({ alias: 'orders', collectionId: 'c-orders', status: 'created' }, { alias: 'lines', collectionId: 'c-lines' }),
-      '/uns/collections/c-orders/records:insertMany': [failure(503, 'OUTCOME_UNKNOWN', null, 'commit unconfirmed', false, 'unknown'), ok({ insertedCount: 2, replayed: true })],
+      '/uns/collections/c-orders/records:bulkWrite': [failure(503, 'OUTCOME_UNKNOWN', null, 'commit unconfirmed', false, 'unknown'), ok({ insertedCount: 2, replayed: true })],
     });
     const started = Date.now();
     await client(mock).ensure();
-    const chunks = mock.calls('/uns/collections/c-orders/records:insertMany');
+    const chunks = mock.calls('/uns/collections/c-orders/records:bulkWrite');
     expect(chunks).toHaveLength(2);
     expect(chunks[1].body.idempotencyKey).toBe(chunks[0].body.idempotencyKey);
     expect(Date.now() - started).toBeGreaterThanOrEqual(900);
@@ -472,13 +472,26 @@ describe('bootstrap', () => {
     const errors: unknown[] = [];
     const mock = mockUns({
       [ENSURE]: ensured({ alias: 'orders', collectionId: 'c-orders', status: 'created' }, { alias: 'lines', collectionId: 'c-lines', status: 'created' }),
-      '/uns/collections/c-orders/records:insertMany': fail(409, 'DUPLICATE_KEY'),
-      '/uns/collections/c-lines/records:insertMany': ok({ insertedCount: 1, insertedIds: { 0: 'l-1' } }),
+      '/uns/collections/c-orders/records:bulkWrite': fail(409, 'DUPLICATE_KEY'),
+      '/uns/collections/c-lines/records:bulkWrite': ok({ insertedCount: 1, insertedIds: { 0: 'l-1' } }),
     });
     const state = await client(mock, { logger: { ...silent, error: (...args: unknown[]) => errors.push(args) } }).ensure();
     expect(state.collectionIds.get('lines')).toBe('c-lines');
     expect(errors).toHaveLength(1);
-    expect(mock.calls('/uns/collections/c-lines/records:insertMany')).toHaveLength(1);
+    expect(mock.calls('/uns/collections/c-lines/records:bulkWrite')).toHaveLength(1);
+  });
+
+  it('logs atomic seed writeErrors instead of reporting a failed bulk receipt as seeded', async () => {
+    const errors: unknown[] = [];
+    const infos: unknown[] = [];
+    const mock = mockUns({
+      [ENSURE]: ensured({ alias: 'orders', collectionId: 'c-orders', status: 'created' }, { alias: 'lines', collectionId: 'c-lines' }),
+      '/uns/collections/c-orders/records:bulkWrite': ok({ status: 'failed', insertedCount: 0, writeErrors: [{ index: 1, code: 'DUPLICATE_KEY' }] }),
+    });
+    await client(mock, { logger: { ...silent, info: (...args: unknown[]) => infos.push(args), error: (...args: unknown[]) => errors.push(args) } }).ensure();
+    expect(errors).toHaveLength(1);
+    expect(infos.some(info => String(info).includes('seeded'))).toBe(false);
+    expect(mock.calls('/uns/collections/c-orders/records:bulkWrite')).toHaveLength(1);
   });
 
   it('throws SCHEMA_CONFLICT in preview', async () => {
@@ -594,11 +607,11 @@ describe('bootstrap', () => {
       { alias: 'orders', collectionId: 'c-orders', status: 'created' },
       { alias: 'lines', collectionId: 'c-lines', warnings: [{ code: 'REQUIRED_NOT_ENFORCED', path: 'sku' }] },
     );
-    const seeds = { '/uns/collections/c-orders/records:insertMany': ok({ insertedCount: 2 }) };
+    const seeds = { '/uns/collections/c-orders/records:bulkWrite': ok({ insertedCount: 2 }) };
 
     const preview = mockUns({ [ENSURE]: reply, ...seeds });
     expect((await failed(client(preview).ensure())).code).toBe('SCHEMA_WARNINGS');
-    expect(preview.calls('/uns/collections/c-orders/records:insertMany')).toHaveLength(1);
+    expect(preview.calls('/uns/collections/c-orders/records:bulkWrite')).toHaveLength(1);
 
     const warnings: unknown[] = [];
     const deployed = mockUns({ [ENSURE]: reply, ...seeds });
@@ -633,13 +646,13 @@ describe('stale collection recovery', () => {
     const mock = mockUns({
       [ENSURE]: [BOTH_UNCHANGED, RECREATED],
       '/uns/collections/c-orders/records:count': NOT_GRANTED,
-      '/uns/collections/c-orders-2/records:insertMany': ok({ insertedCount: 2 }),
+      '/uns/collections/c-orders-2/records:bulkWrite': ok({ insertedCount: 2 }),
       '/uns/collections/c-orders-2/records:count': count(2),
     });
     expect(await client(mock).collection(orders).countDocuments()).toEqual({ count: 2, capped: false });
     expect(mock.calls(ENSURE)).toHaveLength(2);
     expect(mock.calls('/uns/collections/c-orders/records:count')).toHaveLength(1);
-    expect(mock.calls('/uns/collections/c-orders-2/records:insertMany'), 'created again → seeded again').toHaveLength(1);
+    expect(mock.calls('/uns/collections/c-orders-2/records:bulkWrite'), 'created again → seeded again').toHaveLength(1);
   });
 
   it('recovers from COLLECTION_NOT_FOUND (404 or 403), including $lookup targets and transactions', async () => {
@@ -718,7 +731,7 @@ describe('stale collection recovery', () => {
         ok({ items: [{ id: 'o-1', collectionId: 'c-orders', data: { code: 'A', status: 'OPEN' }, revision: 1 }], pageInfo: { hasMore: true, nextCursor: 'k1' } }),
         NOT_GRANTED,
       ],
-      '/uns/collections/c-orders-2/records:insertMany': ok({ insertedCount: 2 }),
+      '/uns/collections/c-orders-2/records:bulkWrite': ok({ insertedCount: 2 }),
     });
     expect((await failed(client(mock).collection(orders).find({}, { limit: 400 }).toArray())).status).toBe(403);
     expect(mock.calls(ENSURE)).toHaveLength(2);
@@ -806,7 +819,7 @@ describe('collection operations', () => {
   it('collects every distinct page', async () => {
     const mock = mockUns({
       [ENSURE]: BOTH_UNCHANGED,
-      '/uns/collections/c-orders/records:distinct': [ok({ values: ['OPEN'], pageInfo: { hasMore: true, nextPage: 2 } }), ok({ values: ['DONE'], pageInfo: { hasMore: false } })],
+      '/uns/collections/c-orders/records:aggregate': [ok({ items: [{ _id: 'OPEN' }], pageInfo: { hasMore: true, nextPage: 2 } }), ok({ items: [{ _id: 'DONE' }], pageInfo: { hasMore: false } })],
     });
     expect(await client(mock).collection(orders).distinct('status')).toEqual(['OPEN', 'DONE']);
   });
@@ -865,8 +878,7 @@ describe('collection operations', () => {
     const mock = mockUns({
       [ENSURE]: BOTH_UNCHANGED,
       '/uns/collections/c-orders/records': ok({ insertedId: 'o-9', status: 'committed', replayed: false }),
-      '/uns/collections/c-orders/records:updateOne': ok({ matchedCount: 1, modifiedCount: 1, status: 'committed', replayed: false }),
-      '/uns/collections/c-orders/records:findOneAndUpdate': ok({ value: record('o-9', { code: 'A', status: 'DONE' }), status: 'committed', replayed: false }),
+      '/uns/collections/c-orders/records:updateOne': [ok({ matchedCount: 1, modifiedCount: 1, status: 'committed', replayed: false }), ok({ value: record('o-9', { code: 'A', status: 'DONE' }), status: 'committed', replayed: false })],
     });
     const handle = client(mock).collection(orders);
     await expect(handle.insertOne({ code: 'A', status: 'OPEN', colour: 'red' } as never)).rejects.toBeInstanceOf(z.ZodError);
@@ -888,7 +900,7 @@ describe('collection operations', () => {
 
     const moved = await handle.findOneAndUpdate({ _id: 'o-9', status: 'OPEN' }, { $set: { status: 'DONE' } });
     expect(moved?.status).toBe('DONE');
-    expect(mock.calls('/uns/collections/c-orders/records:findOneAndUpdate')[0].body.returnDocument).toBe('after');
+    expect(mock.calls('/uns/collections/c-orders/records:updateOne')[1].body.returnDocument).toBe('after');
   });
 
   it('returns the insert snapshot in one write without a follow-up read', async () => {
@@ -1033,7 +1045,6 @@ describe('collection operations', () => {
     const writeErrors = [{ index: 1, code: 'DUPLICATE_KEY', message: 'code exists' }];
     const mock = mockUns({
       [ENSURE]: BOTH_UNCHANGED,
-      '/uns/collections/c-orders/records:insertMany': ok({ insertedCount: 0, insertedIds: {}, status: 'failed', replayed: false, writeErrors }),
       '/uns/collections/c-orders/records:bulkWrite': ok({ insertedCount: 0, matchedCount: 0, modifiedCount: 0, deletedCount: 0, upsertedCount: 0, status: 'failed', replayed: false, writeErrors }),
     });
     const handle = client(mock).collection(orders);
@@ -1043,9 +1054,10 @@ describe('collection operations', () => {
       expect(error).toMatchObject({ code: 'WRITE_ERRORS', execution: 'rolledBack' });
       expect(error.details).toEqual({ writeErrors });
     }
-    for (const path of ['/uns/collections/c-orders/records:insertMany', '/uns/collections/c-orders/records:bulkWrite']) {
-      expect(mock.calls(path)[0].body).toMatchObject({ atomic: true });
-      expect(mock.calls(path)[0].body).not.toHaveProperty('resumeAfter');
+    expect(mock.calls('/uns/collections/c-orders/records:bulkWrite')).toHaveLength(2);
+    for (const call of mock.calls('/uns/collections/c-orders/records:bulkWrite')) {
+      expect(call.body).toMatchObject({ atomic: true, ordered: true });
+      expect(call.body).not.toHaveProperty('resumeAfter');
     }
   });
 
@@ -1247,7 +1259,7 @@ describe('data subject', () => {
   const routes = () => ({
     [ENSURE]: BOTH_UNCHANGED,
     '/uns/collections/c-orders/records:count': ok({ count: 1, capped: false }),
-    '/uns/collections/c-orders/records:insertMany': ok({ insertedCount: 0 }),
+    '/uns/collections/c-orders/records:bulkWrite': ok({ insertedCount: 0 }),
   });
   const subjectOf = (entry: Sent) => entry.headers[SUBJECT_HEADER];
   const request = (subject: string) => new Headers({ 'X-Tier0-App-Data-Subject': subject });
@@ -1287,7 +1299,7 @@ describe('data subject', () => {
     });
     await data.collection(orders).countDocuments();
     expect(mock.calls('/uns/collections/c-orders/records:count').map(subjectOf)).toEqual(['h.jwt.s', undefined, undefined]);
-    expect(subjectOf(mock.calls('/uns/collections/c-orders/records:insertMany')[0])).toBeUndefined();
+    expect(subjectOf(mock.calls('/uns/collections/c-orders/records:bulkWrite')[0])).toBeUndefined();
   });
 
   it('rejects a malformed subject before any record request', async () => {

@@ -45,9 +45,11 @@ run(['--input-type=module', '-e', `
   const operations = Object.keys(UNS_V2_OPERATIONS);
   const raw = createUnsV2Client();
   if (operations.length !== UNS_V2_CONTRACT_PROVENANCE.publicOperationCount || operations.some(name => typeof raw[name] !== 'function')) throw new Error('Missing generated operations');
-  if (typeof client.uns.metadataFindOne !== 'function' || typeof client.uns.metadataBulkWrite !== 'function') throw new Error('Missing metadata operations');
+  if (typeof client.uns.metadataFind !== 'function' || typeof client.uns.metadataBulkWrite !== 'function') throw new Error('Missing metadata operations');
   if ('collectionCreate' in client.uns || 'metaBatchExecute' in client.uns) throw new Error('Retired metadata routes leaked');
   if ('sourceList' in client.uns || 'streamProgramDeploy' in client.uns || 'controlInvoke' in client.uns) throw new Error('Mixed domain entrypoints');
+  if ('list' in client.source || 'get' in client.stream.programs || 'nodes' in client.agent || 'controls' in client.api) throw new Error('Retired facade aliases leaked');
+  if (['sourceList', 'streamProgramCreate', 'recordInsertMany', 'recordDistinct', 'metadataFindOne'].some(name => name in raw)) throw new Error('Retired raw operations leaked');
   if (typeof client.source.documents.get !== 'function' || typeof client.stream.programs.deploy !== 'function') throw new Error('Missing domain entrypoints');
 `], consumer);
 for (const ext of ['mts', 'cts']) writeFileSync(resolve(consumer, `consumer.${ext}`), `
@@ -96,10 +98,21 @@ nestedHandle.insertOne(input, { returnDocument: 'after', projection: { 'customer
 const client: Tier0Client = createClient({ apiHost: 'https://fixture.invalid' });
 client.uns.recordFind({ collectionId: 'orders' });
 client.uns.recordInsertOne({ collectionId: 'orders', data: { code: 'A' }, returnDocument: 'after' });
-client.uns.metadataFindOne({ kind: 'collection', filter: { _id: 'orders' } });
+client.uns.metadataFind({ kind: 'collection', filter: { _id: 'orders' } });
 createSourceClient().documents.list({});
 createStreamClient().programs.list({});
 client.mqttAuth.delete({ id: 9007199254740993n });
+// @ts-expect-error Retired low-level aliases cannot silently select a new operation.
+client.uns.metadataFindOne({ kind: 'collection' });
+// @ts-expect-error Native Source projections are retired.
+client.source.list({});
+// @ts-expect-error Stream creation uses documents.create({ program }) now.
+client.stream.programs.create({});
+handle.insertMany([{ code: 'A' }], { idempotencyKey: 'bulk-intent' });
+handle.findOneAndUpdate({ code: 'A' }, { $set: { code: 'B' } });
+handle.findOneAndReplace({ code: 'A' }, { code: 'B' });
+handle.findOneAndDelete({ code: 'A' });
+handle.distinct('code');
 void Tier0MQClient;
 `);
 run([resolve(root, 'node_modules/typescript/bin/tsc'), '--noEmit', '--strict', '--skipLibCheck', '--module', 'NodeNext', '--target', 'ES2022', 'consumer.mts', 'consumer.cts'], consumer);

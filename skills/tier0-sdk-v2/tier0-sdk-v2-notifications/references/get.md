@@ -1,6 +1,6 @@
 # 查询通知投递状态
 
-方法：`notifications.get({messageId})`；POST /openapi/v1/notifications/get。需要 notifications:read，与 send 权限独立；仅查询当前发送 Key 可见的消息。
+方法：`notifications.get({messageId})`；POST /openapi/v2/notifications/get。需要 notifications:read，与 send 权限独立；仅查询当前发送 Key 可见的消息。
 
 | 参数/结果 | 类型 | 说明 |
 | --- | --- | --- |

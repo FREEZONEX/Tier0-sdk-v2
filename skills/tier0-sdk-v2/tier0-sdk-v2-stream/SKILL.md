@@ -12,7 +12,7 @@ description: 使用 @tier0/sdk-v2 的 client.stream 创建、查询、修改和�
 | 用户任务 | 参考 | 方法 |
 | --- | --- | --- |
 | 新建并绑定 HTTP Source | [创建](references/create.md) | documents.create({program}) |
-| 列表、完整文档、运行记录 | [查询](references/read.md) | programs.list/get、documents.get、observations.get、runs.list |
+| 列表、完整文档、运行记录 | [查询](references/read.md) | programs.list、documents.get、observations.get、runs.list |
 | 修改草稿、脚本和绑定 | [修改](references/update.md) | documents.validate/update |
 | 发布、停用、版本回滚 | [部署](references/deploy.md) | programs.deploy/rollback、documents.disable |
 | 删除并核验归档 | [删除](references/delete.md) | programs.delete |
@@ -22,14 +22,14 @@ description: 使用 @tier0/sdk-v2 的 client.stream 创建、查询、修改和�
 
 | 形态 | 完整输入 | 适用入口 |
 | --- | --- | --- |
-| Runtime program | name、sdkVersion、script 字符串、sourceBindings、timeoutMs | documents.create/update/validate({program})；兼容 programs.create/update/validate({document}) |
+| Runtime program | name、sdkVersion、script 字符串、sourceBindings、timeoutMs | documents.create/update/validate({program}) |
 | 云端原生文档 | name、model、script 对象、sources、entries | documents.create/get/update/validate |
 
 程序必须是完整 `module.exports = api => { ... }`，执行器 API 是 api.sources/api.uns/api.stream，与 npm 包的 client.source 不同。Runtime sourceBindings 为 sourceId/configRevision/acquisition；原生 sources 还使用 alias/resources。连接凭据不进脚本或 acquisition。
 
 ## 核心约束
 
-1. programs.get 返回脱敏摘要，不含可回写脚本；完整编辑使用 documents.get 或上次 documents.create/update 返回的完整文档。保留未修改的 sources/entries/script 字段。
+1. documents.get({id,view:"summary"}) 返回安全摘要，不含可回写脚本；完整编辑使用 documents.get 或上次 documents.create/update 返回的完整文档。保留未修改的 sources/entries/script 字段。
 2. create/update 保存草稿，不自动发布；documents 没有 deploy，云端 program 发布使用 programs.deploy。不能将已保存报告为已运行。
 3. 所有更新/部署/删除携带当前 expectedRevision。原生停用另需 expectedActiveRelease，避免停掉他人刚发布的版本。
 4. versionId 从 versions.list 取得，不把 release 序号当 ID。expectedSourceRevision 仅用于恰好一个依赖源，不代表多个源的修订。

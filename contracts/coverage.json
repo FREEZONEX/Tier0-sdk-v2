@@ -1,7 +1,4 @@
 {
-  "v1PublicPaths": 51,
-  "v1Excluded": {
-    "/gw/reload": "Internal gateway maintenance."
-  },
-  "v2PublicOperations": 107
+  "platformPublicPaths": 44,
+  "unsPublicOperations": 86
 }

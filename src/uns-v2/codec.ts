@@ -1,10 +1,10 @@
 import { UNS_V2_CODEC_SCHEMAS } from './generated.js';
-import { V1_CODEC_SCHEMAS } from '../openapi/codecs.generated.js';
+import { PLATFORM_CODEC_SCHEMAS } from '../openapi/codecs.generated.js';
 
 type Codec = { readonly k?: string; readonly r?: string; readonly i?: Codec; readonly p?: Record<string, Codec>; readonly x?: Codec; readonly a?: readonly Codec[] };
 const numericBrand: unique symbol = Symbol('UnsV2NumericToken');
 type NumericToken = { readonly [numericBrand]: string };
-const schemas = { ...UNS_V2_CODEC_SCHEMAS, ...V1_CODEC_SCHEMAS } as unknown as Record<string, Codec>;
+const schemas = { ...UNS_V2_CODEC_SCHEMAS, ...PLATFORM_CODEC_SCHEMAS } as unknown as Record<string, Codec>;
 const jsonNumberPattern = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/;
 const int64Min = -(1n << 63n);
 const int64Max = (1n << 63n) - 1n;

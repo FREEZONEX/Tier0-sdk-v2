@@ -11,9 +11,7 @@ const git = (...args) => execFileSync('git', ['-C', resolve(backend), ...args], 
 const revision = git('rev-parse', '--verify', `${requestedRef}^{commit}`).toString('utf8').trim();
 if (!/^[a-f0-9]{40}$/.test(revision)) throw new Error('Expected a committed upstream revision');
 const inputs = {
-  'contracts/openapi-v1.source.json': 'service/gwsvr/internal/handler/swaggerui/swagger.json',
   'contracts/openapi-v2.source.json': 'service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json',
-  'contracts/info.source.proto': 'service/unssvr/proto/openapi.proto',
   'contracts/uns-v2/contract.json': 'service/unssvr/internal/domain/unsv2/contract_generated.go#ContractJSON',
   'contracts/uns-v2/manifest.json': 'share/unscontract/manifest.json',
   'contracts/uns-v2/cloud-support.json': 'share/unscontract/cloud-support.json',

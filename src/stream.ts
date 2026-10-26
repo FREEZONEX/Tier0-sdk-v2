@@ -6,10 +6,9 @@ import type { CloudTransportConfig } from './cloud-transport.js';
 export function bindStreamClient(raw: UnsV2Client) {
   return Object.freeze({
     programs: Object.freeze({
-      list: raw.streamProgramList, get: raw.streamProgramGet,
-      create: raw.streamProgramCreate, update: raw.streamProgramUpdate,
-      delete: raw.streamProgramDelete, validate: raw.streamProgramValidate,
-      deploy: raw.streamProgramDeploy, disable: raw.streamProgramDisable,
+      list: raw.streamProgramList,
+      delete: raw.streamProgramDelete,
+      deploy: raw.streamProgramDeploy,
       rollback: raw.streamProgramRollback,
       versions: Object.freeze({ list: raw.streamProgramVersionsList }),
     }),

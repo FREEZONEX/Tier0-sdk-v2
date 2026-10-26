@@ -26,16 +26,16 @@ const operation = (name: string) => manifest.operations.find(item => item.name =
 
 describe('Backend App UNS access contract without generic record audit', () => {
   it('pins the exact upstream commit and all generator inputs', () => {
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('6d0fbbca15ddbfd4d9b313b1abbc843b36d14dd0');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('2c462f6a2d1f467bc063da52c558b3ed96f50701');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     for (const [key, file] of Object.entries({ contract: 'contract.json', cloudSupport: 'cloud-support.json', manifest: 'manifest.json', provenance: 'provenance.json', registry: 'registry_generated.go' })) {
       expect(UNS_V2_CONTRACT_PROVENANCE.hashes[key as keyof typeof UNS_V2_CONTRACT_PROVENANCE.hashes]).toBe(
         createHash('sha256').update(read(file)).digest('hex')
       );
     }
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(106);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(85);
     expect(UNS_V2_CONTRACT_PROVENANCE.streamOperationCount).toBe(1);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(118);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(97);
   });
 
   it.each([
@@ -53,6 +53,19 @@ describe('Backend App UNS access contract without generic record audit', () => {
     expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(true);
   });
 
+  it('removes every retired compatibility operation from runtime, manifest and registry', () => {
+    const retired = ['recordFindOneAndUpdate', 'recordFindOneAndReplace', 'recordFindOneAndDelete', 'recordInsertMany', 'recordDistinct',
+      'metadataFindOneAndUpdate', 'metadataFindOneAndReplace', 'metadataFindOneAndDelete', 'metadataFindOne', 'metadataInsertMany', 'metadataDistinct',
+      'sourceList', 'sourceGet', 'sourceCreate', 'sourceUpdate', 'sourceConnectionUpdate',
+      'streamProgramValidate', 'streamProgramCreate', 'streamProgramUpdate', 'streamProgramGet', 'streamProgramDisable'];
+    for (const name of retired) {
+      expect(Object.hasOwn(UNS_V2_OPERATIONS, name), name).toBe(false);
+      expect(manifest.operations.some(item => item.name === name), name).toBe(false);
+      expect(contract.operations.some(item => item.name === name), name).toBe(false);
+      expect(registry).not.toContain(`Name: "${name}"`);
+    }
+  });
+
   it('marks every operation without a mutation read-only, matching the generated mutation flag', () => {
     // The SDK fills `execution` for failures without an error body from `mutation`: reads rolledBack, writes unknown.
     for (const item of manifest.operations) {
@@ -66,7 +79,7 @@ describe('Backend App UNS access contract without generic record audit', () => {
   it('flags the non-atomic batch writes that can commit partly', () => {
     // The data layer's updateMany / deleteMany rely on these answering execution=committed with cumulative data.
     expect(manifest.operations.filter(item => item.partialCommit).map(item => item.name).sort()).toEqual(
-      ['metadataBulkWrite', 'recordBulkWrite', 'recordDeleteMany', 'recordInsertMany', 'recordUpdateMany'],
+      ['metadataBulkWrite', 'recordBulkWrite', 'recordDeleteMany', 'recordUpdateMany'],
     );
   });
 
@@ -75,17 +88,17 @@ describe('Backend App UNS access contract without generic record audit', () => {
     const carrying = (field: string) =>
       Object.entries(manifest.schemas).filter(([, schema]) => JSON.stringify(schema).includes(`"${field}"`)).map(([name]) => name).sort();
     expect(carrying('resumeAfter')).toEqual([
-      'UnsV2RecordDeleteManyReq', 'UnsV2RecordDeleteManyReqBody', 'UnsV2RecordDeleteManyResponse',
-      'UnsV2RecordUpdateManyReq', 'UnsV2RecordUpdateManyReqBody', 'UnsV2RecordUpdateManyResponse',
+      'UnsV2RecordDeleteManyReq', 'UnsV2RecordDeleteManyResponse',
+      'UnsV2RecordUpdateManyReq', 'UnsV2RecordUpdateManyResponse',
     ]);
-    expect(carrying('nextIndex')).toEqual(['UnsV2MetadataBulkWriteResponse', 'UnsV2RecordBulkWriteResponse', 'UnsV2RecordInsertManyResponse']);
+    expect(carrying('nextIndex')).toEqual(['UnsV2MetadataBulkWriteResponse', 'UnsV2RecordBulkWriteResponse']);
     // [nextIndex, unknownUntil) is the span whose outcome is unknown; without it, continuing from nextIndex is safe.
-    expect(carrying('unknownUntil')).toEqual(['UnsV2MetadataBulkWriteResponse', 'UnsV2RecordBulkWriteResponse', 'UnsV2RecordInsertManyResponse']);
+    expect(carrying('unknownUntil')).toEqual(['UnsV2MetadataBulkWriteResponse', 'UnsV2RecordBulkWriteResponse']);
   });
 
   it('narrows App credentials to the 5.0.0 data surface', () => {
     // A9: App keys lose metadataFind*, the jobs query and change polling; records:explain stays (D-9 withdrawn).
-    for (const name of ['metadataFind', 'metadataFindOne', 'jobs']) {
+    for (const name of ['metadataFind', 'jobs']) {
       expect(operation(name).appAllowed, name).toBe(false);
       expect(Object.hasOwn(UNS_V2_OPERATIONS, name), name).toBe(true);
     }

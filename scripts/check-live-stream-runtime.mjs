@@ -37,7 +37,7 @@ const document = { name, sdkVersion: 'tier0-stream/v2', timeoutMs: 5000,
   script: 'module.exports = api => { api.stream.onTimer({ id: "sdk_tick", intervalMs: 1000 }, async () => ({ sdkAcceptance: true, value: 1 })); };' };
 try {
   await step('create', async () => {
-    const created = await client.stream.programs.create({ dryRun: false, document, idempotencyKey: `${name}-create` });
+    const created = await client.stream.documents.create({ dryRun: false, program: document, idempotencyKey: `${name}-create` });
     id = created.data.id;
     assert.equal(typeof id, 'string');
     revision = created.data.revision;

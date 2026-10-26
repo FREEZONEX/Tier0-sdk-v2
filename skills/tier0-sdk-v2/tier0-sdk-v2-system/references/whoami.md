@@ -1,6 +1,6 @@
 # API Key 身份诊断
 
-方法：`system.whoami()`；POST /openapi/v1/auth/whoami，无业务参数。不是调用其他 API 的强制前置步骤。
+方法：`system.whoami()`；POST /openapi/v2/auth/whoami，无业务参数。不是调用其他 API 的强制前置步骤。
 
 ```ts
 import { createClient, type Tier0Client } from '@tier0/sdk-v2';

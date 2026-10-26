@@ -4,7 +4,7 @@ import {
   type RuntimeStreamDefinition,
   type CloudAppCreateCapability,
   UnsV2RawNumber,
-  type PlatformV2UsersListReq,
+  type components,
   type UnsV2JSONValue,
   type UnsV2OperationName,
   type UnsV2Request,
@@ -50,7 +50,7 @@ client.uns.recordInsertOne({ collectionId: 'orders', data: {}, returnDocument: '
 const list = client.uns.recordFind({ collectionId: 'orders', limit: 20, cursor: 'opaque' });
 const jobs = client.uns.jobs({ queries: [{ queryId: 'job', jobIds: ['job-1'] }] });
 const transaction = client.uns.recordTransactionExecute({ items: [] });
-const sources = client.source.list({ page: 1, size: 20, archived: false });
+const sources = client.source.documents.list({ page: 1, size: 20, archived: false });
 const deployment = client.stream.programs.deploy({
   id: 'stream-1', dryRun: false, expectedRevision: 3, expectedSourceRevision: 7, idempotencyKey: 'deploy-1',
 });
@@ -77,12 +77,12 @@ const missingIndexPath: IndexSpec = { unique: true };
 // @ts-expect-error Single and composite declarations are mutually exclusive.
 const ambiguousIndexPath: IndexSpec = { path: 'serial', paths: ['serial'] };
 void [singleIndex, compositeIndex, missingIndexPath, ambiguousIndexPath];
-const request: UnsV2Request<'metadataFindOne'> = { kind: 'directory', filter: { _id: 'directory-1' } };
-type MetadataFindOneResponse = UnsV2Response<'metadataFindOne'>;
-const exactInt64: PlatformV2UsersListReq = { page: 9_223_372_036_854_775_807n };
+const request: UnsV2Request<'metadataFind'> = { kind: 'directory', filter: { _id: 'directory-1' } };
+type MetadataFindResponse = UnsV2Response<'metadataFind'>;
+const exactInt64: components['schemas']['PlatformGetMembersReq'] = { page: 9_223_372_036_854_775_807n };
 const exactBusinessNumber: UnsV2JSONValue = new UnsV2RawNumber('1.0000000000000001');
 void [list, jobs, transaction, sources, deployment, scopedSamples, sourceState, sourceDelete, sourceImpact, sourceHistory, documentValidation,
-  observations, streamObservation, runs, operation, request, exactInt64, exactBusinessNumber, null as MetadataFindOneResponse | null];
+  observations, streamObservation, runs, operation, request, exactInt64, exactBusinessNumber, null as MetadataFindResponse | null];
 
 // @ts-expect-error core-only graph has no Gateway route and is not exposed by the SDK.
 client.uns.graph({ queries: [] });
@@ -118,7 +118,7 @@ client.uns.metaBatchExecute({ items: [] });
 void [removedAuditOperation, null as RemovedAdminAuditRequest | null];
 // @ts-expect-error Retired Cloud batch-query route must not silently map to another contract.
 client.uns.records({ queries: [] });
-// @ts-expect-error Retired recordCreate is replaced by explicit recordInsertOne/Many operations.
+// @ts-expect-error Retired recordCreate is replaced by explicit recordInsertOne/bulkWrite operations.
 client.uns.recordCreate({ collectionId: 'orders', items: [] });
 
 const resourceShape = list.then(response => {
@@ -144,3 +144,12 @@ client.uns.recordGet({ collectionId: 'orders', ids: ['o-1'] }).then(result => {
   const missing: string[] = result.data.missing;
   void missing;
 });
+
+// Deprecated wire aliases are absent even from the raw public contract.
+type RetiredOperations = 'recordInsertMany' | 'recordDistinct' | 'recordFindOneAndUpdate' | 'recordFindOneAndReplace' | 'recordFindOneAndDelete'
+  | 'metadataFindOne' | 'metadataInsertMany' | 'metadataDistinct' | 'metadataFindOneAndUpdate' | 'metadataFindOneAndReplace' | 'metadataFindOneAndDelete'
+  | 'sourceList' | 'sourceGet' | 'sourceCreate' | 'sourceUpdate' | 'sourceConnectionUpdate'
+  | 'streamProgramCreate' | 'streamProgramGet' | 'streamProgramUpdate' | 'streamProgramValidate' | 'streamProgramDisable';
+type AssertRetired<T extends true> = T;
+type NoRetiredOperations = AssertRetired<Extract<UnsV2OperationName, RetiredOperations> extends never ? true : false>;
+void (null as NoRetiredOperations | null);

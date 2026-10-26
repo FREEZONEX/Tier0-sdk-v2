@@ -1,6 +1,6 @@
 /**
  * Mongo-driver-style collection handle over the UNS record operations
- * (`recordFind`, `recordInsertMany`, ...).
+ * (`recordFind`, `recordBulkWrite`, ...).
  *
  * Stored records `{ id, data, revision, createdAt, updatedAt }` are exposed as
  * flat documents `{ _id, ...data, _meta: { revision, createdAt, updatedAt } }`;
@@ -318,7 +318,7 @@ function idsInOrder(ids: Record<string, string> | undefined): string[] {
  * whole batch back. Non-atomic runs pass their cumulative counts; `details`
  * then has the shape `partialWrite` uses.
  */
-function assertNoWriteErrors(result: ManyPage, operation: string, committed?: Record<string, number>) {
+export function assertNoWriteErrors(result: ManyPage, operation: string, committed?: Record<string, number>) {
   if (result.writeErrors && result.writeErrors.length > 0) {
     const counts = Object.entries(committed ?? {}).map(([name, value]) => `${name}=${value}`).join(', ');
     const changed = committed !== undefined && Object.values(committed).some((value) => value > 0);
@@ -534,12 +534,11 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
   async distinct(field: string, filter: Filter = {}): Promise<unknown[]> {
     const values: unknown[] = [];
     for (let page = 1; ; page += 1) {
-      const result = await this.post<{ values: unknown[]; pageInfo: PageInfo }>('recordDistinct', {
-        field,
-        filter: Object.keys(filter).length > 0 ? filter : undefined,
+      const result = await this.post<{ items: { _id: unknown }[]; pageInfo: PageInfo }>('recordAggregatePipeline', {
+        pipeline: [{ $match: filter }, { $group: { _id: `$${field}` } }],
         page: { mode: 'offset', page, size: MAX_PAGE_SIZE },
       });
-      values.push(...result.values);
+      values.push(...result.items.map(item => item._id));
       if (!result.pageInfo.hasMore) return values;
     }
   }
@@ -634,8 +633,8 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
     if (documents.length === 0) return { insertedCount: 0, insertedIds: [] };
     assertAtomicBatch('insertMany', documents.length);
     const prepared = documents.map((document) => validateDocument(this.definition, document as Record<string, unknown>));
-    const result = await this.post<WriteResult>('recordInsertMany', {
-      documents: prepared.map(({ id, data }) => compact({ id, data })),
+    const result = await this.post<WriteResult>('recordBulkWrite', {
+      operations: prepared.map(({ id, data }) => ({ insertOne: compact({ id, data }) })),
       ordered: true,
       atomic: true,
       idempotencyKey: options.idempotencyKey,
@@ -765,7 +764,7 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
    * returns null when another request moved the record first.
    */
   async findOneAndUpdate(filter: Filter, update: Update, options: FindOneAndOptions = {}): Promise<WithMeta<T> | null> {
-    const result = await this.post<{ value: UnsRecord | null }>('recordFindOneAndUpdate', {
+    const result = await this.post<{ value: UnsRecord | null }>('recordUpdateOne', {
       filter,
       update: validateUpdate(this.definition, update),
       upsert: options.upsert,
@@ -785,7 +784,7 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
     options: Omit<FindOneAndOptions, 'arrayFilters'> = {},
   ): Promise<WithMeta<T> | null> {
     const { data } = validateDocument(this.definition, replacement as Record<string, unknown>);
-    const result = await this.post<{ value: UnsRecord | null }>('recordFindOneAndReplace', {
+    const result = await this.post<{ value: UnsRecord | null }>('recordReplaceOne', {
       filter,
       replacement: data,
       upsert: options.upsert,
@@ -803,13 +802,14 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
     options: Pick<FindOneAndOptions, 'expectedRevision' | 'sort' | 'projection' | 'idempotencyKey'> = {},
   ): Promise<WithMeta<T> | null> {
     const result = await this.post<{ value: UnsRecord | null }>(
-      'recordFindOneAndDelete',
+      'recordDeleteOne',
       {
         filter,
         expectedRevision: options.expectedRevision,
         sort: toSortPairs(options.sort),
         projection: options.projection,
         idempotencyKey: options.idempotencyKey,
+        returnDocument: 'before',
       },
     );
     return result.value ? toDoc<T>(result.value) : null;

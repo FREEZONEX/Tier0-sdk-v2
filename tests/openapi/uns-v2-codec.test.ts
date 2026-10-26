@@ -12,16 +12,16 @@ describe('UNS v2 lossless numeric boundary', () => {
   });
 
   it('keeps safe schema numbers as numbers on both sides', () => {
-    expect(encodeUnsV2JSON({ page: 12, size: 20 }, 'PlatformV2JobListReq')).toBe('{"page":12,"size":20}');
-    expect(decodeUnsV2JSON('{"page":12,"size":20}', 'PlatformV2JobListReq')).toEqual({ page: 12, size: 20 });
+    expect(encodeUnsV2JSON({ page: 12, size: 20 }, 'Platform_PlatformGetMembersReq')).toBe('{"page":12,"size":20}');
+    expect(decodeUnsV2JSON('{"page":12,"size":20}', 'Platform_PlatformGetMembersReq')).toEqual({ page: 12, size: 20 });
   });
 
   it('preserves the complete signed int64 range as number or bigint', () => {
-    expect(decodeUnsV2JSON('{"page":9007199254740993}', 'PlatformV2UsersListReq')).toEqual({ page: 9007199254740993n });
-    expect(decodeUnsV2JSON('{"page":9223372036854775807}', 'PlatformV2UsersListReq')).toEqual({ page: 9223372036854775807n });
-    expect(decodeUnsV2JSON('{"page":-9223372036854775808}', 'PlatformV2UsersListReq')).toEqual({ page: -9223372036854775808n });
-    expect(encodeUnsV2JSON({ page: 9223372036854775807n }, 'PlatformV2UsersListReq')).toBe('{"page":9223372036854775807}');
-    expect(() => decodeUnsV2JSON('{"page":9223372036854775808}', 'PlatformV2UsersListReq')).toThrow('signed 64-bit');
+    expect(decodeUnsV2JSON('{"page":9007199254740993}', 'Platform_PlatformGetMembersReq')).toEqual({ page: 9007199254740993n });
+    expect(decodeUnsV2JSON('{"page":9223372036854775807}', 'Platform_PlatformGetMembersReq')).toEqual({ page: 9223372036854775807n });
+    expect(decodeUnsV2JSON('{"page":-9223372036854775808}', 'Platform_PlatformGetMembersReq')).toEqual({ page: -9223372036854775808n });
+    expect(encodeUnsV2JSON({ page: 9223372036854775807n }, 'Platform_PlatformGetMembersReq')).toBe('{"page":9223372036854775807}');
+    expect(() => decodeUnsV2JSON('{"page":9223372036854775808}', 'Platform_PlatformGetMembersReq')).toThrow('signed 64-bit');
   });
 
   it('preserves unsafe integers, long decimals and exponents as exact raw numbers', () => {

@@ -13,7 +13,7 @@ UNS 管数据命名空间、集合、Record 和 Sample；外部连接与脚本�
 | --- | --- | --- |
 | 创建集合、定义 Schema、新增记录 | [创建](references/create.md) | metadataInsertOne/Many、recordInsertOne |
 | 查询集合、筛选/排序记录 | [查询](references/read.md) | dataAppContext、metadataFind/FindOne（非 App 凭证）、collectionDescribe、recordFind |
-| 改记录、集合名称、扩展 Schema | [修改](references/update.md) | recordUpdateOne、metadataUpdateOne/Many、metadataFindOneAndUpdate |
+| 改记录、集合名称、扩展 Schema | [修改](references/update.md) | recordUpdateOne、metadataUpdateOne/Many |
 | 删记录、软删除集合 | [删除](references/delete.md) | recordDeleteOne、metadataDeleteOne/Many |
 | 恢复集合或记录 | [恢复](references/restore.md) | metadataRestore、recordRestore |
 | 分页、历史采样、事务、写入结果 | [数据工作流](references/data-workflows.md) | sampleFind、recordTransactionExecute |
@@ -50,6 +50,6 @@ export async function findAppCollection(alias: string) {
 
 ## 结果与异常
 
-响应为 code/msg/requestId/data。元数据 find 返回 items/pageInfo；findOne 与 findOneAnd* 返回 value；普通写入返回对应计数和 ID。metadataTransact 的 results 按 opId 对应。检查 committed、每项错误和实际计数；dryRun 只校验。metadataBulkWrite 默认原子，显式非原子时必须逐项检查 results/errors；跨 kind 的依赖写入使用 metadataTransact。recordBulkWrite 不保证跨集合事务。
+响应为 code/msg/requestId/data。元数据 find 返回 items/pageInfo；单条 updateOne/replaceOne/deleteOne 请求 returnDocument 时附带 value；普通写入默认返回对应计数和 ID。metadataTransact 的 results 按 opId 对应。检查 committed、每项错误和实际计数；dryRun 只校验。metadataBulkWrite 默认原子，显式非原子时必须逐项检查 results/errors；跨 kind 的依赖写入使用 metadataTransact。recordBulkWrite 不保证跨集合事务。
 
 大整数与 JSON 精确数字可能为 bigint/UnsV2RawNumber；保留读取到的 revision 类型，不用 Number 或普通 JSON.stringify 做无损往返。错误带 execution（notStarted / rolledBack / committed / unknown）与 retry（safe、afterMs）。UnsV2OutcomeUnknownError（execution 为 unknown）先读回核对内容；retry.safe 时可以用同一请求、同一幂等键原样重发。取消请求不撤销写入；client.uns 不自动重试。

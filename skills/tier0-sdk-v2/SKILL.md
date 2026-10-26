@@ -46,7 +46,7 @@ export async function inspectConnection() {
 | 入口 | 成功值 | 失败类型 |
 | --- | --- | --- |
 | Source、Stream、UNS | 完整 `{ code, msg, requestId, data }` | `UnsV2Error` / `UnsV2OutcomeUnknownError` |
-| 普通 v1，如 system、members、agent、mqttAuth | 解包后的 `data` | `ApiError` / `TransportError` |
+| 平台 v2，如 system、members、agent、mqttAuth | 解包后的 `data` | `ApiError` / `TransportError` |
 | notifications | 直接对象，如 `messageId`、`status` | `ApiError` |
 | controls、capabilities | 专属响应对象 | `ControlError` / `CapabilityError` |
 
@@ -56,7 +56,7 @@ export async function inspectConnection() {
 
 ## 从首版入口迁移
 
-- `client.uns.sourceList(body)` → `client.source.list(body)`。
+- `client.uns.sourceList(body)` → `client.source.documents.list(body)`。
 - `client.uns.sourceDocumentGet(body)` → `client.source.documents.get(body)`。
 - `client.uns.streamProgramDeploy(body)` → `client.stream.programs.deploy(body)`。
 - `client.uns.streamDocumentValidate(body)` → `client.stream.documents.validate(body)`。
@@ -64,3 +64,5 @@ export async function inspectConnection() {
 - 低层 `createUnsV2Client` 保留完整生成契约，供契约工具使用；业务主入口不再把 Source/Stream/Control 混入 `client.uns`。
 
 React/Vue 示例与验签见 [集成参考](references/integration.md)。完成接入时验证目标入口、真实身份、响应解包和错误分支；SDK 本地测试通过不代表环境联调完成。
+
+公开 HTTP 入口统一为 `/openapi/v2`。旧的重复操作已退役，不生成兼容调用或回退。Source 配置用 documents.*，Stream 草稿用 documents.*、发布用 programs.deploy；App 数据层仍提供 insertMany/findOneAnd*/distinct 等便捷方法。历史旧写结果未知时先核对业务状态，不能转换路由后盲目重放。

@@ -88,7 +88,7 @@ function discovery(value: unknown, status: number): CapabilityDiscoverResponse {
       !Array.isArray(value.capabilities) || !Array.isArray(value.deprecations) ||
       (value.productVersion !== undefined && !text(value.productVersion))) return fail();
   if (value.product !== 'cloud' || value.contractVersion !== '1.0' ||
-      !value.apiContractVersions.includes('openapi/v1') ||
+      !value.apiContractVersions.includes('openapi/v2') ||
       !value.interpreterContractVersions.includes('tier0-stream/v2') ||
       !value.sdkContractVersions.includes('control/v1')) return fail(true);
 
@@ -147,7 +147,7 @@ export class CapabilitiesClient {
     if (arguments.length !== 0) throw new TypeError('Tier0 SDK: capability discovery accepts no arguments.');
     let response: Awaited<ReturnType<CloudTransport['post']>>;
     try {
-      response = await this.transport.post('/openapi/v1/capabilities/discover', {});
+      response = await this.transport.post('/openapi/v2/capabilities/discover', {});
     } catch (error) {
       if (!(error instanceof CloudTransportError)) throw error;
       throw new CapabilityError('Capability discovery HTTP exchange failed.', {

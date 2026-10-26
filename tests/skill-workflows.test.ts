@@ -219,7 +219,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     steps = [
       { path: 'metadata', data: outcome('validated') },
       { path: 'metadata', check: b => expect(b.data.recordSchema.required).toEqual(['name', 'enabled']), data: outcome() },
-      { path: 'metadata:findOne', data: { value: collection() } },
+      { path: 'metadata:find', data: { items: [collection()] } },
       { path: 'collections/devices/records', check: b => expect(b.returnDocument).toBe('after'),
         data: { insertedId: 'device-1', value: record(), status: 'committed', replayed: false } },
       { path: 'collections/devices/records:find', data: records(record()) },
@@ -227,15 +227,15 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
         filter: { _id: 'device-1' }, expectedRevision: 1, update: { $set: { name: 'pump-2' } }, upsert: false }),
         data: { status: 'committed', matchedCount: 1, modifiedCount: 1, replayed: false } },
       { path: 'collections/devices/records:find', data: records(record(2, 'pump-2')) },
-      { path: 'metadata:findOne', data: { value: collection() } },
+      { path: 'metadata:find', data: { items: [collection()] } },
       { path: 'metadata:updateOne', check: b => {
         expect(b.update.$set.recordSchema.properties.location).toEqual({ type: 'string' });
         expect(b.update.$set.recordSchema.required).toEqual(['name', 'enabled']);
         expect(b.update.$set).not.toHaveProperty('sampleSchema');
       }, data: outcome('validated') },
       { path: 'metadata:updateOne', data: outcome() },
-      { path: 'metadata:findOne', data: { value: collection(2) } },
-      { path: 'metadata:findOneAndUpdate', check: b => expect(b).toMatchObject({
+      { path: 'metadata:find', data: { items: [collection(2)] } },
+      { path: 'metadata:updateOne', check: b => expect(b).toMatchObject({
         kind: 'collection', filter: { _id: 'devices' }, expectedRevision: 2,
         update: { $set: { name: 'renamed' } }, returnDocument: 'after', upsert: false,
       }), data: { ...outcome(), value: { ...collection(3), data: { ...collection().data, name: 'renamed' } } } },
@@ -245,12 +245,12 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
       { path: 'collections/devices/records:find', data: records() },
       { path: 'collections/devices/records:restore', data: { status: 'committed', restoredCount: 1, restoredIds: ['device-1'], replayed: false } },
       { path: 'collections/devices/records:find', data: records(record(4, 'pump-2')) },
-      { path: 'metadata:findOne', data: { value: collection(3) } },
+      { path: 'metadata:find', data: { items: [collection(3)] } },
       { path: 'metadata:deleteOne', check: b => expect(b.expectedRevision).toBe(3), data: { ...outcome(), deletedCount: 1 } },
-      { path: 'metadata:findOne', check: b => expect(b.state).toBe('deleted'), data: { value: { ...collection(4), deletedAt: 1 } } },
-      { path: 'metadata:findOne', check: b => expect(b.state).toBe('deleted'), data: { value: { ...collection(4), deletedAt: 1 } } },
+      { path: 'metadata:find', check: b => expect(b.state).toBe('deleted'), data: { items: [{ ...collection(4), deletedAt: 1 }] } },
+      { path: 'metadata:find', check: b => expect(b.state).toBe('deleted'), data: { items: [{ ...collection(4), deletedAt: 1 }] } },
       { path: 'metadata:restore', check: b => expect(b.items[0].expectedRevision).toBe(4), data: { ...outcome(), restoredCount: 1 } },
-      { path: 'metadata:findOne', data: { value: collection(5) } },
+      { path: 'metadata:find', data: { items: [collection(5)] } },
     ];
     await example('uns', 'create').createDeviceCollection('devices', 'devices', 'create-collection', client);
     const inserted = await example('uns', 'create', 1).insertDevice('devices', 'device-1', 'pump', 'insert-record', client);
@@ -296,14 +296,14 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
   it('sends the migrated notification example with inbox type, explicit mode and v2 App identity', async () => {
     vi.stubEnv('APP_ID', 'da6aa4b6-1a8f-43b7-86ed-73818fe22550');
     steps = [
-      { path: '/openapi/v1/notifications/send', check: body => {
+      { path: '/openapi/v2/notifications/send', check: body => {
         expect(body).toMatchObject({ recipientUserId: '9007199254740993', type: 'inbox',
           mode: 'test', idempotencyKey: 'work-order-event-v1', channels: ['web', 'mobile'],
           sender: { type: 'app', id: 'da6aa4b6-1a8f-43b7-86ed-73818fe22550' } });
         expect(body.sender).not.toHaveProperty('meta');
         expect(body.sender).not.toHaveProperty('name');
       }, raw: JSON.stringify({ messageId: '9007199254740997', status: 'accepted', createdAt: '2026-10-22T00:00:00Z' }) },
-      { path: '/openapi/v1/notifications/get', check: body => expect(body.messageId).toBe('9007199254740997'),
+      { path: '/openapi/v2/notifications/get', check: body => expect(body.messageId).toBe('9007199254740997'),
         raw: JSON.stringify({ messageId: '9007199254740997', type: 'inbox', status: 'accepted', createdAt: '2026-10-22T00:00:00Z' }) },
     ];
     try {
@@ -317,7 +317,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
   });
 
   it('keeps unnamed member IDs internal instead of using them as display labels', async () => {
-    steps = [{ path: '/openapi/v1/platform/getMembers', check: body => expect(body.statuses).toEqual(['active']),
+    steps = [{ path: '/openapi/v2/platform/getMembers', check: body => expect(body.statuses).toEqual(['active']),
       data: { list: [{ userId: '9007199254740993', status: 'active', roles: [], updatedAt: '2026-10-22T00:00:00Z' }],
         page: 1, size: 20, total: 1 } }];
     const result = await example('members', 'platform-members').memberOptions('pump', 1, client);
@@ -326,7 +326,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
   });
 
   it('lists App members by explicit appId and branches unavailable access lists by code', async () => {
-    const path = '/openapi/v1/apps/access-members/list';
+    const path = '/openapi/v2/apps/access-members/list';
     steps = [
       { path, check: body => expect(body).toEqual({ appId: 'app-1', page: 1, size: 20 }),
         data: { appId: 'app-1', published: 1, allActiveMembers: 2, roles: [], total: 1, page: 1, size: 20,

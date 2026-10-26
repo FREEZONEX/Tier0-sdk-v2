@@ -125,9 +125,9 @@ try {
     await step('Stream standalone draft create + read', async () => {
       const document = { name: prefix, sdkVersion: 'tier0-stream/v2', timeoutMs: 5000,
         script: 'module.exports = api => { api.stream.onTimer({ id: "tick", intervalMs: 60000 }, async () => ({ value: 1 })); };' };
-      const validation = await client.stream.programs.validate({ document });
+      const validation = await client.stream.documents.validate({ program: document });
       assert.equal(validation.data.valid, true);
-      const saved = await client.stream.programs.create({ dryRun: false, document, idempotencyKey: intent('standalone-stream') });
+      const saved = await client.stream.documents.create({ dryRun: false, program: document, idempotencyKey: intent('standalone-stream') });
       assert.equal(typeof saved.data.id, 'string');
       streamId = saved.data.id;
       report.fixtures.stream = { id: streamId, state: 'draft' };

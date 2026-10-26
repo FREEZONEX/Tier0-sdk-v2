@@ -90,12 +90,12 @@ describe('UNS v2 localhost HTTP fixture', () => {
     const config = { apiHost, apiKey: 'workspace-bound-key', unsV2AppDataSubject: 'gateway.user.signature' };
     const api = createClient(config);
     respond = (req, res) => {
-      if (req.url === '/openapi/v1/controls/discover') send(res, { total: 0, list: [] });
-      else if (req.url === '/openapi/v1/controls/pump.start/invoke') send(res, {
-        code: 'pump.start', contractVersion: '1', result: {}, runID: 'fixture-run', status: 'succeeded', replayed: false,
-      });
-      else if (req.url === '/openapi/v1/capabilities/discover') send(res, {
-        product: 'cloud', contractVersion: '1.0', apiContractVersions: ['openapi/v1'],
+      if (req.url === '/openapi/v2/uns/controls/discover') send(res, { code: 200, msg: '', requestId: 'controls', data: { total: 0, list: [] } });
+      else if (req.url === '/openapi/v2/uns/controls/invoke') send(res, { code: 200, msg: '', requestId: 'control', data: {
+        code: 'pump.start', contractVersion: '1', result: {}, runId: 'fixture-run', status: 'succeeded', replayed: false,
+      } });
+      else if (req.url === '/openapi/v2/capabilities/discover') send(res, {
+        product: 'cloud', contractVersion: '1.0', apiContractVersions: ['openapi/v1', 'openapi/v2'],
         interpreterContractVersions: ['tier0-stream/v2'], sdkContractVersions: ['control/v1'], capabilities: [], deprecations: [],
       });
       else send(res, {});
@@ -104,9 +104,9 @@ describe('UNS v2 localhost HTTP fixture', () => {
     const transport = new CloudTransport(() => http, config);
     await Promise.all([
       api.controls.discover(), api.controls.use({ code: 'pump.start' }).invoke({}), api.capabilities.discover(),
-      http.post('/openapi/v1/uns/query', {}), http.post('/openapi/v1/assets/files/url', {}),
+      http.post('/openapi/v2/uns/query', {}), http.post('/openapi/v2/assets/files/url', {}),
       transport.post('/openapi/v2/uns/test', {}),
-      ...['/openapi/v1/uns/query', '/openapi/v2/assets/test', '/openapi/v2/uns-other/test', '/openapi/v2/uns']
+      ...['/legacy/uns/query', '/openapi/v2/assets/test', '/openapi/v2/uns-other/test', '/openapi/v2/uns']
         .map(path => transport.postText(path, '{}')),
     ]);
     expect(received.slice(start)).toHaveLength(10);
@@ -357,11 +357,11 @@ describe('UNS v2 localhost HTTP fixture', () => {
       'record-notifications/1', 'record-delete-samples/1', 'stream-history/1',
       'record-reads/1', 'app-context/2', 'collection-ttl/1', 'error-model/1', 'record-insert-return/1',
     ]));
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('6d0fbbca15ddbfd4d9b313b1abbc843b36d14dd0');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('2c462f6a2d1f467bc063da52c558b3ed96f50701');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(UNS_V2_CONTRACT_PROVENANCE.sourceDerivedContractSHA256).toBe(UNS_V2_CONTRACT_PROVENANCE.hashes.contract);
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(106);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(118);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(85);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(97);
     expect(received.slice(start)).toHaveLength(1);
   });
 
@@ -502,10 +502,10 @@ describe('UNS v2 localhost HTTP fixture', () => {
         total: 0, truncated: false, list: [],
       },
     });
-    const response = await client().source.list({ page: 1, size: 20, archived: false });
+    const response = await client().source.documents.list({ page: 1, size: 20, archived: false });
     expect(response.data).toMatchObject({ complete: true, total: 0, list: [] });
     expect(received[start]).toMatchObject({
-      method: 'POST', path: '/openapi/v2/uns/sources/list', body: '{"page":1,"size":20,"archived":false}',
+      method: 'POST', path: '/openapi/v2/uns/sources/documents/list', body: '{"page":1,"size":20,"archived":false}',
     });
   });
 
@@ -660,8 +660,8 @@ describe('UNS v2 localhost HTTP fixture', () => {
       else send(res, { error: 'unexpected read' }, 500);
     };
     const api = client();
-    const created = await api.stream.programs.create({ dryRun: false, idempotencyKey: 'create-receipt',
-      document: { name: 'receipts', sdkVersion: 'tier0-stream/v2', script: 'module.exports=api=>{};' } });
+    const created = await api.stream.documents.create({ dryRun: false, idempotencyKey: 'create-receipt',
+      program: { name: 'receipts', sdkVersion: 'tier0-stream/v2', script: 'module.exports=api=>{};' } });
     if (!('id' in created.data)) throw new Error('Expected committed create receipt');
     expect(created.data).not.toHaveProperty('activeRelease');
     const deployed = await api.stream.programs.deploy({ id: created.data.id, expectedRevision: created.data.revision,
@@ -670,7 +670,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
     const runs = await api.stream.runs.list({ id: deployed.data.id, size: 10 });
     expect(runs.data.items.filter(run => String(run.release) === String(deployed.data.activeRelease)).map(run => run.id)).toEqual(['this']);
     expect(received.slice(start).map(row => row.path)).toEqual([
-      '/openapi/v2/uns/streams/program/create', '/openapi/v2/uns/streams/program/deploy', '/openapi/v2/uns/streams/runs/list',
+      '/openapi/v2/uns/streams/documents/create', '/openapi/v2/uns/streams/program/deploy', '/openapi/v2/uns/streams/runs/list',
     ]);
     expect(JSON.parse(received[start + 1].body).expectedRevision).toBe(3);
   });
@@ -680,9 +680,9 @@ describe('UNS v2 localhost HTTP fixture', () => {
       status: 'disabled', executionState: 'disabled', createdAt: 1, updatedAt: 2 };
     respond = (_req, res) => send(res, { code: 200, msg: '', requestId: 'inactive', data: inactive });
     const api = client();
-    const stopped = await api.stream.programs.disable({ id: '301', expectedRevision: 3,
+    const stopped = await api.stream.documents.disable({ id: '301', expectedRevision: 3, expectedActiveRelease: 1,
       dryRun: false, idempotencyKey: 'disable-receipt' });
-    const current = await api.stream.programs.get({ id: '301' });
+    const current = await api.stream.documents.get({ id: '301', view: 'summary' });
     expect(stopped.data).toEqual(inactive);
     expect(current.data).toEqual(inactive);
     expect(stopped.data).not.toHaveProperty('activeRelease');

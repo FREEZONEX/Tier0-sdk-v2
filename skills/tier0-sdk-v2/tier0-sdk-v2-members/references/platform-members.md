@@ -1,6 +1,6 @@
 # Workspace 成员查询与选择
 
-方法：`members.listWorkspace(body)`；POST /openapi/v1/platform/getMembers。查询当前 Key 所属 Workspace；云端需要 uns:read。通知读写权限不自动包含成员查询。
+方法：`members.listWorkspace(body)`；POST /openapi/v2/platform/getMembers。查询当前 Key 所属 Workspace；云端需要 uns:read。通知读写权限不自动包含成员查询。
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |

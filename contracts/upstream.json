@@ -1,34 +1,26 @@
 {
   "repository": "FREEZONEX/Tier0-Backend",
-  "revision": "6d0fbbca15ddbfd4d9b313b1abbc843b36d14dd0",
+  "revision": "2c462f6a2d1f467bc063da52c558b3ed96f50701",
   "inputs": {
-    "contracts/openapi-v1.source.json": {
-      "path": "service/gwsvr/internal/handler/swaggerui/swagger.json",
-      "sha256": "59e09129666b52a71abec7ee38ed0d224c128f51026efbbcee45d3051460f4b9"
-    },
     "contracts/openapi-v2.source.json": {
       "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
-      "sha256": "eb92577c0135d87f91382fcf88271cefadb2d48be33e08b7e3a259cd7bf7f80d"
-    },
-    "contracts/info.source.proto": {
-      "path": "service/unssvr/proto/openapi.proto",
-      "sha256": "09a59577d556b7fe86c2ffe2c3f7bf37e0f7b6ea8859e9d30119c0bc8b27f9ac"
+      "sha256": "9cb403af7f6d15d05d78d215dd271e17812d222b1231bc770daaef0c3827fa26"
     },
     "contracts/uns-v2/contract.json": {
       "path": "service/unssvr/internal/domain/unsv2/contract_generated.go#ContractJSON",
-      "sha256": "c05c2b1b31716a0d9634ee28093f6aa34373425b4210d5919c1ed20416cd31c2"
+      "sha256": "a6c0be3eeae459ee51062980e1f4b57ae25a2ab54a067c84d2f517dd4e91f2e9"
     },
     "contracts/uns-v2/manifest.json": {
       "path": "share/unscontract/manifest.json",
-      "sha256": "de7c43dce04d62b0d3ffd9e447b94ad14f09c2b1973161a494d2583b086b1f5a"
+      "sha256": "f20c50fd88fce413411eb80d844bffb65bee08d79e9c238b0720a77caf6d997f"
     },
     "contracts/uns-v2/cloud-support.json": {
       "path": "share/unscontract/cloud-support.json",
-      "sha256": "102eef2517c84adbb0d0223d218cdd711c28da459d790f5ba1b9f9b316b54f15"
+      "sha256": "3fec1856c4f53b0ba61de81ef7765ac9c20e92cfbbed030abf29c46dd7f84b51"
     },
     "contracts/uns-v2/registry_generated.go": {
       "path": "share/unscontract/registry_generated.go",
-      "sha256": "f3a4a8efe6bbb52f0239f76a998c2f5b882b55a6eac4bc1e566d73abb9fd520c"
+      "sha256": "72e76aba31b3aa835678f4e2b564398f372378b1e27db82991a3323798ffabc5"
     }
   }
 }

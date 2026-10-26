@@ -100,7 +100,8 @@ export class CloudTransport {
         throw new CloudTransportError('PROTOCOL_ERROR', response.status);
       }
       if (!response.body) throw new CloudTransportError('PROTOCOL_ERROR', response.status);
-      reader = response.body.getReader();
+      try { reader = response.body.getReader(); }
+      catch { throw new CloudTransportError('PROTOCOL_ERROR', response.status); }
       const decoder = new TextDecoder('utf-8', { fatal: true });
       const chunks: string[] = [];
       let receivedBytes = 0;

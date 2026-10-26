@@ -1,8 +1,11 @@
 import { getClient, type HttpClient, type ClientConfig } from './openapi/client.js';
-import { CloudTransport, CloudTransportError, DEFAULT_CLOUD_TRANSPORT_TIMEOUT_MS, type CloudTransportConfig } from './cloud-transport.js';
+import { DEFAULT_CLOUD_TRANSPORT_TIMEOUT_MS, type CloudTransportConfig } from './cloud-transport.js';
+import { UnsV2ClientCore, UnsV2Error, type UnsV2Execution, type UnsV2Retry } from './uns-v2/client.js';
+import { UnsV2RawNumber } from './uns-v2/codec.js';
+import type { UnsV2JSONValue, UnsV2Request } from './uns-v2/generated.js';
 
-/** Cloud Control contracts are independent of generated OpenAPI / Enterprise flow types. */
-export type ControlJSON = null | boolean | number | string | ControlJSON[] | { [key: string]: ControlJSON };
+/** Control convenience API over the canonical UNS v2 routes. Exact numbers are preserved. */
+export type ControlJSON = UnsV2JSONValue;
 
 export interface PublicControl {
   code: string;
@@ -28,7 +31,7 @@ export interface ControlDiscoverResponse {
   list: PublicControl[];
 }
 
-/** Shared HTTP settings; UNS v2 options never affect Control execution or headers. */
+/** Shared HTTP settings. The server still resolves the Control binding and authorization. */
 export interface ControlTransportConfig extends CloudTransportConfig {}
 
 export interface CloudClientConfig extends ClientConfig, ControlTransportConfig {}
@@ -53,12 +56,18 @@ export interface ControlInvokeResponse<Result = ControlJSON> {
 export interface ControlErrorInfo {
   /** HTTP status, absent when no HTTP response was received. */
   status?: number;
-  /** Gateway string errorCode, or an SDK-local CONTROL_* transport/protocol code. */
+  /** Canonical UNS error.code, or an SDK-local CONTROL_* transport/protocol code. */
   errorCode: string;
   runID?: string;
   contractVersion?: string;
   runStatus?: string;
   replayed?: boolean;
+  requestId?: string;
+  execution?: UnsV2Execution;
+  retry?: UnsV2Retry;
+  reason?: string;
+  details?: Record<string, unknown>[];
+  data?: unknown;
 }
 
 /** No Control error is automatically retried, including authentication failures. */
@@ -69,6 +78,12 @@ export class ControlError extends Error {
   readonly contractVersion?: string;
   readonly runStatus?: string;
   readonly replayed?: boolean;
+  readonly requestId?: string;
+  readonly execution?: UnsV2Execution;
+  readonly retry?: UnsV2Retry;
+  readonly reason?: string;
+  readonly details?: Record<string, unknown>[];
+  readonly data?: unknown;
   readonly retryable = false;
 
   constructor(message: string, info: ControlErrorInfo) {
@@ -80,6 +95,12 @@ export class ControlError extends Error {
     this.contractVersion = info.contractVersion;
     this.runStatus = info.runStatus;
     this.replayed = info.replayed;
+    this.requestId = info.requestId;
+    this.execution = info.execution;
+    this.retry = info.retry;
+    this.reason = info.reason;
+    this.details = info.details;
+    this.data = info.data;
   }
 }
 
@@ -104,7 +125,7 @@ function keys(value: unknown, allowed: string[]): void {
 }
 
 function json(value: unknown, seen = new Set<unknown>()): boolean {
-  if (value === null || typeof value === 'string' || typeof value === 'boolean') return true;
+  if (value === null || typeof value === 'string' || typeof value === 'boolean' || value instanceof UnsV2RawNumber) return true;
   if (typeof value === 'number') return Number.isFinite(value);
   if (typeof value !== 'object' || seen.has(value)) return false;
   if (!Array.isArray(value) && Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) {
@@ -128,7 +149,7 @@ function definition(value: unknown): value is PublicControl {
 function runInfo(value: unknown): Partial<ControlErrorInfo> {
   if (!record(value)) return {};
   return {
-    runID: typeof value.runID === 'string' ? value.runID : undefined,
+    runID: typeof value.runId === 'string' ? value.runId : undefined,
     contractVersion: typeof value.contractVersion === 'string' ? value.contractVersion : undefined,
     runStatus: typeof value.status === 'string' ? value.status : undefined,
     replayed: typeof value.replayed === 'boolean' ? value.replayed : undefined,
@@ -146,38 +167,29 @@ export interface ControlHandle<Input = ControlJSON, Result = ControlJSON> {
 }
 
 export class ControlsClient {
-  private readonly transport: CloudTransport;
+  private readonly uns: UnsV2ClientCore;
 
   constructor(resolveClient: () => HttpClient = getClient, config: ControlTransportConfig = {}) {
-    this.transport = new CloudTransport(resolveClient, config);
+    this.uns = new UnsV2ClientCore(resolveClient, config);
   }
 
-  private async post(path: string, body: unknown, invoked: boolean): Promise<{ value: unknown; status: number }> {
-    let response: Awaited<ReturnType<CloudTransport['post']>>;
+  private async post<Name extends 'controlDiscover' | 'controlDescribe' | 'controlInvoke'>(
+    operation: Name, body: UnsV2Request<Name>,
+  ): Promise<{ value: unknown; status: number }> {
     try {
-      response = await this.transport.post(path, body);
+      const response = await this.uns.call(operation, body);
+      return { value: response.data, status: 200 };
     } catch (error) {
-      if (!(error instanceof CloudTransportError)) throw error;
-      const info = { status: error.status, errorCode: `CONTROL_${error.kind}` };
-      if (invoked) throw new ControlResultUnknownError(info);
-      const message = error.kind === 'TRANSPORT_TIMEOUT' ? 'Control HTTP transport deadline exceeded.' :
-        error.kind === 'PROTOCOL_ERROR' ? 'Invalid Control response.' : 'Control transport failed.';
-      throw new ControlError(message, info);
-    }
-    const { value, status, ok } = response;
-    if (!ok) {
-      const error = record(value) ? value : {};
-      const valid = typeof error.errorCode === 'string' && typeof error.message === 'string';
+      if (!(error instanceof UnsV2Error)) throw error;
       const info: ControlErrorInfo = {
-        ...runInfo(value), status,
-        errorCode: valid ? error.errorCode as string : 'CONTROL_PROTOCOL_ERROR',
+        ...runInfo(error.data), status: error.status,
+        errorCode: error.code.replace(/^UNS_V2_/, 'CONTROL_'),
+        requestId: error.requestId, execution: error.execution, retry: error.retry,
+        reason: error.reason, details: error.details, data: error.data,
       };
-      if (info.errorCode === 'CONTROL_RESULT_UNKNOWN' || (invoked && !valid)) {
-        throw new ControlResultUnknownError(info);
-      }
-      throw new ControlError(valid ? error.message as string : 'Invalid Control error response.', info);
+      if (error.outcomeUnknown) throw new ControlResultUnknownError(info);
+      throw new ControlError(error.message, info);
     }
-    return { value, status };
   }
 
   /** Discover visible contracts; defaults and authorization are resolved by the server. */
@@ -188,12 +200,12 @@ export class ControlsClient {
         (options.search !== undefined && typeof options.search !== 'string')) {
       throw new TypeError('Tier0 SDK: invalid Control discovery options.');
     }
-    const { value, status } = await this.post('/openapi/v1/controls/discover', options, false);
+    const { value, status } = await this.post('controlDiscover', options);
     if (!record(value) || !Number.isSafeInteger(value.total) || (value.total as number) < 0 ||
         !Array.isArray(value.list) || !value.list.every(definition)) {
       throw new ControlError('Invalid Control discovery response.', { status, errorCode: 'CONTROL_PROTOCOL_ERROR' });
     }
-    return value as unknown as ControlDiscoverResponse;
+    return { total: value.total as number, list: value.list as PublicControl[] };
   }
 
   use<Input = ControlJSON, Result = ControlJSON>(selector: { code: string }): ControlHandle<Input, Result> {
@@ -202,10 +214,9 @@ export class ControlsClient {
     if (typeof code !== 'string' || code.length > 128 || !/^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$/.test(code)) {
       throw new TypeError('Tier0 SDK: invalid Control code.');
     }
-    const path = `/openapi/v1/controls/${encodeURIComponent(code)}`;
     return {
       describe: async () => {
-        const { value, status } = await this.post(`${path}/describe`, {}, false);
+        const { value, status } = await this.post('controlDescribe', { code });
         if (!definition(value) || value.code !== code) {
           throw new ControlError('Invalid Control description.', { status, errorCode: 'CONTROL_PROTOCOL_ERROR' });
         }
@@ -218,16 +229,17 @@ export class ControlsClient {
           throw new TypeError('Tier0 SDK: invalid Control idempotency key.');
         }
         if (!json(input)) throw new TypeError('Tier0 SDK: Control input must be JSON.');
-        const { value, status } = await this.post(`${path}/invoke`, {
-          input, ...(key === undefined ? {} : { idempotencyKey: key }),
-        }, true);
+        const { value, status } = await this.post('controlInvoke', {
+          code, input: input as ControlJSON, ...(key === undefined ? {} : { idempotencyKey: key }),
+        });
         if (!record(value) || value.code !== code || typeof value.contractVersion !== 'string' || !value.contractVersion ||
-            !Object.prototype.hasOwnProperty.call(value, 'result') || typeof value.runID !== 'string' || !value.runID ||
+            !Object.prototype.hasOwnProperty.call(value, 'result') || typeof value.runId !== 'string' || !value.runId ||
             typeof value.status !== 'string' || !value.status || ['accepted', 'queued', 'pending', 'running'].includes(value.status) ||
             typeof value.replayed !== 'boolean') {
           throw new ControlResultUnknownError({ ...runInfo(value), status, errorCode: 'CONTROL_PROTOCOL_ERROR' });
         }
-        return value as unknown as ControlInvokeResponse<Result>;
+        return { code: value.code, contractVersion: value.contractVersion, result: value.result as Result,
+          runID: value.runId, status: value.status, replayed: value.replayed };
       },
     };
   }

@@ -10,7 +10,7 @@ sdk.uns.sourceList({});
 // @ts-expect-error Stream management belongs to its own domain
 sdk.uns.streamProgramDeploy({ id: '123', dryRun: true });
 // @ts-expect-error Native documents cannot be passed as runtime programs
-sdk.stream.programs.validate({ document: { name: 'native', protocol: 'http', config: {} } });
+sdk.stream.documents.validate({ program: { name: 'native', protocol: 'http', config: {} } });
 sdk.mqttAuth.delete({ id: 9007199254740993n });
 const info = sdk.system.info();
 info.then(value => { const broker: string | undefined = value.mqttBroker; void broker; });
@@ -33,8 +33,8 @@ useTier0Request(sdk, (c, id: string, signal) => c.uns.recordFind({ collectionId:
 void invalid;
 
 export async function publishStreamFromReceipts(client: Tier0Client) {
-  const created = await client.stream.programs.create({ dryRun: false, idempotencyKey: 'create',
-    document: { name: 'typed-receipts', sdkVersion: 'tier0-stream/v2', script: 'module.exports=api=>{};' } });
+  const created = await client.stream.documents.create({ dryRun: false, idempotencyKey: 'create',
+    program: { name: 'typed-receipts', sdkVersion: 'tier0-stream/v2', script: 'module.exports=api=>{};' } });
   if (!('id' in created.data)) return;
   const deployed = await client.stream.programs.deploy({ id: created.data.id,
     expectedRevision: created.data.revision, dryRun: false, idempotencyKey: 'deploy' });
@@ -47,3 +47,10 @@ export async function publishStreamFromReceipts(client: Tier0Client) {
   void revision; void activeVersion; void assumedRelease;
   return release;
 }
+
+// @ts-expect-error Retired Source projection aliases have no fallback route.
+sdk.source.list({});
+// @ts-expect-error Retired Stream projection aliases have no fallback route.
+sdk.stream.programs.get({ id: "301" });
+// @ts-expect-error Namespace Agent routes have no v2 contract.
+sdk.agent.nodes.searchSemantic({});

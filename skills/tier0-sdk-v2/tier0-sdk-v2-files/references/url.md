@@ -1,6 +1,6 @@
 # 获取文件访问地址
 
-方法：`files.url({filePath,expiredSec?,responseContentDisposition?}, {signal}?)`；GET /openapi/v1/assets/files/url。
+方法：`files.url({filePath,expiredSec?,responseContentDisposition?}, {signal}?)`；GET /openapi/v2/assets/files/url。
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |

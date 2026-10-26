@@ -1,6 +1,6 @@
 # 发送通知
 
-方法：`notifications.send(body)`；POST /openapi/v1/notifications/send。需要 notifications:send；收件人为当前 Workspace 内可用的成员，按[成员查询](../../tier0-sdk-v2-members/references/platform-members.md)解析。
+方法：`notifications.send(body)`；POST /openapi/v2/notifications/send。需要 notifications:send；收件人为当前 Workspace 内可用的成员，按[成员查询](../../tier0-sdk-v2-members/references/platform-members.md)解析。
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |

@@ -3,7 +3,6 @@
 | 方法 | POST 路径 | 必要参数 |
 | --- | --- | --- |
 | programs.deploy | /openapi/v2/uns/streams/program/deploy | id、dryRun；建议 expectedRevision |
-| programs.disable | /openapi/v2/uns/streams/program/disable | id、dryRun；建议 expectedRevision |
 | programs.rollback | /openapi/v2/uns/streams/program/rollback | id、versionId、dryRun；建议 expectedRevision |
 | documents.disable | /openapi/v2/uns/streams/documents/disable | id、expectedRevision、expectedActiveRelease、dryRun |
 
@@ -17,7 +16,7 @@
 | activeVersion | 不可变发布版本 ID；回滚的 versionId 使用这个 ID，不使用发布序号 |
 | activeRelease | 本次事务记录的正整数发布序号；与 runs.list 中的 release 对照；无活跃发布或旧回执未记录时省略 |
 
-programs 的旧 activeVersion:'0' 约定保持兼容；新增 activeRelease 不用 0 表示未发布。原生 documents 回执的既有 activeRelease 约定不变。
+programs 回执的 activeVersion:'0' 表示无活跃版本；新增 activeRelease 不用 0 表示未发布。原生 documents 回执的既有 activeRelease 约定不变。
 
 ```ts
 import { createClient, type Tier0Client, type CloudStreamDocumentView } from '@tier0/sdk-v2';

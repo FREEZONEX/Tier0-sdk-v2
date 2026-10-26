@@ -143,7 +143,7 @@ export class HttpClient {
       return response as T;
     }
     let body = input.body ?? {};
-    if (path === '/openapi/v1/notifications/send') {
+    if (path === '/openapi/v2/notifications/send') {
       if (!record(body)) throw new TypeError('Notification body must be an object');
       const channels = body.channels ?? ['web', 'mobile'];
       if (!Array.isArray(channels) || channels.some(c => c !== 'web' && c !== 'mobile')) throw new TypeError('Notification channels must be web or mobile');

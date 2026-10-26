@@ -28,7 +28,7 @@ describe('new architecture v1 on a real HTTP fixture', () => {
     const user = await sdk().system.whoami();
     expect(user.userID).toBe(9007199254740993n);
     expect(user.workspaceID).toBe(12);
-    expect(received[0]).toMatchObject({ method: 'POST', url: '/openapi/v1/auth/whoami', body: '{}' });
+    expect(received[0]).toMatchObject({ method: 'POST', url: '/openapi/v2/auth/whoami', body: '{}' });
     expect(received[0].headers['x-api-key']).toBe('test-only-key');
   });
   it('serializes signed 64-bit request IDs as exact JSON numbers', async () => {
@@ -61,7 +61,7 @@ describe('new architecture v1 on a real HTTP fixture', () => {
   it('routes agent and workspace members through generated contracts', async () => {
     await sdk().agent.jobs.list({ page: 1, size: 10 });
     await sdk().members.listWorkspace();
-    expect(received.map(x => x.url)).toEqual(['/openapi/v1/agent/jobs/list', '/openapi/v1/platform/getMembers']);
+    expect(received.map(x => x.url)).toEqual(['/openapi/v2/agent/jobs/list', '/openapi/v2/platform/getMembers']);
     expect('launchpad' in sdk().api).toBe(false);
     expect('flow' in sdk()).toBe(false);
   });
@@ -75,7 +75,7 @@ describe('new architecture v1 on a real HTTP fixture', () => {
     } });
     const request = { appId: 'app-1', roleKeys: ['operator'], grantedAtStart: 1700000000000, page: 1, size: 20 };
     const page = await sdk().members.listApp(request);
-    expect(received[0]).toMatchObject({ method: 'POST', url: '/openapi/v1/apps/access-members/list' });
+    expect(received[0]).toMatchObject({ method: 'POST', url: '/openapi/v2/apps/access-members/list' });
     expect(JSON.parse(received[0].body)).toEqual(request);
     expect(page.list[0]).toMatchObject({ userId: '42', grantedAt: 1700000050000 });
     expect(page.list[0].roles[0].sources).toEqual([source]);
@@ -88,7 +88,7 @@ describe('new architecture v1 on a real HTTP fixture', () => {
   it('encodes path and query values once', async () => {
     respond = res => json(res, { code: 200, msg: '', data: { fileUrl: 'https://storage.invalid/f' } });
     await sdk().files.url({ filePath: 'folder/a & #%2F.pdf', expiredSec: 30 });
-    expect(received[0].url).toBe('/openapi/v1/assets/files/url?filePath=folder%2Fa+%26+%23%252F.pdf&expiredSec=30');
+    expect(received[0].url).toBe('/openapi/v2/assets/files/url?filePath=folder%2Fa+%26+%23%252F.pdf&expiredSec=30');
   });
   it('keeps credentials isolated across concurrent instances and snapshots configuration', async () => {
     const config = { apiHost, apiKey: 'first-key' };
@@ -133,8 +133,9 @@ describe('new architecture v1 on a real HTTP fixture', () => {
     expect(calls).toBe(1);
   });
   it('keeps retired and internal routes outside the generated SDK', () => {
-    expect(Object.values(OPENAPI_OPERATIONS)).toHaveLength(51);
+    expect(Object.values(OPENAPI_OPERATIONS)).toHaveLength(44);
     for (const op of Object.values(OPENAPI_OPERATIONS)) {
+      expect(op.path).toMatch(/^\/openapi\/v2\//);
       expect(op.path).not.toMatch(/\/gw\/|\/uns\/|\/flow\/|\/launchpad\//);
     }
   });

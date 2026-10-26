@@ -5,7 +5,7 @@ description: 使用 @tier0/sdk-v2 发现、描述和调用 Tier0 Control 业务�
 
 # Control 契约调用
 
-Control 是已发布的业务调用入口；它可由 Stream 提供，但调用方不选择内部 streamId、entryId 或部署版本。使用服务端 client.controls，不重建旧 Flow 调用。
+Control 是已发布的业务调用入口；它可由 Stream 提供，但调用方不选择内部 streamId、entryId 或部署版本。使用服务端 client.controls，实际调用 `/openapi/v2/uns/controls/discover|describe|invoke`，不重建旧 Flow 调用。
 
 ## 发现和读取契约
 
@@ -52,12 +52,12 @@ export async function invokePreparedControl(code: string, input: ControlJSON, in
 }
 ```
 
-幂等键非空、不能有首尾空白，最多 128 UTF-8 字节。输入只能是普通 JSON，不传 Date、函数、循环对象、bigint、NaN/Infinity。业务 input 内名为 timeoutMs/streamId 的字段仍只是业务输入；不能借它覆盖服务端绑定、版本或执行超时。
+幂等键非空、不能有首尾空白，最多 128 UTF-8 字节。输入使用 JSON；需要保留精确数字时可用 UnsV2RawNumber，不传 Date、函数、循环对象、bigint、NaN/Infinity。业务 input 内名为 timeoutMs/streamId 的字段仍只是业务输入；不能借它覆盖服务端绑定、版本或执行超时。
 
 ## 返回与失败
 
 成功值为直接对象：code（Control 标识）、contractVersion、result、runID、status、replayed。这里的 code 不是 HTTP 业务状态码；replayed 只有服务端明确报告重放时才为 true。
 
-`ControlError` 含 status/errorCode/runID 等信息，SDK 不自动重试。`ControlResultUnknownError` 表示执行可能已经发生，包括调用响应无法证明最终结果的情况；按业务或平台运行记录对账。本 SDK 未提供通用 `controls.getRun`，不要虚构方法。若业务明确允许重放，保留原 key 和原输入，不能换新 key 重做。
+`ControlError` 含 status/errorCode/runID 与 requestId/execution/retry 等信息，SDK 不自动重试。`ControlResultUnknownError` 表示执行可能已经发生，包括调用响应无法证明最终结果的情况；按业务或平台运行记录对账。本 SDK 未提供通用 `controls.getRun`，不要虚构方法。若业务明确允许重放，保留原 key 和原输入，不能换新 key 重做。
 
 `client.capabilities.discover()` 的 control.invoke.v1 就绪只是入口条件，不等于有权调用每一个 Control。执行源发布和内部绑定管理请使用 [Stream Skill](../tier0-sdk-v2-stream/SKILL.md)。
