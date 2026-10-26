@@ -1250,7 +1250,7 @@ export type UnsV2SourceUpdateReq = {
   "expectedRevision": UnsV2Integer;
   "name"?: string;
   "description"?: string;
-  "confirmedImpactRevision": string;
+  "confirmedImpactRevision"?: string;
 })>);
 };
 
@@ -1581,7 +1581,7 @@ export type UnsV2SourceConnectionUpdateReq = {
   "id": string;
   "expectedRevision": UnsV2Integer;
   "connection": SourceDefinition;
-  "confirmedImpactRevision": string;
+  "confirmedImpactRevision"?: string;
 })>);
 };
 
@@ -1653,7 +1653,7 @@ export type UnsV2SourceStateUpdateReq = {
   "id": string;
   "expectedRevision": UnsV2Integer;
   "desiredState": "enabled" | "disabled";
-  "confirmedImpactRevision": string;
+  "confirmedImpactRevision"?: string;
 })>);
 };
 
@@ -4538,7 +4538,7 @@ export type CloudSourceDeleteReq = {
   "items": (Array<({
   "id": string;
   "expectedRevision": UnsV2Integer;
-  "confirmedImpactRevision": string;
+  "confirmedImpactRevision"?: string;
 })>);
 };
 
@@ -4702,7 +4702,7 @@ export type CloudSourceDocumentUpdateReq = ({
   "items"?: (Array<(({
   "id": string;
   "expectedRevision": UnsV2Integer;
-  "confirmedImpactRevision": string;
+  "confirmedImpactRevision"?: string;
   "document"?: CloudSourceDocument;
   "patch"?: CloudSourceDocumentPatch;
 }))>);
@@ -7068,11 +7068,11 @@ export const UNS_V2_CODEC_SCHEMAS = {"UnsV2CatalogReq":{"k":"o","p":{"includeCom
 
 export const UNS_V2_CONTRACT_PROVENANCE = {
   "repository": "FREEZONEX/Tier0-Backend",
-  "revision": "048e85c28038ef13fb6b42db7f847537663ba2c3",
+  "revision": "ca6af8b78cdcd042b1120212f8ade54e7413bc38",
   "version": "5.0.0",
   "source": "service/unssvr/internal/domain/unsv2/contract_generated.go#ContractJSON",
-  "cloudRevision": "048e85c28038ef13fb6b42db7f847537663ba2c3",
-  "cloudContractRevision": "cloud-source-impact/1+app-create-capability/1+data/3+record-reads/1+stream-receipt/1+collection-namespace/1+http-acquisition/2+app-collection/2+metadata/1+app-context/2+collection-ttl/1+error-model/1+crud-consolidation/1+lifecycle-consolidation/1+api-surface/1+app-data/2+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/1+http-in/1+app-resource-access/2",
+  "cloudRevision": "ca6af8b78cdcd042b1120212f8ade54e7413bc38",
+  "cloudContractRevision": "cloud-source-impact/2+app-create-capability/1+data/3+record-reads/1+stream-receipt/1+collection-namespace/1+http-acquisition/2+app-collection/2+metadata/1+app-context/2+collection-ttl/1+error-model/1+crud-consolidation/1+lifecycle-consolidation/1+api-surface/1+app-data/2+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/1+http-in/1+app-resource-access/2",
   "resolvedCloudContract": true,
   "enterpriseBase": {
     "repository": "FREEZONEX/Tier0-Enterprise-New",
@@ -7081,12 +7081,12 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
     "source": "backend/internal/domain/unsv2/contract_generated.go",
     "note": "Reviewed Enterprise wire contract imported as editable Cloud contract source; regenerate all adapters with scripts/generate-uns-v2.mjs."
   },
-  "sourceDerivedContractSHA256": "7e3e91759098f1e319f1c5b197e661378472f57c627671cbb224b1068ff2c229",
+  "sourceDerivedContractSHA256": "2df280519652b0e872ef8de7b1246470ae6bbb6be2989d63afd58bc91ea123ac",
   "hashes": {
-    "contract": "7e3e91759098f1e319f1c5b197e661378472f57c627671cbb224b1068ff2c229",
+    "contract": "2df280519652b0e872ef8de7b1246470ae6bbb6be2989d63afd58bc91ea123ac",
     "cloudSupport": "102eef2517c84adbb0d0223d218cdd711c28da459d790f5ba1b9f9b316b54f15",
-    "manifest": "8fa79bad8b6fc38b18afb1726934196100c344b58a0b4fa1f3dcc7d1d5a97391",
-    "provenance": "07ea679b3682f68d767d43409fa8588cb729deb50789d18693cd5597f4add5d5",
+    "manifest": "55b4a8516b36df68921e134ab09516546361b6ef16cd0fda6399d678feab93f9",
+    "provenance": "db4c9f56ca6a5122b0e00d4cdfa37457f36a68b934735e2a45fb728703d63f0a",
     "registry": "f3a4a8efe6bbb52f0239f76a998c2f5b882b55a6eac4bc1e566d73abb9fd520c"
   },
   "publicOperationCount": 106,
