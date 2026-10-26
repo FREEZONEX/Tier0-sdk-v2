@@ -3,7 +3,7 @@
  *
  * UNS stores one closed JSON-schema subset per collection: `type`,
  * `properties`, `required`, `additionalProperties: false`, `items`, `enum`,
- * `minimum`, `maximum`, numeric `format`, `title`, `description`. `toRecordSchema` converts the
+ * `minimum`, `maximum`, declared `format`, `title`, `description`. `toRecordSchema` converts the
  * `z.toJSONSchema` output into exactly that subset and rejects every other
  * keyword with a concrete replacement, so a declaration that cannot be stored
  * fails when it is compiled (an App can compile its declarations at build
@@ -17,8 +17,8 @@ export type EnumValue = string | number | boolean;
 
 export interface RecordSchema {
   type: RecordSchemaType;
-  /** Numeric display annotation; does not add range checks or round stored values. */
-  format?: 'int32' | 'float' | 'double';
+  /** Display annotation; does not add range/date checks or convert stored values. */
+  format?: 'int32' | 'float' | 'double' | 'date-time';
   title?: string;
   description?: string;
   properties?: Record<string, RecordSchema>;
@@ -111,7 +111,7 @@ const KEYWORD_HINTS: Record<string, string> = {
   allOf: '`z.intersection()` / `.and()` is not storable. Merge the objects with `.extend()`.',
   not: 'Negated schemas are not storable.',
   default: '`.default()` / `.prefault()` / `.catch()` is not storable. Apply defaults in the service when building the document.',
-  format: `String formats (\`z.email()\`, \`z.uuid()\`, \`z.iso.datetime()\`...) are not storable. Use \`z.string()\`: store instants as ISO-8601 UTC strings from \`toISOString()\` and dates as "YYYY-MM-DD". ${API_INPUT_HINT}`,
+  format: `Strings only support the declaration \`z.string().meta({ format: 'date-time' })\`, which does not validate or convert dates. Other string formats (\`z.email()\`, \`z.uuid()\`...) are not storable. ${API_INPUT_HINT}`,
   pattern: `\`.regex()\`, \`.startsWith()\` and similar patterns are not storable. Use \`z.string()\`. ${API_INPUT_HINT}`,
   minLength: `String length limits are not storable. Use \`z.string()\`. ${API_INPUT_HINT}`,
   maxLength: `String length limits are not storable. Use \`z.string()\`. ${API_INPUT_HINT}`,
@@ -183,7 +183,7 @@ function normalizeNode(node: unknown, path: string, depth: number, issues: Schem
     valid = false;
     issues.push({
       path,
-      message: `\`${key}\` is not supported. ${KEYWORD_HINTS[key] ?? 'Only type, properties, items, enum, minimum, maximum, numeric format, title and description are storable; remove this constraint from the collection schema.'}`,
+      message: `\`${key}\` is not supported. ${KEYWORD_HINTS[key] ?? 'Only type, properties, items, enum, minimum, maximum, declared format, title and description are storable; remove this constraint from the collection schema.'}`,
     });
   }
 
@@ -211,14 +211,14 @@ function normalizeNode(node: unknown, path: string, depth: number, issues: Schem
   const out: RecordSchema = { type: type as RecordSchemaType };
   const format = node.format;
   if (format !== undefined) {
-    if ((type === 'integer' && format === 'int32') || (type === 'number' && (format === 'float' || format === 'double'))) {
+    if ((type === 'integer' && format === 'int32') || (type === 'number' && (format === 'float' || format === 'double')) || (type === 'string' && format === 'date-time')) {
       out.format = format;
     } else {
       issues.push({
         path,
         message: type === 'string'
-          ? `\`format\` is not supported on strings. ${KEYWORD_HINTS.format}`
-          : '`format` must be "int32" on integer fields, or "float" / "double" on number fields. Other types and formats are not storable.',
+          ? KEYWORD_HINTS.format
+          : '`format` must be "int32" on integer fields, "float" / "double" on number fields, or "date-time" on string fields. Other types and formats are not storable.',
       });
       valid = false;
     }

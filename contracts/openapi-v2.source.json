@@ -15972,9 +15972,10 @@
             "enum": [
               "int32",
               "float",
-              "double"
+              "double",
+              "date-time"
             ],
-            "description": "数值表示注解：integer 对应 int32，number 对应 float（float32）或 double（float64）。不限制写入位宽范围，不执行舍入或转换；省略时保留原有 integer/number 语义。"
+            "description": "类型表示注解：integer 对应 int32，number 对应 float（float32）或 double（float64），string 对应 date-time（datetime）。不增加数值范围、精度或日期格式校验，不执行舍入、日期解析、时区转换；省略时保留原有基础类型语义。Sample 外层 time 不受影响。"
           }
         },
         "required": [
@@ -17048,9 +17049,10 @@
             "enum": [
               "int32",
               "float",
-              "double"
+              "double",
+              "date-time"
             ],
-            "description": "数值表示注解：integer 对应 int32，number 对应 float（float32）或 double（float64）。不限制写入位宽范围，不执行舍入或转换；省略时保留原有 integer/number 语义。"
+            "description": "类型表示注解：integer 对应 int32，number 对应 float（float32）或 double（float64），string 对应 date-time（datetime）。不增加数值范围、精度或日期格式校验，不执行舍入、日期解析、时区转换；省略时保留原有基础类型语义。Sample 外层 time 不受影响。"
           }
         },
         "required": [

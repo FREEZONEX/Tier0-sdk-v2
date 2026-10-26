@@ -61,17 +61,20 @@ export const createSalesOrderInput = salesOrders.schema
 
 限制：对象最多嵌套 8 层、每个对象 128 个属性、每个字段 100 个枚举值；`.describe()` 最多 2048 个 UTF-8 字节（约 680 个汉字）；集合 `description` 最多 512 个字符。字段与集合描述只在首次创建时写入，之后修改要走 `schema:replace`（见 [Schema 演进](schema-evolution.md)）。
 
-## 数值类型标注
+## 字段类型标注
 
-需要在 Collection 中明确显示 `int`、`float`、`double` 时，通过 Zod 元数据添加数值格式。传输仍使用 JSON Schema 的 `integer` / `number`：
+需要在 Collection 中明确显示 `int`、`float`、`double`、`datetime` 时，通过 Zod 元数据添加格式声明。传输仍使用 JSON Schema 的 `integer` / `number` / `string`：
 
 | 声明 | 传输 Schema | 显示类型 |
 | --- | --- | --- |
 | `z.int().meta({ format: 'int32' })` | `{ type: 'integer', format: 'int32' }` | `int` |
 | `z.number().meta({ format: 'float' })` | `{ type: 'number', format: 'float' }` | `float` |
 | `z.number().meta({ format: 'double' })` | `{ type: 'number', format: 'double' }` | `double` |
+| `z.string().meta({ format: 'date-time' })` | `{ type: 'string', format: 'date-time' }` | `datetime` |
 
-`format` 当前是类型展示注解，不额外限制数值范围或精度，也不舍入数据。写入仍按原来的 Zod 类型和显式 `.min()` / `.max()` 校验；需要业务范围时应继续声明边界。普通 `z.number()`、`z.int()` 和 `z.number().int()` 保持原有行为，不会自动追加格式或收窄已有集合。只接受上表三种类型与格式组合，字符串格式仍不支持。
+`format` 当前是类型展示注解，不额外限制数值范围或精度，也不舍入数据。写入仍按原来的 Zod 类型和显式 `.min()` / `.max()` 校验；需要业务范围时应继续声明边界。普通 `z.number()`、`z.int()`、`z.number().int()` 和 `z.string()` 保持原有行为，不会自动追加格式或收窄已有集合。只接受上表四种类型与格式组合。
+
+`datetime` 仍保存原始字符串，不校验日期是否有效、不解析或转换时区；`"not a date"` 也能通过字符串类型校验。需要日期合法性保证时，在 API 入参 Schema 单独使用 `z.iso.datetime()`；这类带 `pattern` 的验证器不能直接作为可存储的集合声明。新增注解不改变 Sample 外层 `time` 的毫秒时间戳协议、已有校验和业务时间含义。
 
 ## 索引
 

@@ -356,7 +356,7 @@ export type DiscoveredField = {
   "required": boolean;
   "type": string;
   "unit": string;
-  "format"?: "int32" | "float" | "double";
+  "format"?: "int32" | "float" | "double" | "date-time";
 } & Record<string, UnsV2JSONValue>;
 
 export type DiscoveryCollection = {
@@ -656,7 +656,7 @@ export type Schema = {
   "title"?: string;
   "type": string;
   "unit"?: string;
-  "format"?: "int32" | "float" | "double";
+  "format"?: "int32" | "float" | "double" | "date-time";
 };
 
 export type SourceData = {
@@ -7048,10 +7048,10 @@ export const UNS_V2_CODEC_SCHEMAS = {"UnsV2CatalogReq":{"k":"o","p":{"includeCom
 
 export const UNS_V2_CONTRACT_PROVENANCE = {
   "repository": "FREEZONEX/Tier0-Backend",
-  "revision": "e24499fb2fcd7a55a12a5d42088d6b8f64589621",
+  "revision": "ef2fa94089a26e8e0021e0d25e7f13e87ff5c722",
   "version": "5.0.0",
   "source": "service/unssvr/internal/domain/unsv2/contract_generated.go#ContractJSON",
-  "cloudRevision": "e24499fb2fcd7a55a12a5d42088d6b8f64589621",
+  "cloudRevision": "ef2fa94089a26e8e0021e0d25e7f13e87ff5c722",
   "cloudContractRevision": "cloud-source-impact/1+app-create-capability/1+data/3+record-reads/1+collection-namespace/1+http-acquisition/2+app-collection/2+metadata/1+app-context/2+collection-ttl/1+error-model/1+crud-consolidation/1+lifecycle-consolidation/1+api-surface/1+app-data/2+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/1+http-in/1+app-resource-access/2",
   "resolvedCloudContract": true,
   "enterpriseBase": {
@@ -7061,12 +7061,12 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
     "source": "backend/internal/domain/unsv2/contract_generated.go",
     "note": "Reviewed Enterprise wire contract imported as editable Cloud contract source; regenerate all adapters with scripts/generate-uns-v2.mjs."
   },
-  "sourceDerivedContractSHA256": "1820b27d88ce317476cab41d24b9c2d0146cc0c80a270ddfcef6fd9b66259a26",
+  "sourceDerivedContractSHA256": "7950e9513628e68f6a1206765a49499ae96603537139a04cb19be8472fec36ee",
   "hashes": {
-    "contract": "1820b27d88ce317476cab41d24b9c2d0146cc0c80a270ddfcef6fd9b66259a26",
+    "contract": "7950e9513628e68f6a1206765a49499ae96603537139a04cb19be8472fec36ee",
     "cloudSupport": "102eef2517c84adbb0d0223d218cdd711c28da459d790f5ba1b9f9b316b54f15",
-    "manifest": "83065e9a699b53078e7c9b327d7823e512ee40d3808c41862a56bc146d993ee9",
-    "provenance": "3db447e3952f6db2ee91d0886f3e34e0979f413d055c31a4a0b851b4d7080988",
+    "manifest": "65d98819069eef28cb6f6157e1b4671401dd60cf70451d5475d660ab9401a90f",
+    "provenance": "edd0954243350f4d7d1b82e334049657d36b2dddda834fe91bdc255d9b947bb9",
     "registry": "f3a4a8efe6bbb52f0239f76a998c2f5b882b55a6eac4bc1e566d73abb9fd520c"
   },
   "publicOperationCount": 106,
