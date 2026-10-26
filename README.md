@@ -2,16 +2,16 @@
 
 Tier0 云端新架构的独立 TypeScript / JavaScript SDK。新仓库、新 npm 包，不覆盖 `@tier0/sdk`。
 
-当前开发分支以 `0.2.2` 为基线，包含尚未发布的接口退役改动，对应 UNS v2 契约 5.0.0，与 0.1.0 不兼容（新错误模型 `execution` / `retry`、封顶计数、删除 `recordChangesPoll` 等）。Collection 支持 int、float、double 和 datetime 声明；格式注解不新增数值范围或日期格式校验，Sample 外层 time 保持不变。使用时需确认目标环境已部署对应后端。要求 Node.js 20.19+。浏览器 HTTP、MQTT、React、Vue 和服务端身份验签分别提供独立入口。
+当前版本 `0.3.0` 统一使用 OpenAPI v2，并退役重复及旧接口；与 0.2.x 存在不兼容变更，迁移方式见下方“本次接口退役”。对应 UNS v2 契约 5.0.0，与 0.1.0 不兼容（新错误模型 `execution` / `retry`、封顶计数、删除 `recordChangesPoll` 等）。Collection 支持 int、float、double 和 datetime 声明；格式注解不新增数值范围或日期格式校验，Sample 外层 time 保持不变。使用时需确认目标环境已部署对应后端。要求 Node.js 20.19+。浏览器 HTTP、MQTT、React、Vue 和服务端身份验签分别提供独立入口。
 
-本次更新：Source 无引用时支持直接修改、停用和删除；Stream 发布与回滚返回带类型的发布回执；UNS 插入可在同一次写入中返回创建快照，App 数据层同步支持 `returnDocument` / `projection` 和投影字段的可选类型。
+本次更新：平台接口统一迁移到 `/openapi/v2`，Controls 使用 `/openapi/v2/uns/controls/*`；移除 21 个重复 UNS 入口和旧 Agent nodes/relations 方法。完善 Source 操作、Stream 发布回执及 UNS 创建快照的使用说明，保留精确发布编号和完整文档访问规则。
 
 ## 安装与初始化
 
 发布前在本仓库运行 `npm ci`、`npm run check`，验证生成的 `.tgz`。业务项目安装精确版本：
 
 ```sh
-npm install --save-exact @tier0/sdk-v2@0.2.2
+npm install --save-exact @tier0/sdk-v2@0.3.0
 ```
 
 ```ts
@@ -216,4 +216,4 @@ node scripts/check-live-transports.mjs <consumer> <workspaceId> .tmp/live-transp
 
 写入验收不发布 Stream、不启用 Source、不发送通知。归档资源保留正常产品恢复能力；报告区分通过、服务端拒绝和未验证范围。分片上传失败会保留错误原因，确认尚未尝试 complete 时清理本次会话；完成结果未知时先对账。完整结果见 [2026-10-22 验收报告](docs/acceptance-2026-10-22.md)。
 
-业务接入时仍需核对验收报告中的环境限制并补齐未验收范围、将 App 脚手架精确依赖更新为 `"@tier0/sdk-v2": "0.2.2"`，并按需更新已安装的 Skill。
+业务接入时仍需核对验收报告中的环境限制并补齐未验收范围、将 App 脚手架精确依赖更新为 `"@tier0/sdk-v2": "0.3.0"`，并按需更新已安装的 Skill。
