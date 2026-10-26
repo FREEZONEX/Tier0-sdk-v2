@@ -1,6 +1,6 @@
 {
   "version": "5.0.0",
-  "cloudContractRevision": "cloud-source-impact/2+app-create-capability/1+data/3+record-reads/1+collection-namespace/1+http-acquisition/2+app-collection/2+metadata/1+app-context/2+collection-ttl/1+error-model/1+crud-consolidation/1+lifecycle-consolidation/1+api-surface/1+app-data/2+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/1+http-in/1+app-resource-access/2",
+  "cloudContractRevision": "cloud-source-impact/2+app-create-capability/1+data/3+record-reads/1+stream-receipt/1+collection-namespace/1+http-acquisition/2+app-collection/2+metadata/1+app-context/2+collection-ttl/1+error-model/1+crud-consolidation/1+lifecycle-consolidation/1+api-surface/1+app-data/2+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/1+http-in/1+app-resource-access/2",
   "operations": [
     {
       "name": "dataDiscover",
@@ -13306,9 +13306,14 @@
           "type": "string"
         },
         "data": {
-          "type": "object",
-          "additionalProperties": true,
-          "description": "Existing Source/Stream runtime domain result. Program create/get/deploy return id, revision, activeVersion, executionState and redacted document; versions/runs return list and total; probe returns health; validation returns valid and sideEffects."
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/CloudStreamProgramView"
+            },
+            {
+              "$ref": "#/components/schemas/CloudPreviewResult"
+            }
+          ]
         }
       },
       "required": [
@@ -13367,9 +13372,14 @@
           "type": "string"
         },
         "data": {
-          "type": "object",
-          "additionalProperties": true,
-          "description": "Existing Source/Stream runtime domain result. Program create/get/deploy return id, revision, activeVersion, executionState and redacted document; versions/runs return list and total; probe returns health; validation returns valid and sideEffects."
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/CloudStreamProgramView"
+            },
+            {
+              "$ref": "#/components/schemas/CloudPreviewResult"
+            }
+          ]
         }
       },
       "required": [
@@ -13408,9 +13418,7 @@
           "type": "string"
         },
         "data": {
-          "type": "object",
-          "additionalProperties": true,
-          "description": "Existing Source/Stream runtime domain result. Program create/get/deploy return id, revision, activeVersion, executionState and redacted document; versions/runs return list and total; probe returns health; validation returns valid and sideEffects."
+          "$ref": "#/components/schemas/CloudStreamProgramView"
         }
       },
       "required": [
@@ -13609,9 +13617,14 @@
           "type": "string"
         },
         "data": {
-          "type": "object",
-          "additionalProperties": true,
-          "description": "Existing Source/Stream runtime domain result. Program create/get/deploy return id, revision, activeVersion, executionState and redacted document; versions/runs return list and total; probe returns health; validation returns valid and sideEffects."
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/CloudStreamProgramView"
+            },
+            {
+              "$ref": "#/components/schemas/CloudPreviewResult"
+            }
+          ]
         }
       },
       "required": [
@@ -13667,9 +13680,14 @@
           "type": "string"
         },
         "data": {
-          "type": "object",
-          "additionalProperties": true,
-          "description": "Existing Source/Stream runtime domain result. Program create/get/deploy return id, revision, activeVersion, executionState and redacted document; versions/runs return list and total; probe returns health; validation returns valid and sideEffects."
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/CloudStreamProgramView"
+            },
+            {
+              "$ref": "#/components/schemas/CloudPreviewResult"
+            }
+          ]
         }
       },
       "required": [
@@ -13733,9 +13751,14 @@
           "type": "string"
         },
         "data": {
-          "type": "object",
-          "additionalProperties": true,
-          "description": "Existing Source/Stream runtime domain result. Program create/get/deploy return id, revision, activeVersion, executionState and redacted document; versions/runs return list and total; probe returns health; validation returns valid and sideEffects."
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/CloudStreamProgramView"
+            },
+            {
+              "$ref": "#/components/schemas/CloudPreviewResult"
+            }
+          ]
         }
       },
       "required": [
@@ -35402,6 +35425,82 @@
         "requestId",
         "data"
       ]
+    },
+    "CloudStreamProgramView": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "name",
+        "model",
+        "revision",
+        "activeVersion",
+        "status",
+        "executionState",
+        "createdAt",
+        "updatedAt"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string",
+          "enum": [
+            "program"
+          ]
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "本次操作返回的草稿修订，可直接用于下一次 expectedRevision。"
+        },
+        "activeVersion": {
+          "type": "string",
+          "description": "本次操作快照中的不可变发布 ID；无活跃发布为字符串 0。"
+        },
+        "activeRelease": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "本次操作快照中的正整数发布序号，可与 runs.items[].release 比较。无活跃发布或历史幂等回执未记录编号时省略，不得用当前 head 推断其原发布序号。"
+        },
+        "status": {
+          "type": "string"
+        },
+        "executionState": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "integer"
+        },
+        "updatedAt": {
+          "type": "integer"
+        },
+        "document": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "sdkVersion": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            },
+            "timeoutMs": {
+              "type": "integer"
+            },
+            "scriptConfigured": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
     },
     "CloudSourceCreateCredentials": {
       "type": "object",

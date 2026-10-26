@@ -1,4 +1,4 @@
-import { createClient, getCurrentAppId, type Tier0Client, type components } from '../../src/index.js';
+import { createClient, getCurrentAppId, type Tier0Client, type UnsV2Integer, type components } from '../../src/index.js';
 import { useTier0Query, useTier0Mutation } from '../../src/react.js';
 import { useTier0Request } from '../../src/vue.js';
 const sdk: Tier0Client = createClient({ apiHost: 'https://api.example.invalid', apiKey: 'placeholder' });
@@ -31,3 +31,19 @@ useTier0Query(sdk, ['orders'], (c, signal) => c.uns.recordFind({ collectionId: '
 useTier0Mutation(sdk, (c, name: string) => c.mqttAuth.create({ name }));
 useTier0Request(sdk, (c, id: string, signal) => c.uns.recordFind({ collectionId: id }, { signal }));
 void invalid;
+
+export async function publishStreamFromReceipts(client: Tier0Client) {
+  const created = await client.stream.programs.create({ dryRun: false, idempotencyKey: 'create',
+    document: { name: 'typed-receipts', sdkVersion: 'tier0-stream/v2', script: 'module.exports=api=>{};' } });
+  if (!('id' in created.data)) return;
+  const deployed = await client.stream.programs.deploy({ id: created.data.id,
+    expectedRevision: created.data.revision, dryRun: false, idempotencyKey: 'deploy' });
+  if (!('id' in deployed.data)) return;
+  const revision: UnsV2Integer = deployed.data.revision;
+  const activeVersion: string = deployed.data.activeVersion;
+  const release: UnsV2Integer | undefined = deployed.data.activeRelease;
+  // @ts-expect-error Inactive programs and historical idempotency receipts may omit the release number.
+  const assumedRelease: UnsV2Integer = deployed.data.activeRelease;
+  void revision; void activeVersion; void assumedRelease;
+  return release;
+}
