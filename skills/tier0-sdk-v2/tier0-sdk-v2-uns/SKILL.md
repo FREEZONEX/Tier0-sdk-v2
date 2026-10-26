@@ -42,7 +42,7 @@ export async function findAppCollection(alias: string) {
 ## 核心约束
 
 1. 记录行是 id/data/revision；filter 与 update 的业务路径用 name、customer.name，不加 data.；系统路径用 _id、_meta.revision。
-2. 改/删前读取 expectedRevision；不同操作使用独立意图键，长度上限以当前操作契约为准。
+2. 改/删使用最近写回执或读取取得的 revision 作为 expectedRevision；创建时可用 returnDocument:'after' 取得快照。历史重放不是当前最新版本，冲突时显式处理；不同操作使用独立意图键，长度上限以当前操作契约为准。
 3. metadataUpdateOne 的 $set.recordSchema 替换完整 Schema，不迁移已有记录；未更新的 sampleSchema/indexes 保留。先预检兼容性。
 4. 集合无硬删除入口，用 metadataDeleteOne/Many 软删除；Record 删除会物理删除关联 Sample，恢复 Record 不会恢复这些 Sample。
 5. recordFind 使用 pageInfo.hasMore/nextCursor，limit 1–200；sort 为 [['field',1]]。单页不是全量，跨页不是稳定快照。

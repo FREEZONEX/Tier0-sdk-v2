@@ -36,6 +36,10 @@ export async function createDeviceCollection(
 
 单条新增默认返回 insertedId/status/replayed。需要创建后的数据、revision 和时间戳时，传 returnDocument:'after'，同一次写入返回 value，无需再查询；可配合 projection，调用者必须同时具有读取权限。幂等重放返回原始创建快照，后续读取最新状态仍用 recordGet/recordFind。dryRun 的 value 是未提交预览。
 
+returnDocument 只允许 none（默认）或 after，不支持 before；projection 只能和 after 一起传。新增仍是 insert，已存在的 ID 不会变成更新。after 的 value 包括服务端补入的字段，但只返回当前授权可见的数据：普通数据权限需 uns.write 和 uns.read，App 还要满足集合的 record:write / record:read 及当前员工、行和字段策略。服务端在提交前校验读取权限，重放时也重新校验；旧回执不能绕过已撤销的授权。
+
+省略 returnDocument 与显式 none 保持相同幂等语义。不能用同一个意图键把原来的 none 改成 after 补取快照，否则返回 IDEMPOTENCY_CONFLICT；已创建的记录应改用读取接口。after 重放可对原始快照应用 projection，但不会变成最新记录。创建快照中的 revision 可用于下一次修改；若已有并发修改，版本冲突仍需显式处理。
+
 批量新增返回 insertedCount/insertedIds 及适用的逐项错误。insertedIds 的键是原始输入从 0 开始的索引。省略自定义 ID 时从成功回执取得实际 ID，不能把名称当成 ID。
 
 ```ts

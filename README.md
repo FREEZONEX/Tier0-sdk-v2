@@ -67,6 +67,10 @@ const runtime = await tier0.stream.runtime.capabilities({});
 
 Source/Stream 仍保留 `{ code, msg, requestId, data }` 响应以及 `UnsV2Error` 错误类型。`source.documents` 是云端原生文档，`source.create/validate` 等是通用投影；`stream.programs` 与 `stream.documents` 使用不同文档结构，不可混用。保存、部署、运行成功分别判断。
 
+- 已知 Source ID/revision 且没有 Stream 引用时，可 [直接 patch 或变更状态](skills/tier0-sdk-v2/tier0-sdk-v2-source/references/update.md)；有引用时仍按精确意图确认影响。
+- Stream 创建/更新回执的 revision 可直接用于发布；[发布回执](skills/tier0-sdk-v2/tier0-sdk-v2-stream/references/deploy.md) 的 activeRelease 用于观察这次发布，无需前后各查询一次。
+- 单条 Record 新增可用 [returnDocument:'after'](skills/tier0-sdk-v2/tier0-sdk-v2-uns/references/create.md) 同次取得创建快照；[App 数据层](skills/tier0-sdk-v2/tier0-sdk-v2-data/references/read-write.md) 支持相同选择及投影类型。
+
 从最初提交迁移：`uns.sourceList` → `source.list`；`uns.sourceDocumentGet` → `source.documents.get`；`uns.streamProgramDeploy` → `stream.programs.deploy`；`uns.streamDocumentValidate` → `stream.documents.validate`。这些管理方法已移出主入口的 `uns`。底层 `createUnsV2Client()` 仍提供完整生成契约供契约工具使用；数据专用客户端可用 `createUnsDataClient()`。
 
 随包提供 Skill：总入口 [tier0-sdk-v2](skills/tier0-sdk-v2/SKILL.md) 下嵌套 11 个领域子 Skill（`skills/tier0-sdk-v2/tier0-sdk-v2-<领域>/`），每个仍可独立发现，包含完整流程、参数边界、错误处理与可类型检查的示例：[Source](skills/tier0-sdk-v2/tier0-sdk-v2-source/SKILL.md)、[Stream](skills/tier0-sdk-v2/tier0-sdk-v2-stream/SKILL.md)、[UNS](skills/tier0-sdk-v2/tier0-sdk-v2-uns/SKILL.md)、[通知](skills/tier0-sdk-v2/tier0-sdk-v2-notifications/SKILL.md)、[系统](skills/tier0-sdk-v2/tier0-sdk-v2-system/SKILL.md)、[文件](skills/tier0-sdk-v2/tier0-sdk-v2-files/SKILL.md)、[MQTT](skills/tier0-sdk-v2/tier0-sdk-v2-mq/SKILL.md)、[成员](skills/tier0-sdk-v2/tier0-sdk-v2-members/SKILL.md)、[Controls](skills/tier0-sdk-v2/tier0-sdk-v2-controls/SKILL.md)、[Agent](skills/tier0-sdk-v2/tier0-sdk-v2-agent/SKILL.md)、[App 数据](skills/tier0-sdk-v2/tier0-sdk-v2-data/SKILL.md)。复杂流程的参考文档随 Skill 一起打包。在 Tier0 Console 上传时，把整个 `skills/tier0-sdk-v2/` 目录打成一个 zip。
@@ -169,7 +173,7 @@ Vue 由 `execute()` 显式执行，后发请求的结果优先；取消不表示
 
 ## 契约更新与验证
 
-上游：`FREEZONEX/Tier0-Backend`，固定提交 `6d0fbbca15ddbfd4d9b313b1abbc843b36d14dd0`。`contracts/upstream.json` 记录来源和 SHA-256。
+上游：`FREEZONEX/Tier0-Backend`。当前固定提交与输入 SHA-256 以 [contracts/upstream.json](contracts/upstream.json) 为准，Cloud 扩展版本见 [UNS 契约来源](contracts/uns-v2/provenance.json)。API 合约已同步不代表目标环境已经部署；使用上述新参数前确认环境版本。
 
 ```sh
 npm ci
@@ -183,7 +187,7 @@ npm run check
 
 v1 来自网关 Swagger，并按实际 handler 补齐响应外层；UNS 来自 `contract_generated.go#ContractJSON` 中已经应用 Cloud 扩展的契约，结合 manifest/registry 生成。不能直接使用仍含 Enterprise 基础操作的 `share/unscontract/contract.json` 作为最终云端契约。
 
-`npm run check` 包含契约一致性、Skill 注册及递归引用检查、所有 Skill TypeScript 示例的源码/安装包类型校验、单元和本地 HTTP 测试、ESM/CJS 构建、实际 npm 包安装、浏览器打包及导入验证。完整行为测试还会在独立 consumer 中对已安装的 `.tgz` 再跑一遍，导入目标严格指向包内 `dist`；包内调试映射包含源内容。测试覆盖全部公开操作的路由检查。路由检查使用本地 HTTP fixture，不等于每个操作的业务验收。
+`npm run check` 包含契约一致性、Skill 注册及递归引用检查、所有 Skill TypeScript 示例的源码/安装包类型校验、单元和本地 HTTP 测试、ESM/CJS 构建、实际 npm 包安装、浏览器打包及导入验证。完整行为测试还会在独立 consumer 中对已安装的 `.tgz` 再跑一遍，导入目标严格指向包内 `dist`；包内调试映射包含源内容。路由检查覆盖生成契约的全部公开操作，使用本地 HTTP fixture，不等于每个操作的业务验收。
 
 `tests/skill-workflows.test.ts` 直接提取 Markdown 示例，验证 Source/Stream/UNS 的创建、查询、修改、删除或归档恢复，影响分页和结果未知分支，以及通知请求、状态查询和成员展示。默认检查不调用线上接口。
 

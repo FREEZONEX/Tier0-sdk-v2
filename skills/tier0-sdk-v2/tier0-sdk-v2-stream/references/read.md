@@ -33,3 +33,22 @@ export async function* listStreams(client: Tier0Client = createClient()) {
 ```
 
 保存、发布、某次执行成功是三个事实。显示实际 revision/activeVersion/release，不用旧 runs 证明新版本生效。版本列表不保证与普通列表相同分页结构；按其 list/total/page/size 读取，versionId 不是 release 序号。
+
+## 观察本次发布
+
+把 deploy 回执的 activeRelease 原样传入，不需要先读取当前 head。runs.list 需要 uns.stream.view 或 uns.stream.manage；它没有服务端 release 过滤参数，按返回的 nextCursor 继续翻页并在客户端匹配发布号：
+
+```ts
+import { createClient, type Tier0Client, type UnsV2Integer } from '@tier0/sdk-v2';
+
+export async function readPublishedRuns(
+  id: string, release: UnsV2Integer, cursor?: string,
+  client: Tier0Client = createClient(),
+) {
+  if (BigInt(String(release)) <= 0n) throw new Error('需要发布回执中的正整数发布号');
+  const { data } = await client.stream.runs.list({ id, size: 100, ...(cursor ? { cursor } : {}) });
+  return { ...data, items: data.items.filter(run => run.release === String(release)) };
+}
+```
+
+此函数只读一页。items 为空但 nextCursor 非空时，下一页仍可能有匹配记录；达到调用方的观察时限就报告“尚未观察到”。匹配记录也要检查 status、entryId 和时间，不能把存在记录当成执行成功。历史幂等回执若缺少 activeRelease，应保留为未确认，不能用当前 head 的发布号代替。
