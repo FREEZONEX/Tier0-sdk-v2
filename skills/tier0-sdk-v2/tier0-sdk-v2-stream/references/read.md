@@ -9,7 +9,7 @@
 | runs.list | /openapi/v2/uns/streams/runs/list | id、size、cursor | 执行记录 |
 | programs.versions.list | /openapi/v2/uns/streams/program/versions/list | id、page、size | list、total，含 versionId |
 
-page 从 1 开始，size 最大 200。完整文档需要 Stream manage 权限；programs.get 的 scriptConfigured 不是脚本内容，不能据此重建草稿。
+page 从 1 开始，size 最大 200。完整文档需要 uns.stream.manage，API Key 还必须是 full_access；programs.get 的 scriptConfigured 不是脚本内容，不能据此重建草稿。
 
 ```ts
 import { createClient, type Tier0Client } from '@tier0/sdk-v2';
@@ -45,6 +45,9 @@ export async function readPublishedRuns(
   id: string, release: UnsV2Integer, cursor?: string,
   client: Tier0Client = createClient(),
 ) {
+  if (typeof release === 'number' && !Number.isSafeInteger(release)) {
+    throw new Error('发布号必须保留回执中的精确整数，不能传已失真的 number');
+  }
   if (BigInt(String(release)) <= 0n) throw new Error('需要发布回执中的正整数发布号');
   const { data } = await client.stream.runs.list({ id, size: 100, ...(cursor ? { cursor } : {}) });
   return { ...data, items: data.items.filter(run => run.release === String(release)) };
