@@ -98,6 +98,27 @@ describe('zod 4 toJSONSchema output (snapshot)', () => {
 });
 
 describe('toRecordSchema', () => {
+  it('preserves datetime declarations on fields and array items without inferring plain strings', () => {
+    expect(toRecordSchema('events', z.object({
+      happenedAt: z.string().meta({ format: 'date-time' }),
+      schedule: z.array(z.string().meta({ format: 'date-time' })),
+      legacy: z.string(),
+    })).properties).toEqual({
+      happenedAt: { type: 'string', format: 'date-time' },
+      schedule: { type: 'array', items: { type: 'string', format: 'date-time' } },
+      legacy: { type: 'string' },
+    });
+  });
+
+  it('continues rejecting datetime validators whose patterns are not part of the stored schema', () => {
+    for (const field of [z.iso.datetime(), z.iso.datetime({ offset: true }), z.string().datetime()]) {
+      expect(schemaError(z.object({ field })).issues).toEqual([{
+        path: 'field',
+        message: expect.stringContaining('`pattern` is not supported'),
+      }]);
+    }
+  });
+
   it('preserves numeric annotations on fields and array items without adding bounds', () => {
     const schema = toRecordSchema('measurements', z.object({
       count: z.int().meta({ format: 'int32' }),
@@ -129,15 +150,18 @@ describe('toRecordSchema', () => {
       z.boolean().meta({ format: 'int32' }),
       z.object({}).meta({ format: 'double' }),
       z.array(z.number()).meta({ format: 'float' }),
+      z.number().meta({ format: 'date-time' }),
+      z.int().meta({ format: 'date-time' }),
+      z.boolean().meta({ format: 'date-time' }),
     ];
     for (const field of cases) {
       const error = schemaError(z.object({ field }));
       expect(error.issues).toEqual([{
         path: 'field',
-        message: '`format` must be "int32" on integer fields, or "float" / "double" on number fields. Other types and formats are not storable.',
+        message: '`format` must be "int32" on integer fields, "float" / "double" on number fields, or "date-time" on string fields. Other types and formats are not storable.',
       }]);
     }
-    expect(schemaError(z.object({ field: z.string().meta({ format: 'float' }) })).message).toMatch(/String formats/);
+    expect(schemaError(z.object({ field: z.string().meta({ format: 'float' }) })).message).toMatch(/Strings only support/);
   });
 
   it('normalizes to the UNS subset', () => {
@@ -295,6 +319,19 @@ describe('write validation', () => {
     line: { id: 'l1', name: 'Line 1' },
     lines: [{ sku: 'A', count: 1 }],
   };
+
+  it('treats datetime as a string annotation without parsing, normalizing or checking dates', () => {
+    const events = defineCollection({
+      alias: 'events',
+      schema: z.object({ happenedAt: z.string().meta({ format: 'date-time' }) }),
+    });
+    for (const happenedAt of ['', 'not a date', '2026-02-30T10:00:00Z', '2026-10-26T10:00:00+08:00']) {
+      expect(validateDocument(events, { _id: 'e1', happenedAt })).toEqual({ id: 'e1', data: { happenedAt } });
+      expect(validateUpdate(events, { $set: { happenedAt } })).toEqual({ $set: { happenedAt } });
+    }
+    expect(() => validateDocument(events, { happenedAt: 1792454400000 })).toThrow(z.ZodError);
+    expect(() => validateUpdate(events, { $set: { happenedAt: new Date('2026-10-26T00:00:00Z') } })).toThrow(z.ZodError);
+  });
 
   it('treats numeric formats as annotations without new range limits or rounding', () => {
     const measurements = defineCollection({
