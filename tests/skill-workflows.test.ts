@@ -191,8 +191,8 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
       { path: 'metadata', data: outcome('validated') },
       { path: 'metadata', check: b => expect(b.data.recordSchema.required).toEqual(['name', 'enabled']), data: outcome() },
       { path: 'metadata:findOne', data: { value: collection() } },
-      { path: 'collections/devices/records', data: { insertedId: 'device-1', status: 'committed', replayed: false } },
-      { path: 'collections/devices/records:find', data: records(record()) },
+      { path: 'collections/devices/records', check: b => expect(b.returnDocument).toBe('after'),
+        data: { insertedId: 'device-1', value: record(), status: 'committed', replayed: false } },
       { path: 'collections/devices/records:find', data: records(record()) },
       { path: 'collections/devices/records:updateOne', check: b => expect(b).toMatchObject({
         filter: { _id: 'device-1' }, expectedRevision: 1, update: { $set: { name: 'pump-2' } }, upsert: false }),
@@ -224,7 +224,8 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
       { path: 'metadata:findOne', data: { value: collection(5) } },
     ];
     await example('uns', 'create').createDeviceCollection('devices', 'devices', 'create-collection', client);
-    await example('uns', 'create', 1).insertDevice('devices', 'device-1', 'pump', 'insert-record', client);
+    const inserted = await example('uns', 'create', 1).insertDevice('devices', 'device-1', 'pump', 'insert-record', client);
+    expect(inserted.created).toEqual(record());
     await example('uns', 'update', 2).renameDevice('devices', 'device-1', 'pump-2', 'update-record', client);
     const schema = { ...collection().data.recordSchema, properties: { ...collection().data.recordSchema.properties, location: { type: 'string' } } };
     await example('uns', 'update', 1).replaceRecordSchema('devices', schema, 'schema-change', client);

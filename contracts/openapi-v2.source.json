@@ -4100,10 +4100,62 @@
                       ]
                     },
                     "maxItems": 100
+                  },
+                  "returnDocument": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "after"
+                    ],
+                    "default": "none",
+                    "description": "none 保留原有 insertedId 响应；after 在同一写事务内附带创建后的 value，需要对应读取权限。幂等重放返回原始创建快照，dryRun 返回未提交的预览。"
+                  },
+                  "projection": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "oneOf": [
+                        {
+                          "type": "integer",
+                          "enum": [
+                            0,
+                            1
+                          ]
+                        },
+                        {
+                          "type": "boolean"
+                        }
+                      ]
+                    },
+                    "description": "Include or exclude declared fields; computed expressions use aggregate-pipeline. System identity is retained."
                   }
                 },
                 "required": [
                   "data"
+                ],
+                "allOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "not": {
+                          "required": [
+                            "projection"
+                          ]
+                        }
+                      },
+                      {
+                        "required": [
+                          "returnDocument"
+                        ],
+                        "properties": {
+                          "returnDocument": {
+                            "enum": [
+                              "after"
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
                 ]
               },
               "example": {
@@ -4178,7 +4230,7 @@
             }
           }
         ],
-        "description": "向指定集合新增 data，可指定 id；相同 ID 的已删除记录不会隐式恢复。dryRun=true 仅校验。",
+        "description": "向指定集合新增 data，可指定 id；相同 ID 的已删除记录不会隐式恢复。默认仅返回 insertedId 与执行状态；returnDocument=after 在同一事务内返回创建快照 value，可配合 projection，需要读取权限。幂等重放返回原始创建快照；dryRun=true 仅返回未提交预览。",
         "x-tier0-audience": "app",
         "x-tier0-starter": true,
         "x-tier0-readonly": false,
@@ -25871,6 +25923,10 @@
               "replayed": {
                 "type": "boolean",
                 "description": "是否返回同一幂等请求的已保存结果。"
+              },
+              "value": {
+                "$ref": "#/components/schemas/RecordDocument",
+                "description": "仅在 returnDocument=after 时出现；同一写事务的创建快照，包含服务端 ID、revision 和时间戳。重放不重新读取最新记录。"
               }
             },
             "required": [

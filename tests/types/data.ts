@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createDataClient, DataError, defineCollection, runAsApp, type Doc, type NewDoc } from '../../src/data/index.js';
+import { createDataClient, DataError, defineCollection, runAsApp, type Doc, type InsertOneOptions, type NewDoc } from '../../src/data/index.js';
 
 const workOrders = defineCollection({
   alias: 'work_orders',
@@ -21,6 +21,29 @@ orders.find({ status: 'DRAFT' }, { sort: { '_meta.createdAt': -1 }, limit: 50 })
 });
 const draft: NewDoc<typeof workOrders> = { code: 'WO-2', status: 'DRAFT' };
 orders.insertOne(draft);
+orders.insertOne(draft).then(result => {
+  const id: string = result.insertedId;
+  void id;
+  // @ts-expect-error default insert retains the ID-only return type
+  void result.value;
+});
+orders.insertOne(draft, { returnDocument: 'after', idempotencyKey: 'create-order' }).then(result => {
+  const record: Doc<typeof workOrders> = result.value;
+  const revision: number = record._meta.revision;
+  void revision;
+});
+orders.insertOne(draft, { returnDocument: 'after', projection: { code: 1 } });
+const dynamicOptions: InsertOneOptions = Math.random() > 0.5 ? { returnDocument: 'after' } : {};
+orders.insertOne(draft, dynamicOptions).then(result => {
+  const optional: Doc<typeof workOrders> | undefined = result.value;
+  void optional;
+});
+// @ts-expect-error inserts have no previous document
+orders.insertOne(draft, { returnDocument: 'before' });
+// @ts-expect-error projection requires a returned document
+orders.insertOne(draft, { projection: { code: 1 } });
+// @ts-expect-error none cannot be combined with projection
+orders.insertOne(draft, { returnDocument: 'none', projection: { code: 1 } });
 // @ts-expect-error status is a declared enum
 orders.insertOne({ code: 'WO-3', status: 'LOST' });
 orders.findOneAndUpdate({ _id: 'wo-1', status: 'DRAFT' }, { $set: { status: 'DONE' } }).then(moved => {

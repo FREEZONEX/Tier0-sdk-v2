@@ -891,6 +891,37 @@ describe('collection operations', () => {
     expect(mock.calls('/uns/collections/c-orders/records:findOneAndUpdate')[0].body.returnDocument).toBe('after');
   });
 
+  it('returns the insert snapshot in one write without a follow-up read', async () => {
+    const snapshot = record('o-created', { code: 'SERVER', status: 'OPEN' });
+    const mock = mockUns({
+      [ENSURE]: BOTH_UNCHANGED,
+      '/uns/collections/c-orders/records': [
+        ok({ insertedId: snapshot.id, value: snapshot, status: 'committed', replayed: false }),
+        ok({ insertedId: snapshot.id, value: snapshot, status: 'committed', replayed: true }),
+        ok({ insertedId: 'o-plain', status: 'committed', replayed: false }),
+      ],
+    });
+    const handle = client(mock).collection(orders);
+    const options = { returnDocument: 'after' as const, idempotencyKey: 'create-order', projection: { code: 1 as const, status: 1 as const } };
+    const created = await handle.insertOne({ code: 'INPUT', status: 'OPEN' }, options);
+    expect(created).toEqual({ insertedId: snapshot.id, value: { _id: snapshot.id, ...snapshot.data, _meta: {
+      revision: snapshot.revision, createdAt: snapshot.createdAt, updatedAt: snapshot.updatedAt,
+    } } });
+    expect(await handle.insertOne({ code: 'INPUT', status: 'OPEN' }, options)).toEqual(created);
+    expect(await handle.insertOne({ code: 'PLAIN', status: 'OPEN' }, { returnDocument: 'none' })).toEqual({ insertedId: 'o-plain' });
+    const writes = mock.calls('/uns/collections/c-orders/records');
+    expect(writes).toHaveLength(3);
+    expect(writes[0].body).toEqual({ collectionId: 'c-orders', data: { code: 'INPUT', status: 'OPEN' }, ...options });
+    expect(mock.sent.filter(entry => entry.path !== ENSURE)).toEqual(writes);
+  });
+
+  it('preserves insert snapshot permission errors without falling back to an ID-only write', async () => {
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, '/uns/collections/c-orders/records': NOT_GRANTED });
+    const error = await failed(client(mock).collection(orders).insertOne({ code: 'A', status: 'OPEN' }, { returnDocument: 'after' }));
+    expect(error).toMatchObject({ code: 'FORBIDDEN', reason: 'COLLECTION_NOT_GRANTED', outcomeUnknown: false });
+    expect(mock.calls('/uns/collections/c-orders/records')).toHaveLength(1);
+  });
+
   it('runs updateMany and deleteMany non-atomically through resumeAfter', async () => {
     const mock = mockUns({
       [ENSURE]: BOTH_UNCHANGED,
