@@ -342,7 +342,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
       'record-notifications/1', 'record-delete-samples/1', 'stream-history/1',
       'record-reads/1', 'app-context/2', 'collection-ttl/1', 'error-model/1',
     ]));
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('71b2a5397e129196609c49a14104481ed999ae42');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('048e85c28038ef13fb6b42db7f847537663ba2c3');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(UNS_V2_CONTRACT_PROVENANCE.sourceDerivedContractSHA256).toBe(UNS_V2_CONTRACT_PROVENANCE.hashes.contract);
     expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(106);
@@ -611,7 +611,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
   it('uses write receipts for create, deploy and release-specific observation without document reads', async () => {
     const start = received.length;
     const view = { id: '301', name: 'receipts', model: 'program', revision: 3, activeVersion: '0',
-      activeRelease: 0, status: 'draft', executionState: 'draft', createdAt: 1, updatedAt: 2 };
+      status: 'draft', executionState: 'draft', createdAt: 1, updatedAt: 2 };
     respond = (req, res) => {
       if (req.url?.endsWith('/create')) send(res, { code: 200, msg: '', requestId: 'created', data: view });
       else if (req.url?.endsWith('/deploy')) send(res, { code: 200, msg: '', requestId: 'deployed', data: {
@@ -628,6 +628,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
     const created = await api.stream.programs.create({ dryRun: false, idempotencyKey: 'create-receipt',
       document: { name: 'receipts', sdkVersion: 'tier0-stream/v2', script: 'module.exports=api=>{};' } });
     if (!('id' in created.data)) throw new Error('Expected committed create receipt');
+    expect(created.data).not.toHaveProperty('activeRelease');
     const deployed = await api.stream.programs.deploy({ id: created.data.id, expectedRevision: created.data.revision,
       dryRun: false, idempotencyKey: 'deploy-receipt' });
     if (!('id' in deployed.data)) throw new Error('Expected committed deployment receipt');
@@ -637,6 +638,20 @@ describe('UNS v2 localhost HTTP fixture', () => {
       '/openapi/v2/uns/streams/program/create', '/openapi/v2/uns/streams/program/deploy', '/openapi/v2/uns/streams/runs/list',
     ]);
     expect(JSON.parse(received[start + 1].body).expectedRevision).toBe(3);
+  });
+
+  it('preserves inactive program receipts without an active release number', async () => {
+    const inactive = { id: '301', name: 'stopped', model: 'program', revision: 3, activeVersion: '0',
+      status: 'disabled', executionState: 'disabled', createdAt: 1, updatedAt: 2 };
+    respond = (_req, res) => send(res, { code: 200, msg: '', requestId: 'inactive', data: inactive });
+    const api = client();
+    const stopped = await api.stream.programs.disable({ id: '301', expectedRevision: 3,
+      dryRun: false, idempotencyKey: 'disable-receipt' });
+    const current = await api.stream.programs.get({ id: '301' });
+    expect(stopped.data).toEqual(inactive);
+    expect(current.data).toEqual(inactive);
+    expect(stopped.data).not.toHaveProperty('activeRelease');
+    expect(current.data).not.toHaveProperty('activeRelease');
   });
 
   it('keeps deployment previews and historical receipts without a release number intact', async () => {

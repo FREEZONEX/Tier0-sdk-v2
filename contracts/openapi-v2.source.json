@@ -22048,8 +22048,8 @@
           },
           "activeRelease": {
             "type": "integer",
-            "minimum": 0,
-            "description": "本次操作快照中的发布序号，可与 runs.items[].release 比较；0 表示无活跃发布。历史幂等回执可能缺少此字段，不得用当前 head 推断其原发布序号。"
+            "minimum": 1,
+            "description": "本次操作快照中的正整数发布序号，可与 runs.items[].release 比较。无活跃发布或历史幂等回执未记录编号时省略，不得用当前 head 推断其原发布序号。"
           },
           "status": {
             "type": "string"

@@ -38,6 +38,6 @@ description: 使用 @tier0/sdk-v2 的 client.stream 创建、查询、修改和�
 
 ## 成功与异常
 
-响应保留 code/msg/requestId/data。创建/更新回执的 revision 可直接用于发布；发布回执的 activeRelease 是同次事务保存的发布序号，无需前后 get。校验要检查 valid，样例要检查 completed/failed，删除要检查 deleted；发布后按回执的 activeRelease 筛选 runs.list 才能确认该版本运行。样例 writePreview 不代表线上数据写入。
+响应保留 code/msg/requestId/data。创建/更新回执的 revision 可直接用于发布；programs 发布回执的 activeRelease 是同次事务保存的正整数发布序号，无需前后 get。programs 回执和查询结果无活跃发布时省略 activeRelease，activeVersion 保留字符串 0 的兼容语义。校验要检查 valid，样例要检查 completed/failed，删除要检查 deleted；发布后按回执的 activeRelease 筛选 runs.list 才能确认该版本运行。样例 writePreview 不代表线上数据写入。
 
 UnsV2OutcomeUnknownError、发布超时或取消后保留原路由、载荷和幂等键；允许恢复时原样重发取得原回执，不用新键重复发布。历史回执可能缺少 activeRelease，不得用当前 head 替代。版本冲突先比较当前草稿，不能忽略 expectedRevision。不同写入意图使用不同键；本地 SDK 测试不能代替目标环境联调。

@@ -7068,10 +7068,10 @@ export const UNS_V2_CODEC_SCHEMAS = {"UnsV2CatalogReq":{"k":"o","p":{"includeCom
 
 export const UNS_V2_CONTRACT_PROVENANCE = {
   "repository": "FREEZONEX/Tier0-Backend",
-  "revision": "71b2a5397e129196609c49a14104481ed999ae42",
+  "revision": "048e85c28038ef13fb6b42db7f847537663ba2c3",
   "version": "5.0.0",
   "source": "service/unssvr/internal/domain/unsv2/contract_generated.go#ContractJSON",
-  "cloudRevision": "71b2a5397e129196609c49a14104481ed999ae42",
+  "cloudRevision": "048e85c28038ef13fb6b42db7f847537663ba2c3",
   "cloudContractRevision": "cloud-source-impact/1+app-create-capability/1+data/3+record-reads/1+stream-receipt/1+collection-namespace/1+http-acquisition/2+app-collection/2+metadata/1+app-context/2+collection-ttl/1+error-model/1+crud-consolidation/1+lifecycle-consolidation/1+api-surface/1+app-data/2+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/1+http-in/1+app-resource-access/2",
   "resolvedCloudContract": true,
   "enterpriseBase": {
@@ -7081,12 +7081,12 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
     "source": "backend/internal/domain/unsv2/contract_generated.go",
     "note": "Reviewed Enterprise wire contract imported as editable Cloud contract source; regenerate all adapters with scripts/generate-uns-v2.mjs."
   },
-  "sourceDerivedContractSHA256": "a8e15d435a3130224c03f09e3e7edb0a9907434020b13c2fcfa7c97f23360f3d",
+  "sourceDerivedContractSHA256": "7e3e91759098f1e319f1c5b197e661378472f57c627671cbb224b1068ff2c229",
   "hashes": {
-    "contract": "a8e15d435a3130224c03f09e3e7edb0a9907434020b13c2fcfa7c97f23360f3d",
+    "contract": "7e3e91759098f1e319f1c5b197e661378472f57c627671cbb224b1068ff2c229",
     "cloudSupport": "102eef2517c84adbb0d0223d218cdd711c28da459d790f5ba1b9f9b316b54f15",
-    "manifest": "1b72ff1b07174501433846a51ed8d0da3a01ba7cb1f474fea38ff51839174906",
-    "provenance": "34dba91120c3377dc4257d5b41efb10c184945013f7db3e28860255cb02b609c",
+    "manifest": "8fa79bad8b6fc38b18afb1726934196100c344b58a0b4fa1f3dcc7d1d5a97391",
+    "provenance": "07ea679b3682f68d767d43409fa8588cb729deb50789d18693cd5597f4add5d5",
     "registry": "f3a4a8efe6bbb52f0239f76a998c2f5b882b55a6eac4bc1e566d73abb9fd520c"
   },
   "publicOperationCount": 106,

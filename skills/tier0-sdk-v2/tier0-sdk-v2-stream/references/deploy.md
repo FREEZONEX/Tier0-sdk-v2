@@ -44,7 +44,7 @@ export async function disableStream(id: string, intentKey: string, client: Tier0
 }
 ```
 
-将创建或更新回执的 current 传给 deployStream，只发一次发布请求。只有手上没有草稿快照时才先 documents.get。activeRelease 是这次写入事务的发布序号；使用 runs.list 并筛选 String(run.release) === String(release) 才能观察这次发布，观察窗口汇总不能证明该版本运行。发布成功不表示外部连接健康或执行成功。停用保留草稿。仅修改草稿的任务不额外发布/停用。
+将创建或更新回执的 current 传给 deployStream，只发一次发布请求。只有手上没有草稿快照时才先 documents.get。programs 回执的 activeRelease 是这次写入事务的正整数发布序号；无活跃发布或历史回执未记录编号时省略。使用 runs.list 并筛选 String(run.release) === String(release) 才能观察这次发布，观察窗口汇总不能证明该版本运行。发布成功不表示外部连接健康或执行成功。停用保留草稿。仅修改草稿的任务不额外发布/停用。
 
 ## 回滚到明确版本
 

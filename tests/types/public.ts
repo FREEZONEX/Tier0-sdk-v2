@@ -42,7 +42,7 @@ export async function publishStreamFromReceipts(client: Tier0Client) {
   const revision: UnsV2Integer = deployed.data.revision;
   const activeVersion: string = deployed.data.activeVersion;
   const release: UnsV2Integer | undefined = deployed.data.activeRelease;
-  // @ts-expect-error Historical idempotency receipts may not carry a release number.
+  // @ts-expect-error Inactive programs and historical idempotency receipts may omit the release number.
   const assumedRelease: UnsV2Integer = deployed.data.activeRelease;
   void revision; void activeVersion; void assumedRelease;
   return release;
