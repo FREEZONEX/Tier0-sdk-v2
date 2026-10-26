@@ -97,6 +97,8 @@ export async function ordersScreen(page: number, selectedId: string) {
 
 新建后需要显示保存结果或继续按版本编辑时，使用 `insertOne(doc, { returnDocument: 'after', idempotencyKey })`。`value` 与查询结果一样是 `{ _id, ...业务字段, _meta }`，包含服务端生成的数据和 `_meta.revision`，无需额外查询。返回快照需要当前读取权限；`projection` 只能与 `after` 一起提供。重放返回当次创建的快照，不能当成记录当前最新版本；之后的版本冲突仍需显式读取并处理。
 
+带 `projection` 时，返回类型将业务字段递归标为可选，包括嵌套对象和数组元素的字段；读取前需判断是否存在。`_id` 和 `_meta` 仍然必有。不带 `projection` 的 `after` 保持完整文档类型。
+
 ## 批量与原子性
 
 | 调用 | 上限 | 原子 |
