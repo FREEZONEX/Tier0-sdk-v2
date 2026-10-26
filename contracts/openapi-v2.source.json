@@ -49,6 +49,10 @@
     {
       "name": "App 与授权",
       "description": "App 与授权接口"
+    },
+    {
+      "name": "元数据",
+      "description": "元数据接口"
     }
   ],
   "servers": [
@@ -143,6 +147,8 @@
             }
           }
         },
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -216,6 +222,8 @@
             }
           }
         },
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -235,7 +243,17 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": false,
-                "properties": {}
+                "properties": {
+                  "includeCompatibility": {
+                    "type": "integer",
+                    "enum": [
+                      1,
+                      2
+                    ],
+                    "default": 2,
+                    "description": "1 包含兼容入口；2（默认）仅列出推荐入口。仍按当前身份和权限过滤。"
+                  }
+                }
               },
               "example": {}
             }
@@ -279,6 +297,8 @@
             }
           }
         },
+        "x-tier0-audience": "app",
+        "x-tier0-starter": true,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -405,6 +425,8 @@
             }
           }
         },
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -509,6 +531,8 @@
             }
           }
         },
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -520,7 +544,7 @@
           "元数据管理"
         ],
         "summary": "查询资源引用",
-        "description": "按 targets 查询资源的引用关系。",
+        "description": "按 targets 查询资源引用。Collection 的 App 引用附带本集合的授权与策略状态；Stream 引用只统计当前发布版本的冻结依赖或直接声明，返回访问方式，不统计草稿与历史版本。可用 kinds 选择 app/stream/source/topic，status=active 排除已停用配置；筛选先于权限过滤和分页。依赖不代表授权，停用配置不代表当前可访问。结果按 kind、id 稳定排序，无法查看的引用仅通过 hasHiddenReferences 标记。",
         "requestBody": {
           "required": true,
           "content": {
@@ -557,6 +581,27 @@
                           "items": {
                             "$ref": "#/components/schemas/UnsV2ReferenceTarget"
                           }
+                        },
+                        "kinds": {
+                          "type": "array",
+                          "uniqueItems": true,
+                          "maxItems": 4,
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "app",
+                              "stream",
+                              "source",
+                              "topic"
+                            ]
+                          }
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active"
+                          ],
+                          "description": "仅列出未停用的配置；不代表实时执行授权。"
                         }
                       },
                       "required": [
@@ -631,6 +676,8 @@
             }
           }
         },
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -723,6 +770,8 @@
             }
           }
         },
+        "x-tier0-audience": "app",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -734,7 +783,7 @@
           "数据源"
         ],
         "summary": "列出数据源",
-        "description": "分页查询数据源，支持 search；archived=true 只查询已归档对象。",
+        "description": "分页查询数据源，支持 search；archived=true 只查询已归档对象。\n兼容入口：新请求推荐使用 /uns/sources/documents/list。旧请求的恢复必须继续使用原入口、原幂等键和原载荷；切换入口不会继承旧回执。",
         "requestBody": {
           "required": true,
           "content": {
@@ -807,6 +856,15 @@
             }
           }
         },
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
+        "deprecated": true,
+        "x-tier0-compatibility": {
+          "replacement": "sourceDocumentList",
+          "strategy": "sourceDocument",
+          "operationId": "UnsV2SourceDocumentList",
+          "path": "/uns/sources/documents/list"
+        },
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -818,7 +876,7 @@
           "数据源"
         ],
         "summary": "读取数据源定义",
-        "description": "按 id 读取数据源的定义及版本，不展开业务记录或采样。",
+        "description": "按 id 读取数据源的定义及版本，不展开业务记录或采样。\n兼容入口：新请求推荐使用 /uns/sources/documents/get。旧请求的恢复必须继续使用原入口、原幂等键和原载荷；切换入口不会继承旧回执。",
         "requestBody": {
           "required": true,
           "content": {
@@ -882,6 +940,15 @@
             }
           }
         },
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
+        "deprecated": true,
+        "x-tier0-compatibility": {
+          "replacement": "sourceDocumentGet",
+          "strategy": "sourceDocument",
+          "operationId": "UnsV2SourceDocumentGet",
+          "path": "/uns/sources/documents/get"
+        },
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -893,7 +960,7 @@
           "数据源"
         ],
         "summary": "创建数据源",
-        "description": "按 items 创建数据源；dryRun=true 仅校验。",
+        "description": "按 items 创建数据源；dryRun=true 仅校验。\n兼容入口：新请求推荐使用 /uns/sources/documents/create。旧请求的恢复必须继续使用原入口、原幂等键和原载荷；切换入口不会继承旧回执。",
         "requestBody": {
           "required": true,
           "content": {
@@ -914,6 +981,9 @@
                   },
                   "allowPartial": {
                     "type": "boolean",
+                    "enum": [
+                      false
+                    ],
                     "default": false,
                     "description": "默认 false，整批回滚；true 逐项提交，失败信息见 results[].error。"
                   },
@@ -921,22 +991,21 @@
                     "type": "string",
                     "enum": [
                       "auto",
-                      "sync",
-                      "async"
+                      "sync"
                     ]
                   },
                   "items": {
                     "type": "array",
                     "minItems": 1,
-                    "maxItems": 10000,
+                    "maxItems": 200,
                     "items": {
                       "type": "object",
                       "additionalProperties": false,
                       "properties": {
                         "id": {
                           "type": "string",
-                          "minLength": 1,
-                          "maxLength": 128
+                          "pattern": "^[1-9][0-9]*$",
+                          "maxLength": 19
                         },
                         "adapter": {
                           "description": "Select exactly this protocol; http-api is not http",
@@ -1094,6 +1163,15 @@
             }
           }
         },
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
+        "deprecated": true,
+        "x-tier0-compatibility": {
+          "replacement": "sourceDocumentCreate",
+          "strategy": "sourceDocument",
+          "operationId": "UnsV2SourceDocumentCreate",
+          "path": "/uns/sources/documents/create"
+        },
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -1105,7 +1183,7 @@
           "数据源"
         ],
         "summary": "更新数据源基本信息",
-        "description": "按 items 更新数据源基本信息，未提供的字段保持不变。需提供当前 expectedRevision 和与本次变更一致的 confirmedImpactRevision；dryRun=true 仅校验。",
+        "description": "按 items 更新数据源基本信息，未提供的字段保持不变。需提供当前 expectedRevision 和与本次变更一致的 confirmedImpactRevision；dryRun=true 仅校验。\n兼容入口：新请求推荐使用 /uns/sources/documents/update。旧请求的恢复必须继续使用原入口、原幂等键和原载荷；切换入口不会继承旧回执。",
         "requestBody": {
           "required": true,
           "content": {
@@ -1126,6 +1204,9 @@
                   },
                   "allowPartial": {
                     "type": "boolean",
+                    "enum": [
+                      false
+                    ],
                     "default": false,
                     "description": "默认 false，整批回滚；true 逐项提交，失败信息见 results[].error。"
                   },
@@ -1133,22 +1214,21 @@
                     "type": "string",
                     "enum": [
                       "auto",
-                      "sync",
-                      "async"
+                      "sync"
                     ]
                   },
                   "items": {
                     "type": "array",
                     "minItems": 1,
-                    "maxItems": 10000,
+                    "maxItems": 200,
                     "items": {
                       "type": "object",
                       "additionalProperties": false,
                       "properties": {
                         "id": {
                           "type": "string",
-                          "minLength": 1,
-                          "maxLength": 128
+                          "pattern": "^[1-9][0-9]*$",
+                          "maxLength": 19
                         },
                         "expectedRevision": {
                           "type": "integer",
@@ -1256,6 +1336,15 @@
             }
           }
         },
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
+        "deprecated": true,
+        "x-tier0-compatibility": {
+          "replacement": "sourceDocumentUpdate",
+          "strategy": "sourceDocument",
+          "operationId": "UnsV2SourceDocumentUpdate",
+          "path": "/uns/sources/documents/update"
+        },
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -1267,7 +1356,7 @@
           "数据源"
         ],
         "summary": "更新数据源连接",
-        "description": "更新连接配置，需提供当前 expectedRevision 和与本次变更一致的 confirmedImpactRevision；dryRun=true 仅校验。",
+        "description": "更新连接配置，需提供当前 expectedRevision 和与本次变更一致的 confirmedImpactRevision；dryRun=true 仅校验。\n兼容入口：新请求推荐使用 /uns/sources/documents/update。旧请求的恢复必须继续使用原入口、原幂等键和原载荷；切换入口不会继承旧回执。",
         "requestBody": {
           "required": true,
           "content": {
@@ -1288,6 +1377,9 @@
                   },
                   "allowPartial": {
                     "type": "boolean",
+                    "enum": [
+                      false
+                    ],
                     "default": false,
                     "description": "默认 false，整批回滚；true 逐项提交，失败信息见 results[].error。"
                   },
@@ -1295,22 +1387,21 @@
                     "type": "string",
                     "enum": [
                       "auto",
-                      "sync",
-                      "async"
+                      "sync"
                     ]
                   },
                   "items": {
                     "type": "array",
                     "minItems": 1,
-                    "maxItems": 10000,
+                    "maxItems": 200,
                     "items": {
                       "type": "object",
                       "additionalProperties": false,
                       "properties": {
                         "id": {
                           "type": "string",
-                          "minLength": 1,
-                          "maxLength": 128
+                          "pattern": "^[1-9][0-9]*$",
+                          "maxLength": 19
                         },
                         "expectedRevision": {
                           "type": "integer",
@@ -1420,6 +1511,15 @@
             }
           }
         },
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
+        "deprecated": true,
+        "x-tier0-compatibility": {
+          "replacement": "sourceDocumentUpdate",
+          "strategy": "sourceDocument",
+          "operationId": "UnsV2SourceDocumentUpdate",
+          "path": "/uns/sources/documents/update"
+        },
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -1452,6 +1552,9 @@
                   },
                   "allowPartial": {
                     "type": "boolean",
+                    "enum": [
+                      false
+                    ],
                     "default": false,
                     "description": "默认 false，整批回滚；true 逐项提交，失败信息见 results[].error。"
                   },
@@ -1459,22 +1562,21 @@
                     "type": "string",
                     "enum": [
                       "auto",
-                      "sync",
-                      "async"
+                      "sync"
                     ]
                   },
                   "items": {
                     "type": "array",
                     "minItems": 1,
-                    "maxItems": 10000,
+                    "maxItems": 200,
                     "items": {
                       "type": "object",
                       "additionalProperties": false,
                       "properties": {
                         "id": {
                           "type": "string",
-                          "minLength": 1,
-                          "maxLength": 128
+                          "pattern": "^[1-9][0-9]*$",
+                          "maxLength": 19
                         },
                         "expectedRevision": {
                           "type": "integer",
@@ -1581,6 +1683,8 @@
             }
           }
         },
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -1656,6 +1760,8 @@
             }
           }
         },
+        "x-tier0-audience": "operations",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -1720,6 +1826,8 @@
             }
           }
         },
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -1756,12 +1864,53 @@
                   },
                   "connection": {
                     "$ref": "#/components/schemas/SourceDefinition"
+                  },
+                  "document": {
+                    "$ref": "#/components/schemas/CloudSourceDocument"
                   }
                 },
-                "required": [
-                  "name",
-                  "adapter",
-                  "connection"
+                "required": [],
+                "oneOf": [
+                  {
+                    "required": [
+                      "document"
+                    ],
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "name"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "adapter"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "connection"
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "required": [
+                      "name",
+                      "adapter",
+                      "connection"
+                    ],
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "document"
+                          ]
+                        }
+                      ]
+                    }
+                  }
                 ]
               },
               "example": {
@@ -1817,6 +1966,8 @@
             }
           }
         },
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -1911,6 +2062,8 @@
             }
           }
         },
+        "x-tier0-audience": "operations",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -1922,7 +2075,7 @@
           "处理流"
         ],
         "summary": "校验处理流程序",
-        "description": "校验 document 及其数据源版本约束，不部署程序。",
+        "description": "校验 document 及其数据源版本约束，不部署程序。\n兼容入口：新请求推荐使用 /uns/streams/documents/validate。旧请求的恢复必须继续使用原入口、原幂等键和原载荷；切换入口不会继承旧回执。",
         "requestBody": {
           "required": true,
           "content": {
@@ -1991,6 +2144,15 @@
             }
           }
         },
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
+        "deprecated": true,
+        "x-tier0-compatibility": {
+          "replacement": "streamDocumentValidate",
+          "strategy": "streamDocument",
+          "operationId": "UnsV2StreamDocumentValidate",
+          "path": "/uns/streams/documents/validate"
+        },
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -2002,7 +2164,7 @@
           "处理流"
         ],
         "summary": "创建处理流程序",
-        "description": "从 document 创建处理流程序；dryRun=true 仅校验。",
+        "description": "从 document 创建处理流程序；dryRun=true 仅校验。\n兼容入口：新请求推荐使用 /uns/streams/documents/create。旧请求的恢复必须继续使用原入口、原幂等键和原载荷；切换入口不会继承旧回执。",
         "requestBody": {
           "required": true,
           "content": {
@@ -2080,6 +2242,15 @@
             }
           }
         },
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
+        "deprecated": true,
+        "x-tier0-compatibility": {
+          "replacement": "streamDocumentCreate",
+          "strategy": "streamDocument",
+          "operationId": "UnsV2StreamDocumentCreate",
+          "path": "/uns/streams/documents/create"
+        },
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -2091,7 +2262,7 @@
           "处理流"
         ],
         "summary": "更新处理流程序",
-        "description": "按 id 更新程序 document，可用 expectedRevision 检查并发修改；dryRun=true 仅校验。",
+        "description": "按 id 更新程序 document，可用 expectedRevision 检查并发修改；dryRun=true 仅校验。\n兼容入口：新请求推荐使用 /uns/streams/documents/update。旧请求的恢复必须继续使用原入口、原幂等键和原载荷；切换入口不会继承旧回执。",
         "requestBody": {
           "required": true,
           "content": {
@@ -2182,6 +2353,15 @@
             }
           }
         },
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
+        "deprecated": true,
+        "x-tier0-compatibility": {
+          "replacement": "streamDocumentUpdate",
+          "strategy": "streamDocument",
+          "operationId": "UnsV2StreamDocumentUpdate",
+          "path": "/uns/streams/documents/update"
+        },
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -2193,7 +2373,7 @@
           "处理流"
         ],
         "summary": "读取处理流程序",
-        "description": "按 id 读取处理流程序定义和当前版本。",
+        "description": "按 id 读取处理流程序定义和当前版本。\n兼容入口：新请求推荐使用 /uns/streams/documents/get。旧请求的恢复必须继续使用原入口、原幂等键和原载荷；切换入口不会继承旧回执。",
         "requestBody": {
           "required": true,
           "content": {
@@ -2256,6 +2436,15 @@
               }
             }
           }
+        },
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
+        "deprecated": true,
+        "x-tier0-compatibility": {
+          "replacement": "streamDocumentGet",
+          "strategy": "streamDocument",
+          "operationId": "UnsV2StreamDocumentGet",
+          "path": "/uns/streams/documents/get"
         },
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
@@ -2347,6 +2536,8 @@
             }
           }
         },
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -2442,6 +2633,8 @@
             }
           }
         },
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -2453,7 +2646,7 @@
           "处理流"
         ],
         "summary": "停用处理流程序",
-        "description": "按 id 停用程序；dryRun=true 仅校验。此操作不要求解析数据源连接或等待执行工作进程。",
+        "description": "按 id 停用程序；dryRun=true 仅校验。此操作不要求解析数据源连接或等待执行工作进程。\n兼容入口：新请求推荐使用 /uns/streams/documents/disable。旧请求的恢复必须继续使用原入口、原幂等键和原载荷；切换入口不会继承旧回执。",
         "requestBody": {
           "required": true,
           "content": {
@@ -2534,6 +2727,15 @@
               }
             }
           }
+        },
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
+        "deprecated": true,
+        "x-tier0-compatibility": {
+          "replacement": "streamDocumentDisable",
+          "strategy": "streamDocument",
+          "operationId": "UnsV2StreamDocumentDisable",
+          "path": "/uns/streams/documents/disable"
         },
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
@@ -2637,6 +2839,8 @@
             }
           }
         },
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -2812,6 +3016,8 @@
             }
           }
         ],
+        "x-tier0-audience": "app",
+        "x-tier0-starter": true,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -2934,6 +3140,8 @@
             }
           }
         ],
+        "x-tier0-audience": "app",
+        "x-tier0-starter": true,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false,
         "x-tier0-transport": "sse"
@@ -3142,6 +3350,8 @@
           "业务数据"
         ],
         "description": "在一个原子事务中执行跨集合 Record 操作，按 opId 关联结果，支持 dependsOn 和结果引用。dryRun=true 仅预检；mode 选择 auto、sync 或 async，异步受理后通过 jobId 查询结果（App 凭证只能使用 auto/sync）。每个操作分别检查集合权限。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": true,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -3302,6 +3512,8 @@
           }
         ],
         "description": "在指定集合内按 filter 查询有效记录，支持 sort、projection 和 limit/cursor。返回 items 与 pageInfo；业务字段位于每条记录的 data 中。第一页可带 count:{max} 在同一快照附带封顶总数 total:{count,capped}（默认上限 10000，最大 100000），续页 cursor 不可带 count。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": true,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -3405,6 +3617,8 @@
           }
         ],
         "description": "返回指定集合中符合 filter 的有效记录数，最多数到 maxCount（默认与最大 100000）；真实匹配数大于 maxCount 时返回 count=maxCount、capped=true，等于时 capped=false。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": true,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -3413,7 +3627,7 @@
       "post": {
         "operationId": "UnsV2RecordDistinct",
         "summary": "查询字段去重值",
-        "deprecated": false,
+        "deprecated": true,
         "security": [
           {
             "ApiKey": []
@@ -3533,7 +3747,15 @@
             }
           }
         ],
-        "description": "返回符合 filter 的有效记录中 field 字段的去重值，保留 JSON 值类型。支持 offset 分页；page 与 limit 互斥。",
+        "description": "返回符合 filter 的有效记录中 field 字段的去重值，保留 JSON 值类型。支持 offset 分页；page 与 limit 互斥。\n兼容入口：新请求推荐使用 /uns/collections/:collectionId/records:aggregate。旧请求的恢复必须继续使用原入口、原幂等键和原载荷；切换入口不会继承旧回执。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": false,
+        "x-tier0-compatibility": {
+          "replacement": "recordAggregatePipeline",
+          "strategy": "aggregateDistinct",
+          "operationId": "UnsV2RecordAggregatePipeline",
+          "path": "/uns/collections/:collectionId/records:aggregate"
+        },
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -3684,6 +3906,8 @@
           }
         ],
         "description": "对指定集合的有效记录执行 pipeline，支持过滤、投影、分组和排序。返回文档由 pipeline 决定；page 与 limit 互斥。第一页或 offset 页可带 count:{max} 在同一快照附带管线输出的封顶总数 total。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -3788,6 +4012,8 @@
           }
         ],
         "description": "只读评估 find、updateMany 或 deleteMany 的执行计划和有限匹配范围，返回 sampleIds 等信息，不执行写入；评估结果不保证之后执行时的数据状态。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -3953,6 +4179,8 @@
           }
         ],
         "description": "向指定集合新增 data，可指定 id；相同 ID 的已删除记录不会隐式恢复。dryRun=true 仅校验。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": true,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -3961,7 +4189,7 @@
       "post": {
         "operationId": "UnsV2RecordInsertMany",
         "summary": "批量新增记录",
-        "deprecated": false,
+        "deprecated": true,
         "security": [
           {
             "ApiKey": []
@@ -4162,7 +4390,15 @@
             }
           }
         ],
-        "description": "向指定集合新增 documents。atomic 控制整批原子性，ordered 控制遇到逐项失败时是否停止；insertedIds 以原始输入从 0 开始的索引关联 ID。dryRun=true 仅校验。atomic=false 时按块 / 按项提交：只要有任一块或任一项已提交，失败响应的 error.execution=committed（部分提交）、retry.safe=false，错误信封 data 为与成功响应相同结构的累计结果（计数、insertedIds、writeErrors、hasMore、nextIndex，结局未知时另有 unknownUntil），nextIndex 是第一个未执行操作的零基序号；序号小于 nextIndex 且不在 writeErrors 里的操作都已提交；有 unknownUntil 时 [nextIndex, unknownUntil) 结局未知，带幂等键时用同一个键重试，不带键时只有带客户端 id 的新增与按 id 的替换 / 删除能先按 id 读取状态再续做，服务端生成 id 的新增、按 filter 选择目标的操作与 $inc 等增量更新无法核对，结局未知时不能安全续做（这类写入应始终带幂等键）；没有 unknownUntil 时从 nextIndex 续做是安全的；只有全部未提交时 execution 才是 rolledBack 或 notStarted。",
+        "description": "向指定集合新增 documents。atomic 控制整批原子性，ordered 控制遇到逐项失败时是否停止；insertedIds 以原始输入从 0 开始的索引关联 ID。dryRun=true 仅校验。atomic=false 时按块 / 按项提交：只要有任一块或任一项已提交，失败响应的 error.execution=committed（部分提交）、retry.safe=false，错误信封 data 为与成功响应相同结构的累计结果（计数、insertedIds、writeErrors、hasMore、nextIndex，结局未知时另有 unknownUntil），nextIndex 是第一个未执行操作的零基序号；序号小于 nextIndex 且不在 writeErrors 里的操作都已提交；有 unknownUntil 时 [nextIndex, unknownUntil) 结局未知，带幂等键时用同一个键重试，不带键时只有带客户端 id 的新增与按 id 的替换 / 删除能先按 id 读取状态再续做，服务端生成 id 的新增、按 filter 选择目标的操作与 $inc 等增量更新无法核对，结局未知时不能安全续做（这类写入应始终带幂等键）；没有 unknownUntil 时从 nextIndex 续做是安全的；只有全部未提交时 execution 才是 rolledBack 或 notStarted。\n兼容入口：新请求推荐使用 /uns/collections/:collectionId/records:bulkWrite。旧请求的恢复必须继续使用原入口、原幂等键和原载荷；切换入口不会继承旧回执。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": false,
+        "x-tier0-compatibility": {
+          "replacement": "recordBulkWrite",
+          "strategy": "bulkInsert",
+          "operationId": "UnsV2RecordBulkWrite",
+          "path": "/uns/collections/:collectionId/records:bulkWrite"
+        },
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -4263,11 +4499,65 @@
                       ]
                     },
                     "maxItems": 100
+                  },
+                  "returnDocument": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "before",
+                      "after"
+                    ],
+                    "default": "none",
+                    "description": "none 仅返回原有计数；before/after 在同一写事务内附带 value，需要对应读取权限。未匹配返回 value:null；新增时 before 为 null。"
+                  },
+                  "projection": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "oneOf": [
+                        {
+                          "type": "integer",
+                          "enum": [
+                            0,
+                            1
+                          ]
+                        },
+                        {
+                          "type": "boolean"
+                        }
+                      ]
+                    },
+                    "description": "Include or exclude declared fields; computed expressions use aggregate-pipeline. System identity is retained."
                   }
                 },
                 "required": [
                   "filter",
                   "update"
+                ],
+                "allOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "not": {
+                          "required": [
+                            "projection"
+                          ]
+                        }
+                      },
+                      {
+                        "required": [
+                          "returnDocument"
+                        ],
+                        "properties": {
+                          "returnDocument": {
+                            "enum": [
+                              "before",
+                              "after"
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
                 ]
               },
               "example": {
@@ -4349,6 +4639,8 @@
           }
         ],
         "description": "按 filter、sort 选取一条记录并应用 update。upsert=true 时未匹配可新增，需满足 ID 或完整唯一键等值条件。dryRun=true 仅校验。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": true,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -4357,7 +4649,7 @@
       "post": {
         "operationId": "UnsV2RecordFindOneAndUpdate",
         "summary": "查找更新并返回记录",
-        "deprecated": false,
+        "deprecated": true,
         "security": [
           {
             "ApiKey": []
@@ -4570,7 +4862,15 @@
             }
           }
         ],
-        "description": "原子选择并更新一条记录，value 按 returnDocument 返回 before/after，支持 projection。未匹配时 value 为 null；可通过 upsert 新增。dryRun=true 仅校验。",
+        "description": "原子选择并更新一条记录，value 按 returnDocument 返回 before/after，支持 projection。未匹配时 value 为 null；可通过 upsert 新增。dryRun=true 仅校验。\n兼容入口：新请求推荐使用 /uns/collections/:collectionId/records:updateOne。旧请求的恢复必须继续使用原入口、原幂等键和原载荷；切换入口不会继承旧回执。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": false,
+        "x-tier0-compatibility": {
+          "replacement": "recordUpdateOne",
+          "strategy": "returnDocument",
+          "operationId": "UnsV2RecordUpdateOne",
+          "path": "/uns/collections/:collectionId/records:updateOne"
+        },
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -4662,11 +4962,65 @@
                       ]
                     },
                     "maxItems": 100
+                  },
+                  "returnDocument": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "before",
+                      "after"
+                    ],
+                    "default": "none",
+                    "description": "none 仅返回原有计数；before/after 在同一写事务内附带 value，需要对应读取权限。未匹配返回 value:null；新增时 before 为 null。"
+                  },
+                  "projection": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "oneOf": [
+                        {
+                          "type": "integer",
+                          "enum": [
+                            0,
+                            1
+                          ]
+                        },
+                        {
+                          "type": "boolean"
+                        }
+                      ]
+                    },
+                    "description": "Include or exclude declared fields; computed expressions use aggregate-pipeline. System identity is retained."
                   }
                 },
                 "required": [
                   "filter",
                   "replacement"
+                ],
+                "allOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "not": {
+                          "required": [
+                            "projection"
+                          ]
+                        }
+                      },
+                      {
+                        "required": [
+                          "returnDocument"
+                        ],
+                        "properties": {
+                          "returnDocument": {
+                            "enum": [
+                              "before",
+                              "after"
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
                 ]
               },
               "example": {
@@ -4746,6 +5100,8 @@
           }
         ],
         "description": "按 filter、sort 选取一条记录，用 replacement 完整替换业务数据。upsert=true 时未匹配可新增，需满足 ID 或完整唯一键等值条件。dryRun=true 仅校验。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -4754,7 +5110,7 @@
       "post": {
         "operationId": "UnsV2RecordFindOneAndReplace",
         "summary": "查找替换并返回记录",
-        "deprecated": false,
+        "deprecated": true,
         "security": [
           {
             "ApiKey": []
@@ -4956,7 +5312,15 @@
             }
           }
         ],
-        "description": "原子选择并完整替换一条记录的业务数据，value 按 returnDocument 返回 before/after，支持 projection。未匹配时 value 为 null；可通过 upsert 新增。dryRun=true 仅校验。",
+        "description": "原子选择并完整替换一条记录的业务数据，value 按 returnDocument 返回 before/after，支持 projection。未匹配时 value 为 null；可通过 upsert 新增。dryRun=true 仅校验。\n兼容入口：新请求推荐使用 /uns/collections/:collectionId/records:replaceOne。旧请求的恢复必须继续使用原入口、原幂等键和原载荷；切换入口不会继承旧回执。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": false,
+        "x-tier0-compatibility": {
+          "replacement": "recordReplaceOne",
+          "strategy": "returnDocument",
+          "operationId": "UnsV2RecordReplaceOne",
+          "path": "/uns/collections/:collectionId/records:replaceOne"
+        },
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -5039,10 +5403,62 @@
                       ]
                     },
                     "maxItems": 100
+                  },
+                  "returnDocument": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "before"
+                    ],
+                    "default": "none",
+                    "description": "none 仅返回原有计数；before/after 在同一写事务内附带 value，需要对应读取权限。未匹配返回 value:null；新增时 before 为 null。"
+                  },
+                  "projection": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "oneOf": [
+                        {
+                          "type": "integer",
+                          "enum": [
+                            0,
+                            1
+                          ]
+                        },
+                        {
+                          "type": "boolean"
+                        }
+                      ]
+                    },
+                    "description": "Include or exclude declared fields; computed expressions use aggregate-pipeline. System identity is retained."
                   }
                 },
                 "required": [
                   "filter"
+                ],
+                "allOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "not": {
+                          "required": [
+                            "projection"
+                          ]
+                        }
+                      },
+                      {
+                        "required": [
+                          "returnDocument"
+                        ],
+                        "properties": {
+                          "returnDocument": {
+                            "enum": [
+                              "before"
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
                 ]
               },
               "example": {
@@ -5118,6 +5534,8 @@
           }
         ],
         "description": "按 filter、sort 选取一条记录并软删除。默认查询不再返回该记录，关联 Sample 在同一事务内物理删除，恢复 Record 不恢复 Sample。dryRun=true 仅校验。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": true,
         "x-tier0-readonly": false,
         "x-tier0-destructive": true
       }
@@ -5126,7 +5544,7 @@
       "post": {
         "operationId": "UnsV2RecordFindOneAndDelete",
         "summary": "软删除并返回原记录",
-        "deprecated": false,
+        "deprecated": true,
         "security": [
           {
             "ApiKey": []
@@ -5307,7 +5725,15 @@
             }
           }
         ],
-        "description": "原子选择并软删除一条记录，value 返回删除前的记录，支持 projection；未匹配返回 null。关联 Sample 在同一事务内物理删除，恢复 Record 不恢复 Sample。dryRun=true 仅校验。",
+        "description": "原子选择并软删除一条记录，value 返回删除前的记录，支持 projection；未匹配返回 null。关联 Sample 在同一事务内物理删除，恢复 Record 不恢复 Sample。dryRun=true 仅校验。\n兼容入口：新请求推荐使用 /uns/collections/:collectionId/records:deleteOne。旧请求的恢复必须继续使用原入口、原幂等键和原载荷；切换入口不会继承旧回执。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": false,
+        "x-tier0-compatibility": {
+          "replacement": "recordDeleteOne",
+          "strategy": "returnDocument",
+          "operationId": "UnsV2RecordDeleteOne",
+          "path": "/uns/collections/:collectionId/records:deleteOne"
+        },
         "x-tier0-readonly": false,
         "x-tier0-destructive": true
       }
@@ -5517,6 +5943,8 @@
           }
         ],
         "description": "更新符合 filter 的记录，不支持 upsert。maxDocs 限制本轮处理数量，resumeAfter 用于继续；atomic、ordered 控制批量执行方式。dryRun=true 仅校验。atomic=false 时按块 / 按项提交：只要有任一块或任一项已提交，失败响应的 error.execution=committed（部分提交）、retry.safe=false，错误信封 data 为与成功响应相同结构的累计结果（计数、insertedIds、writeErrors，可续做时含 hasMore/resumeAfter）；只有全部未提交时 execution 才是 rolledBack 或 notStarted。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -5705,6 +6133,8 @@
           }
         ],
         "description": "软删除符合 filter 的记录，关联 Sample 在同一事务内物理删除，恢复 Record 不恢复 Sample。maxDocs 限制本轮处理数量，resumeAfter 用于继续；atomic、ordered 控制批量执行方式。dryRun=true 仅校验。atomic=false 时按块 / 按项提交：只要有任一块或任一项已提交，失败响应的 error.execution=committed（部分提交）、retry.safe=false，错误信封 data 为与成功响应相同结构的累计结果（计数、insertedIds、writeErrors，可续做时含 hasMore/resumeAfter）；只有全部未提交时 execution 才是 rolledBack 或 notStarted。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": true
       }
@@ -6072,6 +6502,8 @@
           }
         ],
         "description": "按 operations 在同一集合内混合执行新增、更新、替换和软删除。atomic、ordered 控制批量执行方式；结果索引对应原始输入位置。dryRun=true 仅校验。atomic=false 时按块 / 按项提交：只要有任一块或任一项已提交，失败响应的 error.execution=committed（部分提交）、retry.safe=false，错误信封 data 为与成功响应相同结构的累计结果（计数、insertedIds、writeErrors、hasMore、nextIndex，结局未知时另有 unknownUntil），nextIndex 是第一个未执行操作的零基序号；序号小于 nextIndex 且不在 writeErrors 里的操作都已提交；有 unknownUntil 时 [nextIndex, unknownUntil) 结局未知，带幂等键时用同一个键重试，不带键时只有带客户端 id 的新增与按 id 的替换 / 删除能先按 id 读取状态再续做，服务端生成 id 的新增、按 filter 选择目标的操作与 $inc 等增量更新无法核对，结局未知时不能安全续做（这类写入应始终带幂等键）；没有 unknownUntil 时从 nextIndex 续做是安全的；只有全部未提交时 execution 才是 rolledBack 或 notStarted。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": true,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -6197,6 +6629,8 @@
           }
         ],
         "description": "recordIds 必填，最多 20 个。每条记录返回最新的真实 Sample；没有采样时 sample 为 null。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": true,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -6327,6 +6761,8 @@
           }
         ],
         "description": "物理删除显式 recordIds 在 [from,to) 内的采样，最多 20 个记录；from/to 为 Unix 毫秒。dryRun=true 只返回预计删除数量；不删除父记录。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": true
       }
@@ -6457,6 +6893,8 @@
           "数据源"
         ],
         "description": "按 items 删除数据源，需提交当前版本及影响确认。dryRun=true 仅校验；云端数据源生命周期操作整批原子执行。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -6554,6 +6992,8 @@
           "处理流"
         ],
         "description": "分页查询程序，可按 sourceId、model、status、archived 筛选。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -6647,6 +7087,8 @@
           "处理流"
         ],
         "description": "按 id 删除处理流程序，可用 expectedRevision 检查并发修改；dryRun=true 仅校验。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -6716,6 +7158,8 @@
           "处理流"
         ],
         "description": "返回处理流运行时当前支持的能力和限制。",
+        "x-tier0-audience": "operations",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -6798,6 +7242,8 @@
           "控制"
         ],
         "description": "按关键词分页查询当前凭证可见的控制能力。",
+        "x-tier0-audience": "operations",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -6873,6 +7319,8 @@
           "控制"
         ],
         "description": "按 code 返回控制定义及输入要求。",
+        "x-tier0-audience": "operations",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -6957,6 +7405,8 @@
           "控制"
         ],
         "description": "按 code 和 input 调用控制能力。相同业务意图重试时复用 idempotencyKey；失败时按 error.execution 与 error.retry 判断，execution=unknown 时只能复用原幂等键重试，避免重复执行。",
+        "x-tier0-audience": "operations",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -6984,6 +7434,15 @@
                     "pattern": "^[1-9][0-9]*$",
                     "maxLength": 19,
                     "description": "Positive decimal int64 identifier; always a string on the wire."
+                  },
+                  "view": {
+                    "type": "string",
+                    "enum": [
+                      "summary",
+                      "full"
+                    ],
+                    "default": "full",
+                    "description": "summary 仅需查看权限，不返回脚本或连接配置；full 和省略时要求管理权限，API Key 还须 full_access，MCP 须有对应管理 scope。"
                   }
                 },
                 "required": [
@@ -7035,6 +7494,8 @@
           "数据源"
         ],
         "description": "按 id 读取数据源的完整原生配置文档，需要数据源管理权限。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -7074,58 +7535,119 @@
                     "$ref": "#/components/schemas/CloudSourceCreateCredentials",
                     "writeOnly": true,
                     "description": "仅用于本次创建的 HTTP 凭据，endpoint 从 document.config 取得。与已有 auth/TLS 引用互斥；不写入 Source 文档。"
+                  },
+                  "items": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 200,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]*$",
+                          "maxLength": 19
+                        },
+                        "document": {
+                          "$ref": "#/components/schemas/CloudSourceDocument"
+                        }
+                      },
+                      "required": [
+                        "document"
+                      ]
+                    }
                   }
                 },
                 "required": [
-                  "dryRun",
-                  "document"
+                  "dryRun"
                 ],
                 "oneOf": [
                   {
+                    "required": [
+                      "document"
+                    ],
                     "not": {
-                      "required": [
-                        "credentials"
+                      "anyOf": [
+                        {
+                          "required": [
+                            "items"
+                          ]
+                        }
                       ]
                     }
                   },
                   {
                     "required": [
-                      "credentials",
-                      "idempotencyKey"
+                      "items"
                     ],
-                    "properties": {
-                      "idempotencyKey": {
-                        "type": "string",
-                        "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$"
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "document"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "credentials"
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "allOf": [
+                  {
+                    "oneOf": [
+                      {
+                        "not": {
+                          "required": [
+                            "credentials"
+                          ]
+                        }
                       },
-                      "document": {
+                      {
+                        "required": [
+                          "credentials",
+                          "idempotencyKey"
+                        ],
                         "properties": {
-                          "protocol": {
-                            "enum": [
-                              "http"
-                            ]
+                          "idempotencyKey": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$"
                           },
-                          "config": {
-                            "not": {
-                              "anyOf": [
-                                {
-                                  "required": [
-                                    "auth"
-                                  ]
-                                },
-                                {
-                                  "required": [
-                                    "tls"
+                          "document": {
+                            "properties": {
+                              "protocol": {
+                                "enum": [
+                                  "http"
+                                ]
+                              },
+                              "config": {
+                                "not": {
+                                  "anyOf": [
+                                    {
+                                      "required": [
+                                        "auth"
+                                      ]
+                                    },
+                                    {
+                                      "required": [
+                                        "tls"
+                                      ]
+                                    }
                                   ]
                                 }
-                              ]
+                              }
                             }
                           }
                         }
                       }
-                    }
+                    ]
                   }
-                ]
+                ],
+                "description": "单条 document 或原子批量 items 二选一；批量最多 200 项。单条保留只写 credentials 创建能力，批量使用已有凭据引用。"
               }
             }
           }
@@ -7172,6 +7694,8 @@
           "数据源"
         ],
         "description": "使用原生 document 创建数据源；可在 credentials 中一次性提交新 HTTP 凭据，或在 document.config.auth 中引用已有凭据，二者互斥。Source、凭据、授权及绑定原子提交，带新凭据时必须提供 idempotencyKey；重试返回相同 Source。dryRun=true 只校验，不持久化凭据或联系上游。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -7223,15 +7747,165 @@
                     "minLength": 47,
                     "maxLength": 47,
                     "description": "Opaque exact-intent confirmation from sourceImpact. Never inferred, synthesized or refreshed automatically."
+                  },
+                  "patch": {
+                    "$ref": "#/components/schemas/CloudSourceDocumentPatch"
+                  },
+                  "items": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 200,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]*$",
+                          "maxLength": 19
+                        },
+                        "expectedRevision": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "confirmedImpactRevision": {
+                          "type": "string",
+                          "pattern": "^si1_[A-Za-z0-9_-]{43}$",
+                          "minLength": 47,
+                          "maxLength": 47,
+                          "description": "Opaque exact-intent confirmation from sourceImpact. Never inferred, synthesized or refreshed automatically."
+                        },
+                        "document": {
+                          "$ref": "#/components/schemas/CloudSourceDocument"
+                        },
+                        "patch": {
+                          "$ref": "#/components/schemas/CloudSourceDocumentPatch"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "expectedRevision",
+                        "confirmedImpactRevision"
+                      ],
+                      "oneOf": [
+                        {
+                          "required": [
+                            "document"
+                          ],
+                          "not": {
+                            "anyOf": [
+                              {
+                                "required": [
+                                  "patch"
+                                ]
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "required": [
+                            "patch"
+                          ],
+                          "not": {
+                            "anyOf": [
+                              {
+                                "required": [
+                                  "document"
+                                ]
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
                   }
                 },
                 "required": [
-                  "id",
-                  "dryRun",
-                  "document",
-                  "expectedRevision",
-                  "confirmedImpactRevision"
-                ]
+                  "dryRun"
+                ],
+                "oneOf": [
+                  {
+                    "required": [
+                      "items"
+                    ],
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "id"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "expectedRevision"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "confirmedImpactRevision"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "document"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "patch"
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "required": [
+                      "id",
+                      "expectedRevision",
+                      "confirmedImpactRevision"
+                    ],
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "items"
+                          ]
+                        }
+                      ]
+                    },
+                    "oneOf": [
+                      {
+                        "required": [
+                          "document"
+                        ],
+                        "not": {
+                          "anyOf": [
+                            {
+                              "required": [
+                                "patch"
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "required": [
+                          "patch"
+                        ],
+                        "not": {
+                          "anyOf": [
+                            {
+                              "required": [
+                                "document"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "description": "单条或 items 原子批量更新。每项完整 document 与 patch 互斥，均要求 CAS 和相同意图的影响确认；省略补丁字段保留原值。"
               }
             }
           }
@@ -7278,6 +7952,8 @@
           "数据源"
         ],
         "description": "使用 document 更新指定数据源，必须提供当前 expectedRevision 和与本次变更一致的 confirmedImpactRevision；dryRun=true 仅校验。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -7305,6 +7981,15 @@
                     "pattern": "^[1-9][0-9]*$",
                     "maxLength": 19,
                     "description": "Positive decimal int64 identifier; always a string on the wire."
+                  },
+                  "view": {
+                    "type": "string",
+                    "enum": [
+                      "summary",
+                      "full"
+                    ],
+                    "default": "full",
+                    "description": "summary 仅需查看权限，不返回脚本或连接配置；full 和省略时要求管理权限，API Key 还须 full_access，MCP 须有对应管理 scope。"
                   }
                 },
                 "required": [
@@ -7356,6 +8041,8 @@
           "处理流"
         ],
         "description": "按 id 读取处理流的原生配置文档。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -7390,11 +8077,53 @@
                   },
                   "document": {
                     "$ref": "#/components/schemas/CloudStreamDocument"
+                  },
+                  "program": {
+                    "$ref": "#/components/schemas/RuntimeStreamDefinition",
+                    "description": "程序简写输入；服务端执行隔离注册预检并推导 Sources/Entries，不要求客户端提交编译产物。与 document 互斥。"
+                  },
+                  "expectedSourceRevision": {
+                    "type": "integer",
+                    "minimum": 0
                   }
                 },
                 "required": [
-                  "dryRun",
-                  "document"
+                  "dryRun"
+                ],
+                "oneOf": [
+                  {
+                    "required": [
+                      "document"
+                    ],
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "program"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "expectedSourceRevision"
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "required": [
+                      "program"
+                    ],
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "document"
+                          ]
+                        }
+                      ]
+                    }
+                  }
                 ]
               }
             }
@@ -7442,6 +8171,8 @@
           "处理流"
         ],
         "description": "使用原生 document 创建处理流；dryRun=true 仅校验。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -7486,12 +8217,54 @@
                   },
                   "document": {
                     "$ref": "#/components/schemas/CloudStreamDocument"
+                  },
+                  "program": {
+                    "$ref": "#/components/schemas/RuntimeStreamDefinition",
+                    "description": "程序简写输入；服务端执行隔离注册预检并推导 Sources/Entries，不要求客户端提交编译产物。与 document 互斥。"
+                  },
+                  "expectedSourceRevision": {
+                    "type": "integer",
+                    "minimum": 0
                   }
                 },
                 "required": [
                   "id",
-                  "dryRun",
-                  "document"
+                  "dryRun"
+                ],
+                "oneOf": [
+                  {
+                    "required": [
+                      "document"
+                    ],
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "program"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "expectedSourceRevision"
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "required": [
+                      "program"
+                    ],
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "document"
+                          ]
+                        }
+                      ]
+                    }
+                  }
                 ]
               }
             }
@@ -7539,6 +8312,8 @@
           "处理流"
         ],
         "description": "使用 document 更新指定处理流，可用 expectedRevision 检查并发修改；dryRun=true 仅校验。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -7653,6 +8428,8 @@
           "数据源"
         ],
         "description": "分页列出数据源，支持 protocol、desiredState、health 等筛选。默认返回安全摘要；includeDocument=true 需要管理权限并返回完整原生配置。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -7751,6 +8528,8 @@
           "处理流"
         ],
         "description": "按 id 停用处理流，expectedRevision 和 expectedActiveRelease 均用于防止并发覆盖；dryRun=true 仅校验。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -7780,10 +8559,51 @@
                     "type": "string",
                     "pattern": "^[1-9][0-9]*$",
                     "description": "Stable current Stream ID when validating edits. Omit for new drafts; names never identify which active routes to exclude."
+                  },
+                  "program": {
+                    "$ref": "#/components/schemas/RuntimeStreamDefinition",
+                    "description": "程序简写输入；服务端执行隔离注册预检并推导 Sources/Entries，不要求客户端提交编译产物。与 document 互斥。"
+                  },
+                  "expectedSourceRevision": {
+                    "type": "integer",
+                    "minimum": 0
                   }
                 },
-                "required": [
-                  "document"
+                "required": [],
+                "oneOf": [
+                  {
+                    "required": [
+                      "document"
+                    ],
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "program"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "expectedSourceRevision"
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "required": [
+                      "program"
+                    ],
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "document"
+                          ]
+                        }
+                      ]
+                    }
+                  }
                 ]
               }
             }
@@ -7831,6 +8651,8 @@
           "处理流"
         ],
         "description": "校验 document 并返回校验问题；仅在实际生成标准化文档时返回 normalizedDocument，不执行脚本或部署。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -7889,12 +8711,81 @@
                     "minLength": 47,
                     "maxLength": 47,
                     "description": "Opaque exact-intent confirmation from sourceImpact. Never inferred, synthesized or refreshed automatically."
+                  },
+                  "patch": {
+                    "$ref": "#/components/schemas/CloudSourceDocumentPatch"
                   }
                 },
                 "required": [
                   "id",
                   "expectedRevision",
                   "action"
+                ],
+                "oneOf": [
+                  {
+                    "properties": {
+                      "action": {
+                        "enum": [
+                          "update"
+                        ]
+                      }
+                    },
+                    "oneOf": [
+                      {
+                        "required": [
+                          "document"
+                        ],
+                        "not": {
+                          "anyOf": [
+                            {
+                              "required": [
+                                "patch"
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "required": [
+                          "patch"
+                        ],
+                        "not": {
+                          "anyOf": [
+                            {
+                              "required": [
+                                "document"
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "action": {
+                        "enum": [
+                          "enable",
+                          "disable",
+                          "delete"
+                        ]
+                      }
+                    },
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "document"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "patch"
+                          ]
+                        }
+                      ]
+                    }
+                  }
                 ]
               }
             }
@@ -7942,6 +8833,8 @@
           "数据源"
         ],
         "description": "按 id、expectedRevision 和 action 评估拟议变更及受影响资源，返回供提交该变更使用的影响确认标识。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -8028,6 +8921,8 @@
           "数据源"
         ],
         "description": "按 id 读取数据源的版本历史，可用 beforeRevision 向前分页。",
+        "x-tier0-audience": "operations",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -8124,6 +9019,8 @@
           "数据源"
         ],
         "description": "按 items 批量读取数据源观测，统计范围为已接纳的执行任务。",
+        "x-tier0-audience": "operations",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -8201,6 +9098,8 @@
           "处理流"
         ],
         "description": "按 id 读取处理流观测及已接纳任务的统计信息。",
+        "x-tier0-audience": "operations",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -8287,6 +9186,8 @@
           "处理流"
         ],
         "description": "按 id 查询处理流运行记录，使用 size、cursor 分页。",
+        "x-tier0-audience": "operations",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -8370,6 +9271,8 @@
           "处理流"
         ],
         "description": "对 document 中 entryId 指定的入口使用 input 执行隔离样例测试；不访问外部主机，也不提交数据写入。",
+        "x-tier0-audience": "operations",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -8448,6 +9351,8 @@
           "App 与授权"
         ],
         "description": "读取真实 App 的 collections 授权。需要当前 Builder 会话或 full_access 个人/Agent key，运行时 App 凭证不可管理授权。",
+        "x-tier0-audience": "governance",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -8493,13 +9398,14 @@
                     "maxItems": 128,
                     "items": {
                       "$ref": "#/components/schemas/CloudAppDataGrant"
-                    }
+                    },
+                    "description": "显式完整替换全部授权；与 changes 恰好选择一种。"
                   },
                   "idempotencyKey": {
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 128,
-                    "description": "可选幂等键；重试同一请求时复用，相同键不得用于不同请求。"
+                    "description": "必填幂等键；重试同一请求时复用，相同键不得用于不同请求。"
                   },
                   "dryRun": {
                     "type": "boolean",
@@ -8510,16 +9416,46 @@
                     "enum": [
                       "cloud-app-data-rule/v1"
                     ],
-                    "description": "Required explicitly on updates when any previous or proposed Collection grant has a dataRule, including removal and disabled revocation. Omitted for unprotected policies."
+                    "description": "完整替换涉及员工规则，或增量显式修改/清除规则、移除带规则授权时，必须确认。增量保留规则无需回传整份规则。"
+                  },
+                  "changes": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 128,
+                    "items": {
+                      "$ref": "#/components/schemas/CloudAppDataGrantChange"
+                    },
+                    "description": "按 collectionId 原子增量更新，不同条目不得重复同一集合。新授权须给出 alias 和权限；更新省略字段保持原值。"
                   }
                 },
                 "required": [
                   "appId",
                   "expectedRevision",
                   "status",
-                  "collections",
                   "idempotencyKey",
                   "dryRun"
+                ],
+                "oneOf": [
+                  {
+                    "required": [
+                      "collections"
+                    ],
+                    "not": {
+                      "required": [
+                        "changes"
+                      ]
+                    }
+                  },
+                  {
+                    "required": [
+                      "changes"
+                    ],
+                    "not": {
+                      "required": [
+                        "collections"
+                      ]
+                    }
+                  }
                 ]
               }
             }
@@ -8585,7 +9521,9 @@
         "tags": [
           "App 与授权"
         ],
-        "description": "在接收方 App 的 collections 中配置共享集合与数据权限。当前 Builder 仅能授予自身持有的权限；保留 dataRule 与 Control 边界，必须提供 expectedRevision 和 idempotencyKey。业务读写包含记录删除。",
+        "description": "使用 changes 按集合原子新增、修改或移除授权；省略字段保留原值，不需回传其他集合或员工规则。collections 仍用于显式完整替换，两种模式互斥。permissionLevel 的 read/readwrite/manage 对应业务记录只读、读写、管理（含删除），与底层 permissions 互斥。新增权限不能超出当前管理者能力；保留 Control 边界，必须提供 expectedRevision 和 idempotencyKey。同键原样重试重放结果，不重新扩大授权。",
+        "x-tier0-audience": "governance",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -8655,7 +9593,228 @@
           "App 与授权"
         ],
         "description": "仅当前受管理 App 凭证可用；返回真实 App 名称和当前授权集合与 Key 权限的交集。collections[] 含集合定义版本 revision、recordSchema、indexes、indexStatus（索引就绪状态）与 ttl；App 读取集合结构只用此接口。collections[].createCapability 按当前员工的真实新增规则给出 allowed、独立可写输入 schema 和版本绑定；不能用通用 record:write 或 read schema 猜测新增。limits 给出 count、总数、queryBatch、get、订阅、TTL、并发名额与幂等窗口等边界，供客户端自适应。提示不是授权凭证，写入与 replay 仍实时校验。身份只取自服务端认证，不接受 App ID 或发行人用户参数，不返回凭据。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": true,
         "x-tier0-readonly": true,
+        "x-tier0-destructive": false
+      }
+    },
+    "/uns/hosted-app-control-policy/get": {
+      "post": {
+        "operationId": "CloudHostedAppControlPolicyGet",
+        "summary": "查看 App 的 Stream 权限上限",
+        "deprecated": false,
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "appId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "minLength": 36,
+                    "maxLength": 36
+                  }
+                },
+                "required": [
+                  "appId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "查询结果。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocCloudHostedAppControlPolicyGetResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocCommonError"
+                },
+                "example": {
+                  "code": 422,
+                  "msg": "请求参数不合法",
+                  "requestId": "request-id",
+                  "data": null,
+                  "error": {
+                    "code": "INVALID_REQUEST",
+                    "reason": "filter.status must be a string",
+                    "details": [],
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "元数据"
+        ],
+        "description": "读取同一真实 App 的控制权限上限，需当前 Builder 会话或 full_access 个人/Agent Key，且有 uns.write 与 control.manage。此上限与具体 Stream 入口授权共同生效。",
+        "x-tier0-audience": "governance",
+        "x-tier0-starter": false,
+        "x-tier0-readonly": true,
+        "x-tier0-destructive": false
+      }
+    },
+    "/uns/hosted-app-control-policy/update": {
+      "post": {
+        "operationId": "CloudHostedAppControlPolicyUpdate",
+        "summary": "更新 App 的 Stream 权限上限",
+        "deprecated": false,
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "appId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "minLength": 36,
+                    "maxLength": 36
+                  },
+                  "expectedRevision": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Shared hosted policy metadata revision. 0 attaches to a real App; either data or Control updates increment this revision."
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "active",
+                      "disabled"
+                    ]
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "必填幂等键；重试同一请求时复用，相同键不得用于不同请求。"
+                  },
+                  "dryRun": {
+                    "type": "boolean",
+                    "description": "true 仅校验；false 执行写入。"
+                  },
+                  "platformPermissions": {
+                    "type": "array",
+                    "maxItems": 3,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "control.read",
+                        "control.execute",
+                        "control.write"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "appId",
+                  "expectedRevision",
+                  "status",
+                  "idempotencyKey",
+                  "dryRun",
+                  "platformPermissions"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "操作结果。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocCloudHostedAppControlPolicyUpdateResponse"
+                },
+                "example": {
+                  "code": 200,
+                  "msg": "success",
+                  "requestId": "request-id",
+                  "data": {
+                    "status": "committed",
+                    "replayed": false,
+                    "results": [
+                      {
+                        "opId": "item-0",
+                        "action": "meta.replace",
+                        "kind": "app",
+                        "id": "example-id",
+                        "revision": 1,
+                        "status": "updated"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocCommonError"
+                },
+                "example": {
+                  "code": 422,
+                  "msg": "请求参数不合法",
+                  "requestId": "request-id",
+                  "data": null,
+                  "error": {
+                    "code": "INVALID_REQUEST",
+                    "reason": "filter.status must be a string",
+                    "details": [],
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "元数据"
+        ],
+        "description": "复用现有 App 策略，保留 Collection 授权和员工规则；需 expectedRevision、idempotencyKey 和 dryRun。仅当前 Builder 会话或 full_access 个人/Agent Key 可用，并需 uns.write 与 control.manage。不会自动授予任何 Stream 入口，也不会升级 App Key。",
+        "x-tier0-audience": "governance",
+        "x-tier0-starter": false,
+        "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
     },
@@ -8792,6 +9951,8 @@
           "App 与授权"
         ],
         "description": "仅平台签发的 App Key（app/internal/full_access，非 MCP、无员工委托）可用。批量声明本 App 的集合：不存在则在 App 专属目录下创建并同事务授予 record:read/write（Key 有 uns.delete 时加 record:delete）；已存在时按 join 只加宽、永不收窄，索引取并集；不写注解（title/description/unit 与集合说明只在创建时写入，之后用 schema:replace 修改）。指向本 App 已归档 / 已硬删集合的失效授权在同一事务内替换。整批一个事务，任一类型冲突、join 结果不能加宽当前结构、或加宽会破坏员工数据规则字段时整批不改并返回 409 SCHEMA_CONFLICT（data.conflicts）。管理员撤销授权后返回 403 APP_GRANT_REVOKED，不自动补回。超出每 App 配额（集合 64、索引 64）返回 409 APP_QUOTA_EXCEEDED，超出工作空间索引配额（按物理存在、未退休的索引计）返回 409 INDEX_QUOTA_EXCEEDED。平台正在回收（App 删除）或清空（预览重置）本 App 的集合时，新建、加宽或清理失效授权返回可重试的 503 TEMPORARILY_UNAVAILABLE（data.reason=COLLECTION_TEARDOWN_IN_PROGRESS，data.operation=reclaim/purge），全部 unchanged 时仍正常返回。dryRun=true 只计算。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": true,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -8915,6 +10076,8 @@
           "App 与授权"
         ],
         "description": "仅平台签发的 App Key 可用，供 worker 显式收窄（删字段、删枚举值、改必填、删索引）；运行时代码不得调用。必须提供 expectedRevision。收窄时逐条校验未删除记录（≤10,000 条且 ≤16MB，否则 409 SCHEMA_MIGRATION_TOO_LARGE），最多返回 20 条违规（409 SCHEMA_DATA_VIOLATION，data.violations 只含 recordId/path）。被 Topic 字段或 App 数据规则引用时返回 409 REFERENCED。删掉的路径和枚举值记入 retired，之后 ensure 不会加回。索引按请求精确替换，同样受每 App 索引配额（64）与工作空间索引配额约束。只改注解或说明时 status=widened。拿不到锁返回可重试的 503 TEMPORARILY_UNAVAILABLE。平台正在回收（App 删除）或清空（预览重置）本 App 的集合时，实际替换返回可重试的 503 TEMPORARILY_UNAVAILABLE（data.reason=COLLECTION_TEARDOWN_IN_PROGRESS，data.operation=reclaim/purge）。dryRun=true 在只读快照上校验，不持锁。",
+        "x-tier0-audience": "platform",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -8995,6 +10158,8 @@
           "App 与授权"
         ],
         "description": "仅平台签发的 App Key 可用，只作用于本 App 自有（ownerAppId）的集合：同事务给未删除记录打归档墓碑、归档集合、删除 App 授权并退休非唯一索引（唯一索引保留，恢复时约束始终有效）。单次最多 2000 条未删除记录，超过返回 409 COLLECTION_TOO_LARGE；每 App 最多保留 64 个已归档集合，超过返回 409 APP_QUOTA_EXCEEDED。被 Topic、Source / Stream 当前配置或生效 Stream 的执行 / 采集计划引用时返回 409 REFERENCED。平台正在回收（App 删除）或清空（预览重置）本 App 的集合时返回可重试的 503 TEMPORARILY_UNAVAILABLE（data.reason=COLLECTION_TEARDOWN_IN_PROGRESS，data.operation=reclaim/purge）。记录保留，可用 restore 恢复。",
+        "x-tier0-audience": "platform",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -9075,6 +10240,8 @@
           "App 与授权"
         ],
         "description": "仅平台签发的 App Key 可用：恢复该 alias 最近归档的本 App 集合及其归档那批记录（最多 2000 条，超过 409 COLLECTION_TOO_LARGE），重新授权（复用仍指向它的授权）并调度索引；唯一约束冲突时整体回滚返回 409 DUPLICATE_KEY。同名集合已被 ensure 重建时返回 409 DUPLICATE（data.activeCollectionId），需先归档当前集合。平台正在回收（App 删除）或清空（预览重置）本 App 的集合时返回可重试的 503 TEMPORARILY_UNAVAILABLE（data.reason=COLLECTION_TEARDOWN_IN_PROGRESS，data.operation=reclaim/purge）。",
+        "x-tier0-audience": "platform",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -9155,6 +10322,399 @@
           "App 与授权"
         ],
         "description": "会话或个人 API Key（uns.read）按 appId 列出该 App 自有（ownerAppId）的集合，含已归档集合，返回 schema、索引与 indexStatus、retired；不返回授权细节。",
+        "x-tier0-audience": "governance",
+        "x-tier0-starter": false,
+        "x-tier0-readonly": true,
+        "x-tier0-destructive": false
+      }
+    },
+    "/uns/controls/grants/get": {
+      "post": {
+        "operationId": "UnsV2ControlGrantGet",
+        "summary": "读取 Stream 入口授权",
+        "deprecated": false,
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+                    "maxLength": 128
+                  },
+                  "principalKind": {
+                    "type": "string",
+                    "enum": [
+                      "app",
+                      "user",
+                      "api_key"
+                    ]
+                  },
+                  "principalID": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                },
+                "required": [
+                  "code",
+                  "principalKind",
+                  "principalID"
+                ]
+              },
+              "example": {
+                "code": "device.read",
+                "principalKind": "app",
+                "principalID": "11111111-1111-4111-8111-111111111111"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "查询结果。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocUnsV2ControlGrantGetResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocCommonError"
+                },
+                "example": {
+                  "code": 422,
+                  "msg": "请求参数不合法",
+                  "requestId": "request-id",
+                  "data": null,
+                  "error": {
+                    "code": "INVALID_REQUEST",
+                    "reason": "filter.status must be a string",
+                    "details": [],
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "控制"
+        ],
+        "description": "按 code 和接收方读取授权、当前发布绑定和权限上限，返回用于并发校验的 snapshotToken。当前管理会话或 full_access 个人/Agent Key 可用，需 control.manage（授权配置）和 uns.source.manage；App 与服务 Key 不可配置授权。不返回 Source 配置或凭据。",
+        "x-tier0-audience": "governance",
+        "x-tier0-starter": false,
+        "x-tier0-readonly": true,
+        "x-tier0-destructive": false
+      }
+    },
+    "/uns/controls/grants/set": {
+      "post": {
+        "operationId": "UnsV2ControlGrantSet",
+        "summary": "设置或撤销 Stream 入口授权",
+        "deprecated": false,
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+                    "maxLength": 128
+                  },
+                  "principalKind": {
+                    "type": "string",
+                    "enum": [
+                      "app",
+                      "user",
+                      "api_key"
+                    ]
+                  },
+                  "principalID": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "active": {
+                    "type": "integer",
+                    "enum": [
+                      1,
+                      2
+                    ]
+                  },
+                  "expectedBindingDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "expectedCodeRevision": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "兼容旧调用的 code CAS 版本；新调用使用 expectedSnapshotToken，两种模式互斥。"
+                  },
+                  "actions": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "control.read",
+                        "control.execute",
+                        "control.write"
+                      ]
+                    },
+                    "maxItems": 3,
+                    "uniqueItems": true
+                  },
+                  "targetRevisions": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/CloudControlGrantTargetRevision"
+                    },
+                    "maxItems": 128,
+                    "description": "兼容旧调用的目标版本列表；历史目标较多时请使用 expectedSnapshotToken 撤销。"
+                  },
+                  "expectedSnapshotToken": {
+                    "type": "string",
+                    "pattern": "^cgs1\\.[a-f0-9]{64}\\.[a-f0-9]{64}$",
+                    "minLength": 134,
+                    "maxLength": 134,
+                    "description": "服务端生成的授权快照版本，仅用于并发校验，不是调用凭证。"
+                  }
+                },
+                "required": [
+                  "code",
+                  "principalKind",
+                  "principalID",
+                  "active"
+                ],
+                "oneOf": [
+                  {
+                    "required": [
+                      "expectedSnapshotToken"
+                    ],
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "expectedBindingDigest"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "expectedCodeRevision"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "targetRevisions"
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "required": [
+                      "expectedCodeRevision"
+                    ],
+                    "not": {
+                      "required": [
+                        "expectedSnapshotToken"
+                      ]
+                    }
+                  }
+                ]
+              },
+              "example": {
+                "code": "device.read",
+                "principalKind": "app",
+                "principalID": "11111111-1111-4111-8111-111111111111",
+                "active": 2,
+                "expectedSnapshotToken": "cgs1.0000000000000000000000000000000000000000000000000000000000000000.0000000000000000000000000000000000000000000000000000000000000000"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "操作结果。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocUnsV2ControlGrantSetResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocCommonError"
+                },
+                "example": {
+                  "code": 422,
+                  "msg": "请求参数不合法",
+                  "requestId": "request-id",
+                  "data": null,
+                  "error": {
+                    "code": "INVALID_REQUEST",
+                    "reason": "filter.status must be a string",
+                    "details": [],
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "控制"
+        ],
+        "description": "使用 get 返回的 expectedSnapshotToken 原子修改授权，无需回传全部目标版本。active=1 新增或更新，actions 仅允许 control.read/execute/write，write 需要 execute。资源“管理”包含查看、调用和写操作；control.manage 是调用方的授权配置能力。active=2 撤销全部历史目标，actions 必须为空，不依赖接收方或当前发布在线。保留旧版本字段兼容，两种校验方式互斥。版本冲突或响应丢失后先重新读取、核对当前状态，再确认是否修改，不能盲目覆盖。",
+        "x-tier0-audience": "governance",
+        "x-tier0-starter": false,
+        "x-tier0-readonly": false,
+        "x-tier0-destructive": false
+      }
+    },
+    "/uns/app-stream-access/list": {
+      "post": {
+        "operationId": "CloudAppStreamAccessList",
+        "summary": "分页读取 App 的 Stream 授权",
+        "deprecated": false,
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "appId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "minLength": 36,
+                    "maxLength": 36
+                  },
+                  "streamId": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$",
+                    "maxLength": 19
+                  },
+                  "page": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 1
+                  },
+                  "size": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "default": 20
+                  },
+                  "includeInactive": {
+                    "type": "integer",
+                    "enum": [
+                      1,
+                      2
+                    ],
+                    "default": 2,
+                    "description": "1 包含已撤销授权；2（默认）仅返回尚未撤销的授权。"
+                  }
+                },
+                "required": [
+                  "appId"
+                ]
+              },
+              "example": {
+                "appId": "11111111-1111-4111-8111-111111111111",
+                "page": 1,
+                "size": 20
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "查询结果。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocCloudAppStreamAccessListResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocCommonError"
+                },
+                "example": {
+                  "code": 422,
+                  "msg": "请求参数不合法",
+                  "requestId": "request-id",
+                  "data": null,
+                  "error": {
+                    "code": "INVALID_REQUEST",
+                    "reason": "filter.status must be a string",
+                    "details": [],
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "App 与授权"
+        ],
+        "description": "服务端汇总已配置入口、Stream 名称、授权动作及当前受阻原因。默认仅返回尚未撤销的授权，includeInactive=1 包含撤销项。结果是当前授权状态快照，执行仍会复核；不会因此扩大 App 的全局权限上限。",
+        "x-tier0-audience": "governance",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -9348,6 +10908,8 @@
           }
         ],
         "description": "查询 [from,to) 内的采样，时间单位为 Unix 毫秒。recordIds 可选，最多 20 个；省略时查询当前授权集合。支持 filter、sort、projection 和 limit/cursor，或 page；page 不可与 limit/cursor 同用。结果跨选定记录统一分页，时间和记录范围不能被 filter 扩大。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": true,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -9507,6 +11069,8 @@
           }
         ],
         "description": "对 [from,to) 内的采样执行 pipeline，时间单位为 Unix 毫秒。recordIds 可选，最多 20 个；省略时查询当前授权集合。支持复杂过滤、分组、排序与时间桶；返回文档由 pipeline 决定。page 与 limit 互斥，时间和记录范围不能被 pipeline 扩大。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -9692,6 +11256,8 @@
           }
         ],
         "description": "按 ids 整批获取租约，或通过 filter、sort、limit 认领可用记录。ttlMs 默认 30000，范围 1000～300000 毫秒。返回租约令牌及记录，需要集合读写权限；锁不影响读取。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -9828,6 +11394,8 @@
           }
         ],
         "description": "按 locks 中的 id、token 为当前持有的租约续租。ttlMs 默认 30000，范围 1000～300000 毫秒。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -10004,6 +11572,8 @@
           }
         ],
         "description": "正常释放传 locks 中的 id、token；管理员可传 ids 和 force=true 强制释放。App/API Key 不允许强制释放。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -10059,7 +11629,7 @@
                 "required": [
                   "ids"
                 ],
-                "description": "按主键读取最多 100 条有效记录，items 按请求顺序返回。不存在、已软删除或被员工数据规则过滤的 ID 统一列入 missing，不区分不存在与无权读取。"
+                "description": "按主键读取最多 100 条有效记录，items 按请求顺序返回。不存在、已软删除或被员工数据规则过滤的 ID 统一列入 missing，不区分不存在与无权读取。 投影后的响应最多 8 MiB；超限返回 413 RESPONSE_TOO_LARGE，请减少 ids 或 projection 字段。"
               },
               "example": {
                 "ids": [
@@ -10148,6 +11718,8 @@
           }
         ],
         "description": "按主键读取最多 100 条有效记录，支持 projection。items 按请求顺序返回；不存在、已软删除或被员工数据规则过滤的 ID 统一列入 missing，不区分不存在与无权读取。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": true,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -10274,6 +11846,8 @@
           }
         ],
         "description": "按 ids 恢复最多 100 条软删除记录。整批原子执行，重新校验当前 Schema 与唯一索引，任一冲突整批回滚；不恢复删除 Record 时已物理删除的 Sample。dryRun=true 仅校验。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -10452,6 +12026,8 @@
           "业务数据"
         ],
         "description": "一次请求执行最多 20 个只读查询（find、count、distinct、aggregate、get，可跨集合），共用一次准入、一份授权快照和同一个可重复读快照；需要 uns.read 与各集合的 record:read。results 按查询 id 返回 {ok:true,data} 或 {ok:false,error}，校验、编译、授权与单项 SQL 错误只影响该项。整批最多 2000 行、8 MiB，超出返回 413 RESPONSE_TOO_LARGE；任一语句超时返回 504 QUERY_TIMEOUT，均不返回部分结果。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -10655,6 +12231,8 @@
           "元数据管理"
         ],
         "description": "查询目录、主题、集合。配置字段直接使用字段名；_id 和 _meta.* 访问系统字段。返回 items/pageInfo。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -10663,7 +12241,7 @@
       "post": {
         "operationId": "UnsV2MetadataFindOne",
         "summary": "读取一条元数据",
-        "deprecated": false,
+        "deprecated": true,
         "security": [
           {
             "ApiKey": []
@@ -10775,7 +12353,15 @@
         "tags": [
           "元数据管理"
         ],
-        "description": "按 filter/sort 选取一个对象，未匹配返回 value:null。",
+        "description": "按 filter/sort 选取一个对象，未匹配返回 value:null。\n兼容入口：新请求推荐使用 /uns/metadata:find。旧请求的恢复必须继续使用原入口、原幂等键和原载荷；切换入口不会继承旧回执。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
+        "x-tier0-compatibility": {
+          "replacement": "metadataFind",
+          "strategy": "findOne",
+          "operationId": "UnsV2MetadataFind",
+          "path": "/uns/metadata:find"
+        },
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -10909,6 +12495,8 @@
           "元数据管理"
         ],
         "description": "统计指定类型和状态内符合条件的对象。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -10917,7 +12505,7 @@
       "post": {
         "operationId": "UnsV2MetadataDistinct",
         "summary": "查询元数据去重值",
-        "deprecated": false,
+        "deprecated": true,
         "security": [
           {
             "ApiKey": []
@@ -11088,7 +12676,15 @@
         "tags": [
           "元数据管理"
         ],
-        "description": "对单一配置或系统字段取去重值，保留 JSON 类型。",
+        "description": "对单一配置或系统字段取去重值，保留 JSON 类型。\n兼容入口：新请求推荐使用 /uns/metadata:aggregate。旧请求的恢复必须继续使用原入口、原幂等键和原载荷；切换入口不会继承旧回执。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
+        "x-tier0-compatibility": {
+          "replacement": "metadataAggregate",
+          "strategy": "aggregateDistinct",
+          "operationId": "UnsV2MetadataAggregate",
+          "path": "/uns/metadata:aggregate"
+        },
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -11227,9 +12823,25 @@
                           "required": [
                             "$limit"
                           ]
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "$distinct": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128,
+                              "description": "字段路径；排除缺失值，保留显式 null，按 JSONB 值排序，与兼容 distinct 完全相同。输出 items 每项为 {value:...}。"
+                            }
+                          },
+                          "required": [
+                            "$distinct"
+                          ]
                         }
                       ]
-                    }
+                    },
+                    "description": "支持 $match/$project/$group/$sort/$skip/$limit/$distinct；$distinct 保留兼容 distinct 的值与分页顺序。"
                   },
                   "page": {
                     "type": "object",
@@ -11358,6 +12970,8 @@
           "元数据管理"
         ],
         "description": "支持 match/project/group/sort/skip/limit；仅查询允许的元数据类型，不跨表关联或写入。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -11548,6 +13162,8 @@
           "元数据管理"
         ],
         "description": "创建目录、主题或集合。指定 appId/alias 时仅允许创建 Collection，由服务端原子绑定 App 授权，必须携带 idempotencyKey，并复验当前 Builder 权限。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -11556,7 +13172,7 @@
       "post": {
         "operationId": "UnsV2MetadataInsertMany",
         "summary": "批量新增元数据",
-        "deprecated": false,
+        "deprecated": true,
         "security": [
           {
             "ApiKey": []
@@ -11783,7 +13399,15 @@
         "tags": [
           "元数据管理"
         ],
-        "description": "同一 kind 批量创建，最多 200 项，默认整批原子。insertedIds 按原始输入零基序号对应。",
+        "description": "同一 kind 批量创建，最多 200 项，默认整批原子。insertedIds 按原始输入零基序号对应。\n兼容入口：新请求推荐使用 /uns/metadata:bulkWrite。旧请求的恢复必须继续使用原入口、原幂等键和原载荷；切换入口不会继承旧回执。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
+        "x-tier0-compatibility": {
+          "replacement": "metadataBulkWrite",
+          "strategy": "bulkInsert",
+          "operationId": "UnsV2MetadataBulkWrite",
+          "path": "/uns/metadata:bulkWrite"
+        },
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -11861,12 +13485,66 @@
                     "minLength": 1,
                     "maxLength": 128,
                     "description": "可选幂等键；重试同一请求时复用，相同键不得用于不同请求。"
+                  },
+                  "returnDocument": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "before",
+                      "after"
+                    ],
+                    "default": "none",
+                    "description": "none 仅返回原有计数；before/after 在同一写事务内附带 value，需要对应读取权限。未匹配返回 value:null；新增时 before 为 null。"
+                  },
+                  "projection": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "oneOf": [
+                        {
+                          "type": "integer",
+                          "enum": [
+                            0,
+                            1
+                          ]
+                        },
+                        {
+                          "type": "boolean"
+                        }
+                      ]
+                    },
+                    "description": "Include or exclude declared fields; computed expressions use aggregate-pipeline. System identity is retained."
                   }
                 },
                 "required": [
                   "kind",
                   "filter",
                   "update"
+                ],
+                "allOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "not": {
+                          "required": [
+                            "projection"
+                          ]
+                        }
+                      },
+                      {
+                        "required": [
+                          "returnDocument"
+                        ],
+                        "properties": {
+                          "returnDocument": {
+                            "enum": [
+                              "before",
+                              "after"
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
                 ]
               },
               "example": {
@@ -11925,6 +13603,8 @@
           "元数据管理"
         ],
         "description": "选择和更新在同一事务中完成；执行领域校验。upsert 新增要求明确 _id 和完整配置。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -11933,7 +13613,7 @@
       "post": {
         "operationId": "UnsV2MetadataFindOneAndUpdate",
         "summary": "更新并返回元数据",
-        "deprecated": false,
+        "deprecated": true,
         "security": [
           {
             "ApiKey": []
@@ -12092,7 +13772,15 @@
         "tags": [
           "元数据管理"
         ],
-        "description": "选择和更新在同一事务中完成；执行领域校验。returnDocument 选择 before/after。upsert 新增要求明确 _id 和完整配置。",
+        "description": "选择和更新在同一事务中完成；执行领域校验。returnDocument 选择 before/after。upsert 新增要求明确 _id 和完整配置。\n兼容入口：新请求推荐使用 /uns/metadata:updateOne。旧请求的恢复必须继续使用原入口、原幂等键和原载荷；切换入口不会继承旧回执。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
+        "x-tier0-compatibility": {
+          "replacement": "metadataUpdateOne",
+          "strategy": "returnDocument",
+          "operationId": "UnsV2MetadataUpdateOne",
+          "path": "/uns/metadata:updateOne"
+        },
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -12153,6 +13841,34 @@
                     "minLength": 1,
                     "maxLength": 128,
                     "description": "可选幂等键；重试同一请求时复用，相同键不得用于不同请求。"
+                  },
+                  "returnDocument": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "before",
+                      "after"
+                    ],
+                    "default": "none",
+                    "description": "none 仅返回原有计数；before/after 在同一写事务内附带 value，需要对应读取权限。未匹配返回 value:null；新增时 before 为 null。"
+                  },
+                  "projection": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "oneOf": [
+                        {
+                          "type": "integer",
+                          "enum": [
+                            0,
+                            1
+                          ]
+                        },
+                        {
+                          "type": "boolean"
+                        }
+                      ]
+                    },
+                    "description": "Include or exclude declared fields; computed expressions use aggregate-pipeline. System identity is retained."
                   }
                 },
                 "required": [
@@ -12207,6 +13923,32 @@
                     "required": [
                       "kind",
                       "replacement"
+                    ]
+                  }
+                ],
+                "allOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "not": {
+                          "required": [
+                            "projection"
+                          ]
+                        }
+                      },
+                      {
+                        "required": [
+                          "returnDocument"
+                        ],
+                        "properties": {
+                          "returnDocument": {
+                            "enum": [
+                              "before",
+                              "after"
+                            ]
+                          }
+                        }
+                      }
                     ]
                   }
                 ]
@@ -12266,6 +14008,8 @@
           "元数据管理"
         ],
         "description": "完整替换可写配置并执行 Schema、索引和引用校验；系统字段保持服务端管理。upsert 新增要求明确 _id 和完整配置。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -12274,7 +14018,7 @@
       "post": {
         "operationId": "UnsV2MetadataFindOneAndReplace",
         "summary": "替换并返回元数据",
-        "deprecated": false,
+        "deprecated": true,
         "security": [
           {
             "ApiKey": []
@@ -12465,7 +14209,15 @@
         "tags": [
           "元数据管理"
         ],
-        "description": "完整替换可写配置并执行 Schema、索引和引用校验；系统字段保持服务端管理。returnDocument 选择 before/after。upsert 新增要求明确 _id 和完整配置。",
+        "description": "完整替换可写配置并执行 Schema、索引和引用校验；系统字段保持服务端管理。returnDocument 选择 before/after。upsert 新增要求明确 _id 和完整配置。\n兼容入口：新请求推荐使用 /uns/metadata:replaceOne。旧请求的恢复必须继续使用原入口、原幂等键和原载荷；切换入口不会继承旧回执。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
+        "x-tier0-compatibility": {
+          "replacement": "metadataReplaceOne",
+          "strategy": "returnDocument",
+          "operationId": "UnsV2MetadataReplaceOne",
+          "path": "/uns/metadata:replaceOne"
+        },
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -12517,11 +14269,63 @@
                     "minLength": 1,
                     "maxLength": 128,
                     "description": "可选幂等键；重试同一请求时复用，相同键不得用于不同请求。"
+                  },
+                  "returnDocument": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "before"
+                    ],
+                    "default": "none",
+                    "description": "none 仅返回原有计数；before/after 在同一写事务内附带 value，需要对应读取权限。未匹配返回 value:null；新增时 before 为 null。"
+                  },
+                  "projection": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "oneOf": [
+                        {
+                          "type": "integer",
+                          "enum": [
+                            0,
+                            1
+                          ]
+                        },
+                        {
+                          "type": "boolean"
+                        }
+                      ]
+                    },
+                    "description": "Include or exclude declared fields; computed expressions use aggregate-pipeline. System identity is retained."
                   }
                 },
                 "required": [
                   "kind",
                   "filter"
+                ],
+                "allOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "not": {
+                          "required": [
+                            "projection"
+                          ]
+                        }
+                      },
+                      {
+                        "required": [
+                          "returnDocument"
+                        ],
+                        "properties": {
+                          "returnDocument": {
+                            "enum": [
+                              "before"
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
                 ]
               },
               "example": {
@@ -12575,6 +14379,8 @@
           "元数据管理"
         ],
         "description": "软删除有效对象，执行引用和子节点校验，不级联清除 Record/Sample。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": true
       }
@@ -12583,7 +14389,7 @@
       "post": {
         "operationId": "UnsV2MetadataFindOneAndDelete",
         "summary": "软删除并返回原元数据",
-        "deprecated": false,
+        "deprecated": true,
         "security": [
           {
             "ApiKey": []
@@ -12701,7 +14507,15 @@
         "tags": [
           "元数据管理"
         ],
-        "description": "软删除有效对象，执行引用和子节点校验，不级联清除 Record/Sample。返回删除前对象。",
+        "description": "软删除有效对象，执行引用和子节点校验，不级联清除 Record/Sample。返回删除前对象。\n兼容入口：新请求推荐使用 /uns/metadata:deleteOne。旧请求的恢复必须继续使用原入口、原幂等键和原载荷；切换入口不会继承旧回执。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
+        "x-tier0-compatibility": {
+          "replacement": "metadataDeleteOne",
+          "strategy": "returnDocument",
+          "operationId": "UnsV2MetadataDeleteOne",
+          "path": "/uns/metadata:deleteOne"
+        },
         "x-tier0-readonly": false,
         "x-tier0-destructive": true
       }
@@ -12852,6 +14666,8 @@
           "元数据管理"
         ],
         "description": "显式 kind 内条件批量操作。整批原子；匹配数超过 maxDocs 整体拒绝。不同对象需要独立 revision 时使用 bulkWrite。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -12975,6 +14791,8 @@
           "元数据管理"
         ],
         "description": "显式 kind 内条件批量操作。整批原子；匹配数超过 maxDocs 整体拒绝。不同对象需要独立 revision 时使用 bulkWrite。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": true
       }
@@ -13100,6 +14918,8 @@
           "元数据管理"
         ],
         "description": "整批原子恢复，复验当前名称、父目录和引用，revision 递增；不隐式恢复依赖。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -13287,6 +15107,8 @@
           "元数据管理"
         ],
         "description": "同一 kind 下最多 200 个操作。默认原子；非原子时 ordered 控制失败后是否继续，按原始序号返回逐项结果。非原子执行只要有任一项已提交，失败响应的 error.execution=committed、retry.safe=false，错误信封 data 为与成功响应相同结构的累计结果（含 nextIndex，结局未知时另有 unknownUntil）：序号小于 nextIndex 且不在 errors 里的操作都已提交；[nextIndex, unknownUntil) 结局未知，带幂等键时同键重试，不带键时只有带客户端 id 的新增与按 id 的替换 / 删除能先按 id 读取状态再续做，服务端生成 id 的新增、按 filter 选择目标的操作与 $inc 等增量更新无法核对，结局未知时不能安全续做（这类写入应始终带幂等键）；没有 unknownUntil 时从 nextIndex 续做是安全的。只有全部未提交时才是 rolledBack 或 notStarted。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": true
       }
@@ -13405,6 +15227,8 @@
           "元数据管理"
         ],
         "description": "跨目录、主题、集合的原子操作。opId/dependsOn 控制依赖，parentId/collectionId 支持 {ref:opId} 引用创建结果。最多 200 项；dryRun=true 执行预校验后回滚。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": true
       }
@@ -14142,6 +15966,15 @@
           },
           "unit": {
             "type": "string"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "int32",
+              "float",
+              "double"
+            ],
+            "description": "数值表示注解：integer 对应 int32，number 对应 float（float32）或 double（float64）。不限制写入位宽范围，不执行舍入或转换；省略时保留原有 integer/number 语义。"
           }
         },
         "required": [
@@ -14913,6 +16746,45 @@
         ],
         "type": "object"
       },
+      "Outcome": {
+        "additionalProperties": false,
+        "properties": {
+          "jobId": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/Result"
+            },
+            "type": "array"
+          },
+          "status": {
+            "description": "Partial array writes expose summary and each result.error; accepted requires jobs/query. A failed partial job may contain committed items.",
+            "enum": [
+              "committed",
+              "validated",
+              "accepted",
+              "partiallyCommitted",
+              "failed",
+              "unknown",
+              "validationFailed"
+            ],
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/OutcomeSummary",
+            "description": "Present for allowPartial results; total equals succeeded + failed + notExecuted + unknown. Preview successes are validated, never committed."
+          }
+        },
+        "required": [
+          "status",
+          "replayed"
+        ],
+        "type": "object"
+      },
       "OutcomeSummary": {
         "additionalProperties": false,
         "properties": {
@@ -14948,12 +16820,14 @@
           "id": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 128,
+            "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
           },
           "collectionId": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 128,
+            "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
           },
           "data": {
             "type": "object",
@@ -14997,6 +16871,61 @@
           "sourceTime"
         ],
         "description": "普通业务记录。业务字段位于 data；系统属性位于同级。filter/projection 使用业务裸字段名及 _id/_meta.*，不按本响应对象路径编写。lock 仅描述有效租约，不返回令牌。"
+      },
+      "Result": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "collectionId": {
+            "type": "string",
+            "description": "集合 ID，业务记录和采样所属的 Collection。"
+          },
+          "data": {
+            "description": "事务结果绑定使用的业务数据载荷；读取完整资源对象使用 document。"
+          },
+          "document": {
+            "$ref": "#/components/schemas/RecordDocument"
+          },
+          "error": {
+            "$ref": "#/components/schemas/Fault"
+          },
+          "id": {
+            "type": "string",
+            "description": "对象 ID（字符串），从发现或读取接口取得；不要把名称当成 ID。"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "opId": {
+            "type": "string",
+            "description": "本事务内唯一操作标识，供依赖和结果引用使用。"
+          },
+          "query": {
+            "$ref": "#/components/schemas/TransactionQueryResult"
+          },
+          "release": {
+            "type": "integer"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "status": {
+            "description": "Partial arrays use committed/validated/failed/notExecuted/unknown; atomic writes retain their action-specific status. Match opId=item-N to input order and inspect error for failures.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "opId",
+          "action",
+          "id",
+          "status"
+        ],
+        "type": "object"
       },
       "RuntimeStreamDefinition": {
         "additionalProperties": false,
@@ -15113,6 +17042,15 @@
           },
           "unit": {
             "type": "string"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "int32",
+              "float",
+              "double"
+            ],
+            "description": "数值表示注解：integer 对应 int32，number 对应 float（float32）或 double（float64）。不限制写入位宽范围，不执行舍入或转换；省略时保留原有 integer/number 语义。"
           }
         },
         "required": [
@@ -18077,6 +20015,70 @@
           "appName"
         ]
       },
+      "CloudHostedAppControlPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "appId": {
+            "type": "string",
+            "format": "uuid",
+            "minLength": 36,
+            "maxLength": 36
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "version": {
+            "type": "string",
+            "enum": [
+              "cloud-hosted-app-control/v1"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "disabled"
+            ]
+          },
+          "authorityStatus": {
+            "type": "string",
+            "enum": [
+              "available",
+              "notReady",
+              "notFound",
+              "unavailable"
+            ]
+          },
+          "appName": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "platformPermissions": {
+            "type": "array",
+            "maxItems": 3,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "control.read",
+                "control.execute",
+                "control.write"
+              ]
+            }
+          }
+        },
+        "required": [
+          "appId",
+          "revision",
+          "version",
+          "status",
+          "authorityStatus",
+          "appName",
+          "platformPermissions"
+        ]
+      },
       "CloudAppDataRuleTransition": {
         "type": "object",
         "additionalProperties": false,
@@ -18626,6 +20628,487 @@
         ],
         "description": "SSE 帧：event 为帧类型，id 为续传位置，data 为 JSON。连接建立后立即发送一次 heartbeat（id 为当前位置），之后每 15 秒一次；change 按写入事务的顺序投递（同一记录的 revision 不保证单调，见 CloudRecordChangeEvent.occurredAt）；reset 后连接关闭。"
       },
+      "CloudControlGrantTargetRevision": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "digest",
+          "revision"
+        ]
+      },
+      "CloudControlGrantTargetInfo": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "action": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "active": {
+            "type": "integer",
+            "enum": [
+              1,
+              2
+            ]
+          },
+          "current": {
+            "type": "integer",
+            "enum": [
+              1,
+              2
+            ]
+          },
+          "kind": {
+            "type": "string"
+          },
+          "reference": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "digest",
+          "action",
+          "revision",
+          "active",
+          "current",
+          "kind",
+          "reference"
+        ]
+      },
+      "CloudControlGrantInfo": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+            "maxLength": 128
+          },
+          "principalKind": {
+            "type": "string",
+            "enum": [
+              "app",
+              "user",
+              "api_key"
+            ]
+          },
+          "principalID": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "status": {
+            "type": "string"
+          },
+          "bindingDigest": {
+            "type": "string"
+          },
+          "recipientEligible": {
+            "type": "integer",
+            "enum": [
+              1,
+              2
+            ]
+          },
+          "recipientActions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "control.read",
+                "control.execute",
+                "control.write"
+              ]
+            },
+            "maxItems": 3,
+            "uniqueItems": true
+          },
+          "registered": {
+            "type": "integer",
+            "enum": [
+              1,
+              2
+            ]
+          },
+          "active": {
+            "type": "integer",
+            "enum": [
+              1,
+              2
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "control.read",
+                "control.execute",
+                "control.write"
+              ]
+            },
+            "maxItems": 3,
+            "uniqueItems": true
+          },
+          "targets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CloudControlGrantTargetInfo"
+            }
+          },
+          "createdPrincipal": {
+            "type": "string"
+          },
+          "updatedPrincipal": {
+            "type": "string"
+          },
+          "createdTime": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "updatedTime": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "activationSupported": {
+            "type": "integer",
+            "enum": [
+              1,
+              2
+            ]
+          },
+          "snapshotToken": {
+            "type": "string",
+            "pattern": "^cgs1\\.[a-f0-9]{64}\\.[a-f0-9]{64}$",
+            "minLength": 134,
+            "maxLength": 134,
+            "description": "服务端生成的授权快照版本，仅用于并发校验，不是调用凭证。"
+          }
+        },
+        "required": [
+          "code",
+          "principalKind",
+          "principalID",
+          "status",
+          "bindingDigest",
+          "recipientEligible",
+          "recipientActions",
+          "registered",
+          "active",
+          "revision",
+          "actions",
+          "targets",
+          "createdPrincipal",
+          "updatedPrincipal",
+          "createdTime",
+          "updatedTime",
+          "activationSupported",
+          "snapshotToken"
+        ]
+      },
+      "CloudControlGrantMutation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+            "maxLength": 128
+          },
+          "principalKind": {
+            "type": "string",
+            "enum": [
+              "app",
+              "user",
+              "api_key"
+            ]
+          },
+          "principalID": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "active": {
+            "type": "integer",
+            "enum": [
+              1,
+              2
+            ]
+          },
+          "snapshotToken": {
+            "type": "string",
+            "pattern": "^cgs1\\.[a-f0-9]{64}\\.[a-f0-9]{64}$",
+            "minLength": 134,
+            "maxLength": 134,
+            "description": "使用 expectedSnapshotToken 更新成功时返回的新快照；旧版本字段模式不返回。"
+          }
+        },
+        "required": [
+          "code",
+          "principalKind",
+          "principalID",
+          "revision",
+          "active"
+        ]
+      },
+      "CloudAppDataGrantChange": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "upsert",
+              "remove"
+            ]
+          },
+          "collectionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "alias": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,62}$",
+            "minLength": 1,
+            "maxLength": 63
+          },
+          "permissionLevel": {
+            "type": "string",
+            "enum": [
+              "read",
+              "readwrite",
+              "manage"
+            ],
+            "description": "业务记录权限预设：只读、读写、管理（包含删除）。与 permissions 互斥；不自动授予 Sample 权限。"
+          },
+          "permissions": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "record:read",
+                "record:write",
+                "record:delete",
+                "sample:read",
+                "sample:write"
+              ]
+            }
+          },
+          "dataRule": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CloudAppDataRule"
+              }
+            ],
+            "nullable": true,
+            "description": "省略时保留现有员工规则；null 显式清除，须确认 ruleContractVersion。"
+          }
+        },
+        "required": [
+          "action",
+          "collectionId"
+        ],
+        "allOf": [
+          {
+            "not": {
+              "required": [
+                "permissionLevel",
+                "permissions"
+              ]
+            }
+          },
+          {
+            "anyOf": [
+              {
+                "properties": {
+                  "action": {
+                    "enum": [
+                      "upsert"
+                    ]
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "action": {
+                    "enum": [
+                      "remove"
+                    ]
+                  }
+                },
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "alias"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "permissionLevel"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "permissions"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "dataRule"
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "CloudAppStreamAccessItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "streamId": {
+            "type": "string"
+          },
+          "streamName": {
+            "type": "string"
+          },
+          "entryId": {
+            "type": "string"
+          },
+          "entryName": {
+            "type": "string"
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "control.read",
+                "control.execute",
+                "control.write"
+              ]
+            },
+            "maxItems": 3,
+            "uniqueItems": true
+          },
+          "configuredActive": {
+            "type": "integer",
+            "enum": [
+              1,
+              2
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "available",
+              "blocked"
+            ]
+          },
+          "blockedReasons": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "grant_revoked",
+                "grant_invalid",
+                "recipient_unavailable",
+                "stream_inactive",
+                "binding_unavailable",
+                "deployer_unavailable",
+                "state_changed",
+                "grant_insufficient",
+                "app_control_ceiling",
+                "target_not_granted",
+                "collection_not_granted"
+              ]
+            },
+            "uniqueItems": true
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "code",
+          "streamId",
+          "streamName",
+          "entryId",
+          "entryName",
+          "actions",
+          "configuredActive",
+          "state",
+          "blockedReasons",
+          "revision"
+        ]
+      },
+      "CloudAppStreamAccessPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CloudAppStreamAccessItem"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "size",
+          "total"
+        ]
+      },
       "CloudRecordTotalOption": {
         "type": "object",
         "additionalProperties": false,
@@ -18797,17 +21280,20 @@
           "id": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 128,
+            "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
           },
           "collectionId": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 128,
+            "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
           },
           "recordId": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 128,
+            "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
           },
           "time": {
             "type": "integer",
@@ -18833,12 +21319,14 @@
           "streamId": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 128,
+            "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
           },
           "bindingId": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 128,
+            "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
           }
         },
         "required": [
@@ -19073,7 +21561,8 @@
             "items": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 128
+              "maxLength": 128,
+              "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
             }
           }
         },
@@ -19134,7 +21623,8 @@
           "id": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 128,
+            "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
           },
           "token": {
             "type": "string"
@@ -20782,6 +23272,140 @@
           }
         ]
       },
+      "CloudSourceDocumentPatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "config": {
+            "$ref": "#/components/schemas/CloudSourceConfig",
+            "description": "显式替换完整连接配置；省略时保留。不是递归合并，需保留希望继续使用的认证/TLS 引用。"
+          }
+        },
+        "required": [],
+        "minProperties": 1,
+        "description": "服务端从 expectedRevision 对应的不可变文档合并补丁；与 sourceImpact 使用相同补丁。"
+      },
+      "CloudSourceDocumentSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "integer"
+          },
+          "updatedAt": {
+            "type": "integer"
+          },
+          "redacted": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "protocol": {
+            "type": "string"
+          },
+          "desiredState": {
+            "type": "string"
+          },
+          "runtimeState": {
+            "type": "string"
+          },
+          "health": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "name",
+          "description",
+          "createdAt",
+          "updatedAt",
+          "redacted",
+          "protocol",
+          "desiredState",
+          "runtimeState",
+          "health"
+        ]
+      },
+      "CloudStreamDocumentSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "integer"
+          },
+          "updatedAt": {
+            "type": "integer"
+          },
+          "redacted": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "model": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "activeRelease": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "name",
+          "description",
+          "createdAt",
+          "updatedAt",
+          "redacted",
+          "model",
+          "status",
+          "activeRelease"
+        ]
+      },
       "DocItemFault": {
         "type": "object",
         "additionalProperties": true,
@@ -20955,6 +23579,45 @@
           },
           "updatedAt": {
             "type": "integer"
+          },
+          "relationship": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "status"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "grant",
+                  "dependency"
+                ]
+              },
+              "status": {
+                "type": "string"
+              },
+              "alias": {
+                "type": "string"
+              },
+              "permissions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "access": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "read",
+                    "write"
+                  ]
+                }
+              }
+            }
           }
         },
         "required": [
@@ -23196,7 +25859,8 @@
               "insertedId": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 128
+                "maxLength": 128,
+                "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
               },
               "status": {
                 "type": "string",
@@ -23247,7 +25911,8 @@
                 "additionalProperties": {
                   "type": "string",
                   "minLength": 1,
-                  "maxLength": 128
+                  "maxLength": 128,
+                  "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
                 },
                 "description": "键为原始输入中从 0 开始的操作索引，值为对应成功记录 ID；部分失败时不重新编号。"
               },
@@ -23322,7 +25987,8 @@
                     "additionalProperties": {
                       "type": "string",
                       "minLength": 1,
-                      "maxLength": 128
+                      "maxLength": 128,
+                      "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
                     },
                     "description": "键为原始输入中从 0 开始的操作索引，值为对应成功记录 ID；部分失败时不重新编号。"
                   },
@@ -23451,7 +26117,8 @@
               "upsertedId": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 128
+                "maxLength": 128,
+                "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
               },
               "status": {
                 "type": "string",
@@ -23460,6 +26127,10 @@
               "replayed": {
                 "type": "boolean",
                 "description": "是否返回同一幂等请求的已保存结果。"
+              },
+              "value": {
+                "$ref": "#/components/schemas/CloudNullableRecordDocument",
+                "description": "仅在 returnDocument=before/after 时出现；原有计数与状态字段保持不变。"
               }
             },
             "required": [
@@ -23500,7 +26171,8 @@
               "upsertedId": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 128
+                "maxLength": 128,
+                "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
               },
               "status": {
                 "type": "string",
@@ -23553,7 +26225,8 @@
               "upsertedId": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 128
+                "maxLength": 128,
+                "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
               },
               "status": {
                 "type": "string",
@@ -23562,6 +26235,10 @@
               "replayed": {
                 "type": "boolean",
                 "description": "是否返回同一幂等请求的已保存结果。"
+              },
+              "value": {
+                "$ref": "#/components/schemas/CloudNullableRecordDocument",
+                "description": "仅在 returnDocument=before/after 时出现；原有计数与状态字段保持不变。"
               }
             },
             "required": [
@@ -23602,7 +26279,8 @@
               "upsertedId": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 128
+                "maxLength": 128,
+                "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
               },
               "status": {
                 "type": "string",
@@ -23655,6 +26333,10 @@
               "replayed": {
                 "type": "boolean",
                 "description": "是否返回同一幂等请求的已保存结果。"
+              },
+              "value": {
+                "$ref": "#/components/schemas/CloudNullableRecordDocument",
+                "description": "仅在 returnDocument=before/after 时出现；原有计数与状态字段保持不变。"
               }
             },
             "required": [
@@ -23694,7 +26376,8 @@
               "upsertedId": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 128
+                "maxLength": 128,
+                "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
               },
               "status": {
                 "type": "string",
@@ -23747,7 +26430,8 @@
               "resumeAfter": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 128
+                "maxLength": 128,
+                "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
               },
               "status": {
                 "type": "string",
@@ -23765,6 +26449,13 @@
               },
               "hasMore": {
                 "type": "boolean"
+              },
+              "outcomeUnknown": {
+                "type": "boolean",
+                "enum": [
+                  true
+                ],
+                "description": "后续块可能已经提交；此时不返回 resumeAfter。只能用原幂等键和原请求恢复，没有幂等键时不能安全续做增量更新。"
               }
             },
             "required": [
@@ -23772,6 +26463,16 @@
               "modifiedCount",
               "status",
               "replayed"
+            ],
+            "allOf": [
+              {
+                "not": {
+                  "required": [
+                    "outcomeUnknown",
+                    "resumeAfter"
+                  ]
+                }
+              }
             ]
           }
         },
@@ -23812,7 +26513,8 @@
                   "resumeAfter": {
                     "type": "string",
                     "minLength": 1,
-                    "maxLength": 128
+                    "maxLength": 128,
+                    "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
                   },
                   "status": {
                     "type": "string",
@@ -23830,6 +26532,13 @@
                   },
                   "hasMore": {
                     "type": "boolean"
+                  },
+                  "outcomeUnknown": {
+                    "type": "boolean",
+                    "enum": [
+                      true
+                    ],
+                    "description": "后续块可能已经提交；此时不返回 resumeAfter。只能用原幂等键和原请求恢复，没有幂等键时不能安全续做增量更新。"
                   }
                 },
                 "required": [
@@ -23837,6 +26546,16 @@
                   "modifiedCount",
                   "status",
                   "replayed"
+                ],
+                "allOf": [
+                  {
+                    "not": {
+                      "required": [
+                        "outcomeUnknown",
+                        "resumeAfter"
+                      ]
+                    }
+                  }
                 ]
               }
             ],
@@ -23925,7 +26644,8 @@
               "resumeAfter": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 128
+                "maxLength": 128,
+                "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
               },
               "status": {
                 "type": "string",
@@ -23943,12 +26663,29 @@
               },
               "hasMore": {
                 "type": "boolean"
+              },
+              "outcomeUnknown": {
+                "type": "boolean",
+                "enum": [
+                  true
+                ],
+                "description": "后续块可能已经提交；此时不返回 resumeAfter。只能用原幂等键和原请求恢复，没有幂等键时不能安全续做增量更新。"
               }
             },
             "required": [
               "deletedCount",
               "status",
               "replayed"
+            ],
+            "allOf": [
+              {
+                "not": {
+                  "required": [
+                    "outcomeUnknown",
+                    "resumeAfter"
+                  ]
+                }
+              }
             ]
           }
         },
@@ -23985,7 +26722,8 @@
                   "resumeAfter": {
                     "type": "string",
                     "minLength": 1,
-                    "maxLength": 128
+                    "maxLength": 128,
+                    "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
                   },
                   "status": {
                     "type": "string",
@@ -24003,12 +26741,29 @@
                   },
                   "hasMore": {
                     "type": "boolean"
+                  },
+                  "outcomeUnknown": {
+                    "type": "boolean",
+                    "enum": [
+                      true
+                    ],
+                    "description": "后续块可能已经提交；此时不返回 resumeAfter。只能用原幂等键和原请求恢复，没有幂等键时不能安全续做增量更新。"
                   }
                 },
                 "required": [
                   "deletedCount",
                   "status",
                   "replayed"
+                ],
+                "allOf": [
+                  {
+                    "not": {
+                      "required": [
+                        "outcomeUnknown",
+                        "resumeAfter"
+                      ]
+                    }
+                  }
                 ]
               }
             ],
@@ -24115,7 +26870,8 @@
                 "additionalProperties": {
                   "type": "string",
                   "minLength": 1,
-                  "maxLength": 128
+                  "maxLength": 128,
+                  "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
                 },
                 "description": "键为原始输入中从 0 开始的操作索引，值为对应成功记录 ID；部分失败时不重新编号。"
               },
@@ -24124,7 +26880,8 @@
                 "additionalProperties": {
                   "type": "string",
                   "minLength": 1,
-                  "maxLength": 128
+                  "maxLength": 128,
+                  "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
                 },
                 "description": "键为原始输入中从 0 开始的操作索引，值为对应成功记录 ID；部分失败时不重新编号。"
               },
@@ -24220,7 +26977,8 @@
                     "additionalProperties": {
                       "type": "string",
                       "minLength": 1,
-                      "maxLength": 128
+                      "maxLength": 128,
+                      "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
                     },
                     "description": "键为原始输入中从 0 开始的操作索引，值为对应成功记录 ID；部分失败时不重新编号。"
                   },
@@ -24229,7 +26987,8 @@
                     "additionalProperties": {
                       "type": "string",
                       "minLength": 1,
-                      "maxLength": 128
+                      "maxLength": 128,
+                      "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
                     },
                     "description": "键为原始输入中从 0 开始的操作索引，值为对应成功记录 ID；部分失败时不重新编号。"
                   },
@@ -24361,7 +27120,8 @@
                     "recordId": {
                       "type": "string",
                       "minLength": 1,
-                      "maxLength": 128
+                      "maxLength": 128,
+                      "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
                     },
                     "sample": {
                       "$ref": "#/components/schemas/CloudNullableSampleDocument"
@@ -24857,7 +27617,14 @@
             "type": "string"
           },
           "data": {
-            "$ref": "#/components/schemas/CloudSourceDocumentView"
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CloudSourceDocumentView"
+              },
+              {
+                "$ref": "#/components/schemas/CloudSourceDocumentSummary"
+              }
+            ]
           }
         },
         "required": [
@@ -24887,6 +27654,9 @@
               },
               {
                 "$ref": "#/components/schemas/CloudPreviewResult"
+              },
+              {
+                "$ref": "#/components/schemas/Outcome"
               }
             ]
           }
@@ -24918,6 +27688,9 @@
               },
               {
                 "$ref": "#/components/schemas/CloudPreviewResult"
+              },
+              {
+                "$ref": "#/components/schemas/Outcome"
               }
             ]
           }
@@ -24943,7 +27716,14 @@
             "type": "string"
           },
           "data": {
-            "$ref": "#/components/schemas/CloudStreamDocumentView"
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CloudStreamDocumentView"
+              },
+              {
+                "$ref": "#/components/schemas/CloudStreamDocumentSummary"
+              }
+            ]
           }
         },
         "required": [
@@ -26035,6 +28815,132 @@
           "data"
         ]
       },
+      "DocCloudHostedAppControlPolicyGetResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/CloudHostedAppControlPolicy"
+          }
+        },
+        "required": [
+          "code",
+          "msg",
+          "requestId",
+          "data"
+        ]
+      },
+      "DocCloudHostedAppControlPolicyUpdateResult": {
+        "additionalProperties": false,
+        "properties": {
+          "opId": {
+            "type": "string",
+            "description": "输入项标识，用于关联原请求。"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "meta.replace"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "description": "对象 ID（字符串），从发现或读取接口取得；不要把名称当成 ID。"
+          },
+          "status": {
+            "description": "该输入项的执行状态。",
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "error": {
+            "$ref": "#/components/schemas/DocItemFault"
+          }
+        },
+        "required": [
+          "opId",
+          "action",
+          "id",
+          "status"
+        ],
+        "type": "object"
+      },
+      "DocCloudHostedAppControlPolicyUpdateOutcome": {
+        "additionalProperties": false,
+        "properties": {
+          "jobId": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DocCloudHostedAppControlPolicyUpdateResult"
+            }
+          },
+          "status": {
+            "description": "本次操作的执行状态。",
+            "enum": [
+              "committed",
+              "validated",
+              "accepted",
+              "partiallyCommitted",
+              "failed",
+              "unknown",
+              "validationFailed"
+            ],
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/OutcomeSummary",
+            "description": "仅部分提交时返回的逐项执行汇总。"
+          }
+        },
+        "required": [
+          "status",
+          "replayed"
+        ],
+        "type": "object"
+      },
+      "DocCloudHostedAppControlPolicyUpdateResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DocCloudHostedAppControlPolicyUpdateOutcome"
+          }
+        },
+        "required": [
+          "code",
+          "msg",
+          "requestId",
+          "data"
+        ]
+      },
       "DocUnsV2AppCollectionsEnsureResponse": {
         "type": "object",
         "additionalProperties": false,
@@ -26293,6 +29199,78 @@
           "data"
         ]
       },
+      "DocUnsV2ControlGrantGetResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/CloudControlGrantInfo"
+          }
+        },
+        "required": [
+          "code",
+          "msg",
+          "requestId",
+          "data"
+        ]
+      },
+      "DocUnsV2ControlGrantSetResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/CloudControlGrantMutation"
+          }
+        },
+        "required": [
+          "code",
+          "msg",
+          "requestId",
+          "data"
+        ]
+      },
+      "DocCloudAppStreamAccessListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/CloudAppStreamAccessPage"
+          }
+        },
+        "required": [
+          "code",
+          "msg",
+          "requestId",
+          "data"
+        ]
+      },
       "DocUnsV2SampleFindResponse": {
         "type": "object",
         "additionalProperties": false,
@@ -26403,7 +29381,8 @@
                     "id": {
                       "type": "string",
                       "minLength": 1,
-                      "maxLength": 128
+                      "maxLength": 128,
+                      "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
                     },
                     "expiresAt": {
                       "type": "integer",
@@ -26513,7 +29492,8 @@
                 "items": {
                   "type": "string",
                   "minLength": 1,
-                  "maxLength": 128
+                  "maxLength": 128,
+                  "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
                 }
               },
               "status": {
@@ -26922,6 +29902,10 @@
               },
               "replayed": {
                 "type": "boolean"
+              },
+              "value": {
+                "$ref": "#/components/schemas/MetadataNullableDocument",
+                "description": "仅在 returnDocument=before/after 时出现；原有计数与状态字段保持不变。"
               }
             },
             "required": [
@@ -27032,6 +30016,10 @@
               },
               "replayed": {
                 "type": "boolean"
+              },
+              "value": {
+                "$ref": "#/components/schemas/MetadataNullableDocument",
+                "description": "仅在 returnDocument=before/after 时出现；原有计数与状态字段保持不变。"
               }
             },
             "required": [
@@ -27133,6 +30121,10 @@
               },
               "replayed": {
                 "type": "boolean"
+              },
+              "value": {
+                "$ref": "#/components/schemas/MetadataNullableDocument",
+                "description": "仅在 returnDocument=before/after 时出现；原有计数与状态字段保持不变。"
               }
             },
             "required": [

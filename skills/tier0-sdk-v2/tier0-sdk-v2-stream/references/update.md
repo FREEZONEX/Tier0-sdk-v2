@@ -18,7 +18,8 @@ import { createClient, type Tier0Client, type CloudStreamDocument } from '@tier0
 export async function updateStreamDescription(
   id: string, description: string, intentKey: string, client: Tier0Client = createClient(),
 ) {
-  const { data: current } = await client.stream.documents.get({ id });
+  const { data: current } = await client.stream.documents.get({ id, view: 'full' });
+  if (!('document' in current)) throw new Error('需要完整 Stream 文档');
   const document: CloudStreamDocument = { ...current.document, description };
   const checked = await client.stream.documents.validate({ document });
   if (!checked.data.valid) throw new Error('Stream 文档校验失败，请检查 issues');

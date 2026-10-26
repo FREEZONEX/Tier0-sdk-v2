@@ -23,7 +23,8 @@ export async function createHttpStream(
   sourceId: string, name: string, intentKey: string, client: Tier0Client = createClient(),
 ) {
   if (!/^[1-9][0-9]*$/.test(sourceId)) throw new Error('Source ID 必须是正十进制字符串');
-  const source = await client.source.documents.get({ id: sourceId });
+  const source = await client.source.documents.get({ id: sourceId, view: 'full' });
+  if (!('document' in source.data)) throw new Error('需要完整 Source 文档');
   if (source.data.document.protocol !== 'http') throw new Error('此示例需要 HTTP Source');
   const document: RuntimeStreamDefinition = {
     name, sdkVersion: 'tier0-stream/v2', timeoutMs: 5000,
