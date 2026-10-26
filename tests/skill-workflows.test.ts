@@ -100,35 +100,69 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
       }
     }
   });
-  it('executes Source create, read, exact-intent update, delete and archive readback', async () => {
+  it('executes unreferenced Source create, rename and delete in three requests using canonical receipts', async () => {
     steps = [
-      { path: 'sources/documents/create', check: b => expect(b.dryRun).toBe(true), data: preview },
       { path: 'sources/documents/create', check: b => expect(b).toMatchObject({
         dryRun: false, idempotencyKey: 'create-source', document: source().document }), data: source() },
-      { path: 'sources/documents/get', check: b => expect(b.id).toBe(source().id), data: source() },
-      { path: 'sources/documents/get', data: source() },
-      { path: 'sources/impact', check: b => expect(b).toMatchObject({
-        expectedRevision: 1, action: 'update', document: { name: 'renamed' } }), data: impact() },
-      { path: 'sources/documents/update', check: b => expect(b).toMatchObject({
-        dryRun: true, expectedRevision: 1, confirmedImpactRevision: token }), data: preview },
-      { path: 'sources/documents/update', check: b => expect(b).toMatchObject({
-        dryRun: false, expectedRevision: 1, confirmedImpactRevision: token,
-        document: { ...source().document, name: 'renamed' } }), data: source(2, 'renamed') },
-      { path: 'sources/documents/get', data: source(2, 'renamed') },
-      { path: 'sources/impact', check: b => expect(b).toMatchObject({ action: 'delete', expectedRevision: 2 }), data: impact('delete', 2) },
+      { path: 'sources/documents/update', check: b => expect(b).toEqual({
+        id: source().id, dryRun: false, expectedRevision: 1, idempotencyKey: 'rename-source',
+        patch: { name: 'renamed' } }), data: source(2, 'renamed') },
       { path: 'sources/delete', check: b => expect(b.items).toEqual([
-        { id: source().id, expectedRevision: 2, confirmedImpactRevision: token }]), data: outcome() },
-      { path: 'sources/documents/list', check: b => expect(b.archived).toBe(true), data: page([source(3, 'renamed')]) },
+        { id: source().id, expectedRevision: 2 }]), data: { ...outcome(), results: [
+        { opId: 'item-1', action: 'meta.archive', kind: 'source', id: source().id, revision: 2, status: 'deleted' },
+      ] } },
     ];
     const created = await example('source', 'create').createHttpSource('https://fixture.invalid', 'orders', 'create-source', client);
-    const plan = await example('source', 'update').prepareSourceRename(created.current.id, 'renamed', client);
-    const changed = await example('source', 'update').commitSourceRename(plan, 'rename-source', client);
-    const assessed = await example('source', 'changes').collectSourceImpact({
-      id: changed.current.id, expectedRevision: changed.current.revision, action: 'delete',
-    }, client);
+    expect(created.current).toEqual(source());
+    const changed = await example('source', 'update').renameSource(created.current.id, created.current.revision, 'renamed', 'rename-source', client);
+    expect(changed.current).toEqual(source(2, 'renamed'));
     const deleted = await example('source', 'delete').deleteSource(changed.current.id,
-      changed.current.revision, assessed.impactRevision, 'delete-source', client);
+      changed.current.revision, 'delete-source', client);
     expect(deleted.state).toBe('archived');
+    expect(calls).toHaveLength(3);
+    finished();
+  });
+
+  it('creates an authenticated Source in one request and returns the canonical document', async () => {
+    steps = [{ path: 'sources/documents/create', check: b => expect(b).toMatchObject({
+      dryRun: false, idempotencyKey: 'create-authenticated',
+      credentials: { method: 'GET', kind: 'bearer', material: { token: 'fixture-only' } },
+    }), data: source() }];
+    const created = await example('source', 'create', 1).createAuthenticatedHttpSource(
+      'https://fixture.invalid', 'orders', 'fixture-only', 'create-authenticated', client);
+    expect(created.current).toEqual(source());
+    expect(created.receipt.data).toEqual(source());
+    expect(calls).toHaveLength(1);
+    finished();
+  });
+
+  it('keeps Source impact review separate from explicitly confirming a referenced rename', async () => {
+    steps = [{ path: 'sources/impact', check: b => expect(b).toMatchObject({
+      id: source().id, expectedRevision: 1, action: 'update', patch: { name: 'renamed' },
+    }), data: { ...impact(), counts: { draft: 1, activeRelease: 0, historicalRelease: 0 } } }];
+    const workflow = example('source', 'update', 1);
+    const plan = await workflow.prepareSourceRename(source().id, 1, 'renamed', client);
+    expect(plan.impact.counts.draft).toBe(1);
+    expect(calls).toHaveLength(1);
+    finished();
+    steps = [{ path: 'sources/documents/update', check: b => expect(b).toEqual({
+      id: source().id, expectedRevision: 1, patch: { name: 'renamed' },
+      confirmedImpactRevision: token, dryRun: false, idempotencyKey: 'reviewed-rename',
+    }), data: source(2, 'renamed') }];
+    const changed = await workflow.commitSourceRename(plan, 'reviewed-rename', client);
+    expect(changed.current).toEqual(source(2, 'renamed'));
+    expect(calls).toHaveLength(2);
+    finished();
+  });
+
+  it('sets an unreferenced Source desired state in one request without asserting runtime health', async () => {
+    steps = [{ path: 'sources/state/update', check: b => expect(b.items).toEqual([
+      { id: source().id, expectedRevision: 1, desiredState: 'enabled' },
+    ]), data: outcome() }];
+    const changed = await example('source', 'state').setSourceState(source().id, 1, 'enabled', 'enable-source', client);
+    expect(changed.state).toBe('committed');
+    expect(changed).not.toHaveProperty('current');
+    expect(calls).toHaveLength(1);
     finished();
   });
 
@@ -151,35 +185,30 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
   it('executes Stream Source binding, full-document update, deploy, guarded disable and deletion', async () => {
     steps = [
       { path: 'sources/documents/get', data: source() },
-      { path: 'streams/program/validate', check: b => {
-        expect(b.document.sourceBindings).toEqual([{ sourceId: source().id, configRevision: 1, acquisition: {} }]);
-        expect(b.document.script).toContain('api.sources.use');
-      }, data: { valid: true, sideEffects: false } },
-      { path: 'streams/program/create', data: { id: stream().id, revision: 1, activeVersion: '0' } },
+      { path: 'streams/documents/create', check: b => {
+        expect(b.program.sourceBindings).toEqual([{ sourceId: source().id, configRevision: 1, acquisition: {} }]);
+        expect(b.program.script).toContain('api.sources.use');
+      }, data: stream() },
       { path: 'streams/documents/get', data: stream() },
-      { path: 'streams/documents/get', data: stream() },
-      { path: 'streams/documents/validate', data: { valid: true, issues: [] } },
       { path: 'streams/documents/update', check: b => expect(b).toMatchObject({
         expectedRevision: 1, document: { ...stream().document, description: 'updated' } }), data: stream(2, 'updated') },
-      { path: 'streams/documents/get', data: stream(2, 'updated') },
-      { path: 'streams/documents/get', data: stream(2, 'updated') },
       { path: 'streams/program/deploy', check: b => expect(b).toMatchObject({
-        expectedRevision: 2, expectedSourceRevision: 1, dryRun: false }), data: { activeVersion: '9007199254740997' } },
-      { path: 'streams/documents/get', data: stream(3, 'updated', 1) },
-      { path: 'streams/observation/get', data: {} },
-      { path: 'streams/documents/get', data: stream(3, 'updated', 1) },
+        expectedRevision: 2, expectedSourceRevision: 1, dryRun: false }),
+        data: { id: stream().id, revision: 2, activeVersion: '9007199254740997', activeRelease: 1 } },
+      { path: 'streams/documents/get', data: stream(2, 'updated', 1) },
       { path: 'streams/documents/disable', check: b => expect(b).toMatchObject({
-        expectedRevision: 3, expectedActiveRelease: 1 }), data: { id: stream().id, revision: 4, status: 'disabled', activeRelease: 0 } },
-      { path: 'streams/documents/get', data: stream(4, 'updated') },
-      { path: 'streams/documents/get', data: stream(4, 'updated') },
-      { path: 'streams/program/delete', check: b => expect(b.expectedRevision).toBe(4),
-        data: { id: stream().id, revision: 4, deleted: true } },
-      { path: 'streams/program/list', data: page([stream(4, 'updated')]) },
+        expectedRevision: 2, expectedActiveRelease: 1 }), data: { id: stream().id, revision: 3, status: 'disabled', activeRelease: 0 } },
+      { path: 'streams/documents/get', data: stream(3, 'updated') },
+      { path: 'streams/documents/get', data: stream(3, 'updated') },
+      { path: 'streams/program/delete', check: b => expect(b.expectedRevision).toBe(3),
+        data: { id: stream().id, revision: 3, deleted: true } },
+      { path: 'streams/program/list', data: page([stream(3, 'updated')]) },
     ];
     const created = await example('stream', 'create').createHttpStream(source().id, 'orders-stream', 'create-stream', client);
     const id = created.current.id;
-    await example('stream', 'update').updateStreamDescription(id, 'updated', 'update-stream', client);
-    await example('stream', 'deploy').deployStream(id, 'deploy-stream', client);
+    const updated = await example('stream', 'update').updateStreamDescription(id, 'updated', 'update-stream', client);
+    const deployed = await example('stream', 'deploy').deployStream(updated.current, 'deploy-stream', client);
+    expect(deployed.release).toBe(1);
     await example('stream', 'deploy').disableStream(id, 'disable-stream', client);
     const deleted = await example('stream', 'delete').deleteStream(id, 'delete-stream', client);
     expect(deleted.archived.id).toBe(id);
@@ -250,7 +279,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
 
   it('does not retry a Source mutation after an unknown transport result', async () => {
     steps = [{ path: 'sources/delete', raw: 'truncated response' }];
-    await expect(example('source', 'delete').deleteSource(source().id, 1, token, 'delete', client))
+    await expect(example('source', 'delete').deleteSource(source().id, 1, 'delete', client, token))
       .rejects.toBeInstanceOf(sdk.UnsV2OutcomeUnknownError);
     expect(calls).toHaveLength(1);
     finished();

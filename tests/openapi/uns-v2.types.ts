@@ -94,8 +94,10 @@ client.source.ingress.get({ id: '101' });
 client.source.ingress.rotate({ id: '101' });
 // @ts-expect-error identity and workspace binding cannot be supplied through list request DTOs.
 client.uns.metadataFind({ workspaceId: 'other-workspace' });
-// @ts-expect-error Source mutations must carry an explicitly reviewed confirmation.
+// Unreferenced Source mutations need only the existing revision; referenced sources require server-side review.
 client.source.delete({ dryRun: false, items: [{ id: '101', expectedRevision: 2 }] });
+client.source.documents.update({ dryRun: false, id: '101', expectedRevision: 2, patch: { name: 'renamed' } });
+client.source.state.update({ dryRun: false, items: [{ id: '101', expectedRevision: 2, desiredState: 'enabled' }] });
 
 const lease = client.uns.recordLock({ collectionId: 'orders', ids: ['order-1'], ttlMs: 30000 });
 const unlock = client.uns.recordUnlock({ collectionId: 'orders', locks: [{ id: 'order-1', token: 'lease' }] });

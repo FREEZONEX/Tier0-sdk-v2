@@ -1183,7 +1183,7 @@
           "数据源"
         ],
         "summary": "更新数据源基本信息",
-        "description": "按 items 更新数据源基本信息，未提供的字段保持不变。需提供当前 expectedRevision 和与本次变更一致的 confirmedImpactRevision；dryRun=true 仅校验。\n兼容入口：新请求推荐使用 /uns/sources/documents/update。旧请求的恢复必须继续使用原入口、原幂等键和原载荷；切换入口不会继承旧回执。",
+        "description": "按 items 更新数据源基本信息，未提供的字段保持不变。需提供当前 expectedRevision；没有任何 Stream 引用时可直接提交，存在引用时需提供与本次变更一致的 confirmedImpactRevision；dryRun=true 仅校验。\n兼容入口：新请求推荐使用 /uns/sources/documents/update。旧请求的恢复必须继续使用原入口、原幂等键和原载荷；切换入口不会继承旧回执。",
         "requestBody": {
           "required": true,
           "content": {
@@ -1233,7 +1233,7 @@
                         "expectedRevision": {
                           "type": "integer",
                           "minimum": 1,
-                          "description": "Cloud source-impact/1: explicit positive revision is required."
+                          "description": "Cloud source-impact/2: explicit positive revision is required."
                         },
                         "name": {
                           "maxLength": 63,
@@ -1249,13 +1249,12 @@
                           "pattern": "^si1_[A-Za-z0-9_-]{43}$",
                           "minLength": 47,
                           "maxLength": 47,
-                          "description": "先评估本次变更的影响，使用返回的实际确认版本；示例值仅为占位。"
+                          "description": "无任何 Stream 引用时可省略；存在引用时先评估本次变更的影响，使用实际确认版本。任何已提供的确认值都必须有效。"
                         }
                       },
                       "required": [
                         "id",
-                        "expectedRevision",
-                        "confirmedImpactRevision"
+                        "expectedRevision"
                       ]
                     }
                   }
@@ -1271,8 +1270,7 @@
                   {
                     "id": "example-id",
                     "name": "Updated name",
-                    "expectedRevision": 1,
-                    "confirmedImpactRevision": "si1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+                    "expectedRevision": 1
                   }
                 ]
               }
@@ -1356,7 +1354,7 @@
           "数据源"
         ],
         "summary": "更新数据源连接",
-        "description": "更新连接配置，需提供当前 expectedRevision 和与本次变更一致的 confirmedImpactRevision；dryRun=true 仅校验。\n兼容入口：新请求推荐使用 /uns/sources/documents/update。旧请求的恢复必须继续使用原入口、原幂等键和原载荷；切换入口不会继承旧回执。",
+        "description": "更新连接配置，需提供当前 expectedRevision；没有任何 Stream 引用时可直接提交，存在引用时需提供与本次变更一致的 confirmedImpactRevision；dryRun=true 仅校验。\n兼容入口：新请求推荐使用 /uns/sources/documents/update。旧请求的恢复必须继续使用原入口、原幂等键和原载荷；切换入口不会继承旧回执。",
         "requestBody": {
           "required": true,
           "content": {
@@ -1406,7 +1404,7 @@
                         "expectedRevision": {
                           "type": "integer",
                           "minimum": 1,
-                          "description": "Cloud source-impact/1: explicit positive revision is required."
+                          "description": "Cloud source-impact/2: explicit positive revision is required."
                         },
                         "connection": {
                           "$ref": "#/components/schemas/SourceDefinition"
@@ -1416,14 +1414,13 @@
                           "pattern": "^si1_[A-Za-z0-9_-]{43}$",
                           "minLength": 47,
                           "maxLength": 47,
-                          "description": "先评估本次变更的影响，使用返回的实际确认版本；示例值仅为占位。"
+                          "description": "无任何 Stream 引用时可省略；存在引用时先评估本次变更的影响，使用实际确认版本。任何已提供的确认值都必须有效。"
                         }
                       },
                       "required": [
                         "id",
                         "connection",
-                        "expectedRevision",
-                        "confirmedImpactRevision"
+                        "expectedRevision"
                       ]
                     }
                   }
@@ -1446,8 +1443,7 @@
                         "authentication": "none"
                       }
                     },
-                    "expectedRevision": 1,
-                    "confirmedImpactRevision": "si1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+                    "expectedRevision": 1
                   }
                 ]
               }
@@ -1531,7 +1527,7 @@
           "数据源"
         ],
         "summary": "更新数据源启停状态",
-        "description": "更新数据源期望状态，需提供当前 expectedRevision 和与本次变更一致的 confirmedImpactRevision；dryRun=true 仅校验。",
+        "description": "更新数据源期望状态，需提供当前 expectedRevision；没有任何 Stream 引用时可直接提交，存在引用时需提供与本次变更一致的 confirmedImpactRevision；dryRun=true 仅校验。",
         "requestBody": {
           "required": true,
           "content": {
@@ -1581,7 +1577,7 @@
                         "expectedRevision": {
                           "type": "integer",
                           "minimum": 1,
-                          "description": "Cloud source-impact/1: explicit positive revision is required."
+                          "description": "Cloud source-impact/2: explicit positive revision is required."
                         },
                         "desiredState": {
                           "type": "string",
@@ -1595,14 +1591,13 @@
                           "pattern": "^si1_[A-Za-z0-9_-]{43}$",
                           "minLength": 47,
                           "maxLength": 47,
-                          "description": "先评估本次变更的影响，使用返回的实际确认版本；示例值仅为占位。"
+                          "description": "无任何 Stream 引用时可省略；存在引用时先评估本次变更的影响，使用实际确认版本。任何已提供的确认值都必须有效。"
                         }
                       },
                       "required": [
                         "id",
                         "desiredState",
-                        "expectedRevision",
-                        "confirmedImpactRevision"
+                        "expectedRevision"
                       ]
                     }
                   }
@@ -1618,8 +1613,7 @@
                   {
                     "id": "example-id",
                     "desiredState": "disabled",
-                    "expectedRevision": 1,
-                    "confirmedImpactRevision": "si1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+                    "expectedRevision": 1
                   }
                 ]
               }
@@ -2681,7 +2675,7 @@
                   "dryRun",
                   "id"
                 ],
-                "description": "Cloud source-impact/1: metadata-only Stop; no Source config parsing or Worker dependency. expectedSourceRevision is unsupported."
+                "description": "Cloud source-impact/2: metadata-only Stop; no Source config parsing or Worker dependency. expectedSourceRevision is unsupported."
               },
               "example": {
                 "dryRun": true,
@@ -6882,13 +6876,12 @@
                           "pattern": "^si1_[A-Za-z0-9_-]{43}$",
                           "minLength": 47,
                           "maxLength": 47,
-                          "description": "Opaque exact-intent confirmation from sourceImpact. Never inferred, synthesized or refreshed automatically."
+                          "description": "Cloud requires explicit expectedRevision. confirmedImpactRevision may be omitted only when the same mutation transaction proves there are no draft, active or historical Stream references. Any supplied confirmation remains bound to the exact intent and dependency set. Confirmation never substitutes authorization or idempotency."
                         }
                       },
                       "required": [
                         "id",
-                        "expectedRevision",
-                        "confirmedImpactRevision"
+                        "expectedRevision"
                       ]
                     },
                     "minItems": 1,
@@ -6944,7 +6937,7 @@
         "tags": [
           "数据源"
         ],
-        "description": "按 items 删除数据源，需提交当前版本及影响确认。dryRun=true 仅校验；云端数据源生命周期操作整批原子执行。",
+        "description": "按 items 删除数据源，需提交当前版本且数据源已停用；没有任何 Stream 引用时可直接提交，存在引用时仍需影响确认。dryRun=true 仅校验；云端数据源生命周期操作整批原子执行。",
         "x-tier0-audience": "builder",
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
@@ -7798,7 +7791,7 @@
                     "pattern": "^si1_[A-Za-z0-9_-]{43}$",
                     "minLength": 47,
                     "maxLength": 47,
-                    "description": "Opaque exact-intent confirmation from sourceImpact. Never inferred, synthesized or refreshed automatically."
+                    "description": "Cloud requires explicit expectedRevision. confirmedImpactRevision may be omitted only when the same mutation transaction proves there are no draft, active or historical Stream references. Any supplied confirmation remains bound to the exact intent and dependency set. Confirmation never substitutes authorization or idempotency."
                   },
                   "patch": {
                     "$ref": "#/components/schemas/CloudSourceDocumentPatch"
@@ -7825,7 +7818,7 @@
                           "pattern": "^si1_[A-Za-z0-9_-]{43}$",
                           "minLength": 47,
                           "maxLength": 47,
-                          "description": "Opaque exact-intent confirmation from sourceImpact. Never inferred, synthesized or refreshed automatically."
+                          "description": "Cloud requires explicit expectedRevision. confirmedImpactRevision may be omitted only when the same mutation transaction proves there are no draft, active or historical Stream references. Any supplied confirmation remains bound to the exact intent and dependency set. Confirmation never substitutes authorization or idempotency."
                         },
                         "document": {
                           "$ref": "#/components/schemas/CloudSourceDocument"
@@ -7836,8 +7829,7 @@
                       },
                       "required": [
                         "id",
-                        "expectedRevision",
-                        "confirmedImpactRevision"
+                        "expectedRevision"
                       ],
                       "oneOf": [
                         {
@@ -7913,8 +7905,7 @@
                   {
                     "required": [
                       "id",
-                      "expectedRevision",
-                      "confirmedImpactRevision"
+                      "expectedRevision"
                     ],
                     "not": {
                       "anyOf": [
@@ -7957,7 +7948,7 @@
                     ]
                   }
                 ],
-                "description": "单条或 items 原子批量更新。每项完整 document 与 patch 互斥，均要求 CAS 和相同意图的影响确认；省略补丁字段保留原值。"
+                "description": "单条或 items 原子批量更新。每项完整 document 与 patch 互斥，均要求 CAS；事务内确认没有任何 Stream 引用时可省略影响确认，存在引用时必须提交相同意图的确认。省略补丁字段保留原值。"
               }
             }
           }
@@ -8003,7 +7994,7 @@
         "tags": [
           "数据源"
         ],
-        "description": "使用 document 更新指定数据源，必须提供当前 expectedRevision 和与本次变更一致的 confirmedImpactRevision；dryRun=true 仅校验。",
+        "description": "使用 document 或 patch 更新指定数据源，必须提供当前 expectedRevision；没有任何 Stream 引用时可直接提交，存在引用时需提供与本次变更一致的 confirmedImpactRevision。提交返回完整 Source，无需再次读取；dryRun=true 仅校验。",
         "x-tier0-audience": "builder",
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
@@ -22062,6 +22053,82 @@
         ],
         "description": "单项结果。校验、编译、授权与单项 SQL 错误只影响该项；语句超时或整批读预算超限时整批失败。"
       },
+      "CloudStreamProgramView": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "id",
+          "name",
+          "model",
+          "revision",
+          "activeVersion",
+          "status",
+          "executionState",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string",
+            "enum": [
+              "program"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "本次操作返回的草稿修订，可直接用于下一次 expectedRevision。"
+          },
+          "activeVersion": {
+            "type": "string",
+            "description": "本次操作快照中的不可变发布 ID；无活跃发布为字符串 0。"
+          },
+          "activeRelease": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "本次操作快照中的正整数发布序号，可与 runs.items[].release 比较。无活跃发布或历史幂等回执未记录编号时省略，不得用当前 head 推断其原发布序号。"
+          },
+          "status": {
+            "type": "string"
+          },
+          "executionState": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "integer"
+          },
+          "updatedAt": {
+            "type": "integer"
+          },
+          "document": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "sdkVersion": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "timeoutMs": {
+                "type": "integer"
+              },
+              "scriptConfigured": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      },
       "CloudSourceCreateCredentials": {
         "type": "object",
         "additionalProperties": false,
@@ -25387,8 +25454,14 @@
             "type": "string"
           },
           "data": {
-            "type": "object",
-            "additionalProperties": true
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CloudStreamProgramView"
+              },
+              {
+                "$ref": "#/components/schemas/CloudPreviewResult"
+              }
+            ]
           }
         },
         "required": [
@@ -25412,8 +25485,14 @@
             "type": "string"
           },
           "data": {
-            "type": "object",
-            "additionalProperties": true
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CloudStreamProgramView"
+              },
+              {
+                "$ref": "#/components/schemas/CloudPreviewResult"
+              }
+            ]
           }
         },
         "required": [
@@ -25437,8 +25516,7 @@
             "type": "string"
           },
           "data": {
-            "type": "object",
-            "additionalProperties": true
+            "$ref": "#/components/schemas/CloudStreamProgramView"
           }
         },
         "required": [
@@ -25573,8 +25651,14 @@
             "type": "string"
           },
           "data": {
-            "type": "object",
-            "additionalProperties": true
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CloudStreamProgramView"
+              },
+              {
+                "$ref": "#/components/schemas/CloudPreviewResult"
+              }
+            ]
           }
         },
         "required": [
@@ -25598,8 +25682,14 @@
             "type": "string"
           },
           "data": {
-            "type": "object",
-            "additionalProperties": true
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CloudStreamProgramView"
+              },
+              {
+                "$ref": "#/components/schemas/CloudPreviewResult"
+              }
+            ]
           }
         },
         "required": [
@@ -25623,8 +25713,14 @@
             "type": "string"
           },
           "data": {
-            "type": "object",
-            "additionalProperties": true
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CloudStreamProgramView"
+              },
+              {
+                "$ref": "#/components/schemas/CloudPreviewResult"
+              }
+            ]
           }
         },
         "required": [

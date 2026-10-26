@@ -17,6 +17,7 @@ assert.equal(String((await client.system.whoami()).workspaceID), workspace);
 const name = `sdkv2-runtime-${randomUUID()}`;
 const report = { date: new Date().toISOString(), workspace, name, steps: [] };
 let id;
+let revision;
 const save = () => writeFileSync(resolve(output), JSON.stringify(report, null, 2) + '\n');
 async function step(name, fn) {
   try {
@@ -35,20 +36,21 @@ async function step(name, fn) {
 const document = { name, sdkVersion: 'tier0-stream/v2', timeoutMs: 5000,
   script: 'module.exports = api => { api.stream.onTimer({ id: "sdk_tick", intervalMs: 1000 }, async () => ({ sdkAcceptance: true, value: 1 })); };' };
 try {
-  await step('validate', async () => assert.equal((await client.stream.programs.validate({ document })).data.valid, true));
   await step('create', async () => {
     const created = await client.stream.programs.create({ dryRun: false, document, idempotencyKey: `${name}-create` });
     id = created.data.id;
     assert.equal(typeof id, 'string');
+    revision = created.data.revision;
+    assert.ok(revision !== undefined && BigInt(String(revision)) > 0n);
     report.id = id;
   });
   await step('deploy', async () => {
-    const current = (await client.stream.documents.get({ id })).data;
-    const deployed = await client.stream.programs.deploy({ id, dryRun: false, expectedRevision: current.revision, idempotencyKey: `${name}-deploy` });
+    const deployed = await client.stream.programs.deploy({ id, dryRun: false, expectedRevision: revision, idempotencyKey: `${name}-deploy` });
     report.activeVersion = deployed.data.activeVersion;
-    report.activeRelease = (await client.stream.documents.get({ id })).data.activeRelease;
     assert.ok(report.activeVersion && report.activeVersion !== '0');
-    assert.notEqual(String(report.activeRelease), '0');
+    assert.ok(deployed.data.activeRelease !== undefined && BigInt(String(deployed.data.activeRelease)) > 0n,
+      'Deployment receipt must identify its own release; never substitute the current head');
+    report.activeRelease = String(deployed.data.activeRelease);
   });
   await step('runtime execution', async () => {
     const deadline = Date.now() + 30000;
