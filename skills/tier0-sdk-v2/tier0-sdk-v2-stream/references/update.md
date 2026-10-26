@@ -21,16 +21,14 @@ export async function updateStreamDescription(
   const { data: current } = await client.stream.documents.get({ id, view: 'full' });
   if (!('document' in current)) throw new Error('需要完整 Stream 文档');
   const document: CloudStreamDocument = { ...current.document, description };
-  const checked = await client.stream.documents.validate({ document });
-  if (!checked.data.valid) throw new Error('Stream 文档校验失败，请检查 issues');
   const saved = await client.stream.documents.update({
     id, expectedRevision: current.revision, document, dryRun: false, idempotencyKey: intentKey,
   });
   if (!('id' in saved.data)) throw new Error('未返回已保存文档');
-  return { receipt: saved, current: (await client.stream.documents.get({ id })).data };
+  return { receipt: saved, current: saved.data };
 }
 ```
 
-需要改脚本时构造 `{ ...current.document, script: { ...current.document.script, code: newCode } }`，保留 sdkVersion/timeoutMs；变更入口或绑定时同步修改 entries/sources 并重新 validate。不要对脱敏 programs.get.document 做展开更新。
+代码应用可直接用 documents.update({id, expectedRevision, program, dryRun:false, idempotencyKey})，由服务端编译入口和绑定。编辑完整文档时保留 sdkVersion/timeoutMs，并同步 entries/sources；写入本身执行校验，只有需要提前展示问题时才单独 validate。不要对脱敏 programs.get.document 做展开更新。
 
-响应是完整 CloudStreamDocumentView 或预检结果；保存草稿不会自动部署，activeDocument 可能仍是旧发布版本。VERSION_CONFLICT 后重新读取、比较并决策；不无条件覆盖。下一步发布见[部署](deploy.md)。
+响应是完整 CloudStreamDocumentView 或预检结果；把 saved.data 直接传给下一步[发布示例](deploy.md)，无需为了 revision 再读取。已有当前完整文档时可省去示例最初的 get。保存草稿不会自动部署，activeDocument 可能仍是旧发布版本。VERSION_CONFLICT 后重新读取、比较并决策；不无条件覆盖。

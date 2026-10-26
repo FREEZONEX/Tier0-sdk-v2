@@ -151,35 +151,30 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
   it('executes Stream Source binding, full-document update, deploy, guarded disable and deletion', async () => {
     steps = [
       { path: 'sources/documents/get', data: source() },
-      { path: 'streams/program/validate', check: b => {
-        expect(b.document.sourceBindings).toEqual([{ sourceId: source().id, configRevision: 1, acquisition: {} }]);
-        expect(b.document.script).toContain('api.sources.use');
-      }, data: { valid: true, sideEffects: false } },
-      { path: 'streams/program/create', data: { id: stream().id, revision: 1, activeVersion: '0' } },
+      { path: 'streams/documents/create', check: b => {
+        expect(b.program.sourceBindings).toEqual([{ sourceId: source().id, configRevision: 1, acquisition: {} }]);
+        expect(b.program.script).toContain('api.sources.use');
+      }, data: stream() },
       { path: 'streams/documents/get', data: stream() },
-      { path: 'streams/documents/get', data: stream() },
-      { path: 'streams/documents/validate', data: { valid: true, issues: [] } },
       { path: 'streams/documents/update', check: b => expect(b).toMatchObject({
         expectedRevision: 1, document: { ...stream().document, description: 'updated' } }), data: stream(2, 'updated') },
-      { path: 'streams/documents/get', data: stream(2, 'updated') },
-      { path: 'streams/documents/get', data: stream(2, 'updated') },
       { path: 'streams/program/deploy', check: b => expect(b).toMatchObject({
-        expectedRevision: 2, expectedSourceRevision: 1, dryRun: false }), data: { activeVersion: '9007199254740997' } },
-      { path: 'streams/documents/get', data: stream(3, 'updated', 1) },
-      { path: 'streams/observation/get', data: {} },
-      { path: 'streams/documents/get', data: stream(3, 'updated', 1) },
+        expectedRevision: 2, expectedSourceRevision: 1, dryRun: false }),
+        data: { id: stream().id, revision: 2, activeVersion: '9007199254740997', activeRelease: 1 } },
+      { path: 'streams/documents/get', data: stream(2, 'updated', 1) },
       { path: 'streams/documents/disable', check: b => expect(b).toMatchObject({
-        expectedRevision: 3, expectedActiveRelease: 1 }), data: { id: stream().id, revision: 4, status: 'disabled', activeRelease: 0 } },
-      { path: 'streams/documents/get', data: stream(4, 'updated') },
-      { path: 'streams/documents/get', data: stream(4, 'updated') },
-      { path: 'streams/program/delete', check: b => expect(b.expectedRevision).toBe(4),
-        data: { id: stream().id, revision: 4, deleted: true } },
-      { path: 'streams/program/list', data: page([stream(4, 'updated')]) },
+        expectedRevision: 2, expectedActiveRelease: 1 }), data: { id: stream().id, revision: 3, status: 'disabled', activeRelease: 0 } },
+      { path: 'streams/documents/get', data: stream(3, 'updated') },
+      { path: 'streams/documents/get', data: stream(3, 'updated') },
+      { path: 'streams/program/delete', check: b => expect(b.expectedRevision).toBe(3),
+        data: { id: stream().id, revision: 3, deleted: true } },
+      { path: 'streams/program/list', data: page([stream(3, 'updated')]) },
     ];
     const created = await example('stream', 'create').createHttpStream(source().id, 'orders-stream', 'create-stream', client);
     const id = created.current.id;
-    await example('stream', 'update').updateStreamDescription(id, 'updated', 'update-stream', client);
-    await example('stream', 'deploy').deployStream(id, 'deploy-stream', client);
+    const updated = await example('stream', 'update').updateStreamDescription(id, 'updated', 'update-stream', client);
+    const deployed = await example('stream', 'deploy').deployStream(updated.current, 'deploy-stream', client);
+    expect(deployed.release).toBe(1);
     await example('stream', 'deploy').disableStream(id, 'disable-stream', client);
     const deleted = await example('stream', 'delete').deleteStream(id, 'delete-stream', client);
     expect(deleted.archived.id).toBe(id);

@@ -22010,6 +22010,82 @@
         ],
         "description": "单项结果。校验、编译、授权与单项 SQL 错误只影响该项；语句超时或整批读预算超限时整批失败。"
       },
+      "CloudStreamProgramView": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "id",
+          "name",
+          "model",
+          "revision",
+          "activeVersion",
+          "status",
+          "executionState",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string",
+            "enum": [
+              "program"
+            ]
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "本次操作返回的草稿修订，可直接用于下一次 expectedRevision。"
+          },
+          "activeVersion": {
+            "type": "string",
+            "description": "本次操作快照中的不可变发布 ID；无活跃发布为字符串 0。"
+          },
+          "activeRelease": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "本次操作快照中的发布序号，可与 runs.items[].release 比较；0 表示无活跃发布。历史幂等回执可能缺少此字段，不得用当前 head 推断其原发布序号。"
+          },
+          "status": {
+            "type": "string"
+          },
+          "executionState": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "integer"
+          },
+          "updatedAt": {
+            "type": "integer"
+          },
+          "document": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "sdkVersion": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "timeoutMs": {
+                "type": "integer"
+              },
+              "scriptConfigured": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      },
       "CloudSourceCreateCredentials": {
         "type": "object",
         "additionalProperties": false,
@@ -25335,8 +25411,14 @@
             "type": "string"
           },
           "data": {
-            "type": "object",
-            "additionalProperties": true
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CloudStreamProgramView"
+              },
+              {
+                "$ref": "#/components/schemas/CloudPreviewResult"
+              }
+            ]
           }
         },
         "required": [
@@ -25360,8 +25442,14 @@
             "type": "string"
           },
           "data": {
-            "type": "object",
-            "additionalProperties": true
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CloudStreamProgramView"
+              },
+              {
+                "$ref": "#/components/schemas/CloudPreviewResult"
+              }
+            ]
           }
         },
         "required": [
@@ -25385,8 +25473,7 @@
             "type": "string"
           },
           "data": {
-            "type": "object",
-            "additionalProperties": true
+            "$ref": "#/components/schemas/CloudStreamProgramView"
           }
         },
         "required": [
@@ -25521,8 +25608,14 @@
             "type": "string"
           },
           "data": {
-            "type": "object",
-            "additionalProperties": true
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CloudStreamProgramView"
+              },
+              {
+                "$ref": "#/components/schemas/CloudPreviewResult"
+              }
+            ]
           }
         },
         "required": [
@@ -25546,8 +25639,14 @@
             "type": "string"
           },
           "data": {
-            "type": "object",
-            "additionalProperties": true
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CloudStreamProgramView"
+              },
+              {
+                "$ref": "#/components/schemas/CloudPreviewResult"
+              }
+            ]
           }
         },
         "required": [
@@ -25571,8 +25670,14 @@
             "type": "string"
           },
           "data": {
-            "type": "object",
-            "additionalProperties": true
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CloudStreamProgramView"
+              },
+              {
+                "$ref": "#/components/schemas/CloudPreviewResult"
+              }
+            ]
           }
         },
         "required": [
