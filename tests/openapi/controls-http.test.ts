@@ -9,6 +9,16 @@ const definition = {
   idempotency: 'required', timeoutMs: 15000, status: 'active',
 };
 const result = { code: 'pump.start', contractVersion: '1', result: { started: true }, runID: 'http-run', status: 'succeeded', replayed: false };
+
+function wire(value: unknown, status = 200) {
+  const data = value && typeof value === 'object' ? { ...value } as Record<string, unknown> : value;
+  if (data && typeof data === 'object' && 'runID' in data) { data.runId = data.runID; delete data.runID; }
+  if (status !== 200 && data && typeof data === 'object' && 'errorCode' in data) {
+    return { code: status, msg: data.message, requestId: 'control-request', data,
+      error: { code: data.errorCode, details: [], execution: data.errorCode === 'CONTROL_RESULT_UNKNOWN' ? 'unknown' : 'notStarted', retry: { safe: false } } };
+  }
+  return { code: 200, msg: '', requestId: 'control-request', data };
+}
 type RequestRecord = { path?: string; method?: string; headers: IncomingMessage['headers']; body: unknown };
 const received: RequestRecord[] = [];
 let respond: (req: IncomingMessage, res: ServerResponse) => void;
@@ -22,7 +32,7 @@ let client: ReturnType<typeof createClient>;
 let apiHost: string;
 function send(res: ServerResponse, body: unknown, status = 200) {
   res.writeHead(status, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify(body));
+  res.end(JSON.stringify(wire(body, status)));
 }
 const control = () => client.controls.use({ code: 'pump.start' });
 
@@ -49,9 +59,9 @@ describe('Control real HTTP fixture (no external credentials)', () => {
     const requests = received.slice(start);
     expect(requests).toHaveLength(3);
     expect(requests.map(r => r.path)).toEqual([
-      '/openapi/v1/controls/discover', '/openapi/v1/controls/pump.start/describe', '/openapi/v1/controls/pump.start/invoke',
+      '/openapi/v2/uns/controls/discover', '/openapi/v2/uns/controls/describe', '/openapi/v2/uns/controls/invoke',
     ]);
-    expect(requests.map(r => r.body)).toEqual([{ search: 'pump' }, {}, { input, idempotencyKey: 'intent-http' }]);
+    expect(requests.map(r => r.body)).toEqual([{ search: 'pump' }, { code: 'pump.start' }, { code: 'pump.start', input, idempotencyKey: 'intent-http' }]);
     for (const request of requests) {
       expect(request.method).toBe('POST');
       expect(request.headers.authorization).toBe('Bearer fixture-workspace-key');
@@ -84,6 +94,31 @@ describe('Control real HTTP fixture (no external credentials)', () => {
     expect((await control().invoke({}, { idempotencyKey: 'stable-http' })).replayed).toBe(true);
     expect(received.length - start).toBe(2);
     expect(received[start].body).toEqual(received[start + 1].body);
+  });
+
+  it('preserves the explicit App Control grant refusal and never falls back to a legacy route', async () => {
+    const start = received.length;
+    respond = (_req, res) => {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ code: 403, msg: 'Control grant required', requestId: 'grant-refused',
+        data: { reason: 'CONTROL_NOT_GRANTED', controlCode: 'pump.start' },
+        error: { code: 'FORBIDDEN', reason: 'Control grant required', details: [], execution: 'notStarted', retry: { safe: false } },
+      }));
+    };
+    await expect(control().invoke({}, { idempotencyKey: 'grant-intent' })).rejects.toMatchObject({
+      errorCode: 'FORBIDDEN', status: 403, execution: 'notStarted', retry: { safe: false },
+      requestId: 'grant-refused', data: { reason: 'CONTROL_NOT_GRANTED', controlCode: 'pump.start' },
+    });
+    expect(received.slice(start)).toEqual([expect.objectContaining({ path: '/openapi/v2/uns/controls/invoke' })]);
+  });
+
+  it('preserves exact business numbers through the UNS response codec', async () => {
+    respond = (_req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end('{"code":200,"msg":"","requestId":"exact","data":{"code":"pump.start","contractVersion":"1","result":{"value":9007199254740993},"runId":"exact-run","status":"succeeded","replayed":false}}');
+    };
+    const output = await control().invoke({});
+    expect(String((output.result as { value: unknown }).value)).toBe('9007199254740993');
   });
 
   it('does not follow a 307 redirect and resend a write', async () => {
@@ -138,7 +173,7 @@ describe('Control real HTTP fixture (no external credentials)', () => {
     respond = (_req, res) => send(res, result); // Recovery cannot cause an automatic resend.
     await new Promise(resolve => setTimeout(resolve, 40));
     expect(received.length - start).toBe(1);
-    expect(received[start].body).toEqual({ input: { timeoutMs: 9 }, idempotencyKey: 'stable-deadline-key' });
+    expect(received[start].body).toEqual({ code: 'pump.start', input: { timeoutMs: 9 }, idempotencyKey: 'stable-deadline-key' });
   });
 
   it.each(['泵'.repeat(42) + 'ab', '😀'.repeat(32)])('sends an exactly 128-byte key unchanged over HTTP', async key => {
@@ -146,7 +181,7 @@ describe('Control real HTTP fixture (no external credentials)', () => {
     respond = (_req, res) => send(res, result);
     await control().invoke({}, { idempotencyKey: key });
     expect(received.length - start).toBe(1);
-    expect(received[start].body).toEqual({ input: {}, idempotencyKey: key });
+    expect(received[start].body).toEqual({ code: 'pump.start', input: {}, idempotencyKey: key });
   });
 
 });

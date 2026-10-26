@@ -1,6 +1,6 @@
 # 删除文件
 
-方法：`files.delete({filePath}, {signal}?)`；POST /openapi/v1/assets/files/delete。
+方法：`files.delete({filePath}, {signal}?)`；POST /openapi/v2/assets/files/delete。
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |

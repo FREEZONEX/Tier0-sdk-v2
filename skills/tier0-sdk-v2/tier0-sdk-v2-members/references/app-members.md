@@ -1,6 +1,6 @@
 # App 可用成员
 
-方法：`members.listApp(body)`；POST /openapi/v1/apps/access-members/list。返回能使用该 App 线上版本的有效成员。`appId` 必填且由调用方显式传入，SDK 不隐式读取 `APP_ID`；查询当前 App 时传 `getCurrentAppId()`。接口只接受 API Key，登录会话不能调用；绑定 App 的凭证只能查自己的 appId，查其他 App 返回 403。
+方法：`members.listApp(body)`；POST /openapi/v2/apps/access-members/list。返回能使用该 App 线上版本的有效成员。`appId` 必填且由调用方显式传入，SDK 不隐式读取 `APP_ID`；查询当前 App 时传 `getCurrentAppId()`。接口只接受 API Key，登录会话不能调用；绑定 App 的凭证只能查自己的 appId，查其他 App 返回 403。
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |

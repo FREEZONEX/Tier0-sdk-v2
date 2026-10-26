@@ -5,12 +5,10 @@ import type { CloudTransportConfig } from './cloud-transport.js';
 /** Source configuration and observations. Wire contracts and envelopes remain unchanged. */
 export function bindSourceClient(raw: UnsV2Client) {
   return Object.freeze({
-    list: raw.sourceList, get: raw.sourceGet, create: raw.sourceCreate,
-    update: raw.sourceUpdate, delete: raw.sourceDelete,
+    delete: raw.sourceDelete,
     validate: raw.sourceValidate, probe: raw.sourceProbe,
     impact: raw.sourceImpact, history: raw.sourceHistory,
     protocols: Object.freeze({ list: raw.sourceProtocolsList }),
-    connection: Object.freeze({ update: raw.sourceConnectionUpdate }),
     state: Object.freeze({ update: raw.sourceStateUpdate }),
     runtime: Object.freeze({ get: raw.sourceRuntimeGet }),
     observations: Object.freeze({ get: raw.sourceObservationsGet }),

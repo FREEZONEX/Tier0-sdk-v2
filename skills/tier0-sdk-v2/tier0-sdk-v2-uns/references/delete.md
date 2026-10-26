@@ -23,7 +23,7 @@ export async function deleteDevice(
 }
 ```
 
-元数据使用 metadataDeleteOne/Many，或 metadataFindOneAndDelete 返回删除前对象。它们执行软删除，增加 revision，不隐式级联目录后代、引用对象或集合数据。引用约束与版本冲突必须处理，不能自行扩展删除范围。
+元数据使用 metadataDeleteOne/Many，或 metadataDeleteOne + returnDocument:before 返回删除前对象。它们执行软删除，增加 revision，不隐式级联目录后代、引用对象或集合数据。引用约束与版本冲突必须处理，不能自行扩展删除范围。
 
 ```ts
 import { createClient, type Tier0Client } from '@tier0/sdk-v2';
@@ -31,7 +31,7 @@ import { createClient, type Tier0Client } from '@tier0/sdk-v2';
 export async function deleteCollection(
   id: string, intentKey: string, client: Tier0Client = createClient(),
 ) {
-  const current = (await client.uns.metadataFindOne({ kind: 'collection', filter: { _id: id } })).data.value;
+  const current = (await client.uns.metadataFind({ kind: 'collection', filter: { _id: id }, limit: 1 })).data.items[0];
   if (!current) throw new Error('集合不存在或不可见，未执行删除');
   const receipt = await client.uns.metadataDeleteOne({
     kind: 'collection', filter: { _id: id }, expectedRevision: current.revision,
@@ -40,9 +40,9 @@ export async function deleteCollection(
   if (receipt.data.status !== 'committed' || String(receipt.data.deletedCount) !== '1') {
     return { state: 'unconfirmed' as const, receipt };
   }
-  const deleted = await client.uns.metadataFindOne({ kind: 'collection', filter: { _id: id }, state: 'deleted' });
-  if (!deleted.data.value) throw new Error('删除有回执，但删除状态读回未确认');
-  return { state: 'deleted' as const, receipt, deleted: deleted.data.value };
+  const deleted = await client.uns.metadataFind({ kind: 'collection', filter: { _id: id }, state: 'deleted', limit: 1 });
+  if (!deleted.data.items[0]) throw new Error('删除有回执，但删除状态读回未确认');
+  return { state: 'deleted' as const, receipt, deleted: deleted.data.items[0] };
 }
 ```
 

@@ -2,7 +2,7 @@
 
 Tier0 云端新架构的独立 TypeScript / JavaScript SDK。新仓库、新 npm 包，不覆盖 `@tier0/sdk`。
 
-当前版本 `0.2.2` 对应 UNS v2 契约 5.0.0，与 0.1.0 不兼容（新错误模型 `execution` / `retry`、封顶计数、删除 `recordChangesPoll` 等）。Collection 支持 int、float、double 和 datetime 声明；格式注解不新增数值范围或日期格式校验，Sample 外层 time 保持不变。使用时需确认目标环境已部署对应后端。要求 Node.js 20.19+。浏览器 HTTP、MQTT、React、Vue 和服务端身份验签分别提供独立入口。
+当前开发分支以 `0.2.2` 为基线，包含尚未发布的接口退役改动，对应 UNS v2 契约 5.0.0，与 0.1.0 不兼容（新错误模型 `execution` / `retry`、封顶计数、删除 `recordChangesPoll` 等）。Collection 支持 int、float、double 和 datetime 声明；格式注解不新增数值范围或日期格式校验，Sample 外层 time 保持不变。使用时需确认目标环境已部署对应后端。要求 Node.js 20.19+。浏览器 HTTP、MQTT、React、Vue 和服务端身份验签分别提供独立入口。
 
 本次更新：Source 无引用时支持直接修改、停用和删除；Stream 发布与回滚返回带类型的发布回执；UNS 插入可在同一次写入中返回创建快照，App 数据层同步支持 `returnDocument` / `projection` 和投影字段的可选类型。
 
@@ -40,10 +40,10 @@ const capabilities = await tier0.capabilities.discover();
 | `tier0.notifications` | `send()`、`get()` |
 | `tier0.files` | `upload()`、`uploadMultipart()`、`url()`、`download()`、`delete()`、`multipart` 原子接口 |
 | `tier0.mqttAuth` | 创建、删除 MQTT 凭证 |
-| `tier0.agent` | `analyses`、`canvases`、`cards`、`jobs`、`jobRuns`、`library`、`nodes`、`relations`、`results` |
+| `tier0.agent` | `analyses`、`canvases`、`cards`、`jobs`、`jobRuns`、`library`、`results` |
 | `tier0.capabilities` | 当前凭证可见的能力发现；就绪状态由服务端判断 |
 | `tier0.controls` | Control 发现、描述、执行及结果未知错误 |
-| `tier0.api` | 51 个普通 OpenAPI 的完整生成接口；通常优先使用上面的领域入口 |
+| `tier0.api` | 44 个平台 OpenAPI v2 的完整生成接口；通常优先使用上面的领域入口 |
 | `@tier0/sdk-v2/mq` | MQTT WebSocket 客户端与 broker 地址工具；不进入根入口依赖图 |
 | `@tier0/sdk-v2/source` | `createSourceClient()`，独立 Source 客户端 |
 | `@tier0/sdk-v2/stream` | `createStreamClient()`，独立 Stream 客户端 |
@@ -55,6 +55,17 @@ const capabilities = await tier0.capabilities.discover();
 
 不保留 UNS v1、旧 Flow、`getCurrentProjectId()`、project 成员查询或 `/gw/reload`。Workspace 成员不等于能使用某个 App 的成员，不可用前者在客户端猜测 App 权限。
 
+## 本次接口退役
+
+HTTP 调用统一使用 `/openapi/v2`。21 个重复 UNS 公共入口及生成方法直接移除，没有旧路由回退；升级 SDK 时需同时部署对应后端。
+
+- Source 的 list/get/create/update、connection.update 改用 documents.*；Stream 的 programs.get/create/update/validate/disable 改用 documents.*，停用同时携带 expectedRevision 与 expectedActiveRelease。
+- 低层 findOneAnd* 改用 updateOne/replaceOne/deleteOne 的 returnDocument；批量新增用 bulkWrite 的 insertOne 项；元数据单条读取用 metadataFind + limit:1，去重用 aggregate。
+- App 数据层的 insertMany、findOneAnd*、distinct 等便捷方法保留，由 SDK 映射到当前入口；insertMany 仍是单次原子请求，最多 200 项。
+- Agent 的旧 nodes.searchSemantic/indexSync 和 relations.list/teach 没有 v2 契约，不再导出。Controls 使用 `/openapi/v2/uns/controls/*`，错误保留 execution/retry/requestId，且不会自动重试。
+
+升级前应核对旧写请求的最终结果，包括集合初始化 seed。退役入口不再可调用，不能将未知结果的旧请求或幂等键直接改投新入口重做。当前入口的重试仍保留原路径、原键和原载荷。
+
 ## Source、Stream 与 UNS 分域
 
 Source 负责连接外部系统，Stream 负责处理与运行，UNS 负责命名空间与业务数据。公开操作由固定的上游契约生成，业务入口按领域组织；Control 使用 `tier0.controls` 的专属契约。目录、Topic、集合基础 CRUD 统一使用 `metadata*`，查询、批量操作、软删除及恢复见 UNS Skill。
@@ -65,9 +76,13 @@ const programs = await tier0.stream.programs.list({ page: 1, size: 20 });
 const runtime = await tier0.stream.runtime.capabilities({});
 ```
 
-Source/Stream 仍保留 `{ code, msg, requestId, data }` 响应以及 `UnsV2Error` 错误类型。`source.documents` 是云端原生文档，`source.create/validate` 等是通用投影；`stream.programs` 与 `stream.documents` 使用不同文档结构，不可混用。保存、部署、运行成功分别判断。
+Source/Stream 仍保留 `{ code, msg, requestId, data }` 响应以及 `UnsV2Error` 错误类型。Source 配置统一使用 `source.documents`；Stream 草稿统一通过 `stream.documents` 创建、读取、校验和修改，输入 `program` 与 `document` 二选一。发布和回滚仍走 `stream.programs`。保存、部署、运行成功分别判断。
 
-从最初提交迁移：`uns.sourceList` → `source.list`；`uns.sourceDocumentGet` → `source.documents.get`；`uns.streamProgramDeploy` → `stream.programs.deploy`；`uns.streamDocumentValidate` → `stream.documents.validate`。这些管理方法已移出主入口的 `uns`。底层 `createUnsV2Client()` 仍提供完整生成契约供契约工具使用；数据专用客户端可用 `createUnsDataClient()`。
+- 已知 Source ID/revision 且没有 Stream 引用时，可 [直接 patch 或变更状态](skills/tier0-sdk-v2/tier0-sdk-v2-source/references/update.md)；有引用时仍按精确意图确认影响。
+- Stream 创建/更新回执的 revision 可直接用于发布；[发布回执](skills/tier0-sdk-v2/tier0-sdk-v2-stream/references/deploy.md) 的 activeRelease 用于观察这次发布，无需前后各查询一次。
+- 单条 Record 新增可用 [returnDocument:'after'](skills/tier0-sdk-v2/tier0-sdk-v2-uns/references/create.md) 同次取得创建快照；[App 数据层](skills/tier0-sdk-v2/tier0-sdk-v2-data/references/read-write.md) 支持相同选择及投影类型。
+
+从最初提交迁移：`uns.sourceList` → `source.documents.list`；`uns.sourceDocumentGet` → `source.documents.get`；`uns.streamProgramDeploy` → `stream.programs.deploy`；`uns.streamDocumentValidate` → `stream.documents.validate`。这些管理方法已移出主入口的 `uns`。底层 `createUnsV2Client()` 仍提供完整生成契约供契约工具使用；数据专用客户端可用 `createUnsDataClient()`。
 
 随包提供 Skill：总入口 [tier0-sdk-v2](skills/tier0-sdk-v2/SKILL.md) 下嵌套 11 个领域子 Skill（`skills/tier0-sdk-v2/tier0-sdk-v2-<领域>/`），每个仍可独立发现，包含完整流程、参数边界、错误处理与可类型检查的示例：[Source](skills/tier0-sdk-v2/tier0-sdk-v2-source/SKILL.md)、[Stream](skills/tier0-sdk-v2/tier0-sdk-v2-stream/SKILL.md)、[UNS](skills/tier0-sdk-v2/tier0-sdk-v2-uns/SKILL.md)、[通知](skills/tier0-sdk-v2/tier0-sdk-v2-notifications/SKILL.md)、[系统](skills/tier0-sdk-v2/tier0-sdk-v2-system/SKILL.md)、[文件](skills/tier0-sdk-v2/tier0-sdk-v2-files/SKILL.md)、[MQTT](skills/tier0-sdk-v2/tier0-sdk-v2-mq/SKILL.md)、[成员](skills/tier0-sdk-v2/tier0-sdk-v2-members/SKILL.md)、[Controls](skills/tier0-sdk-v2/tier0-sdk-v2-controls/SKILL.md)、[Agent](skills/tier0-sdk-v2/tier0-sdk-v2-agent/SKILL.md)、[App 数据](skills/tier0-sdk-v2/tier0-sdk-v2-data/SKILL.md)。复杂流程的参考文档随 Skill 一起打包。在 Tier0 Console 上传时，把整个 `skills/tier0-sdk-v2/` 目录打成一个 zip。
 
@@ -87,9 +102,9 @@ await tier0.uns.recordFind(
 
 实际集合 ID 和有效权限从平台配置/数据上下文取得。管理操作中，App 凭证只能调用本 App 集合的 `appCollectionsEnsure` / `appCollectionsSchemaReplace` / `appCollectionsArchive` / `appCollectionsRestore`；SDK 中存在 `metadataInsertOne` 等其他管理方法，不表示 App 凭证有对应权限。App 数据授权 `appDataPolicyGet` / `appDataPolicyUpdate` 的调用方必须是：持有 `uns.write` 的登录会话、持有 `uns.write` 且 full_access、不绑定 App 的 personal / agent Key，或治理会话；运行时 App 凭证不能管理授权。Core-only 后台接口不导出到公开 SDK。
 
-UNS 保留 `{ code, msg, requestId, data }` 完整响应。普通 v1 包装接口返回已解包的 `data`，通知/Control/能力发现返回服务端直接对象。业务错误即使 HTTP 为 200 也会抛出 `ApiError`。
+UNS 保留 `{ code, msg, requestId, data }` 完整响应。平台 v2 包装接口返回已解包的 `data`，通知/能力发现返回直接对象，Control 外观解包 UNS 回执并保留直接结果对象。业务错误即使 HTTP 为 200 也会抛出 `ApiError`。
 
-`int64` 和普通 v1 整数字段使用 `number | bigint`：安全范围内返回 number，超出范围返回 bigint。UNS 任意 JSON 中无法无损表示的数字用 `UnsV2RawNumber`；传回 SDK 可保持原值。对外输出 JSON 时自行确定 bigint/精确数字的表示，不要直接 `JSON.stringify` 包含这些值的对象。
+`int64` 和平台整数字段使用 `number | bigint`：安全范围内返回 number，超出范围返回 bigint。UNS 任意 JSON 中无法无损表示的数字用 `UnsV2RawNumber`；传回 SDK 可保持原值。对外输出 JSON 时自行确定 bigint/精确数字的表示，不要直接 `JSON.stringify` 包含这些值的对象。
 
 `createClient()` 的 HTTP 操作不自动重试。UNS v2 错误带 `execution`（`notStarted` / `rolledBack` / `committed` / `unknown`）与 `retry: { safe, afterMs? }`：`safe` 表示可以用同一请求（同一幂等键）重发。`execution` 为 `unknown` 时抛出 `UnsV2OutcomeUnknownError`；它与 `ControlResultUnknownError`、`ApiError.outcomeUnknown` 一样表示写操作可能已执行，先读回对账，按业务意图保留原幂等键，不自动生成新键重放。查询与写入均可受配置超时约束。App 数据层 `@tier0/sdk-v2/data` 另有自己的策略：每次调用从开始算最多 25 秒（含排队与重试）、每进程最多 6 个并发请求、写入自动生成幂等键、按 `retry.safe` 最多自动重试 2 次；`runWithRequestContext(request, …)` 传入请求本身时，请求中止后排队中的调用不再发出。
 
@@ -169,7 +184,7 @@ Vue 由 `execute()` 显式执行，后发请求的结果优先；取消不表示
 
 ## 契约更新与验证
 
-上游：`FREEZONEX/Tier0-Backend`，固定提交 `6d0fbbca15ddbfd4d9b313b1abbc843b36d14dd0`。`contracts/upstream.json` 记录来源和 SHA-256。
+上游：`FREEZONEX/Tier0-Backend`。当前固定提交与输入 SHA-256 以 [contracts/upstream.json](contracts/upstream.json) 为准，Cloud 扩展版本见 [UNS 契约来源](contracts/uns-v2/provenance.json)。API 合约已同步不代表目标环境已经部署；使用上述新参数前确认环境版本。
 
 ```sh
 npm ci
@@ -181,9 +196,9 @@ npm run generate
 npm run check
 ```
 
-v1 来自网关 Swagger，并按实际 handler 补齐响应外层；UNS 来自 `contract_generated.go#ContractJSON` 中已经应用 Cloud 扩展的契约，结合 manifest/registry 生成。不能直接使用仍含 Enterprise 基础操作的 `share/unscontract/contract.json` 作为最终云端契约。
+平台操作来自固定版本的 `/openapi/v2/swagger.json` 有效契约，生成器据此处理响应外层；UNS 来自 `contract_generated.go#ContractJSON` 中已经应用 Cloud 扩展的契约，结合 manifest/registry 生成。不能直接使用仍含 Enterprise 基础操作的 `share/unscontract/contract.json` 作为最终云端契约。
 
-`npm run check` 包含契约一致性、Skill 注册及递归引用检查、所有 Skill TypeScript 示例的源码/安装包类型校验、单元和本地 HTTP 测试、ESM/CJS 构建、实际 npm 包安装、浏览器打包及导入验证。完整行为测试还会在独立 consumer 中对已安装的 `.tgz` 再跑一遍，导入目标严格指向包内 `dist`；包内调试映射包含源内容。测试覆盖全部公开操作的路由检查。路由检查使用本地 HTTP fixture，不等于每个操作的业务验收。
+`npm run check` 包含契约一致性、Skill 注册及递归引用检查、所有 Skill TypeScript 示例的源码/安装包类型校验、单元和本地 HTTP 测试、ESM/CJS 构建、实际 npm 包安装、浏览器打包及导入验证。完整行为测试还会在独立 consumer 中对已安装的 `.tgz` 再跑一遍，导入目标严格指向包内 `dist`；包内调试映射包含源内容。路由检查覆盖生成契约的全部公开操作，使用本地 HTTP fixture，不等于每个操作的业务验收。
 
 `tests/skill-workflows.test.ts` 直接提取 Markdown 示例，验证 Source/Stream/UNS 的创建、查询、修改、删除或归档恢复，影响分页和结果未知分支，以及通知请求、状态查询和成员展示。默认检查不调用线上接口。
 

@@ -9,7 +9,7 @@ import { OPENAPI_OPERATIONS } from '../src/openapi/api.generated.js';
 // Exhaustive transport smoke coverage, not a simulation of backend business rules.
 // Expected routes come from the frozen upstream inputs, separately from SDK metadata.
 const contract = JSON.parse(readFileSync(new URL('../contracts/uns-v2/contract.json', import.meta.url), 'utf8'));
-const v1 = JSON.parse(readFileSync(new URL('../contracts/openapi-v1.normalized.json', import.meta.url), 'utf8'));
+const platform = JSON.parse(readFileSync(new URL('../contracts/openapi-v2.source.json', import.meta.url), 'utf8'));
 const observed: { method?: string; path?: string; key?: string; body: unknown }[] = [];
 let apiHost: string;
 let responseMode = 'envelope';
@@ -19,7 +19,7 @@ const server = createServer(async (req, res) => {
   observed.push({ method: req.method, path: req.url, key: req.headers['x-api-key'] as string, body: text ? JSON.parse(text) : undefined });
   res.setHeader('content-type', 'application/json');
   if (req.url === '/storage-fixture') { res.end('packed-download-fixture'); return; }
-  if (req.url?.startsWith('/openapi/v1/assets/files/url')) {
+  if (req.url?.startsWith('/openapi/v2/assets/files/url')) {
     res.end(JSON.stringify({ code: 200, data: { fileUrl: `${apiHost}/storage-fixture` } })); return;
   }
   res.end(JSON.stringify(responseMode === 'direct' ? { messageId: 'fixture' } : { code: 200, msg: '', requestId: 'fixture', data: {} }));
@@ -63,17 +63,17 @@ function flatten(object: object, prefix = ''): Record<string, Method> {
   return result;
 }
 
-describe('all 51 v1 generated methods reach their upstream route', () => {
+describe('all platform v2 generated methods reach their upstream route', () => {
   it('matches the complete public method inventory', () => {
     expect(Object.keys(flatten(createClient(config()).api)).sort()).toEqual(Object.keys(OPENAPI_OPERATIONS).sort());
-    expect(Object.keys(OPENAPI_OPERATIONS)).toHaveLength(51);
+    expect(Object.keys(OPENAPI_OPERATIONS)).toHaveLength(44);
     expect(Object.keys(UNS_V2_OPERATIONS)).toHaveLength(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount);
   });
   for (const [name, operation] of Object.entries(OPENAPI_OPERATIONS)) {
     it(name, async () => {
       observed.length = 0;
       responseMode = operation.mode;
-      const upstream = v1.paths[operation.path]?.[operation.method.toLowerCase()];
+      const upstream = platform.paths[operation.path.replace(/^\/openapi\/v2/, '')]?.[operation.method.toLowerCase()];
       expect(upstream).toBeDefined();
       const params = Object.fromEntries(operation.pathParams.map(key => [key, `fixture-${key}`]));
       let path = operation.path as string;

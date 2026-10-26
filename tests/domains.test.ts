@@ -43,7 +43,7 @@ describe('Source, Stream and UNS domain clients', () => {
     ]);
     const cancelled = new AbortController();
     cancelled.abort();
-    await expect(source.list({}, { signal: cancelled.signal })).rejects.toThrow();
+    await expect(source.documents.list({}, { signal: cancelled.signal })).rejects.toThrow();
     await expect(stream.programs.list({}, { signal: cancelled.signal })).rejects.toThrow();
     expect(received).toHaveLength(3);
   });

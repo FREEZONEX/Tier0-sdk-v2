@@ -28,7 +28,7 @@
  */
 import { createHash } from 'node:crypto';
 import type { DataCall } from './call.js';
-import { MAX_ATOMIC_ITEMS } from './collection.js';
+import { assertNoWriteErrors, MAX_ATOMIC_ITEMS } from './collection.js';
 import type { CollectionDefinition } from './define.js';
 import { ACCESS_REASONS, DataError } from './error.js';
 import { compileCollection, validateDocument, type CompiledCollection } from './schema.js';
@@ -174,13 +174,14 @@ export function createBootstrap(config: BootstrapConfig) {
   async function insertSeedChunk(collectionId: string, chunk: number, documents: { id?: string; data: Record<string, unknown> }[]) {
     for (let attempt = 1; ; attempt += 1) {
       try {
-        await call('recordInsertMany', {
+        const result = await call<{ writeErrors?: Record<string, unknown>[] }>('recordBulkWrite', {
           collectionId,
-          documents,
+          operations: documents.map(document => ({ insertOne: document })),
           ordered: true,
           atomic: true,
           idempotencyKey: seedChunkKey(collectionId, chunk),
         });
+        assertNoWriteErrors(result, 'seed');
         return;
       } catch (error) {
         // The chunk key is stable, so replaying is safe even when the outcome is unknown: a chunk

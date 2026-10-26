@@ -23,7 +23,7 @@ Source 维护连接配置、认证引用与源状态。脚本处理用 [Stream](
 
 ## 核心约束
 
-1. 原生文档 `{name,protocol,config}` 使用 documents.*；通用投影使用 source.list/get/create/update。http 原生协议与 http-api adapter 不可互换。
+1. Source 配置统一使用 documents.*，原生文档为 `{name,protocol,config}`。http 原生协议与 http-api adapter 不可互换。
 2. 已有 ID 和 revision 时优先用 documents.update 的 patch，避免额外 get；完整替换 document 前读取完整文档，安全列表摘要不能无损回写。原生 ID 是十进制字符串，revision 原样传递，不转 Number。
 3. 现有 Source 修改、启停、删除都要 expectedRevision。没有任何 Stream 引用时可直接提交；有草稿、活动、历史或不可见引用时仍需 confirmedImpactRevision。先形成精确意图，再读取全部影响分页；回执不可合成、跨意图复用或静默刷新。提供的回执始终严格校验，不自动获取并同意影响。
 4. 配置中保留认证/TLS 引用，不写明文秘密；HTTP 新凭据走创建专用 credentials。
@@ -33,6 +33,6 @@ Source 维护连接配置、认证引用与源状态。脚本处理用 [Stream](
 
 所有调用返回完整 code/msg/requestId/data。documents.create/update 的预检返回 validated/sideEffects，提交返回完整 Source view，可直接使用其中的文档和 revision，无需额外 get；批量状态/删除返回 Outcome。只有 committed 且无项错误才可报告提交成功；accepted/jobId 继续查询作业。预检按需使用，不是每次提交的必经步骤。
 
-需要查看历史用 source.history({id,beforeRevision,size})，按 nextBeforeRevision 继续；探测用 source.probe，其外部系统访问应属于当前任务。source.connection.update 属于现有源变更，同样遵守影响确认契约，不能作为绕过文档校验的入口。
+需要查看历史用 source.history({id,beforeRevision,size})，按 nextBeforeRevision 继续；探测用 source.probe，其外部系统访问应属于当前任务。连接配置修改使用 documents.update，遵守同一影响确认契约。
 
 UnsV2Error 表示已知拒绝；UnsV2OutcomeUnknownError 表示可能已写入。保存 requestId、原请求和意图键，先查详情/历史/作业对账。取消等待不撤销服务端操作；SDK 不自动重试。权限不足不能解释为资源不存在。

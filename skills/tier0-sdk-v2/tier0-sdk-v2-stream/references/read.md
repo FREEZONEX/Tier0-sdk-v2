@@ -3,22 +3,20 @@
 | 方法 | POST 路径 | 输入 | 结果 |
 | --- | --- | --- | --- |
 | programs.list | /openapi/v2/uns/streams/program/list | page、size、search、sourceId、model、status、archived | list、total、hasMore、nextPage |
-| programs.get | /openapi/v2/uns/streams/program/get | id | 运行摘要，document 已脱敏 |
-| documents.get | /openapi/v2/uns/streams/documents/get | id | 完整草稿、revision、status、activeRelease、可选 activeDocument |
+| documents.get | /openapi/v2/uns/streams/documents/get | id；可选 view:summary/full | summary 返回摘要；full 返回完整草稿、revision、status、activeRelease、可选 activeDocument |
 | observations.get | /openapi/v2/uns/streams/observation/get | id | 运行观测 |
 | runs.list | /openapi/v2/uns/streams/runs/list | id、size、cursor | 执行记录 |
 | programs.versions.list | /openapi/v2/uns/streams/program/versions/list | id、page、size | list、total，含 versionId |
 
-page 从 1 开始，size 最大 200。完整文档需要 Stream manage 权限；programs.get 的 scriptConfigured 不是脚本内容，不能据此重建草稿。
+page 从 1 开始，size 最大 200。summary 只需 uns.stream.view 或 uns.stream.manage；full 或省略 view 需要 uns.stream.manage，API Key 还必须是 full_access。摘要不含脚本，不能据此重建草稿。已有创建或更新回执时可复用其文档与 revision，不必再读取。
 
 ```ts
 import { createClient, type Tier0Client } from '@tier0/sdk-v2';
 
 export async function readStream(id: string, client: Tier0Client = createClient()) {
   const draft = await client.stream.documents.get({ id });
-  const summary = await client.stream.programs.get({ id });
   const observation = await client.stream.observations.get({ id });
-  return { draft: draft.data, summary: summary.data, observation: observation.data };
+  return { draft: draft.data, observation: observation.data };
 }
 export async function* listStreams(client: Tier0Client = createClient()) {
   let page = 1;
@@ -33,3 +31,25 @@ export async function* listStreams(client: Tier0Client = createClient()) {
 ```
 
 保存、发布、某次执行成功是三个事实。显示实际 revision/activeVersion/release，不用旧 runs 证明新版本生效。版本列表不保证与普通列表相同分页结构；按其 list/total/page/size 读取，versionId 不是 release 序号。
+
+## 观察本次发布
+
+把 deploy 回执的 activeRelease 原样传入，不需要先读取当前 head。runs.list 需要 uns.stream.view 或 uns.stream.manage；它没有服务端 release 过滤参数，按返回的 nextCursor 继续翻页并在客户端匹配发布号：
+
+```ts
+import { createClient, type Tier0Client, type UnsV2Integer } from '@tier0/sdk-v2';
+
+export async function readPublishedRuns(
+  id: string, release: UnsV2Integer, cursor?: string,
+  client: Tier0Client = createClient(),
+) {
+  if (typeof release === 'number' && !Number.isSafeInteger(release)) {
+    throw new Error('发布号必须保留回执中的精确整数，不能传已失真的 number');
+  }
+  if (BigInt(String(release)) <= 0n) throw new Error('需要发布回执中的正整数发布号');
+  const { data } = await client.stream.runs.list({ id, size: 100, ...(cursor ? { cursor } : {}) });
+  return { ...data, items: data.items.filter(run => run.release === String(release)) };
+}
+```
+
+此函数只读一页。items 为空但 nextCursor 非空时，下一页仍可能有匹配记录；达到调用方的观察时限就报告“尚未观察到”。匹配记录也要检查 status、entryId 和时间，不能把存在记录当成执行成功。历史幂等回执若缺少 activeRelease，应保留为未确认，不能用当前 head 的发布号代替。

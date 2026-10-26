@@ -51,6 +51,6 @@ export async function createHttpStream(
 
 创建 data 为 CloudStreamDocumentView 或预检结果，实际保存返回 id、revision 和完整 document；预检不生成 ID。需要展示预检时单独调用 documents.validate({program})；普通保存无需先校验再保存。当前后端创建/校验需要注册 Worker 可用。TEMPORARILY_UNAVAILABLE 不代表脚本一定错误；不要自动改用旧 Flow。
 
-兼容入口 programs.create({document}) 仍返回含 id、revision、activeVersion、executionState 的程序摘要回执，可直接使用 revision。恢复旧请求必须保留原路由、原载荷和原幂等键，不能改投 documents.create。
+programs.create 已退役，创建统一使用 documents.create。历史创建结局未知时先按已知 ID 或业务标识核对状态，不能将旧请求或幂等键改投 documents.create 重做。
 
 原生编辑器形态 `documents.create({dryRun, document})` 的 document 为 name/model/script对象/sources/entries，script 为 `{sdkVersion,code,timeoutMs}`，sources 用 alias/sourceId/configRevision/resources/acquisition。不要把上面的 script 字符串直接塞入原生文档。

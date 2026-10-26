@@ -1,6 +1,6 @@
 # 修改记录、元数据和 Schema
 
-元数据单条使用 metadataUpdateOne 或 metadataFindOneAndUpdate；后者原子返回 value，returnDocument 可选 before/after。批量相同更新使用 metadataUpdateMany；不同更新使用 metadataBulkWrite。完整替换使用 metadataReplaceOne/metadataFindOneAndReplace，replacement 是完整可写配置。
+元数据单条使用 metadataUpdateOne；returnDocument 默认 none，需要原子返回 value 时显式传 before/after。批量相同更新使用 metadataUpdateMany；不同更新使用 metadataBulkWrite。完整替换使用 metadataReplaceOne，replacement 是完整可写配置。
 
 update 首版支持 $set/$unset/$setOnInsert。字段使用裸配置路径；_id/_meta 为只读。写前读取 revision，编辑页面携带 expectedRevision，冲突后重新比较。单条 upsert 需明确 _id 等值条件，新增内容满足完整创建约束；同 ID 的软删除对象必须显式恢复。
 
@@ -10,9 +10,9 @@ import { createClient, type Tier0Client } from '@tier0/sdk-v2';
 export async function renameCollection(
   id: string, name: string, intentKey: string, client: Tier0Client = createClient(),
 ) {
-  const current = (await client.uns.metadataFindOne({ kind: 'collection', filter: { _id: id } })).data.value;
+  const current = (await client.uns.metadataFind({ kind: 'collection', filter: { _id: id }, limit: 1 })).data.items[0];
   if (!current) throw new Error('集合不存在或不可见');
-  return client.uns.metadataFindOneAndUpdate({
+  return client.uns.metadataUpdateOne({
     kind: 'collection', filter: { _id: id }, expectedRevision: current.revision,
     update: { $set: { name } }, returnDocument: 'after', upsert: false, idempotencyKey: intentKey,
   });
@@ -27,7 +27,7 @@ import { createClient, type Tier0Client, type Schema } from '@tier0/sdk-v2';
 export async function replaceRecordSchema(
   id: string, recordSchema: Schema, intentKey: string, client: Tier0Client = createClient(),
 ) {
-  const current = (await client.uns.metadataFindOne({ kind: 'collection', filter: { _id: id } })).data.value;
+  const current = (await client.uns.metadataFind({ kind: 'collection', filter: { _id: id }, limit: 1 })).data.items[0];
   if (!current) throw new Error('集合不存在或不可见');
   const request = { kind: 'collection' as const, filter: { _id: id },
     expectedRevision: current.revision, update: { $set: { recordSchema } } };

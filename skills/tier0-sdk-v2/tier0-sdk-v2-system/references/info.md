@@ -1,6 +1,6 @@
 # 服务信息与 MQTT 地址
 
-方法：`system.info()`；POST /openapi/v1/info，无业务参数。
+方法：`system.info()`；POST /openapi/v2/info，无业务参数。
 
 ```ts
 import { createClient, type Tier0Client } from '@tier0/sdk-v2';

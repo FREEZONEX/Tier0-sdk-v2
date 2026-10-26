@@ -41,6 +41,16 @@ export async function releasedBadge() {
 export async function addNote(id: string, notes: string, revision: number) {
   return orders.updateOne({ _id: id }, { $set: { notes } }, { expectedRevision: revision });
 }
+
+export async function createWorkOrder(
+  code: string, line: { id: string; name: string }, targetQty: number, intentKey: string,
+) {
+  const { value } = await orders.insertOne({ code, status: 'DRAFT', line, targetQty }, {
+    returnDocument: 'after', projection: { code: 1, 'line.name': 1 }, idempotencyKey: intentKey,
+  });
+  // 投影后的业务字段可能缺失，元信息仍必有；revision 可交给下一次更新。
+  return { id: value._id, revision: value._meta.revision, code: value.code, lineName: value.line?.name };
+}
 ```
 
 ## 一个页面一次请求：`data.queryBatch`
@@ -98,6 +108,8 @@ export async function ordersScreen(page: number, selectedId: string) {
 新建后需要显示保存结果或继续按版本编辑时，使用 `insertOne(doc, { returnDocument: 'after', idempotencyKey })`。`value` 与查询结果一样是 `{ _id, ...业务字段, _meta }`，包含服务端生成的数据和 `_meta.revision`，无需额外查询。返回快照需要当前读取权限；`projection` 只能与 `after` 一起提供。重放返回当次创建的快照，不能当成记录当前最新版本；之后的版本冲突仍需显式读取并处理。
 
 带 `projection` 时，返回类型将业务字段递归标为可选，包括嵌套对象和数组元素的字段；读取前需判断是否存在。`_id` 和 `_meta` 仍然必有。不带 `projection` 的 `after` 保持完整文档类型。
+
+上面的 createWorkOrder 在一次记录写入中取得投影和修订；首次使用集合时仍会先 ensure 声明，不代表首次调用总共只有一次 HTTP。用于跨调用恢复时保存 intentKey，并重发同一创建意图；不要把原来的默认返回改为 after 来补取数据。读取权限在首次提交和历史重放时都检查，具体边界见 [UNS 创建快照](../../tier0-sdk-v2-uns/references/create.md)。
 
 ## 批量与原子性
 

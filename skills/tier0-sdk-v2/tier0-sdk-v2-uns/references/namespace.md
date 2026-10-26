@@ -4,15 +4,15 @@
 
 | 场景 | 方法 |
 | --- | --- |
-| 单条/批量新增 | metadataInsertOne / metadataInsertMany |
+| 单条/批量新增 | metadataInsertOne / metadataBulkWrite 的 insertOne 项 |
 | 单条/批量条件更新 | metadataUpdateOne / metadataUpdateMany |
-| 更新并读取原子结果 | metadataFindOneAndUpdate / metadataFindOneAndReplace |
+| 更新并读取原子结果 | metadataUpdateOne / metadataReplaceOne + returnDocument:before/after |
 | 同 kind 混合写入 | metadataBulkWrite |
 | 跨 kind、有依赖的组合操作 | metadataTransact |
-| 软删除并返回原对象 | metadataFindOneAndDelete |
+| 软删除并返回原对象 | metadataDeleteOne + returnDocument:before |
 | 按明确 ID 批量恢复 | metadataRestore |
 
-普通写操作只指定一个 kind。insertMany/updateMany/deleteMany/restore 固定原子执行；bulkWrite 默认 atomic=true，原子批次不接受 ordered=false。bulkWrite 显式 atomic=false 时 ordered=true 遇错停止，false 继续，并检查 results/errors。非原子执行有任一项已提交后失败时，`execution` 为 committed、`retry.safe` 为 false，错误的 data 是累计结果：序号小于 `nextIndex` 且不在 errors 里的操作已提交；有 `unknownUntil` 时 `[nextIndex, unknownUntil)` 结局未知，用同一个幂等键重试（不带键时只有按 id 的操作能先读回再续做，所以非原子批次始终带幂等键）；没有 `unknownUntil` 时从 `nextIndex` 续做。第一块就结局未知时 `execution` 为 unknown。批次最多 200 项。不要给所有对象套一个相同 expectedRevision：需要逐项版本检查时在 bulkWrite 中分别提供。
+普通写操作只指定一个 kind。updateMany/deleteMany/restore 固定原子执行；bulkWrite 默认 atomic=true，原子批次不接受 ordered=false。bulkWrite 显式 atomic=false 时 ordered=true 遇错停止，false 继续，并检查 results/errors。非原子执行有任一项已提交后失败时，`execution` 为 committed、`retry.safe` 为 false，错误的 data 是累计结果：序号小于 `nextIndex` 且不在 errors 里的操作已提交；有 `unknownUntil` 时 `[nextIndex, unknownUntil)` 结局未知，用同一个幂等键重试（不带键时只有按 id 的操作能先读回再续做，所以非原子批次始终带幂等键）；没有 `unknownUntil` 时从 `nextIndex` 续做。第一块就结局未知时 `execution` 为 unknown。批次最多 200 项。不要给所有对象套一个相同 expectedRevision：需要逐项版本检查时在 bulkWrite 中分别提供。
 
 ```ts
 import { createClient, type Tier0Client } from '@tier0/sdk-v2';

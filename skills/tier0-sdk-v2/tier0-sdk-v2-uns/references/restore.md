@@ -8,7 +8,7 @@ import { createClient, type Tier0Client } from '@tier0/sdk-v2';
 export async function restoreCollection(
   id: string, intentKey: string, client: Tier0Client = createClient(),
 ) {
-  const deleted = (await client.uns.metadataFindOne({ kind: 'collection', filter: { _id: id }, state: 'deleted' })).data.value;
+  const deleted = (await client.uns.metadataFind({ kind: 'collection', filter: { _id: id }, state: 'deleted', limit: 1 })).data.items[0];
   if (!deleted) throw new Error('未找到待恢复集合');
   const receipt = await client.uns.metadataRestore({
     kind: 'collection', items: [{ id, expectedRevision: deleted.revision }], idempotencyKey: intentKey,
@@ -16,7 +16,7 @@ export async function restoreCollection(
   if (receipt.data.status !== 'committed' || String(receipt.data.restoredCount) !== '1') {
     return { state: 'unconfirmed' as const, receipt };
   }
-  const current = (await client.uns.metadataFindOne({ kind: 'collection', filter: { _id: id } })).data.value;
+  const current = (await client.uns.metadataFind({ kind: 'collection', filter: { _id: id }, limit: 1 })).data.items[0];
   if (!current) throw new Error('恢复有回执，读回未确认');
   return { state: 'committed' as const, receipt, current };
 }

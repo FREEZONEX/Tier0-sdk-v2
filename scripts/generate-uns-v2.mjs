@@ -42,6 +42,7 @@ for (const operation of cloudSupport.operations || []) {
 }
 const seen = new Set();
 for (const operation of manifest.operations) {
+  if (operation.deprecated || operation.compatibility) fail(`retired operation ${operation.name} must not be published`);
   if (seen.has(operation.name)) fail(`duplicate operation ${operation.name}`);
   seen.add(operation.name);
   const source = contractOperations.get(operation.name);
