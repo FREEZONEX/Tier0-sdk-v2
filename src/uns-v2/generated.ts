@@ -7048,10 +7048,10 @@ export const UNS_V2_CODEC_SCHEMAS = {"UnsV2CatalogReq":{"k":"o","p":{"includeCom
 
 export const UNS_V2_CONTRACT_PROVENANCE = {
   "repository": "FREEZONEX/Tier0-Backend",
-  "revision": "a9f173276548c26474f125e7209d1709fdee29a0",
+  "revision": "8b84b47d5234c4f900da408aa3f5498e7823fd49",
   "version": "5.0.0",
   "source": "service/unssvr/internal/domain/unsv2/contract_generated.go#ContractJSON",
-  "cloudRevision": "a9f173276548c26474f125e7209d1709fdee29a0",
+  "cloudRevision": "8b84b47d5234c4f900da408aa3f5498e7823fd49",
   "cloudContractRevision": "cloud-source-impact/2+app-create-capability/1+data/3+record-reads/1+collection-namespace/1+http-acquisition/2+app-collection/2+metadata/1+app-context/2+collection-ttl/1+error-model/1+crud-consolidation/1+lifecycle-consolidation/1+api-surface/1+app-data/2+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/1+http-in/1+app-resource-access/2",
   "resolvedCloudContract": true,
   "enterpriseBase": {
@@ -7066,7 +7066,7 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
     "contract": "b2263bbbcde5360d10476debf0f81e0487435101ab22793f672f44b53e0b1f53",
     "cloudSupport": "102eef2517c84adbb0d0223d218cdd711c28da459d790f5ba1b9f9b316b54f15",
     "manifest": "dc5b427045dc755bca5e494adc2d9ca648da2b808c3882add8952dbd9b32fe6c",
-    "provenance": "f2a58480ad9a2cdf70978e72581e639ddf3e5f6ffaa2b79f0db8f75af208c6ff",
+    "provenance": "d89f4a0cc18398ddb2452bc9e315e4977f4deb145547e9e77080384646b19e93",
     "registry": "f3a4a8efe6bbb52f0239f76a998c2f5b882b55a6eac4bc1e566d73abb9fd520c"
   },
   "publicOperationCount": 106,

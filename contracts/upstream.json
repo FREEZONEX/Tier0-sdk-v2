@@ -1,6 +1,6 @@
 {
   "repository": "FREEZONEX/Tier0-Backend",
-  "revision": "a9f173276548c26474f125e7209d1709fdee29a0",
+  "revision": "8b84b47d5234c4f900da408aa3f5498e7823fd49",
   "inputs": {
     "contracts/openapi-v1.source.json": {
       "path": "service/gwsvr/internal/handler/swaggerui/swagger.json",
