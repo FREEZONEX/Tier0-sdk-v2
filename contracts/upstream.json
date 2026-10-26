@@ -1,6 +1,6 @@
 {
   "repository": "FREEZONEX/Tier0-Backend",
-  "revision": "ef2fa94089a26e8e0021e0d25e7f13e87ff5c722",
+  "revision": "a9f173276548c26474f125e7209d1709fdee29a0",
   "inputs": {
     "contracts/openapi-v1.source.json": {
       "path": "service/gwsvr/internal/handler/swaggerui/swagger.json",
@@ -8,7 +8,7 @@
     },
     "contracts/openapi-v2.source.json": {
       "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
-      "sha256": "32c773d8b3917231f1776be00f1485d4d0f64468ae9b4778fa056c8fca235b31"
+      "sha256": "af4ee68ffb565f7d42ad18273815ff51c21a91642252ec6bcd2c07925a2d2ab2"
     },
     "contracts/info.source.proto": {
       "path": "service/unssvr/proto/openapi.proto",
@@ -16,11 +16,11 @@
     },
     "contracts/uns-v2/contract.json": {
       "path": "service/unssvr/internal/domain/unsv2/contract_generated.go#ContractJSON",
-      "sha256": "7950e9513628e68f6a1206765a49499ae96603537139a04cb19be8472fec36ee"
+      "sha256": "b2263bbbcde5360d10476debf0f81e0487435101ab22793f672f44b53e0b1f53"
     },
     "contracts/uns-v2/manifest.json": {
       "path": "share/unscontract/manifest.json",
-      "sha256": "65d98819069eef28cb6f6157e1b4671401dd60cf70451d5475d660ab9401a90f"
+      "sha256": "dc5b427045dc755bca5e494adc2d9ca648da2b808c3882add8952dbd9b32fe6c"
     },
     "contracts/uns-v2/cloud-support.json": {
       "path": "share/unscontract/cloud-support.json",

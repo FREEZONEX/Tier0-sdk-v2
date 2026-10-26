@@ -26,18 +26,15 @@ export async function createHttpSource(
     name, protocol: 'http', description: '订单系统 HTTP 接入',
     config: { configVersion: 2, endpoint, options: {} },
   };
-  const preview = await client.source.documents.create({ dryRun: true, document });
-  if (!('validated' in preview.data) || !preview.data.validated) throw new Error('Source 预检未通过');
   const saved = await client.source.documents.create({
     dryRun: false, document, idempotencyKey: intentKey,
   });
   if (!('id' in saved.data)) throw new Error('未返回已保存的 Source');
-  const current = await client.source.documents.get({ id: saved.data.id });
-  return { receipt: saved, current: current.data };
+  return { receipt: saved, current: saved.data };
 }
 ```
 
-提交返回 data：id、revision、document、desiredState、runtimeState、health、createdAt、updatedAt；预检返回 `{ validated: true, sideEffects: false }`，没有 ID。ID 原样保留十进制字符串。
+一次提交即可返回完整 data：id、revision、document、desiredState、runtimeState、health、createdAt、updatedAt，无需另行 get。需要单独预检时可先传 `dryRun: true`，返回 `{ validated: true, sideEffects: false }`，没有 ID。预检不保留提交条件；实际保存仍会校验。ID 原样保留十进制字符串。
 
 ## HTTP Bearer 凭据
 
@@ -56,7 +53,7 @@ export async function createAuthenticatedHttpSource(
     credentials: { method: 'GET', kind: 'bearer', material: { token } },
   });
   if (!('id' in saved.data)) throw new Error('未返回 Source ID');
-  return client.source.documents.get({ id: saved.data.id });
+  return { receipt: saved, current: saved.data };
 }
 ```
 

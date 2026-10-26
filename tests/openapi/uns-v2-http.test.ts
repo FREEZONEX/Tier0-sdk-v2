@@ -337,12 +337,12 @@ describe('UNS v2 localhost HTTP fixture', () => {
     }
     expect(UNS_V2_CONTRACT_PROVENANCE.version).toBe('5.0.0');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudContractRevision.split('+')).toEqual(expect.arrayContaining([
-      'cloud-source-impact/1', 'app-create-capability/1', 'data/3', 'collection-namespace/1', 'http-acquisition/2',
+      'cloud-source-impact/2', 'app-create-capability/1', 'data/3', 'collection-namespace/1', 'http-acquisition/2',
       'app-collection/2', 'metadata/1', 'app-data/2', 'hosted-control/1', 'source-bindings/1',
       'record-notifications/1', 'record-delete-samples/1', 'stream-history/1',
       'record-reads/1', 'app-context/2', 'collection-ttl/1', 'error-model/1',
     ]));
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('ef2fa94089a26e8e0021e0d25e7f13e87ff5c722');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('a9f173276548c26474f125e7209d1709fdee29a0');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(UNS_V2_CONTRACT_PROVENANCE.sourceDerivedContractSHA256).toBe(UNS_V2_CONTRACT_PROVENANCE.hashes.contract);
     expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(106);
@@ -363,6 +363,26 @@ describe('UNS v2 localhost HTTP fixture', () => {
       await expect(core.call(name, request)).rejects.toThrow('unknown UNS v2 operation');
     }
     expect(received.slice(start)).toHaveLength(0);
+  });
+
+  it('sends a Source patch directly and leaves dependency rejection for explicit review', async () => {
+    const start = received.length;
+    respond = (_req, res) => send(res, {
+      code: 422, msg: 'SOURCE_IMPACT_CONFIRMATION_REQUIRED', requestId: 'source-needs-review',
+      error: { code: 'INVALID_REQUEST', details: [],
+        execution: 'rolledBack', retry: { safe: false } },
+    }, 422);
+    await expect(client().source.documents.update({
+      id: '101', expectedRevision: 2, patch: { name: 'renamed' },
+      dryRun: false, idempotencyKey: 'direct-source-rename',
+    })).rejects.toMatchObject({ name: 'UnsV2Error', status: 422,
+      requestId: 'source-needs-review', execution: 'rolledBack' });
+    expect(received.slice(start)).toHaveLength(1);
+    expect(received[start].path).toBe('/openapi/v2/uns/sources/documents/update');
+    expect(JSON.parse(received[start].body)).toEqual({
+      id: '101', expectedRevision: 2, patch: { name: 'renamed' },
+      dryRun: false, idempotencyKey: 'direct-source-rename',
+    });
   });
 
   it('preserves explicit Source impact review and history without automatic confirmation or mutation retries', async () => {

@@ -70,22 +70,22 @@ const collectionUpdate = example('uns', 'update');
 const recordDelete = example('uns', 'delete');
 const collectionDelete = example('uns', 'delete', 1);
 const restore = example('uns', 'restore');
-let sourceId, streamId, collectionId, filePath;
+let sourceId, sourceRevision, streamId, collectionId, filePath;
 save();
 
 try {
   if (domains.has('source')) try {
-    await step('Skill Source create + read', async () => {
+    await step('Skill Source create with canonical receipt', async () => {
       const result = await sourceCreate.createHttpSource(`${apiHost}/__sdk_acceptance/inert`, prefix, intent('source-create'), client);
       sourceId = result.current.id;
+      sourceRevision = result.current.revision;
       report.fixtures.source = { id: sourceId, state: 'created' };
       assert.equal(result.current.document.name, prefix);
       assert.notEqual(result.current.desiredState, 'enabled');
     });
-    await step('Skill Source impact + update + read', async () => {
-      const plan = await sourceUpdate.prepareSourceRename(sourceId, prefix + '-edited', client);
-      assert.equal(plan.impact.references.length, 0, 'Unexpected Source dependencies');
-      const result = await sourceUpdate.commitSourceRename(plan, intent('source-update'), client);
+    await step('Skill Source direct patch with canonical receipt', async () => {
+      const result = await sourceUpdate.renameSource(sourceId, sourceRevision, prefix + '-edited', intent('source-update'), client);
+      sourceRevision = result.current.revision;
       assert.equal(result.current.document.name, prefix + '-edited');
     });
     await step('Skill Source observations', () => example('source', 'read').readSource(sourceId, client));
@@ -112,12 +112,9 @@ try {
       }); } catch { /* Report retains cleanup failure. */ }
     }
     if (sourceId) {
-      try { await step('Skill Source delete + archived readback', async () => {
-        const current = (await client.source.documents.get({ id: sourceId })).data;
-        const impact = (await client.source.impact({ id: sourceId, expectedRevision: current.revision, action: 'delete', offset: 0, size: 200 })).data;
-        assert.equal(impact.references.length, 0, 'Unexpected Source dependencies; not deleting');
-        assert.equal(String(impact.nextOffset), '0');
-        const result = await sourceDelete.deleteSource(sourceId, current.revision, impact.impactRevision, intent('source-delete'), client);
+      try { await step('Skill Source direct delete with archived receipt', async () => {
+        // Retain the observed revision. Unexpected changes or remaining Stream references must reject cleanup.
+        const result = await sourceDelete.deleteSource(sourceId, sourceRevision, intent('source-delete'), client);
         assert.equal(result.state, 'archived');
         report.fixtures.source.state = 'archived';
       }); } catch { /* Report retains cleanup failure. */ }
