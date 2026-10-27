@@ -130,6 +130,35 @@ afterEach(() => {
 });
 
 describe('transport', () => {
+  it('sends explicit numeric formats for new collection fields, including nested arrays', async () => {
+    const measurements = defineCollection({
+      alias: 'measurements',
+      schema: z.object({
+        amount: z.number().min(0).optional(),
+        count: z.number().int(),
+        readings: z.array(z.object({ value: z.number().meta({ format: 'float' }) })),
+        totals: z.array(z.number()),
+      }),
+    });
+    const mock = mockUns({ [ENSURE]: ensured({ alias: 'measurements', collectionId: 'c-measurements', status: 'created' }) });
+    await client(mock, { collections: [measurements] }).ensure();
+    expect(mock.calls(ENSURE)).toHaveLength(1);
+    expect(mock.calls(ENSURE)[0].body).toMatchObject({
+      collections: [{
+        alias: 'measurements',
+        recordSchema: {
+          properties: {
+            amount: { type: 'number', format: 'double', minimum: 0 },
+            count: { type: 'integer', format: 'int32' },
+            readings: { items: { properties: { value: { type: 'number', format: 'float' } } } },
+            totals: { items: { type: 'number', format: 'double' } },
+          },
+        },
+      }],
+    });
+  });
+
+
   it('sends the App key through the SDK client and unwraps the envelope', async () => {
     const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, '/uns/collections/c-orders/records:count': ok({ count: 7, capped: false }) });
     expect(await client(mock).collection(orders).countDocuments({ status: 'OPEN' })).toEqual({ count: 7, capped: false });

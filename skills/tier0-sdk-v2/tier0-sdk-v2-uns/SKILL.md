@@ -48,6 +48,8 @@ export async function findAppCollection(alias: string) {
 5. recordFind 使用 pageInfo.hasMore/nextCursor，limit 1–200；sort 为 [['field',1]]。单页不是全量，跨页不是稳定快照。
 6. Sample 的时间是 Unix 毫秒，查询范围 [from,to)。Record 代表业务实体，不用覆盖它来保存历史。
 
+7. 新建 recordSchema/sampleSchema 数值字段必须明确格式：int 用 `{ type: 'integer', format: 'int32' }`，float/double 用 `{ type: 'number', format: 'float'/'double' }`；普通小数默认选 double。递归覆盖嵌套对象和数组元素，不创建无 format 的 legacy number/integer；不把 type 写成 int/float/double。已有字段迁移先 dryRun 校验。
+
 ## 结果与异常
 
 响应为 code/msg/requestId/data。元数据 find 返回 items/pageInfo；单条 updateOne/replaceOne/deleteOne 请求 returnDocument 时附带 value；普通写入默认返回对应计数和 ID。metadataTransact 的 results 按 opId 对应。检查 committed、每项错误和实际计数；dryRun 只校验。metadataBulkWrite 默认原子，显式非原子时必须逐项检查 results/errors；跨 kind 的依赖写入使用 metadataTransact。recordBulkWrite 不保证跨集合事务。

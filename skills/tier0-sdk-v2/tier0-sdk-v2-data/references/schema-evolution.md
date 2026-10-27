@@ -34,3 +34,5 @@ export function replaceBody(expectedRevision: number) {
 ```
 
 Schema 中 `ignored`、`warnings`、`conflicts`、`violations` 的路径用 `.` 连接属性，用 `[]` 表示数组元素（`lines.[].qty`）。
+
+新声明的 number/integer 默认带 double/int32 格式；ensure 不改写已有字段注解，原无格式字段仍保持 legacy 显示。已有字段格式迁移需读取并保留完整 Schema，先通过 schema:replace dryRun 检查，再按明确迁移授权执行。

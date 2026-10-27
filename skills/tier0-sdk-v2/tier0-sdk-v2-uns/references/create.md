@@ -20,7 +20,7 @@ export async function createDeviceCollection(
       },
       sampleSchema: {
         type: 'object', additionalProperties: false, required: ['temperature'],
-        properties: { temperature: { type: 'number', unit: '°C' } },
+        properties: { temperature: { type: 'number', format: 'double', unit: '°C' } },
       },
     },
   };
