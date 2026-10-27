@@ -17,7 +17,6 @@ export function bindStreamClient(raw: UnsV2Client) {
       update: raw.streamDocumentUpdate, validate: raw.streamDocumentValidate,
       disable: raw.streamDocumentDisable,
     }),
-    runtime: Object.freeze({ capabilities: raw.streamRuntimeCapabilitiesGet }),
     observations: Object.freeze({ get: raw.streamObservationGet }),
     runs: Object.freeze({ list: raw.streamRunsList }),
     sampleTest: raw.streamSampleTest,

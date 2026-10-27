@@ -50,6 +50,7 @@ run(['--input-type=module', '-e', `
   if ('sourceList' in client.uns || 'streamProgramDeploy' in client.uns || 'controlInvoke' in client.uns) throw new Error('Mixed domain entrypoints');
   if ('list' in client.source || 'get' in client.stream.programs || 'nodes' in client.agent || 'controls' in client.api) throw new Error('Retired facade aliases leaked');
   if (['sourceList', 'streamProgramCreate', 'recordInsertMany', 'recordDistinct', 'metadataFindOne'].some(name => name in raw)) throw new Error('Retired raw operations leaked');
+  if ('runtime' in client.stream || 'streamRuntimeCapabilitiesGet' in raw || 'streamRuntimeCapabilitiesGet' in UNS_V2_OPERATIONS) throw new Error('Retired readiness probe leaked');
   if (typeof client.source.documents.get !== 'function' || typeof client.stream.programs.deploy !== 'function') throw new Error('Missing domain entrypoints');
 `], consumer);
 for (const ext of ['mts', 'cts']) writeFileSync(resolve(consumer, `consumer.${ext}`), `
@@ -101,6 +102,8 @@ client.uns.recordInsertOne({ collectionId: 'orders', data: { code: 'A' }, return
 client.uns.metadataFind({ kind: 'collection', filter: { _id: 'orders' } });
 createSourceClient().documents.list({});
 createStreamClient().programs.list({});
+// @ts-expect-error The retired readiness probe cannot return through packed declarations.
+createStreamClient().runtime.capabilities({});
 client.mqttAuth.delete({ id: 9007199254740993n });
 // @ts-expect-error Retired low-level aliases cannot silently select a new operation.
 client.uns.metadataFindOne({ kind: 'collection' });

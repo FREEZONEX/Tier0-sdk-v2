@@ -1308,6 +1308,88 @@
         "x-tier0-destructive": false
       }
     },
+    "/uns/sources/discover": {
+      "post": {
+        "operationId": "UnsV2SourceDiscover",
+        "tags": [
+          "数据源"
+        ],
+        "summary": "发现数据源资源",
+        "description": "按 id 和当前 expectedRevision 读取厂商服务目录。当前支持 SAP OData，需数据源管理、数据读取及凭据使用权限；不接受地址、路径、方法或认证覆盖。仅返回服务根内的业务资源名称和引用，不返回凭据或 Source 地址。凭据使用会记审计，不属于无副作用查询。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "expectedRevision"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$",
+                    "maxLength": 19
+                  },
+                  "expectedRevision": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              },
+              "example": {
+                "dryRun": true,
+                "id": "example-id"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "查询结果。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocUnsV2SourceDiscoverResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocCommonError"
+                },
+                "example": {
+                  "code": 422,
+                  "msg": "请求参数不合法",
+                  "requestId": "request-id",
+                  "data": null,
+                  "error": {
+                    "code": "INVALID_REQUEST",
+                    "reason": "filter.status must be a string",
+                    "details": [],
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
+        "x-tier0-readonly": false,
+        "x-tier0-destructive": false
+      }
+    },
     "/uns/streams/program/versions/list": {
       "post": {
         "operationId": "UnsV2StreamProgramVersionsList",
@@ -4898,77 +4980,6 @@
         "x-tier0-destructive": false
       }
     },
-    "/uns/streams/runtime/capabilities/get": {
-      "post": {
-        "operationId": "UnsV2StreamRuntimeCapabilitiesGet",
-        "summary": "读取运行能力",
-        "deprecated": false,
-        "security": [
-          {
-            "ApiKey": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {},
-                "required": []
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "查询结果。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocUnsV2StreamRuntimeCapabilitiesGetResponse"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocCommonError"
-                },
-                "example": {
-                  "code": 422,
-                  "msg": "请求参数不合法",
-                  "requestId": "request-id",
-                  "data": null,
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "reason": "filter.status must be a string",
-                    "details": [],
-                    "execution": "notStarted",
-                    "retry": {
-                      "safe": false
-                    },
-                    "path": "filter.status"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "处理流"
-        ],
-        "description": "返回处理流运行时当前支持的能力和限制。",
-        "x-tier0-audience": "operations",
-        "x-tier0-starter": false,
-        "x-tier0-readonly": true,
-        "x-tier0-destructive": false
-      }
-    },
     "/uns/controls/discover": {
       "post": {
         "operationId": "UnsV2ControlDiscover",
@@ -7535,9 +7546,9 @@
                     "items": {
                       "type": "string",
                       "enum": [
-                        "control.read",
-                        "control.execute",
-                        "control.write"
+                        "stream.requests.read",
+                        "stream.requests.invoke",
+                        "stream.requests.write"
                       ]
                     }
                   }
@@ -8158,8 +8169,7 @@
                     "type": "string",
                     "enum": [
                       "app",
-                      "user",
-                      "api_key"
+                      "user"
                     ]
                   },
                   "principalID": {
@@ -8257,8 +8267,7 @@
                     "type": "string",
                     "enum": [
                       "app",
-                      "user",
-                      "api_key"
+                      "user"
                     ]
                   },
                   "principalID": {
@@ -8287,9 +8296,9 @@
                     "items": {
                       "type": "string",
                       "enum": [
-                        "control.read",
-                        "control.execute",
-                        "control.write"
+                        "stream.requests.read",
+                        "stream.requests.invoke",
+                        "stream.requests.write"
                       ]
                     },
                     "maxItems": 3,
@@ -13077,7 +13086,7 @@
     },
     "/capabilities/discover": {
       "post": {
-        "description": "需要有效 Workspace API Key，Body 仅接受空 JSON 对象，最大 4KiB UTF-8 字节，不接受查询参数或 Workspace 覆盖。成功响应直接为 CapabilityDiscoverResp，不包裹 code/msg/data。能力由默认关闭的公开发布开关、Workspace FeatureGate、Key 显式授权共同裁决；执行启用还必须由 unssvr readiness RPC 确认 runtime 就绪且解释器合同匹配，不能由本地开关替代。readiness RPC 失败返回 503 CAPABILITY_UNAVAILABLE，不静默伪装为正常关闭。响应允许客户端忽略未知扩展字段；版本标签不表示设备 ACK 或 npm 包版本。错误直接返回 CapabilityErrorResp 和真实 HTTP 状态，不泄漏内部异常。",
+        "description": "需要有效 Workspace API Key，Body 仅接受空 JSON 对象，最大 4KiB UTF-8 字节，不接受查询参数或 Workspace 覆盖。成功响应直接为 CapabilityDiscoverResp，不包裹 code/msg/data。能力由默认关闭的公开发布开关、Workspace FeatureGate、Key 显式授权共同裁决；Control 能力仅报告当前发布与授权，运行可用性保持 readiness_unknown，不触发运行时探针。实际操作由后端执行安全检查，失败返回真实错误。响应允许客户端忽略未知扩展字段；版本标签不表示设备 ACK 或 npm 包版本。错误直接返回 CapabilityErrorResp 和真实 HTTP 状态，不泄漏内部异常。",
         "operationId": "PlatformV2CapabilityDiscover",
         "responses": {
           "200": {
@@ -15061,9 +15070,9 @@
                 "asset.file.upload",
                 "asset.file.download",
                 "asset.file.delete",
-                "control.read",
-                "control.execute",
-                "control.write"
+                "stream.requests.read",
+                "stream.requests.invoke",
+                "stream.requests.write"
               ],
               "type": "string"
             },
@@ -15945,14 +15954,12 @@
           "id": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128,
-            "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
+            "maxLength": 128
           },
           "collectionId": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128,
-            "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
+            "maxLength": 128
           },
           "data": {
             "type": "object",
@@ -15964,11 +15971,11 @@
           },
           "createdAt": {
             "type": "integer",
-            "description": "服务端接收采样的时间，Unix 毫秒，由服务端生成。"
+            "description": "Unix 毫秒。"
           },
           "updatedAt": {
             "type": "integer",
-            "description": "服务端接收采样的时间，Unix 毫秒，由服务端生成。"
+            "description": "Unix 毫秒。"
           },
           "sourceId": {
             "type": "string",
@@ -18398,64 +18405,139 @@
         ]
       },
       "CloudSourceConfig": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "configVersion": {
-            "type": "integer",
-            "const": 2
-          },
-          "endpoint": {
-            "type": "string",
-            "minLength": 0
-          },
-          "options": {
-            "type": "object",
-            "additionalProperties": true
-          },
-          "auth": {
+        "oneOf": [
+          {
             "type": "object",
             "additionalProperties": false,
             "properties": {
-              "kind": {
+              "configVersion": {
+                "type": "integer",
+                "const": 2
+              },
+              "endpoint": {
                 "type": "string",
-                "enum": [
-                  "basic",
-                  "bearer",
-                  "apiKey",
-                  "usernamePassword",
-                  "oauth2ClientCredentials"
+                "minLength": 0
+              },
+              "options": {
+                "type": "object",
+                "additionalProperties": true
+              },
+              "auth": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "basic",
+                      "bearer",
+                      "apiKey",
+                      "usernamePassword",
+                      "oauth2ClientCredentials"
+                    ]
+                  },
+                  "credentialRef": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "credentialRef"
                 ]
               },
-              "credentialRef": {
+              "tls": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "caRef": {
+                    "type": "string"
+                  },
+                  "clientIdentityRef": {
+                    "type": "string"
+                  }
+                },
+                "required": []
+              }
+            },
+            "required": [
+              "configVersion",
+              "endpoint",
+              "options"
+            ],
+            "description": "Existing cloud Source envelope. Only opaque credential/certificate references and safe MIME headers are allowed. This endpoint never returns or resolves secret material; existing driver validation remains authoritative."
+          },
+          {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "additionalProperties": false,
+            "properties": {
+              "auth": {
+                "additionalProperties": false,
+                "description": "Endpoint-bound encrypted credential reference. Secret material is submitted separately and never returned in Source documents.",
+                "properties": {
+                  "credentialRef": {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "kind": {
+                    "const": "vendorBasic",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "credentialRef"
+                ],
+                "type": "object"
+              },
+              "configVersion": {
+                "const": 3,
+                "type": "integer"
+              },
+              "endpoint": {
+                "format": "uri",
+                "maxLength": 2048,
+                "minLength": 1,
+                "pattern": "^https://[^?#%\\\\\\s]+/$",
+                "type": "string"
+              },
+              "options": {
+                "additionalProperties": false,
+                "properties": {
+                  "headers": {
+                    "additionalProperties": {
+                      "maxLength": 4096,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "description": "Custom non-secret headers are supported. Authentication and transport headers are reserved; Accept/Content-Type retain MIME validation.",
+                    "maxProperties": 64,
+                    "propertyNames": {
+                      "maxLength": 128,
+                      "minLength": 1,
+                      "pattern": "^[!#$%&'*+.^_`|~0-9A-Za-z-]+$",
+                      "type": "string"
+                    },
+                    "type": "object"
+                  }
+                },
+                "type": "object"
+              },
+              "sourceType": {
+                "const": "sap-odata",
                 "type": "string"
               }
             },
             "required": [
-              "kind",
-              "credentialRef"
-            ]
-          },
-          "tls": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "caRef": {
-                "type": "string"
-              },
-              "clientIdentityRef": {
-                "type": "string"
-              }
-            },
-            "required": []
+              "configVersion",
+              "sourceType",
+              "endpoint",
+              "options",
+              "auth"
+            ],
+            "type": "object"
           }
-        },
-        "required": [
-          "configVersion",
-          "endpoint",
-          "options"
-        ],
-        "description": "Existing cloud Source envelope. Only opaque credential/certificate references and safe MIME headers are allowed. This endpoint never returns or resolves secret material; existing driver validation remains authoritative."
+        ]
       },
       "CloudSourceDocument": {
         "type": "object",
@@ -19118,9 +19200,9 @@
             "items": {
               "type": "string",
               "enum": [
-                "control.read",
-                "control.execute",
-                "control.write"
+                "stream.requests.read",
+                "stream.requests.invoke",
+                "stream.requests.write"
               ]
             }
           }
@@ -19761,8 +19843,7 @@
             "type": "string",
             "enum": [
               "app",
-              "user",
-              "api_key"
+              "user"
             ]
           },
           "principalID": {
@@ -19788,9 +19869,9 @@
             "items": {
               "type": "string",
               "enum": [
-                "control.read",
-                "control.execute",
-                "control.write"
+                "stream.requests.read",
+                "stream.requests.invoke",
+                "stream.requests.write"
               ]
             },
             "maxItems": 3,
@@ -19819,9 +19900,9 @@
             "items": {
               "type": "string",
               "enum": [
-                "control.read",
-                "control.execute",
-                "control.write"
+                "stream.requests.read",
+                "stream.requests.invoke",
+                "stream.requests.write"
               ]
             },
             "maxItems": 3,
@@ -19896,8 +19977,7 @@
             "type": "string",
             "enum": [
               "app",
-              "user",
-              "api_key"
+              "user"
             ]
           },
           "principalID": {
@@ -20074,9 +20154,9 @@
             "items": {
               "type": "string",
               "enum": [
-                "control.read",
-                "control.execute",
-                "control.write"
+                "stream.requests.read",
+                "stream.requests.invoke",
+                "stream.requests.write"
               ]
             },
             "maxItems": 3,
@@ -20253,7 +20333,7 @@
           },
           "expiresAt": {
             "type": "integer",
-            "description": "服务端接收采样的时间，Unix 毫秒，由服务端生成。"
+            "description": "Unix 毫秒。"
           },
           "fence": {
             "type": "integer",
@@ -20261,7 +20341,7 @@
           },
           "since": {
             "type": "integer",
-            "description": "服务端接收采样的时间，Unix 毫秒，由服务端生成。"
+            "description": "Unix 毫秒。"
           }
         },
         "required": [
@@ -20336,24 +20416,21 @@
           "id": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128,
-            "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
+            "maxLength": 128
           },
           "collectionId": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128,
-            "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
+            "maxLength": 128
           },
           "recordId": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128,
-            "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
+            "maxLength": 128
           },
           "time": {
             "type": "integer",
-            "description": "服务端接收采样的时间，Unix 毫秒，由服务端生成。"
+            "description": "采样发生时间，由调用方提供，Unix 毫秒。"
           },
           "receivedAt": {
             "type": "integer",
@@ -20375,14 +20452,12 @@
           "streamId": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128,
-            "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
+            "maxLength": 128
           },
           "bindingId": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128,
-            "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
+            "maxLength": 128
           }
         },
         "required": [
@@ -20617,8 +20692,7 @@
             "items": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 128,
-              "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
+              "maxLength": 128
             }
           }
         },
@@ -20679,15 +20753,14 @@
           "id": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128,
-            "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
+            "maxLength": 128
           },
           "token": {
             "type": "string"
           },
           "expiresAt": {
             "type": "integer",
-            "description": "服务端接收采样的时间，Unix 毫秒，由服务端生成。"
+            "description": "Unix 毫秒。"
           },
           "fence": {
             "type": "integer",
@@ -23874,6 +23947,73 @@
           "data"
         ]
       },
+      "DocUnsV2SourceDiscoverResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "revision",
+              "sourceType",
+              "resources"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "revision": {
+                "type": "integer"
+              },
+              "sourceType": {
+                "type": "string",
+                "const": "sap-odata"
+              },
+              "resources": {
+                "type": "array",
+                "maxItems": 1000,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "ref",
+                    "name",
+                    "readOnly"
+                  ],
+                  "properties": {
+                    "ref": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "readOnly": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "code",
+          "msg",
+          "requestId",
+          "data"
+        ],
+        "additionalProperties": false
+      },
       "DocUnsV2StreamProgramVersionsListResponse": {
         "type": "object",
         "additionalProperties": false,
@@ -24302,8 +24442,7 @@
               "insertedId": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 128,
-                "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
+                "maxLength": 128
               },
               "status": {
                 "type": "string",
@@ -24360,8 +24499,7 @@
               "upsertedId": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 128,
-                "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
+                "maxLength": 128
               },
               "status": {
                 "type": "string",
@@ -24419,8 +24557,7 @@
               "upsertedId": {
                 "type": "string",
                 "minLength": 1,
-                "maxLength": 128,
-                "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
+                "maxLength": 128
               },
               "status": {
                 "type": "string",
@@ -24966,8 +25103,7 @@
                 "additionalProperties": {
                   "type": "string",
                   "minLength": 1,
-                  "maxLength": 128,
-                  "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
+                  "maxLength": 128
                 },
                 "description": "键为原始输入中从 0 开始的操作索引，值为对应成功记录 ID；部分失败时不重新编号。"
               },
@@ -24976,8 +25112,7 @@
                 "additionalProperties": {
                   "type": "string",
                   "minLength": 1,
-                  "maxLength": 128,
-                  "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
+                  "maxLength": 128
                 },
                 "description": "键为原始输入中从 0 开始的操作索引，值为对应成功记录 ID；部分失败时不重新编号。"
               },
@@ -25073,8 +25208,7 @@
                     "additionalProperties": {
                       "type": "string",
                       "minLength": 1,
-                      "maxLength": 128,
-                      "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
+                      "maxLength": 128
                     },
                     "description": "键为原始输入中从 0 开始的操作索引，值为对应成功记录 ID；部分失败时不重新编号。"
                   },
@@ -25083,8 +25217,7 @@
                     "additionalProperties": {
                       "type": "string",
                       "minLength": 1,
-                      "maxLength": 128,
-                      "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
+                      "maxLength": 128
                     },
                     "description": "键为原始输入中从 0 开始的操作索引，值为对应成功记录 ID；部分失败时不重新编号。"
                   },
@@ -25216,8 +25349,7 @@
                     "recordId": {
                       "type": "string",
                       "minLength": 1,
-                      "maxLength": 128,
-                      "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
+                      "maxLength": 128
                     },
                     "sample": {
                       "$ref": "#/components/schemas/CloudNullableSampleDocument"
@@ -25494,47 +25626,6 @@
               {
                 "$ref": "#/components/schemas/CloudPreviewResult"
               }
-            ]
-          }
-        },
-        "required": [
-          "code",
-          "msg",
-          "requestId",
-          "data"
-        ]
-      },
-      "DocUnsV2StreamRuntimeCapabilitiesGetResponse": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "code": {
-            "type": "integer"
-          },
-          "msg": {
-            "type": "string"
-          },
-          "requestId": {
-            "type": "string"
-          },
-          "data": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "controlInvokeReady": {
-                "type": "boolean"
-              },
-              "scriptContractVersion": {
-                "type": "string"
-              },
-              "controlMetadataReady": {
-                "type": "boolean"
-              }
-            },
-            "required": [
-              "controlInvokeReady",
-              "scriptContractVersion",
-              "controlMetadataReady"
             ]
           }
         },
@@ -27477,8 +27568,7 @@
                     "id": {
                       "type": "string",
                       "minLength": 1,
-                      "maxLength": 128,
-                      "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
+                      "maxLength": 128
                     },
                     "expiresAt": {
                       "type": "integer",
@@ -27588,8 +27678,7 @@
                 "items": {
                   "type": "string",
                   "minLength": 1,
-                  "maxLength": 128,
-                  "description": "仅在后续条目没有提交或已确认回滚时返回的安全续做位置；与 outcomeUnknown 互斥。"
+                  "maxLength": 128
                 }
               },
               "status": {

@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertNoRetiredStreamProbe } from './retired-stream-probe.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const [backend, requestedRef] = process.argv.slice(2);
@@ -18,6 +19,7 @@ const inputs = {
   'contracts/uns-v2/registry_generated.go': 'share/unscontract/registry_generated.go',
 };
 const entries = {};
+const contents = {};
 for (const [local, remote] of Object.entries(inputs)) {
   const [sourcePath, selector] = remote.split('#');
   let data = git('show', `${revision}:${sourcePath}`);
@@ -26,8 +28,8 @@ for (const [local, remote] of Object.entries(inputs)) {
     if (!match) throw new Error('Resolved Backend ContractJSON not found');
     data = Buffer.from(JSON.parse(match[1]) + '\n');
   }
-  mkdirSync(dirname(resolve(root, local)), { recursive: true });
-  writeFileSync(resolve(root, local), data);
+  assertNoRetiredStreamProbe(data.toString('utf8'), remote);
+  contents[local] = data;
   entries[local] = { path: remote, sha256: createHash('sha256').update(data).digest('hex') };
 }
 const manifest = JSON.parse(git('show', `${revision}:share/unscontract/manifest.json`));
@@ -36,6 +38,11 @@ const provenance = { repository: 'FREEZONEX/Tier0-Backend', revision, version: m
   source: inputs['contracts/uns-v2/contract.json'], cloudRevision: revision, cloudContractRevision: manifest.cloudContractRevision,
   resolvedCloudContract: true, enterpriseBase,
   sourceDerivedContractSHA256: entries['contracts/uns-v2/contract.json'].sha256 };
+// Validate every input before writing any snapshot or its provenance.
+for (const [local, data] of Object.entries(contents)) {
+  mkdirSync(dirname(resolve(root, local)), { recursive: true });
+  writeFileSync(resolve(root, local), data);
+}
 writeFileSync(resolve(root, 'contracts/uns-v2/provenance.json'), JSON.stringify(provenance, null, 2) + '\n');
 writeFileSync(resolve(root, 'contracts/upstream.json'), JSON.stringify({ repository: provenance.repository, revision, inputs: entries }, null, 2) + '\n');
 console.log(`Pinned Backend ${revision}. Run npm run generate and review the contract diff.`);

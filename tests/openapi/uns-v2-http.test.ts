@@ -113,7 +113,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
     for (const row of received.slice(start)) expect(row.headers['x-tier0-app-data-subject']).toBeUndefined();
   });
 
-  it.each(['controlDiscover', 'controlDescribe', 'controlInvoke', 'streamRuntimeCapabilitiesGet'] as const)
+  it.each(['controlDiscover', 'controlDescribe', 'controlInvoke'] as const)
   ('never forwards data delegation through unsV2.%s', async operation => {
     const start = received.length;
     const definition = {
@@ -131,32 +131,23 @@ describe('UNS v2 localhost HTTP fixture', () => {
         code: 'pump.start', contractVersion: '1', result: { started: true },
         runId: 'v2-control-run', status: 'succeeded', replayed: false,
       } },
-      streamRuntimeCapabilitiesGet: { ...envelope, data: {
-        controlInvokeReady: true, scriptContractVersion: 'tier0-stream/v2', controlMetadataReady: true,
-      } },
     } satisfies { [Name in typeof operation]: UnsV2Response<Name> };
     const requests = {
       controlDiscover: { page: 1, size: 20 },
       controlDescribe: { code: 'pump.start' },
       controlInvoke: { code: 'pump.start', input: {}, idempotencyKey: 'v2-control-intent' },
-      streamRuntimeCapabilitiesGet: {},
     };
     respond = (_req, res) => send(res, responses[operation]);
-    const api = createClient({
-      apiHost, apiKey: 'workspace-bound-key', unsV2AppDataSubject: 'gateway.user.signature',
-    });
     const results = {
       controlDiscover: () => rawClient({ unsV2AppDataSubject: 'gateway.user.signature' }).controlDiscover(requests.controlDiscover),
       controlDescribe: () => rawClient({ unsV2AppDataSubject: 'gateway.user.signature' }).controlDescribe(requests.controlDescribe),
       controlInvoke: () => rawClient({ unsV2AppDataSubject: 'gateway.user.signature' }).controlInvoke(requests.controlInvoke),
-      streamRuntimeCapabilitiesGet: () => api.stream.runtime.capabilities(requests.streamRuntimeCapabilitiesGet),
     };
     await expect(results[operation]()).resolves.toEqual(responses[operation]);
     const paths = {
       controlDiscover: '/openapi/v2/uns/controls/discover',
       controlDescribe: '/openapi/v2/uns/controls/describe',
       controlInvoke: '/openapi/v2/uns/controls/invoke',
-      streamRuntimeCapabilitiesGet: '/openapi/v2/uns/streams/runtime/capabilities/get',
     };
     expect(received.slice(start)).toHaveLength(1);
     expect(received[start]).toMatchObject({ method: 'POST', path: paths[operation] });
@@ -357,7 +348,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
       'record-notifications/1', 'record-delete-samples/1', 'stream-history/1',
       'record-reads/1', 'app-context/2', 'collection-ttl/1', 'error-model/1', 'record-insert-return/1',
     ]));
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('692e5dd8718d191c8049f8e00931ea3f492b122e');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('6cb53b80eeffd707df0a8a7698bcc02022580617');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(UNS_V2_CONTRACT_PROVENANCE.sourceDerivedContractSHA256).toBe(UNS_V2_CONTRACT_PROVENANCE.hashes.contract);
     expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(85);

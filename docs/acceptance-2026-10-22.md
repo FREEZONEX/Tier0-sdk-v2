@@ -2,6 +2,8 @@
 
 日期：2026-10-22。包：`@tier0/sdk-v2@0.1.0`。
 
+> 历史记录：以下结果仅适用于当时版本。2026-10-27 已退役 Stream 就绪探针及逐 Key Control scopes/codes；当前 SDK 不再导出该探针。不得将下文历史 403 当作 Stream 故障或按旧授权模型要求扩权。后续验收见 [Tier0-doc 新版架构专题](https://github.com/FREEZONEX/Tier0-doc/blob/main/docs/新版架构/03-Cloud新版改造/112-Stream控制就绪探针退役.md)。
+
 验收对应 SDK 提交 `5d30d5154354bac94bbbe88402a8303d6c43526d` 的安装包。报告提交时远端已合入其他功能（至 `78f5168`）；下列测试数量和业务结论不覆盖那些新增功能。
 
 结论：安装包和本地自动化通过；多组真实业务操作通过，但不能宣称“所有功能已可用”。追加验收已完成真实站内通知发送、Stream 发布、当前 release 的真实执行、停用及归档。Source 创建预检、Control 权限、Stream 能力查询、Agent 真实用户身份及文件大分片传输仍有阻断或限制。
@@ -62,7 +64,7 @@ Source 的 503 是后端返回的统一生命周期错误。对固定版本代�
 | --- | --- | --- |
 | Source 创建 503 | 当前镜像仍复现；requestId `8b0197c1-3479-4277-ba70-89e131512437`。错误映射将多种内部错误合并为 `cloud lifecycle service unavailable`，现有日志未能将根因关联到此请求 | 服务端在 Source 管理身份刷新、租户解析、凭据绑定预检、事务写入边界增加不含凭据的阶段码和 requestId 关联，再针对确切失败修复。暂不能声称重启、加权限或迁库能解决。未修改部署或数据库 |
 | 大文件分片 PUT 超时 | 追加对照中 1 KiB 的 PUT=200、complete=200；5 MiB 首片仍超过 20 秒。原测试 30/60 秒同样超时；额外把 Blob 转为 Uint8Array 发送，60 秒仍超时。小文件完成后的下载 URL 查询另遇连接错误，文件已删除，大分片会话已 abort | 签名对小分片有效，替换 Blob 发送体未解决。仍需上传路径/OSS 服务端证据定位；仅增大 timeout 不能算修复，须以两片上传、合并及下载 hash 比对为验收 |
-| Control 与 runtime capabilities 403 | 当前 Key 只有 UNS/Source/Stream scope；部署代码 `apiKeyUnsV2ControlScopes` 将能力查询也放在 Control 权限分支，且要求非空控制码 grants | 为测试对象配置最小 `control.read`/`control.execute` scope 和具体控制码授权；Stream manage 或 owner 身份不能替代。若产品要求普通 Stream 用户查询能力，需要后端单独调整该查询的授权规则；不得绕过真实 Control 调用授权 |
+| 当时的 Control 与 runtime capabilities 403 | 当时部署代码将能力查询放在旧 Control 权限分支 | 历史原因，不适用当前版本。探针现已退役，实际调用归入统一权限，不再要求逐 Key Control scopes/codes |
 | Agent jobs 身份限制 | 当前是 service Key；任务管理明确要求真实用户 | 使用有任务权限的真实成员 personal Key 或该功能支持的会话身份。扩大 service Key scope 不能把它变成真实用户 |
 
 ACK 日志另有 `UNS control metadata requires explicit migration before startup`，但尚未证实属于本 Workspace 或此次 Source 请求，不能把该日志当成本次 503 的根因。部署、重启、授权变更和数据库迁移均未执行。

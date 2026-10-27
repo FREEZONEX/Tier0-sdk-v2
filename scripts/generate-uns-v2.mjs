@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertNoRetiredStreamProbe } from './retired-stream-probe.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const inputs = {
@@ -22,6 +23,9 @@ const cloudSupportText = read(inputs.cloudSupport);
 const manifestText = read(inputs.manifest);
 const provenanceText = read(inputs.provenance);
 const registryText = read(inputs.registry);
+for (const [name, text] of Object.entries({ contractText, cloudSupportText, manifestText, registryText })) {
+  assertNoRetiredStreamProbe(text, name);
+}
 const contract = JSON.parse(contractText);
 const cloudSupport = JSON.parse(cloudSupportText);
 const manifest = JSON.parse(manifestText);
@@ -252,7 +256,7 @@ function codecFor(schema) {
 const schemaTypes = Object.entries(exportedSchemas).map(([name, schema]) =>
   `export type ${name} = ${typeFor(schema)};`).join('\n\n');
 const operationRows = publicOperations.map(operation =>
-  `  ${JSON.stringify(operation.name)}: { path: ${JSON.stringify(`/openapi/v2${operation.path}`)}, pathParams: ${JSON.stringify(operation.pathParams || [])}, request: ${JSON.stringify(requestType(operation))}, response: ${JSON.stringify(responseType(operation))}, mutation: ${JSON.stringify(Boolean(operation.mutation))}, idempotencyKey: ${JSON.stringify(Boolean(operation.mutation) && acceptsIdempotencyKey(manifest.schemas[requestType(operation)]))}, scope: ${JSON.stringify(operation.scope)} },`).join('\n');
+  `  ${JSON.stringify(operation.name)}: { path: ${JSON.stringify(`/openapi/v2${operation.path}`)}, pathParams: ${JSON.stringify(operation.pathParams || [])}, request: ${JSON.stringify(requestType(operation))}, response: ${JSON.stringify(responseType(operation))}, mutation: ${JSON.stringify(Boolean(operation.mutation || operation.sideEffect))}, idempotencyKey: ${JSON.stringify(Boolean(operation.mutation || operation.sideEffect) && acceptsIdempotencyKey(manifest.schemas[requestType(operation)]))}, scope: ${JSON.stringify(operation.scope)} },`).join('\n');
 const streamRows = streamOperations.map(operation =>
   `  ${JSON.stringify(operation.name)}: { path: ${JSON.stringify(`/openapi/v2${operation.path}`)}, request: ${JSON.stringify(requestType(operation))}, scope: ${JSON.stringify(operation.scope)} },`).join('\n');
 const operationTypes = publicOperations.map(operation =>
