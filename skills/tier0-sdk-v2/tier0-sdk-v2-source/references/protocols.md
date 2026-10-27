@@ -39,3 +39,5 @@ SQL options 包含 tlsMode（verify-full/disable）和 queries（资源名→固
 HTTP Client 示例不能用于 Server。独立异步 `http_push` 保留自己的 202 accepted 合同，不等同于同步 HTTP API Server 的响应；本管理 SDK 通过 `source.documents.*` 配置源，不据此新增 HTTP In 调用入口。
 
 Cloud 的角色位于 `config.role`；Enterprise 投影的顶层 `role` 不能直接抄入 Cloud 管理文档。Server 配置见[创建](create.md)，以 `http://managed` 和空 options 保存，不从 Client 模板推导。
+
+HTTP Client 的单条 inline 认证支持 basic / bearer / apiKey / oauth2ClientCredentials，method 省略时由服务端按 REQUEST 绑定 Source 基址；显式方法限制保持不变。APIKey 材料为 headerName/value，OAuth 可提供 clientAuthentication。见[创建](create.md)。

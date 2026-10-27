@@ -23510,13 +23510,24 @@
         "properties": {
           "method": {
             "type": "string",
-            "pattern": "^[A-Z]{1,32}$"
+            "enum": [
+              "GET",
+              "HEAD",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE",
+              "OPTIONS",
+              "REQUEST"
+            ],
+            "description": "Defaults to REQUEST for the Source base URL; an explicit method remains restricted."
           },
           "kind": {
             "type": "string",
             "enum": [
               "basic",
               "bearer",
+              "apiKey",
               "oauth2ClientCredentials"
             ]
           },
@@ -23526,7 +23537,6 @@
           }
         },
         "required": [
-          "method",
           "kind",
           "material"
         ],
@@ -23591,12 +23601,47 @@
             "properties": {
               "kind": {
                 "enum": [
+                  "apiKey"
+                ]
+              },
+              "method": {
+                "const": "REQUEST"
+              },
+              "material": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "headerName": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "writeOnly": true
+                  },
+                  "value": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8192,
+                    "writeOnly": true
+                  }
+                },
+                "required": [
+                  "headerName",
+                  "value"
+                ]
+              }
+            }
+          },
+          {
+            "properties": {
+              "kind": {
+                "enum": [
                   "oauth2ClientCredentials"
                 ]
               },
               "method": {
                 "enum": [
-                  "GET"
+                  "GET",
+                  "REQUEST"
                 ]
               },
               "material": {
@@ -23606,7 +23651,8 @@
                   "tokenUrl": {
                     "type": "string",
                     "minLength": 1,
-                    "maxLength": 2048
+                    "maxLength": 2048,
+                    "writeOnly": true
                   },
                   "clientId": {
                     "type": "string",
@@ -23622,7 +23668,17 @@
                   },
                   "scope": {
                     "type": "string",
-                    "maxLength": 4096
+                    "maxLength": 4096,
+                    "writeOnly": true
+                  },
+                  "clientAuthentication": {
+                    "type": "string",
+                    "enum": [
+                      "client_secret_post",
+                      "client_secret_basic"
+                    ],
+                    "default": "client_secret_post",
+                    "writeOnly": true
                   }
                 },
                 "required": [

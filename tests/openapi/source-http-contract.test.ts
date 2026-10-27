@@ -51,6 +51,23 @@ describe('Cloud HTTP Source management contract', () => {
     });
   });
 
+  it('preserves the four inline auth material contracts and Source REQUEST binding restrictions', () => {
+    expect(http.credentialKinds).toEqual(['basic', 'bearer', 'apiKey', 'oauth2ClientCredentials']);
+    const schema = contract.schemas.CloudSourceCreateCredentials;
+    expect(schema.required).toEqual(['kind', 'material']);
+    expect(schema.properties.method.enum).toEqual(['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'REQUEST']);
+    const apiKey = schema.oneOf.find((item: { properties: { kind: { enum: string[] } } }) => item.properties.kind.enum[0] === 'apiKey');
+    expect(apiKey.properties.method).toEqual({ const: 'REQUEST' });
+    expect(apiKey.properties.material.required).toEqual(['headerName', 'value']);
+    const oauth = schema.oneOf.find((item: { properties: { kind: { enum: string[] } } }) => item.properties.kind.enum[0] === 'oauth2ClientCredentials');
+    expect(oauth.properties.method.enum).toEqual(['GET', 'REQUEST']);
+    expect(oauth.properties.material.properties.clientAuthentication).toMatchObject({
+      enum: ['client_secret_post', 'client_secret_basic'], default: 'client_secret_post', writeOnly: true,
+    });
+    expect(manifest.operations.find((item: { name: string }) => item.name === 'sourceCredentialCreate').coreOnly).toBe(true);
+    expect(UNS_V2_CONTRACT_PROVENANCE.cloudContractRevision.split('+')).toEqual(expect.arrayContaining(['http-source-role/1', 'http-source-request/1']));
+  });
+
   it('retains the independent asynchronous Push configuration without adding an SDK ingress API', () => {
     const push = catalog.list.find((item: { protocol: string }) => item.protocol === 'http_push');
     expect(push.operations).toEqual(['receive']);

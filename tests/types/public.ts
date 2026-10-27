@@ -1,4 +1,4 @@
-import { createClient, getCurrentAppId, type Tier0Client, type UnsV2Integer, type CloudSourceDocument, type CloudSourceConfig, type components } from '../../src/index.js';
+import { createClient, getCurrentAppId, type Tier0Client, type UnsV2Integer, type CloudSourceDocument, type CloudSourceConfig, type CloudSourceCreateCredentials, type components } from '../../src/index.js';
 import { useTier0Query, useTier0Mutation } from '../../src/react.js';
 import { useTier0Request } from '../../src/vue.js';
 const sdk: Tier0Client = createClient({ apiHost: 'https://api.example.invalid', apiKey: 'placeholder' });
@@ -74,3 +74,21 @@ const invalidHttpRole: Extract<CloudSourceConfig, { configVersion: 2 }>['role'] 
 // @ts-expect-error Enterprise projection roles cannot be copied to the Cloud document root.
 const misplacedHttpRole: CloudSourceDocument = { ...httpClient, role: 'client' };
 void [retiredHttpProtocol, invalidHttpRole, misplacedHttpRole];
+
+const inlineAuth: CloudSourceCreateCredentials[] = [
+  { kind: 'basic', material: { username: 'fixture', password: 'fixture-only' } },
+  { kind: 'bearer', material: { token: 'fixture-only' } },
+  { kind: 'apiKey', material: { headerName: 'X-API-Key', value: 'fixture-only' } },
+  { kind: 'oauth2ClientCredentials', material: { tokenUrl: 'https://fixture.invalid/token', clientId: 'fixture', clientSecret: 'fixture-only' } },
+  { kind: 'oauth2ClientCredentials', method: 'REQUEST', material: { tokenUrl: 'https://fixture.invalid/token', clientId: 'fixture', clientSecret: 'fixture-only', clientAuthentication: 'client_secret_basic' } },
+];
+for (const credentials of inlineAuth) sdk.source.documents.create({ dryRun: true, document: httpClient, credentials, idempotencyKey: 'fixture-inline' });
+// @ts-expect-error APIKey inline material uses headerName/value.
+const oldApiKeyMaterial: CloudSourceCreateCredentials = { kind: 'apiKey', material: { name: 'X-API-Key', key: 'fixture-only' } };
+// @ts-expect-error APIKey only accepts REQUEST binding.
+const invalidApiKeyMethod: CloudSourceCreateCredentials = { kind: 'apiKey', method: 'GET', material: { headerName: 'X-API-Key', value: 'fixture-only' } };
+// @ts-expect-error Vendor SESSION is not an inline HTTP credential method.
+const vendorSessionInline: CloudSourceCreateCredentials = { kind: 'bearer', method: 'SESSION', material: { token: 'fixture-only' } };
+// @ts-expect-error The independent credential endpoint remains Core-only.
+sdk.source.credentials.create({});
+void [oldApiKeyMaterial, invalidApiKeyMethod, vendorSessionInline];

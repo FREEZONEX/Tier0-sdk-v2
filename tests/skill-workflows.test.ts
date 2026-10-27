@@ -136,6 +136,26 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     finished();
   });
 
+  it.each([
+    { kind: 'basic', material: { username: 'fixture-user', password: 'fixture-only' } },
+    { kind: 'bearer', material: { token: 'fixture-only' } },
+    { kind: 'apiKey', method: 'REQUEST', material: { headerName: 'X-API-Key', value: 'fixture-only' } },
+    { kind: 'oauth2ClientCredentials', material: { tokenUrl: 'https://fixture.invalid/token',
+      clientId: 'fixture-client', clientSecret: 'fixture-only', clientAuthentication: 'client_secret_basic' } },
+  ])('creates inline $kind credentials without inventing a client-side method default', async credentials => {
+    steps = [{ path: 'sources/documents/create', check: body => {
+      expect(body).toEqual({ dryRun: false, idempotencyKey: 'create-inline',
+        document: { name: 'orders', protocol: 'http-api',
+          config: { configVersion: 2, role: 'client', endpoint: 'https://fixture.invalid', options: {} } },
+        credentials });
+    }, data: source() }];
+    const created = await example('source', 'create', 3).createHttpSourceWithCredentials(
+      'https://fixture.invalid', 'orders', credentials, 'create-inline', client);
+    expect(created.current).toEqual(source());
+    expect(calls).toHaveLength(1);
+    finished();
+  });
+
   it('keeps Source impact review separate from explicitly confirming a referenced rename', async () => {
     steps = [{ path: 'sources/impact', check: b => expect(b).toMatchObject({
       id: source().id, expectedRevision: 1, action: 'update', patch: { name: 'renamed' },

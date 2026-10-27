@@ -85,3 +85,34 @@ export async function createHttpServerSource(
 ```
 
 Server 的同步入站语义和 Bearer 要求由协议目录的 `x-tier0-http-in` 描述；本 npm 包提供 Source 管理方法，不把 Client 的 `upstream.request` 当作 Server 入站入口。独立异步 `http_push` 仍按自己的 202 accepted 合同处理。
+
+## 四类 inline 认证与 REQUEST 绑定
+
+单条创建可通过 `credentials` 提供以下只写材料；与已有 auth/TLS 引用互斥，并要求本次创建的 `idempotencyKey`。材料从调用方已授权的密钥提供者注入，不在示例中读取文件或环境中的秘密，不记录或返回材料。
+
+| kind | material | method |
+| --- | --- | --- |
+| basic | username、password | 省略时 REQUEST；可显式绑定受限 HTTP 方法 |
+| bearer | token | 省略时 REQUEST；上方 GET 示例保持明确的方法限制 |
+| apiKey | headerName、value | 省略或 REQUEST；不接受旧 name/key 形态 |
+| oauth2ClientCredentials | tokenUrl、clientId、clientSecret；可选 scope、clientAuthentication | 省略、REQUEST 或 GET |
+
+OAuth 的 `clientAuthentication` 支持 `client_secret_post`（默认）和 `client_secret_basic`。REQUEST 表示绑定 Source 基址，实际路径和方法仍由执行宿主逐次授权；显式方法的已有绑定不能解释成 REQUEST 的基址范围。vendor SESSION 合同独立保留，不是此 inline 创建的 method，也不新增独立公开凭据 API。
+
+```ts
+import { createClient, type Tier0Client, type CloudSourceCreateCredentials } from '@tier0/sdk-v2';
+
+export async function createHttpSourceWithCredentials(
+  endpoint: string, name: string, credentials: CloudSourceCreateCredentials, intentKey: string,
+  client: Tier0Client = createClient(),
+) {
+  const saved = await client.source.documents.create({
+    dryRun: false, idempotencyKey: intentKey,
+    document: { name, protocol: 'http-api',
+      config: { configVersion: 2, role: 'client', endpoint, options: {} } },
+    credentials,
+  });
+  if (!('id' in saved.data)) throw new Error('未返回已保存的 Source');
+  return { receipt: saved, current: saved.data };
+}
+```

@@ -238,6 +238,7 @@
       "credentialKinds": [
         "basic",
         "bearer",
+        "apiKey",
         "oauth2ClientCredentials"
       ],
       "name": "HTTP API",
