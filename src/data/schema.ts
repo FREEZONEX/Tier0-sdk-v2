@@ -83,6 +83,8 @@ export const SCHEMA_LIMITS = {
 } as const;
 
 const SAFE_INTEGER_BOUND = Number.MAX_SAFE_INTEGER;
+// 新声明必须携带明确数值格式；只补注解，不改变范围校验或已有集合。
+const DEFAULT_NUMERIC_FORMAT = { integer: 'int32', number: 'double' } as const;
 const SCHEMA_TYPES = new Set<string>(['object', 'array', 'string', 'number', 'integer', 'boolean']);
 const KEPT_KEYWORDS = new Set([
   'type',
@@ -209,7 +211,9 @@ function normalizeNode(node: unknown, path: string, depth: number, issues: Schem
   }
 
   const out: RecordSchema = { type: type as RecordSchemaType };
-  const format = node.format;
+  const format = node.format === undefined && (type === 'integer' || type === 'number')
+    ? DEFAULT_NUMERIC_FORMAT[type]
+    : node.format;
   if (format !== undefined) {
     if ((type === 'integer' && format === 'int32') || (type === 'number' && (format === 'float' || format === 'double')) || (type === 'string' && format === 'date-time')) {
       out.format = format;

@@ -124,16 +124,16 @@ describe('toRecordSchema', () => {
       count: z.int().meta({ format: 'int32' }),
       reading: z.number().meta({ format: 'float' }),
       samples: z.array(z.number().meta({ format: 'double' })),
-      legacyNumber: z.number(),
-      legacyInteger: z.int(),
+      defaultNumber: z.number(),
+      defaultInteger: z.int(),
       bounded: z.number().min(0).max(100).meta({ format: 'float' }),
     }));
     expect(schema.properties).toEqual({
       count: { type: 'integer', format: 'int32' },
       reading: { type: 'number', format: 'float' },
       samples: { type: 'array', items: { type: 'number', format: 'double' } },
-      legacyNumber: { type: 'number' },
-      legacyInteger: { type: 'integer' },
+      defaultNumber: { type: 'number', format: 'double' },
+      defaultInteger: { type: 'integer', format: 'int32' },
       bounded: { type: 'number', format: 'float', minimum: 0, maximum: 100 },
     });
   });
@@ -169,8 +169,8 @@ describe('toRecordSchema', () => {
       type: 'object',
       properties: {
         code: { type: 'string', description: 'Work order code' },
-        qty: { type: 'integer', minimum: 1 },
-        price: { type: 'number', minimum: 0, maximum: 1000 },
+        qty: { type: 'integer', format: 'int32', minimum: 1 },
+        price: { type: 'number', format: 'double', minimum: 0, maximum: 1000 },
         status: { type: 'string', enum: ['DRAFT', 'DONE'] },
         line: {
           type: 'object',
@@ -182,7 +182,7 @@ describe('toRecordSchema', () => {
           type: 'array',
           items: {
             type: 'object',
-            properties: { sku: { type: 'string' }, count: { type: 'integer' } },
+            properties: { sku: { type: 'string' }, count: { type: 'integer', format: 'int32' } },
             required: ['count', 'sku'],
             additionalProperties: false,
           },

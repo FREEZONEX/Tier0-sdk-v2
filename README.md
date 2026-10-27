@@ -88,6 +88,8 @@ Source/Stream 仍保留 `{ code, msg, requestId, data }` 响应以及 `UnsV2Erro
 
 ## UNS 数据访问
 
+新建 Schema 的数值字段使用明确格式：整数为 `type: 'integer', format: 'int32'`，小数为 `type: 'number', format: 'double'`，明确需要单精度时指定 `format: 'float'`。App 数据层编译 Zod 声明时，会递归为未指定格式的 integer/number 补齐 int32/double，并保留显式格式；直接调用 UNS/MCP 时由调用方提供 format。这些是类型注解，不新增数值范围或舍入规则；ensure 不改写已有字段注解，已有 legacy 字段需通过 schema:replace 单独迁移。
+
 ```ts
 const context = await tier0.uns.dataAppContext({});
 const page = await tier0.uns.recordFind({ collectionId: 'orders', limit: 20 });
