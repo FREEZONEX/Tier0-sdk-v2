@@ -2,11 +2,11 @@
 
 Tier0 云端新架构的独立 TypeScript / JavaScript SDK。新仓库、新 npm 包，不覆盖 `@tier0/sdk`。
 
-当前分支准备 `0.5.0` 破坏协议切换候选，尚未发布，须由父任务整合后发布。npm 正式版本仍为 `0.4.0`；下方安装命令指向正式版本，本分支的新 HTTP 合同示例需使用候选源码或本地安装包验证。
+`0.5.0` 将 Cloud HTTP Source 统一为 `protocol: http-api`，通过 `config.role: client | server` 区分主动请求与同步入站。升级时需迁移旧 `http` / 正向 `http_push` 配置；独立异步 `http_push` 的 202 accepted 合同继续保留。
 
 `0.4.0` 版本变更：相对 0.3.x 移除已退役的 Stream 就绪探针且不保留别名，改用服务端现有统一权限，不再配置逐 Key Control scopes/codes。0.3.0 起统一使用 OpenAPI v2 并退役重复及旧接口；与 0.2.x 存在不兼容变更，迁移方式见下方“本次接口退役”。对应 UNS v2 契约 5.0.0，与 0.1.0 不兼容（新错误模型 `execution` / `retry`、封顶计数、删除 `recordChangesPoll` 等）。Collection 支持 int、float、double 和 datetime 声明；格式注解不新增数值范围或日期格式校验，Sample 外层 time 保持不变。使用时需确认目标环境已部署对应后端。要求 Node.js 20.19+。浏览器 HTTP、MQTT、React、Vue 和服务端身份验签分别提供独立入口。
 
-本轮候选快照固定到已提交 Backend `86bef2325253c2f4eaab8168f983ac4ec09c0d2f`；发布前需核对目标环境部署。同步继续保留请求统一权限、旧探针退役门禁、Source discovery 的副作用分类及不自动重试语义。
+本版本合同快照固定到已提交 Backend `86bef2325253c2f4eaab8168f983ac4ec09c0d2f`；使用前需确认目标环境已部署相应合同。请求统一权限、旧探针退役门禁、Source discovery 的副作用分类及不自动重试语义保持不变。
 
 既有接口收敛：平台接口统一迁移到 `/openapi/v2`，Controls 使用 `/openapi/v2/uns/controls/*`；移除 21 个重复 UNS 入口和旧 Agent nodes/relations 方法。完善 Source 操作、Stream 发布回执及 UNS 创建快照的使用说明，保留精确发布编号和完整文档访问规则。
 
@@ -15,7 +15,7 @@ Tier0 云端新架构的独立 TypeScript / JavaScript SDK。新仓库、新 npm
 维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。业务项目安装精确版本：
 
 ```sh
-npm install --save-exact @tier0/sdk-v2@0.4.0
+npm install --save-exact @tier0/sdk-v2@0.5.0
 ```
 
 ```ts
