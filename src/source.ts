@@ -7,6 +7,7 @@ export function bindSourceClient(raw: UnsV2Client) {
   return Object.freeze({
     delete: raw.sourceDelete,
     validate: raw.sourceValidate, probe: raw.sourceProbe,
+    discover: raw.sourceDiscover,
     impact: raw.sourceImpact, history: raw.sourceHistory,
     protocols: Object.freeze({ list: raw.sourceProtocolsList }),
     state: Object.freeze({ update: raw.sourceStateUpdate }),

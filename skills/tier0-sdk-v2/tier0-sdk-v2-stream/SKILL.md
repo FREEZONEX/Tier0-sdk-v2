@@ -33,7 +33,7 @@ description: 使用 @tier0/sdk-v2 的 client.stream 创建、查询、修改和�
 2. create/update 保存草稿，不自动发布；documents 没有 deploy，云端 program 发布使用 programs.deploy。不能将已保存报告为已运行。
 3. 所有更新/部署/删除携带当前 expectedRevision。原生停用另需 expectedActiveRelease，避免停掉他人刚发布的版本。
 4. versionId 从 versions.list 取得，不把 release 序号当 ID。expectedSourceRevision 仅用于恰好一个依赖源，不代表多个源的修订。
-5. resources=[] 是空冻结资源集，不是通配符。能力选择可查询 runtime.capabilities，写入本身由服务端校验；需要预览时单独 validate。当前云端程序 timeoutMs 上限 30000。
+5. resources=[] 是空冻结资源集，不是通配符。写入本身由服务端校验，需要预览时单独 validate；当前云端程序 timeoutMs 上限 30000。旧 runtime.capabilities 查询已退役，不作为管理或执行前置检查，不为此增加 Control scope 或逐 Key 控制码授权。
 6. 仅执行用户要求的生命周期步骤；修改脚本不自动授予发布、停用或删除权限。
 
 ## 成功与异常

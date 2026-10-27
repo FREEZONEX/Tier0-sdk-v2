@@ -10,6 +10,17 @@ function functions(object: object): unknown[] {
   return Object.values(object).flatMap(value => typeof value === 'function' ? [value] : functions(value));
 }
 describe('Source, Stream and UNS domain clients', () => {
+  it('preserves the audited Source discovery side-effect classification without retrying', async () => {
+    let calls = 0;
+    const client = createClient({ apiHost: 'https://fixture.invalid', fetch: async () => {
+      calls++;
+      throw new Error('response lost after request');
+    } });
+    await expect(client.source.discover({ id: '101', expectedRevision: 1 })).rejects.toMatchObject({
+      execution: 'unknown', outcomeUnknown: true,
+    });
+    expect(calls).toBe(1);
+  });
   it.each(['source', 'stream', 'uns'] as const)('exposes every public %s operation exactly once in its domain', domain => {
     const raw = createUnsV2Client();
     const client = { source: bindSourceClient(raw), stream: bindStreamClient(raw), uns: bindUnsDataClient(raw) }[domain];

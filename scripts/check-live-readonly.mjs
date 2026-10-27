@@ -45,7 +45,6 @@ try {
     ['source.documents.list', () => client.source.documents.list({ page: 1, size: 20 })],
     ['source.documents.list', () => client.source.documents.list({ page: 1, size: 20, includeDocument: false })],
     ['stream.programs.list', () => client.stream.programs.list({ page: 1, size: 20, archived: false })],
-    ['stream.runtime.capabilities', () => client.stream.runtime.capabilities({})],
     ['uns.dataDiscover', () => client.uns.dataDiscover({ page: 1, size: 20 })],
     ['uns.metadataFind(directory)', () => client.uns.metadataFind({ kind: 'directory', page: { page: 1, size: 20 } })],
     ['uns.metadataFind(topic)', () => client.uns.metadataFind({ kind: 'topic', page: { page: 1, size: 20 } })],

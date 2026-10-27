@@ -7,6 +7,8 @@ description: 使用 @tier0/sdk-v2 发现、描述和调用 Tier0 Control 业务�
 
 Control 是已发布的业务调用入口；它可由 Stream 提供，但调用方不选择内部 streamId、entryId 或部署版本。使用服务端 client.controls，实际调用 `/openapi/v2/uns/controls/discover|describe|invoke`，不重建旧 Flow 调用。
 
+调用按服务端现有统一权限及 App 业务策略校验；不配置逐 Key 的 Control scopes/codes。旧 Stream 就绪探针已经退役，不能因为它的历史 403 判断当前入口不可用或要求扩权。
+
 ## 发现和读取契约
 
 ```ts

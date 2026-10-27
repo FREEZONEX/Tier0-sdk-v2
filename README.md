@@ -2,16 +2,18 @@
 
 Tier0 云端新架构的独立 TypeScript / JavaScript SDK。新仓库、新 npm 包，不覆盖 `@tier0/sdk`。
 
-当前版本 `0.3.0` 统一使用 OpenAPI v2，并退役重复及旧接口；与 0.2.x 存在不兼容变更，迁移方式见下方“本次接口退役”。对应 UNS v2 契约 5.0.0，与 0.1.0 不兼容（新错误模型 `execution` / `retry`、封顶计数、删除 `recordChangesPoll` 等）。Collection 支持 int、float、double 和 datetime 声明；格式注解不新增数值范围或日期格式校验，Sample 外层 time 保持不变。使用时需确认目标环境已部署对应后端。要求 Node.js 20.19+。浏览器 HTTP、MQTT、React、Vue 和服务端身份验签分别提供独立入口。
+当前源码准备 `0.4.0`，尚未发布 npm。相对 0.3.x 移除已退役的 Stream 就绪探针且不保留别名，改用服务端现有统一权限，不再配置逐 Key Control scopes/codes。0.3.0 起统一使用 OpenAPI v2 并退役重复及旧接口；与 0.2.x 存在不兼容变更，迁移方式见下方“本次接口退役”。对应 UNS v2 契约 5.0.0，与 0.1.0 不兼容（新错误模型 `execution` / `retry`、封顶计数、删除 `recordChangesPoll` 等）。Collection 支持 int、float、double 和 datetime 声明；格式注解不新增数值范围或日期格式校验，Sample 外层 time 保持不变。使用时需确认目标环境已部署对应后端。要求 Node.js 20.19+。浏览器 HTTP、MQTT、React、Vue 和服务端身份验签分别提供独立入口。
 
-本次更新：平台接口统一迁移到 `/openapi/v2`，Controls 使用 `/openapi/v2/uns/controls/*`；移除 21 个重复 UNS 入口和旧 Agent nodes/relations 方法。完善 Source 操作、Stream 发布回执及 UNS 创建快照的使用说明，保留精确发布编号和完整文档访问规则。
+本次合同固定到已部署 Backend `6cb53b80`，同步请求统一权限、移除旧探针，并保留该版本 Source discovery 的副作用分类及不自动重试语义。
+
+既有接口收敛：平台接口统一迁移到 `/openapi/v2`，Controls 使用 `/openapi/v2/uns/controls/*`；移除 21 个重复 UNS 入口和旧 Agent nodes/relations 方法。完善 Source 操作、Stream 发布回执及 UNS 创建快照的使用说明，保留精确发布编号和完整文档访问规则。
 
 ## 安装与初始化
 
-发布前在本仓库运行 `npm ci`、`npm run check`，验证生成的 `.tgz`。业务项目安装精确版本：
+发布前在本仓库运行 `npm ci`、`npm run check`，验证生成的 `.tgz`。发布前业务项目安装验证生成的 `.tgz`；正式发布后安装精确版本：
 
 ```sh
-npm install --save-exact @tier0/sdk-v2@0.3.0
+npm install --save-exact @tier0/sdk-v2@0.4.0
 ```
 
 ```ts
@@ -73,10 +75,11 @@ Source 负责连接外部系统，Stream 负责处理与运行，UNS 负责命�
 ```ts
 const sources = await tier0.source.documents.list({ page: 1, size: 20 });
 const programs = await tier0.stream.programs.list({ page: 1, size: 20 });
-const runtime = await tier0.stream.runtime.capabilities({});
 ```
 
 Source/Stream 仍保留 `{ code, msg, requestId, data }` 响应以及 `UnsV2Error` 错误类型。Source 配置统一使用 `source.documents`；Stream 草稿统一通过 `stream.documents` 创建、读取、校验和修改，输入 `program` 与 `document` 二选一。发布和回滚仍走 `stream.programs`。保存、部署、运行成功分别判断。
+
+旧 `stream.runtime.capabilities()` 及底层 `streamRuntimeCapabilitiesGet` 已退役，没有兼容别名；不要把该查询当作 Stream 前置检查，也不要为消除它的 403 增加 Control scope 或逐 Key 的控制码授权。Stream 管理、实际执行、发布、回滚及运行记录继续通过各自接口和统一权限校验；通用能力发现不代替实际操作结果。
 
 - 已知 Source ID/revision 且没有 Stream 引用时，可 [直接 patch 或变更状态](skills/tier0-sdk-v2/tier0-sdk-v2-source/references/update.md)；有引用时仍按精确意图确认影响。
 - Stream 创建/更新回执的 revision 可直接用于发布；[发布回执](skills/tier0-sdk-v2/tier0-sdk-v2-stream/references/deploy.md) 的 activeRelease 用于观察这次发布，无需前后各查询一次。

@@ -4,6 +4,7 @@ import { useTier0Request } from '../../src/vue.js';
 const sdk: Tier0Client = createClient({ apiHost: 'https://api.example.invalid', apiKey: 'placeholder' });
 sdk.uns.recordFind({ collectionId: 'orders' }, { signal: new AbortController().signal });
 sdk.source.documents.list({ includeDocument: false });
+sdk.source.discover({ id: '101', expectedRevision: 1 });
 sdk.stream.programs.deploy({ id: '123', dryRun: true });
 // @ts-expect-error Source management belongs to its own domain
 sdk.uns.sourceList({});
@@ -54,3 +55,6 @@ sdk.source.list({});
 sdk.stream.programs.get({ id: "301" });
 // @ts-expect-error Namespace Agent routes have no v2 contract.
 sdk.agent.nodes.searchSemantic({});
+
+// @ts-expect-error The retired readiness probe has no facade or compatibility alias.
+sdk.stream.runtime.capabilities({});

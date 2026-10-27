@@ -26,7 +26,7 @@ const operation = (name: string) => manifest.operations.find(item => item.name =
 
 describe('Backend App UNS access contract without generic record audit', () => {
   it('pins the exact upstream commit and all generator inputs', () => {
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('692e5dd8718d191c8049f8e00931ea3f492b122e');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('6cb53b80eeffd707df0a8a7698bcc02022580617');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     for (const [key, file] of Object.entries({ contract: 'contract.json', cloudSupport: 'cloud-support.json', manifest: 'manifest.json', provenance: 'provenance.json', registry: 'registry_generated.go' })) {
       expect(UNS_V2_CONTRACT_PROVENANCE.hashes[key as keyof typeof UNS_V2_CONTRACT_PROVENANCE.hashes]).toBe(
@@ -82,6 +82,18 @@ describe('Backend App UNS access contract without generic record audit', () => {
         expect(UNS_V2_OPERATIONS[item.name as keyof typeof UNS_V2_OPERATIONS].mutation, item.name).toBe(!item.readOnly);
       }
     }
+  });
+
+  it('uses unified request permissions and never offers API Key Control grants', () => {
+    expect(operation('controlDiscover').permission).toBe('stream.requests.read');
+    expect(operation('controlInvoke').permission).toBe('stream.requests.invoke');
+    expect(operation('controlGrantSet').permission).toBe('stream.requests.manage');
+    const grant = manifest.schemas.CloudControlGrantSetReq.properties!;
+    expect(grant.principalKind).toMatchObject({ enum: ['app', 'user'] });
+    expect(Object.hasOwn(UNS_V2_OPERATIONS, 'streamRuntimeCapabilitiesGet')).toBe(false);
+    expect(manifest.operations.some(item => item.name === 'streamRuntimeCapabilitiesGet')).toBe(false);
+    expect(Object.hasOwn(manifest.schemas, 'CloudStreamRuntimeCapabilitiesGetReq')).toBe(false);
+    expect(Object.hasOwn(manifest.schemas, 'CloudStreamRuntimeCapabilitiesGetResponse')).toBe(false);
   });
 
   it('flags the non-atomic batch writes that can commit partly', () => {
@@ -145,7 +157,7 @@ describe('Backend App UNS access contract without generic record audit', () => {
       expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(true);
     }
     for (const name of ['hostedAppControlPolicyGet', 'hostedAppControlPolicyUpdate']) {
-      expect(operation(name)).toMatchObject({ appAllowed: false, permission: 'control.manage', minPermission: 3 });
+      expect(operation(name)).toMatchObject({ appAllowed: false, permission: 'stream.requests.manage', minPermission: 3 });
       expect(operation(name).coreOnly).not.toBe(true);
       expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(true);
     }
