@@ -12,7 +12,7 @@ const workOrders = defineCollection({
     code: z.string(),
     status: z.enum(['DRAFT', 'RELEASED', 'DONE']),
     line: z.object({ id: z.string(), name: z.string() }),
-    targetQty: z.number().int().min(1),
+    targetQty: z.number().int().min(1).meta({ format: 'int32' }),
     notes: z.string().optional(),
   }),
   indexes: [{ path: 'code', unique: true }, { path: 'status' }],

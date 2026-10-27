@@ -32,7 +32,7 @@ export const workOrders = defineCollection({
   schema: z.object({
     code: z.string(),
     status: z.enum(['DRAFT', 'RELEASED', 'DONE', 'CANCELLED']),
-    targetQty: z.number().int().min(1),
+    targetQty: z.number().int().min(1).meta({ format: 'int32' }),
     dueAt: z.string(),
   }),
   indexes: [{ path: 'code', unique: true }, { path: 'status' }],
@@ -51,6 +51,7 @@ export async function releasedOrders(): Promise<WorkOrder[]> {
 
 1. 声明文件只从 `@tier0/sdk-v2/data/define` 导入，客户端代码可以安全引用它；全部集合在一个 `collections` 列表里声明（每个 App 最多 64 个），只建一个进程级 client；不要手动 ensure、不要在 import 时访问数据、不要自建“已初始化”标记。
 2. 集合 Schema 是存储 Schema：只能用可存储的 Zod 子集，输入规则（格式、长度、默认值、transform）放在 API 入参 Schema。
+   新建数值字段明确选择 int（integer + int32）、float 或 double（number + 对应 format）；普通小数选 double，嵌套对象和数组元素同样处理。SDK 会为未标注的 integer/number 补齐 int32/double；直接 MCP 请求必须自行提供 format。
 3. 写入前按声明严格校验，未知字段、类型错误、未声明的更新路径直接抛 `ZodError`；读取不做严格解析，旧版本写入的字段、新枚举值或缺字段都可能出现。
 4. `insertMany` / `bulkWrite` / `transact` 每次最多 200 项且原子；`updateMany` / `deleteMany` 逐条提交、非原子。
 5. 按 `DataError.code` 与 `reason`（`data.reason`）分支，不匹配 message 文本；`status` 是 App 应回给自己调用方的 HTTP 状态。

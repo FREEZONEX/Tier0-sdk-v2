@@ -23,7 +23,7 @@ export const salesOrders = defineCollection({
     code: z.string(),
     status: z.enum(['DRAFT', 'CONFIRMED', 'SHIPPED', 'CANCELLED']),
     customer: z.object({ id: z.string(), name: z.string() }),
-    lines: z.array(z.object({ sku: z.string(), qty: z.number().int().min(1) })),
+    lines: z.array(z.object({ sku: z.string(), qty: z.number().int().min(1).meta({ format: 'int32' }) })),
     notes: z.string().optional(),
     orderedOn: z.string().describe('YYYY-MM-DD'),
     confirmedAt: z.string().optional().describe('ISO-8601 UTC from toISOString()'),
@@ -63,7 +63,7 @@ export const createSalesOrderInput = salesOrders.schema
 
 ## 字段类型标注
 
-需要在 Collection 中明确显示 `int`、`float`、`double`、`datetime` 时，通过 Zod 元数据添加格式声明。传输仍使用 JSON Schema 的 `integer` / `number` / `string`：
+新建数值字段必须明确选择 int、float 或 double，普通小数默认 double。需要在 Collection 中明确显示 `int`、`float`、`double`、`datetime` 时，通过 Zod 元数据添加格式声明。传输仍使用 JSON Schema 的 `integer` / `number` / `string`：
 
 | 声明 | 传输 Schema | 显示类型 |
 | --- | --- | --- |
@@ -72,7 +72,7 @@ export const createSalesOrderInput = salesOrders.schema
 | `z.number().meta({ format: 'double' })` | `{ type: 'number', format: 'double' }` | `double` |
 | `z.string().meta({ format: 'date-time' })` | `{ type: 'string', format: 'date-time' }` | `datetime` |
 
-`format` 当前是类型展示注解，不额外限制数值范围或精度，也不舍入数据。写入仍按原来的 Zod 类型和显式 `.min()` / `.max()` 校验；需要业务范围时应继续声明边界。普通 `z.number()`、`z.int()`、`z.number().int()` 和 `z.string()` 保持原有行为，不会自动追加格式或收窄已有集合。只接受上表四种类型与格式组合。
+`format` 当前是类型展示注解，不额外限制数值范围或精度，也不舍入数据。写入仍按原来的 Zod 类型和显式 `.min()` / `.max()` 校验；需要业务范围时应继续声明边界。SDK 编译时递归为普通 `z.number()` 补 `double`，为 `z.int()` / `z.number().int()` 补 `int32`；显式 float/double 与 date-time 保留，普通字符串不补格式，也不根据样本数值推断精度。只接受上表四种类型与格式组合。
 
 `datetime` 仍保存原始字符串，不校验日期是否有效、不解析或转换时区；`"not a date"` 也能通过字符串类型校验。需要日期合法性保证时，在 API 入参 Schema 单独使用 `z.iso.datetime()`；这类带 `pattern` 的验证器不能直接作为可存储的集合声明。新增注解不改变 Sample 外层 `time` 的毫秒时间戳协议、已有校验和业务时间含义。
 
@@ -90,7 +90,7 @@ import { defineCollection } from '@tier0/sdk-v2/data/define';
 
 export const loginCodes = defineCollection({
   alias: 'login_codes',
-  schema: z.object({ phone: z.string(), code: z.string(), issuedAt: z.number().int() }),
+  schema: z.object({ phone: z.string(), code: z.string(), issuedAt: z.number().int().meta({ format: 'int32' }) }),
   // issuedAt 存 Date.now()；签发 5 分钟后删除。
   indexes: [{ path: 'phone' }, { path: 'issuedAt', expireAfterSeconds: 300 }],
 });
@@ -111,3 +111,5 @@ export const loginCodes = defineCollection({
 - 共享实体按 ID 引用，并快照需要展示的字段（`customer: { id, name }`），不要在读取时 join。`aggregate` 有 `$lookup`，但有行数限制，不要用它搭列表页。
 - 每种业务对象一个集合，而不是每个页面一个集合。
 - “最新优先”用 `_meta.createdAt` / `_meta.updatedAt`，由 UNS 维护。
+
+直接通过 MCP 提交 recordSchema/sampleSchema 时必须提供上述 type + format；Zod 编译兜底不处理原始请求。ensure 保留已有字段注解，无格式的存量字段需读取完整 Schema、保留其他约束，通过 schema:replace 先 dryRun 再按明确迁移授权执行。
