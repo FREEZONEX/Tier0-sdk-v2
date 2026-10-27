@@ -12,9 +12,9 @@
 | program.sourceBindings | array | 否 | sourceId、configRevision、acquisition |
 | idempotencyKey | string | 否 | 最多 128 字符，本次创建的固定意图键 |
 
-## HTTP Source 绑定示例
+## HTTP Client Source 绑定示例
 
-先按[Source 查询](../../tier0-sdk-v2-source/references/read.md)选定真实 HTTP Source。脚本的 api.sources 属于平台执行器，与应用中的 client.source 不同。sourceId 保持字符串，configRevision 从完整源读取。
+先按[Source 查询](../../tier0-sdk-v2-source/references/read.md)选定真实 HTTP Client Source。脚本的 api.sources 属于平台执行器，与应用中的 client.source 不同。sourceId 保持字符串，configRevision 从完整源读取。省略 `config.role` 时按正式协议目录默认为 client；Server 走入站语义，不能创建为主动请求程序。
 
 ```ts
 import { createClient, type Tier0Client, type RuntimeStreamDefinition } from '@tier0/sdk-v2';
@@ -25,14 +25,17 @@ export async function createHttpStream(
   if (!/^[1-9][0-9]*$/.test(sourceId)) throw new Error('Source ID 必须是正十进制字符串');
   const source = await client.source.documents.get({ id: sourceId, view: 'full' });
   if (!('document' in source.data)) throw new Error('需要完整 Source 文档');
-  if (source.data.document.protocol !== 'http') throw new Error('此示例需要 HTTP Source');
+  if (source.data.document.protocol !== 'http-api' || source.data.document.config.configVersion !== 2 ||
+      (source.data.document.config.role ?? 'client') !== 'client') {
+    throw new Error('此主动请求示例需要 HTTP API Client Source');
+  }
   const document: RuntimeStreamDefinition = {
     name, sdkVersion: 'tier0-stream/v2', timeoutMs: 5000,
     sourceBindings: [{ sourceId, configRevision: source.data.revision, acquisition: {} }],
     script: [
       'module.exports = api => {',
       '  const upstream = api.sources.use({ id: ' + JSON.stringify(sourceId) + ', resources: [] });',
-      '  api.stream.onTimer({ id: "tick", intervalMs: 60000 }, async () => {',
+      '  api.stream.every({ id: "tick", intervalMs: 60000 }, async () => {',
       '    const response = await upstream.request({ method: "GET", path: "orders" });',
       '    return response.data;',
       '  });',

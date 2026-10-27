@@ -17,6 +17,7 @@ const inputs = {
   'contracts/uns-v2/manifest.json': 'share/unscontract/manifest.json',
   'contracts/uns-v2/cloud-support.json': 'share/unscontract/cloud-support.json',
   'contracts/uns-v2/registry_generated.go': 'share/unscontract/registry_generated.go',
+  'contracts/uns-v2/source-protocols.json': 'share/unscontract/source-protocols.json',
 };
 const entries = {};
 const contents = {};
@@ -24,7 +25,7 @@ for (const [local, remote] of Object.entries(inputs)) {
   const [sourcePath, selector] = remote.split('#');
   let data = git('show', `${revision}:${sourcePath}`);
   if (selector === 'ContractJSON') {
-    const match = data.toString('utf8').match(/^const ContractJSON = (".*")$/m);
+    const match = data.toString('utf8').match(/^const ContractJSON = ("(?:\\[\s\S]|[^"\\])*")\r?$/m);
     if (!match) throw new Error('Resolved Backend ContractJSON not found');
     data = Buffer.from(JSON.parse(match[1]) + '\n');
   }
