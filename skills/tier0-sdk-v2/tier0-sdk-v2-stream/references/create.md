@@ -35,7 +35,7 @@ export async function createHttpStream(
     script: [
       'module.exports = api => {',
       '  const upstream = api.sources.use({ id: ' + JSON.stringify(sourceId) + ', resources: [] });',
-      '  api.stream.onTimer({ id: "tick", intervalMs: 60000 }, async () => {',
+      '  api.stream.every({ id: "tick", intervalMs: 60000 }, async () => {',
       '    const response = await upstream.request({ method: "GET", path: "orders" });',
       '    return response.data;',
       '  });',

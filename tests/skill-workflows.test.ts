@@ -229,6 +229,8 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
       { path: 'streams/documents/create', check: b => {
         expect(b.program.sourceBindings).toEqual([{ sourceId: source().id, configRevision: 1, acquisition: {} }]);
         expect(b.program.script).toContain('api.sources.use');
+        expect(b.program.script).toContain('api.stream.every');
+        expect(b.program.script).not.toMatch(/\.onTimer\(|\.onEvent\(|\.secrets\(|\bcontrol\s*:/);
       }, data: stream() },
       { path: 'streams/documents/get', data: stream() },
       { path: 'streams/documents/update', check: b => expect(b).toMatchObject({
