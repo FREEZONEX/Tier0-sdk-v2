@@ -2,7 +2,7 @@
 
 Tier0 云端新架构的独立 TypeScript / JavaScript SDK。新仓库、新 npm 包，不覆盖 `@tier0/sdk`。
 
-当前源码准备 `0.4.0`，尚未发布 npm。相对 0.3.x 移除已退役的 Stream 就绪探针且不保留别名，改用服务端现有统一权限，不再配置逐 Key Control scopes/codes。0.3.0 起统一使用 OpenAPI v2 并退役重复及旧接口；与 0.2.x 存在不兼容变更，迁移方式见下方“本次接口退役”。对应 UNS v2 契约 5.0.0，与 0.1.0 不兼容（新错误模型 `execution` / `retry`、封顶计数、删除 `recordChangesPoll` 等）。Collection 支持 int、float、double 和 datetime 声明；格式注解不新增数值范围或日期格式校验，Sample 外层 time 保持不变。使用时需确认目标环境已部署对应后端。要求 Node.js 20.19+。浏览器 HTTP、MQTT、React、Vue 和服务端身份验签分别提供独立入口。
+`0.4.0` 版本变更：相对 0.3.x 移除已退役的 Stream 就绪探针且不保留别名，改用服务端现有统一权限，不再配置逐 Key Control scopes/codes。0.3.0 起统一使用 OpenAPI v2 并退役重复及旧接口；与 0.2.x 存在不兼容变更，迁移方式见下方“本次接口退役”。对应 UNS v2 契约 5.0.0，与 0.1.0 不兼容（新错误模型 `execution` / `retry`、封顶计数、删除 `recordChangesPoll` 等）。Collection 支持 int、float、double 和 datetime 声明；格式注解不新增数值范围或日期格式校验，Sample 外层 time 保持不变。使用时需确认目标环境已部署对应后端。要求 Node.js 20.19+。浏览器 HTTP、MQTT、React、Vue 和服务端身份验签分别提供独立入口。
 
 本次合同固定到已部署 Backend `6cb53b80`，同步请求统一权限、移除旧探针，并保留该版本 Source discovery 的副作用分类及不自动重试语义。
 
@@ -10,7 +10,7 @@ Tier0 云端新架构的独立 TypeScript / JavaScript SDK。新仓库、新 npm
 
 ## 安装与初始化
 
-发布前在本仓库运行 `npm ci`、`npm run check`，验证生成的 `.tgz`。发布前业务项目安装验证生成的 `.tgz`；正式发布后安装精确版本：
+维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。业务项目安装精确版本：
 
 ```sh
 npm install --save-exact @tier0/sdk-v2@0.4.0
