@@ -62,8 +62,8 @@ const outcome = (status = 'committed') => ({ status, replayed: false, results: [
 const page = (list: unknown[]) => ({ list, total: list.length, page: 1, size: 200,
   hasMore: false, complete: true, truncated: false, snapshotScope: 'thisRequestOnly' });
 const source = (revision = 1, name = 'orders') => ({
-  id: '9007199254740993', revision, document: { name, protocol: 'http', description: '订单系统 HTTP 接入',
-    config: { configVersion: 2, endpoint: 'https://fixture.invalid', options: {} } },
+  id: '9007199254740993', revision, document: { name, protocol: 'http-api', description: '订单系统 HTTP 接入',
+    config: { configVersion: 2, role: 'client', endpoint: 'https://fixture.invalid', options: {} } },
   desiredState: 'disabled', runtimeState: 'stopped', health: 'unknown', createdAt: 1, updatedAt: 1,
 });
 const token = 'si1_' + 'a'.repeat(43); // Fixture-only server-issued confirmation.
@@ -179,6 +179,47 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
       id: source().id, expectedRevision: 1, action: 'delete',
     }, client);
     expect(result.references).toHaveLength(2);
+    finished();
+  });
+
+  it('creates an HTTP Server using the managed endpoint without Client credentials', async () => {
+    const current = source();
+    const serverDocument = { name: 'orders-in', protocol: 'http-api',
+      config: { configVersion: 2, role: 'server', endpoint: 'http://managed', options: {} } };
+    steps = [{ path: 'sources/documents/create', check: body => expect(body).toEqual({
+      dryRun: false, idempotencyKey: 'create-server', document: serverDocument,
+    }), data: { ...current, document: serverDocument } }];
+    const created = await example('source', 'create', 2).createHttpServerSource('orders-in', 'create-server', client);
+    expect(created.current.document).toEqual(serverDocument);
+    expect(calls).toHaveLength(1);
+    finished();
+  });
+
+  it('uses the public default Client role when the HTTP config omits role', async () => {
+    const current = source();
+    const { role: _role, ...config } = current.document.config;
+    steps = [
+      { path: 'sources/documents/get', data: { ...current, document: { ...current.document, config } } },
+      { path: 'streams/documents/create', check: body => {
+        expect(body.program.sourceBindings[0].sourceId).toBe(current.id);
+        expect(body.program.script).toContain('upstream.request');
+      }, data: stream() },
+    ];
+    await example('stream', 'create').createHttpStream(current.id, 'orders-stream', 'create-stream', client);
+    expect(calls).toHaveLength(2);
+    finished();
+  });
+
+  it.each([
+    ['http-api', 'server'], ['http_push', undefined], ['http', undefined],
+  ])('rejects %s/%s before creating an active-request Stream', async (protocol, role) => {
+    const current = source();
+    steps = [{ path: 'sources/documents/get', data: { ...current,
+      document: { ...current.document, protocol, config: { ...current.document.config, role } } } }];
+    await expect(example('stream', 'create').createHttpStream(
+      current.id, 'orders-stream', 'create-stream', client,
+    )).rejects.toThrow('此主动请求示例需要 HTTP API Client Source');
+    expect(calls).toHaveLength(1);
     finished();
   });
 

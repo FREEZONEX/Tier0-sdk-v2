@@ -1,0 +1,2721 @@
+{
+  "list": [
+    {
+      "acquisitionSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "configSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false,
+        "properties": {
+          "configVersion": {
+            "const": 2,
+            "type": "integer"
+          },
+          "endpoint": {
+            "const": "",
+            "default": "",
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": false,
+            "properties": {},
+            "type": "object"
+          }
+        },
+        "required": [
+          "configVersion",
+          "endpoint",
+          "options"
+        ],
+        "type": "object"
+      },
+      "credentialKinds": [],
+      "name": "MQTT Device",
+      "operations": [
+        "receive"
+      ],
+      "protocol": "mqtt_device"
+    },
+    {
+      "acquisitionSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "configSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false,
+        "properties": {
+          "configVersion": {
+            "const": 2,
+            "type": "integer"
+          },
+          "endpoint": {
+            "const": "",
+            "default": "",
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": false,
+            "properties": {},
+            "type": "object"
+          }
+        },
+        "required": [
+          "configVersion",
+          "endpoint",
+          "options"
+        ],
+        "type": "object"
+      },
+      "credentialKinds": [],
+      "name": "HTTP Push",
+      "operations": [
+        "receive"
+      ],
+      "protocol": "http_push"
+    },
+    {
+      "acquisitionSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "configSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "else": {
+              "properties": {
+                "endpoint": {
+                  "not": {
+                    "pattern": "^https?://managed(?::|/|$)"
+                  }
+                }
+              }
+            },
+            "if": {
+              "properties": {
+                "role": {
+                  "const": "server"
+                }
+              },
+              "required": [
+                "role"
+              ]
+            },
+            "then": {
+              "properties": {
+                "auth": false,
+                "endpoint": {
+                  "const": "http://managed"
+                },
+                "options": {
+                  "const": {}
+                },
+                "tls": false
+              }
+            }
+          }
+        ],
+        "properties": {
+          "auth": {
+            "additionalProperties": false,
+            "description": "Endpoint-bound encrypted credential reference. Secret material is submitted separately and never returned in Source documents.",
+            "properties": {
+              "credentialRef": {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "basic",
+                  "bearer",
+                  "apiKey",
+                  "oauth2ClientCredentials"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "credentialRef"
+            ],
+            "type": "object"
+          },
+          "configVersion": {
+            "const": 2,
+            "type": "integer"
+          },
+          "endpoint": {
+            "format": "uri",
+            "maxLength": 2048,
+            "minLength": 1,
+            "pattern": "^https?://",
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": false,
+            "properties": {
+              "headers": {
+                "additionalProperties": {
+                  "maxLength": 4096,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "description": "Custom non-secret headers are supported. Authentication and transport headers are reserved; Accept/Content-Type retain MIME validation.",
+                "maxProperties": 64,
+                "propertyNames": {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[!#$%\u0026'*+.^_`|~0-9A-Za-z-]+$",
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "parameters": {
+                "additionalProperties": true,
+                "maxProperties": 128,
+                "propertyNames": {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "type": "object"
+              }
+            },
+            "type": "object"
+          },
+          "role": {
+            "default": "client",
+            "enum": [
+              "client",
+              "server"
+            ],
+            "type": "string"
+          },
+          "tls": {
+            "additionalProperties": false,
+            "description": "Configuration references only; CA/client identity resolution is unavailable and configured references fail closed before network access.",
+            "minProperties": 1,
+            "properties": {
+              "caRef": {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              "clientIdentityRef": {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "configVersion",
+          "endpoint",
+          "options"
+        ],
+        "type": "object",
+        "x-tier0-http-in": {
+          "authentication": "bearer",
+          "endpoint": "http://managed",
+          "mode": "synchronous",
+          "prefix": "/ingest/v1/{workspaceId}/{sourceId}"
+        },
+        "x-tier0-roles": [
+          "client",
+          "server"
+        ]
+      },
+      "credentialKinds": [
+        "basic",
+        "bearer",
+        "oauth2ClientCredentials"
+      ],
+      "name": "HTTP API",
+      "operations": [
+        "request",
+        "health",
+        "receive"
+      ],
+      "protocol": "http-api"
+    },
+    {
+      "acquisitionSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "queries": {
+            "additionalProperties": {
+              "maxLength": 32768,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxProperties": 64,
+            "propertyNames": {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "queries"
+        ],
+        "type": "object"
+      },
+      "configSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "additionalProperties": false,
+            "description": "Endpoint-bound encrypted credential reference. Secret material is submitted separately and never returned in Source documents.",
+            "properties": {
+              "credentialRef": {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "usernamePassword"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "credentialRef"
+            ],
+            "type": "object"
+          },
+          "configVersion": {
+            "const": 2,
+            "type": "integer"
+          },
+          "endpoint": {
+            "format": "uri",
+            "maxLength": 2048,
+            "minLength": 1,
+            "pattern": "^(postgres(ql)?|mysql|sqlserver)://",
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": false,
+            "properties": {
+              "tlsMode": {
+                "default": "verify-full",
+                "enum": [
+                  "verify-full",
+                  "disable"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "tlsMode"
+            ],
+            "type": "object"
+          },
+          "tls": {
+            "additionalProperties": false,
+            "description": "Configuration references only; CA/client identity resolution is unavailable and configured references fail closed before network access.",
+            "minProperties": 1,
+            "properties": {
+              "caRef": {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              "clientIdentityRef": {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "configVersion",
+          "endpoint",
+          "options",
+          "auth"
+        ],
+        "type": "object"
+      },
+      "credentialKinds": [
+        "usernamePassword"
+      ],
+      "name": "SQL",
+      "operations": [
+        "health"
+      ],
+      "protocol": "sql"
+    },
+    {
+      "acquisitionSchema": {
+        "additionalProperties": false,
+        "description": "SourceTest verifies CONNECT/CONNACK using the configured identity. Topic rules are validated by the server.",
+        "properties": {
+          "correlationField": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "qos": {
+            "maximum": 2,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "replyTopic": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
+          },
+          "replyTopicField": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "requestTopic": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
+          },
+          "subscriptions": {
+            "additionalProperties": {
+              "maximum": 2,
+              "minimum": 0,
+              "type": "integer"
+            },
+            "maxProperties": 64,
+            "propertyNames": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "topicFilters": {
+            "items": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 64,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "configSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "else": {
+              "properties": {
+                "options": {
+                  "additionalProperties": false,
+                  "description": "SourceTest verifies CONNECT/CONNACK using the configured identity. Topic rules are validated by the server.",
+                  "properties": {
+                    "clientId": {
+                      "maxLength": 128,
+                      "minLength": 1,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "clientId"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "if": {
+              "properties": {
+                "role": {
+                  "const": "server"
+                }
+              },
+              "required": [
+                "role"
+              ]
+            },
+            "then": {
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "auth"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "tls"
+                    ]
+                  }
+                ]
+              },
+              "properties": {
+                "endpoint": {
+                  "const": "mqtt://managed"
+                },
+                "options": {
+                  "additionalProperties": false,
+                  "anyOf": [
+                    {
+                      "properties": {
+                        "devicePublishTopics": {
+                          "minItems": 1
+                        }
+                      }
+                    },
+                    {
+                      "properties": {
+                        "deviceSubscribeTopics": {
+                          "minItems": 1
+                        }
+                      }
+                    }
+                  ],
+                  "properties": {
+                    "devicePublishTopics": {
+                      "items": {
+                        "maxLength": 1024,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "maxItems": 64,
+                      "type": "array",
+                      "uniqueItems": true
+                    },
+                    "deviceSubscribeTopics": {
+                      "items": {
+                        "maxLength": 1024,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "maxItems": 64,
+                      "type": "array",
+                      "uniqueItems": true
+                    },
+                    "qos": {
+                      "const": 1,
+                      "default": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "devicePublishTopics",
+                    "deviceSubscribeTopics",
+                    "qos"
+                  ],
+                  "type": "object"
+                }
+              }
+            }
+          }
+        ],
+        "properties": {
+          "auth": {
+            "additionalProperties": false,
+            "description": "Endpoint-bound encrypted credential reference. Secret material is submitted separately and never returned in Source documents.",
+            "properties": {
+              "credentialRef": {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "usernamePassword"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "credentialRef"
+            ],
+            "type": "object"
+          },
+          "configVersion": {
+            "const": 2,
+            "type": "integer"
+          },
+          "endpoint": {
+            "format": "uri",
+            "maxLength": 2048,
+            "minLength": 1,
+            "pattern": "^mqtts?://",
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": false,
+            "properties": {
+              "clientId": {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              "devicePublishTopics": {
+                "items": {
+                  "maxLength": 1024,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 64,
+                "type": "array",
+                "uniqueItems": true
+              },
+              "deviceSubscribeTopics": {
+                "items": {
+                  "maxLength": 1024,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 64,
+                "type": "array",
+                "uniqueItems": true
+              },
+              "qos": {
+                "const": 1,
+                "default": 1,
+                "type": "integer"
+              }
+            },
+            "type": "object"
+          },
+          "role": {
+            "default": "client",
+            "enum": [
+              "client",
+              "server"
+            ],
+            "type": "string"
+          },
+          "tls": {
+            "additionalProperties": false,
+            "description": "Endpoint-bound encrypted trust and client certificate references; secret material is never stored in Source documents.",
+            "minProperties": 1,
+            "properties": {
+              "caRef": {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              "clientIdentityRef": {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "configVersion",
+          "endpoint",
+          "options"
+        ],
+        "type": "object"
+      },
+      "credentialKinds": [
+        "usernamePassword"
+      ],
+      "name": "MQTT Broker",
+      "operations": [
+        "health"
+      ],
+      "protocol": "mqtt"
+    },
+    {
+      "acquisitionSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "browseRoots": {
+            "items": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 16,
+            "type": "array"
+          },
+          "methodObjects": {
+            "additionalProperties": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxProperties": 64,
+            "type": "object"
+          },
+          "namespaceUris": {
+            "additionalProperties": {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxProperties": 64,
+            "type": "object"
+          },
+          "nodeIds": {
+            "items": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "samplingIntervalMs": {
+            "default": 1000,
+            "maximum": 60000,
+            "minimum": 100,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "nodeIds",
+          "namespaceUris",
+          "samplingIntervalMs"
+        ],
+        "type": "object"
+      },
+      "configSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "additionalProperties": false,
+            "description": "Endpoint-bound encrypted credential reference. Secret material is submitted separately and never returned in Source documents.",
+            "properties": {
+              "credentialRef": {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "usernamePassword"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "credentialRef"
+            ],
+            "type": "object"
+          },
+          "configVersion": {
+            "const": 2,
+            "type": "integer"
+          },
+          "endpoint": {
+            "format": "uri",
+            "maxLength": 2048,
+            "minLength": 1,
+            "pattern": "^opc\\.tcp://",
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": false,
+            "properties": {
+              "clientApplicationUri": {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              "securityMode": {
+                "const": "SignAndEncrypt",
+                "type": "string"
+              },
+              "securityPolicy": {
+                "const": "Basic256Sha256",
+                "type": "string"
+              },
+              "serverApplicationUri": {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              "serverName": {
+                "maxLength": 253,
+                "minLength": 1,
+                "type": "string"
+              },
+              "serverSha256": {
+                "pattern": "^[0-9a-fA-F]{64}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "securityMode",
+              "securityPolicy",
+              "serverApplicationUri",
+              "clientApplicationUri",
+              "serverName",
+              "serverSha256"
+            ],
+            "type": "object"
+          },
+          "tls": {
+            "additionalProperties": false,
+            "description": "Endpoint-bound encrypted trust and client certificate references; secret material is never stored in Source documents.",
+            "minProperties": 1,
+            "properties": {
+              "caRef": {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              "clientIdentityRef": {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "caRef",
+              "clientIdentityRef"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "configVersion",
+          "endpoint",
+          "options",
+          "tls"
+        ],
+        "type": "object"
+      },
+      "credentialKinds": [
+        "anonymous",
+        "usernamePassword"
+      ],
+      "name": "OPC UA",
+      "operations": [
+        "health"
+      ],
+      "protocol": "opcua"
+    },
+    {
+      "acquisitionSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "pollIntervalMs": {
+            "anyOf": [
+              {
+                "const": 0
+              },
+              {
+                "maximum": 3600000,
+                "minimum": 100,
+                "type": "integer"
+              }
+            ]
+          },
+          "ranges": {
+            "items": {
+              "additionalProperties": false,
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "table": {
+                        "enum": [
+                          "holding-register",
+                          "input-register"
+                        ]
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "quantity": {
+                        "maximum": 125,
+                        "minimum": 1,
+                        "type": "integer"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "table": {
+                        "enum": [
+                          "input-register",
+                          "discrete-input"
+                        ]
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "writable": {
+                        "const": false
+                      }
+                    }
+                  }
+                }
+              ],
+              "properties": {
+                "address": {
+                  "maximum": 65535,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "id": {
+                  "maxLength": 256,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "quantity": {
+                  "maximum": 2000,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "table": {
+                  "enum": [
+                    "holding-register",
+                    "input-register",
+                    "coil",
+                    "discrete-input"
+                  ],
+                  "type": "string"
+                },
+                "unitId": {
+                  "maximum": 247,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "writable": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "table",
+                "address",
+                "quantity"
+              ],
+              "type": "object"
+            },
+            "maxItems": 128,
+            "type": "array"
+          }
+        },
+        "required": [
+          "ranges"
+        ],
+        "type": "object"
+      },
+      "configSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false,
+        "properties": {
+          "configVersion": {
+            "const": 2,
+            "type": "integer"
+          },
+          "endpoint": {
+            "format": "uri",
+            "maxLength": 2048,
+            "minLength": 1,
+            "pattern": "^tcp://",
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": false,
+            "properties": {
+              "unitId": {
+                "maximum": 247,
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "unitId"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "configVersion",
+          "endpoint",
+          "options"
+        ],
+        "type": "object"
+      },
+      "credentialKinds": [],
+      "name": "Modbus TCP",
+      "operations": [
+        "health"
+      ],
+      "protocol": "modbus"
+    }
+  ],
+  "sourceTypes": [
+    {
+      "acquisitionSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "configSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "additionalProperties": false,
+            "description": "Endpoint-bound encrypted credential reference. Secret material is submitted separately and never returned in Source documents.",
+            "properties": {
+              "credentialRef": {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "vendorNative"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "credentialRef"
+            ],
+            "type": "object"
+          },
+          "configVersion": {
+            "const": 3,
+            "type": "integer"
+          },
+          "endpoint": {
+            "format": "uri",
+            "maxLength": 2048,
+            "minLength": 1,
+            "pattern": "^https://[^?#%\\\\\\s]+/$",
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": false,
+            "properties": {
+              "headers": {
+                "additionalProperties": {
+                  "maxLength": 4096,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "description": "Custom non-secret headers are supported. Authentication and transport headers are reserved; Accept/Content-Type retain MIME validation.",
+                "maxProperties": 64,
+                "propertyNames": {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[!#$%\u0026'*+.^_`|~0-9A-Za-z-]+$",
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "parameters": {
+                "additionalProperties": false,
+                "properties": {
+                  "serverName": {
+                    "maxLength": 2048,
+                    "pattern": "^[^\\r\\n\\x00]*$",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "type": "object"
+          },
+          "role": {
+            "const": "client",
+            "default": "client",
+            "type": "string"
+          },
+          "sourceType": {
+            "const": "pi-web-api",
+            "type": "string"
+          }
+        },
+        "required": [
+          "configVersion",
+          "sourceType",
+          "endpoint",
+          "options",
+          "auth"
+        ],
+        "type": "object"
+      },
+      "configVersion": 3,
+      "credentialAnyOf": [],
+      "credentialKeys": [
+        "username",
+        "password"
+      ],
+      "credentialKinds": [
+        "vendorNative"
+      ],
+      "endpointSchemes": [
+        "https"
+      ],
+      "id": "pi-web-api",
+      "name": "PI Web API",
+      "operations": [
+        {
+          "id": "servers",
+          "name": "数据服务器",
+          "method": "GET",
+          "path": "dataservers",
+          "readOnly": true
+        },
+        {
+          "id": "points",
+          "name": "测点",
+          "method": "GET",
+          "path": "dataservers/{webId}/points",
+          "readOnly": true
+        },
+        {
+          "id": "point",
+          "name": "测点路径查询",
+          "method": "GET",
+          "path": "points",
+          "readOnly": true
+        },
+        {
+          "id": "value",
+          "name": "快照",
+          "method": "GET",
+          "path": "streams/{webId}/value",
+          "readOnly": true
+        },
+        {
+          "id": "recorded",
+          "name": "归档",
+          "method": "GET",
+          "path": "streams/{webId}/recorded",
+          "readOnly": true
+        },
+        {
+          "id": "interpolated",
+          "name": "插值",
+          "method": "GET",
+          "path": "streams/{webId}/interpolated",
+          "readOnly": true
+        },
+        {
+          "id": "summary",
+          "name": "统计",
+          "method": "GET",
+          "path": "streams/{webId}/summary",
+          "readOnly": true
+        }
+      ],
+      "parameterKeys": [
+        "serverName"
+      ],
+      "protocol": "http-api"
+    },
+    {
+      "acquisitionSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "configSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "additionalProperties": false,
+            "description": "Endpoint-bound encrypted credential reference. Secret material is submitted separately and never returned in Source documents.",
+            "properties": {
+              "credentialRef": {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "vendorNative"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "credentialRef"
+            ],
+            "type": "object"
+          },
+          "configVersion": {
+            "const": 3,
+            "type": "integer"
+          },
+          "endpoint": {
+            "format": "uri",
+            "maxLength": 2048,
+            "minLength": 1,
+            "pattern": "^https://[^?#%\\\\\\s]+/$",
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": false,
+            "properties": {
+              "headers": {
+                "additionalProperties": {
+                  "maxLength": 4096,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "description": "Custom non-secret headers are supported. Authentication and transport headers are reserved; Accept/Content-Type retain MIME validation.",
+                "maxProperties": 64,
+                "propertyNames": {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[!#$%\u0026'*+.^_`|~0-9A-Za-z-]+$",
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "parameters": {
+                "additionalProperties": false,
+                "properties": {
+                  "pcn": {
+                    "maxLength": 2048,
+                    "pattern": "^[^\\r\\n\\x00]*$",
+                    "type": "string"
+                  },
+                  "tenantId": {
+                    "maxLength": 2048,
+                    "pattern": "^[^\\r\\n\\x00]*$",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "type": "object"
+          },
+          "role": {
+            "const": "client",
+            "default": "client",
+            "type": "string"
+          },
+          "sourceType": {
+            "const": "plex-mes",
+            "type": "string"
+          }
+        },
+        "required": [
+          "configVersion",
+          "sourceType",
+          "endpoint",
+          "options",
+          "auth"
+        ],
+        "type": "object"
+      },
+      "configVersion": 3,
+      "credentialAnyOf": [],
+      "credentialKeys": [
+        "apiKey"
+      ],
+      "credentialKinds": [
+        "vendorNative"
+      ],
+      "endpointSchemes": [
+        "https"
+      ],
+      "id": "plex-mes",
+      "name": "Plex MES",
+      "operations": [
+        {
+          "id": "jobs",
+          "name": "工单",
+          "method": "GET",
+          "path": "scheduling/v1/jobs",
+          "readOnly": true
+        },
+        {
+          "id": "operations",
+          "name": "工序",
+          "method": "GET",
+          "path": "scheduling/v1/jobs/{id}/operations",
+          "readOnly": true
+        },
+        {
+          "id": "workcenters",
+          "name": "工位",
+          "method": "GET",
+          "path": "production/v1/production-definitions/workcenters",
+          "readOnly": true
+        },
+        {
+          "id": "production",
+          "name": "生产记录",
+          "method": "GET",
+          "path": "production/v1/production-history/production-entries",
+          "readOnly": true
+        },
+        {
+          "id": "parts",
+          "name": "零件",
+          "method": "GET",
+          "path": "mdm/v1/parts",
+          "readOnly": true
+        },
+        {
+          "id": "hold",
+          "name": "挂起工单",
+          "method": "POST",
+          "path": "scheduling/v1/jobs/{id}/hold",
+          "readOnly": false
+        },
+        {
+          "id": "release-hold",
+          "name": "解除挂起",
+          "method": "POST",
+          "path": "scheduling/v1/jobs/{id}/release-hold",
+          "readOnly": false
+        }
+      ],
+      "parameterKeys": [
+        "tenantId",
+        "pcn"
+      ],
+      "protocol": "http-api"
+    },
+    {
+      "acquisitionSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "configSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "additionalProperties": false,
+            "description": "Endpoint-bound encrypted credential reference. Secret material is submitted separately and never returned in Source documents.",
+            "properties": {
+              "credentialRef": {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "vendorNative"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "credentialRef"
+            ],
+            "type": "object"
+          },
+          "configVersion": {
+            "const": 3,
+            "type": "integer"
+          },
+          "endpoint": {
+            "format": "uri",
+            "maxLength": 2048,
+            "minLength": 1,
+            "pattern": "^https?://[^?#%\\\\\\s]+/$",
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": false,
+            "properties": {
+              "headers": {
+                "additionalProperties": {
+                  "maxLength": 4096,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "description": "Custom non-secret headers are supported. Authentication and transport headers are reserved; Accept/Content-Type retain MIME validation.",
+                "maxProperties": 64,
+                "propertyNames": {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[!#$%\u0026'*+.^_`|~0-9A-Za-z-]+$",
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "parameters": {
+                "additionalProperties": false,
+                "properties": {},
+                "type": "object"
+              }
+            },
+            "type": "object"
+          },
+          "role": {
+            "const": "client",
+            "default": "client",
+            "type": "string"
+          },
+          "sourceType": {
+            "const": "wms-rest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "configVersion",
+          "sourceType",
+          "endpoint",
+          "options",
+          "auth"
+        ],
+        "type": "object"
+      },
+      "configVersion": 3,
+      "credentialAnyOf": [],
+      "credentialKeys": [
+        "token"
+      ],
+      "credentialKinds": [
+        "vendorNative"
+      ],
+      "endpointSchemes": [
+        "http",
+        "https"
+      ],
+      "id": "wms-rest",
+      "name": "WMS REST",
+      "operations": [
+        {
+          "id": "inventory",
+          "name": "库存",
+          "method": "GET",
+          "path": "inventory",
+          "readOnly": true
+        },
+        {
+          "id": "lpn",
+          "name": "托盘",
+          "method": "GET",
+          "path": "lpn/{id}",
+          "readOnly": true
+        },
+        {
+          "id": "locations",
+          "name": "库位托盘",
+          "method": "GET",
+          "path": "locations/{id}/lpns",
+          "readOnly": true
+        },
+        {
+          "id": "pick-tasks",
+          "name": "拣货任务",
+          "method": "GET",
+          "path": "pick-tasks",
+          "readOnly": true
+        },
+        {
+          "id": "movements",
+          "name": "移动记录",
+          "method": "GET",
+          "path": "movements",
+          "readOnly": true
+        },
+        {
+          "id": "cycle-count",
+          "name": "盘点过账",
+          "method": "POST",
+          "path": "cycle-count",
+          "readOnly": false
+        }
+      ],
+      "parameterKeys": [],
+      "protocol": "http-api"
+    },
+    {
+      "acquisitionSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "configSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "additionalProperties": false,
+            "description": "Endpoint-bound encrypted credential reference. Secret material is submitted separately and never returned in Source documents.",
+            "properties": {
+              "credentialRef": {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "vendorNative",
+                  "vendorBasic"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "credentialRef"
+            ],
+            "type": "object"
+          },
+          "configVersion": {
+            "const": 3,
+            "type": "integer"
+          },
+          "endpoint": {
+            "format": "uri",
+            "maxLength": 2048,
+            "minLength": 1,
+            "pattern": "^https://[^?#%\\\\\\s]+/$",
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": false,
+            "properties": {
+              "headers": {
+                "additionalProperties": {
+                  "maxLength": 4096,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "description": "Custom non-secret headers are supported. Authentication and transport headers are reserved; Accept/Content-Type retain MIME validation.",
+                "maxProperties": 64,
+                "propertyNames": {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[!#$%\u0026'*+.^_`|~0-9A-Za-z-]+$",
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "parameters": {
+                "additionalProperties": false,
+                "properties": {
+                  "client": {
+                    "maxLength": 2048,
+                    "pattern": "^[^\\r\\n\\x00]*$",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "type": "object"
+          },
+          "role": {
+            "const": "client",
+            "default": "client",
+            "type": "string"
+          },
+          "sourceType": {
+            "const": "sap-odata",
+            "type": "string"
+          }
+        },
+        "required": [
+          "configVersion",
+          "sourceType",
+          "endpoint",
+          "options",
+          "auth"
+        ],
+        "type": "object"
+      },
+      "configVersion": 3,
+      "credentialAnyOf": [],
+      "credentialKeys": [
+        "username",
+        "password"
+      ],
+      "credentialKinds": [
+        "vendorNative",
+        "vendorBasic"
+      ],
+      "endpointSchemes": [
+        "https"
+      ],
+      "id": "sap-odata",
+      "name": "SAP OData",
+      "operations": [
+        {
+          "id": "service",
+          "name": "服务目录",
+          "method": "GET",
+          "path": "",
+          "readOnly": true
+        },
+        {
+          "id": "metadata",
+          "name": "契约",
+          "method": "GET",
+          "path": "$metadata",
+          "readOnly": true
+        },
+        {
+          "id": "entity",
+          "name": "实体查询",
+          "method": "GET",
+          "path": "{entity}",
+          "readOnly": true
+        },
+        {
+          "id": "update",
+          "name": "修改实体",
+          "method": "PATCH",
+          "path": "{entity}",
+          "readOnly": false
+        },
+        {
+          "id": "create",
+          "name": "创建实体",
+          "method": "POST",
+          "path": "{entity}",
+          "readOnly": false
+        }
+      ],
+      "parameterKeys": [
+        "client"
+      ],
+      "protocol": "http-api"
+    },
+    {
+      "acquisitionSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "configSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "additionalProperties": false,
+            "description": "Endpoint-bound encrypted credential reference. Secret material is submitted separately and never returned in Source documents.",
+            "properties": {
+              "credentialRef": {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "vendorNative"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "credentialRef"
+            ],
+            "type": "object"
+          },
+          "configVersion": {
+            "const": 3,
+            "type": "integer"
+          },
+          "endpoint": {
+            "format": "uri",
+            "maxLength": 2048,
+            "minLength": 1,
+            "pattern": "^https://[^?#%\\\\\\s]+/$",
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": false,
+            "properties": {
+              "headers": {
+                "additionalProperties": {
+                  "maxLength": 4096,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "description": "Custom non-secret headers are supported. Authentication and transport headers are reserved; Accept/Content-Type retain MIME validation.",
+                "maxProperties": 64,
+                "propertyNames": {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[!#$%\u0026'*+.^_`|~0-9A-Za-z-]+$",
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "parameters": {
+                "additionalProperties": false,
+                "properties": {
+                  "orgId": {
+                    "maxLength": 2048,
+                    "pattern": "^[^\\r\\n\\x00]*$",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "type": "object"
+          },
+          "role": {
+            "const": "client",
+            "default": "client",
+            "type": "string"
+          },
+          "sourceType": {
+            "const": "yonyou-yonbip",
+            "type": "string"
+          }
+        },
+        "required": [
+          "configVersion",
+          "sourceType",
+          "endpoint",
+          "options",
+          "auth"
+        ],
+        "type": "object"
+      },
+      "configVersion": 3,
+      "credentialAnyOf": [],
+      "credentialKeys": [
+        "appKey",
+        "appSecret"
+      ],
+      "credentialKinds": [
+        "vendorNative"
+      ],
+      "endpointSchemes": [
+        "https"
+      ],
+      "id": "yonyou-yonbip",
+      "name": "用友 YonBIP",
+      "operations": [
+        {
+          "id": "materials",
+          "name": "物料分页",
+          "method": "POST",
+          "path": "yonbip/digitalModel/product/listproductbycondition",
+          "readOnly": true
+        }
+      ],
+      "parameterKeys": [
+        "orgId"
+      ],
+      "protocol": "http-api"
+    },
+    {
+      "acquisitionSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "configSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "additionalProperties": false,
+            "description": "Endpoint-bound encrypted credential reference. Secret material is submitted separately and never returned in Source documents.",
+            "properties": {
+              "credentialRef": {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "vendorNative"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "credentialRef"
+            ],
+            "type": "object"
+          },
+          "configVersion": {
+            "const": 3,
+            "type": "integer"
+          },
+          "endpoint": {
+            "format": "uri",
+            "maxLength": 2048,
+            "minLength": 1,
+            "pattern": "^https://[^?#%\\\\\\s]+/$",
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": false,
+            "properties": {
+              "headers": {
+                "additionalProperties": {
+                  "maxLength": 4096,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "description": "Custom non-secret headers are supported. Authentication and transport headers are reserved; Accept/Content-Type retain MIME validation.",
+                "maxProperties": 64,
+                "propertyNames": {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[!#$%\u0026'*+.^_`|~0-9A-Za-z-]+$",
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "parameters": {
+                "additionalProperties": false,
+                "properties": {
+                  "domain": {
+                    "maxLength": 2048,
+                    "pattern": "^[^\\r\\n\\x00]*$",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "type": "object"
+          },
+          "role": {
+            "const": "client",
+            "default": "client",
+            "type": "string"
+          },
+          "sourceType": {
+            "const": "kingdee-jdy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "configVersion",
+          "sourceType",
+          "endpoint",
+          "options",
+          "auth"
+        ],
+        "type": "object"
+      },
+      "configVersion": 3,
+      "credentialAnyOf": [],
+      "credentialKeys": [
+        "clientId",
+        "clientSecret",
+        "appKey",
+        "appSecret"
+      ],
+      "credentialKinds": [
+        "vendorNative"
+      ],
+      "endpointSchemes": [
+        "https"
+      ],
+      "id": "kingdee-jdy",
+      "name": "金蝶云星辰",
+      "operations": [
+        {
+          "id": "materials",
+          "name": "商品分页",
+          "method": "GET",
+          "path": "jdy/v2/bd/material",
+          "readOnly": true
+        }
+      ],
+      "parameterKeys": [
+        "domain"
+      ],
+      "protocol": "http-api"
+    },
+    {
+      "acquisitionSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "configSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "additionalProperties": false,
+            "description": "Endpoint-bound encrypted credential reference. Secret material is submitted separately and never returned in Source documents.",
+            "properties": {
+              "credentialRef": {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "vendorNative"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "credentialRef"
+            ],
+            "type": "object"
+          },
+          "configVersion": {
+            "const": 3,
+            "type": "integer"
+          },
+          "endpoint": {
+            "format": "uri",
+            "maxLength": 2048,
+            "minLength": 1,
+            "pattern": "^https://[^?#%\\\\\\s]+/$",
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": false,
+            "properties": {
+              "headers": {
+                "additionalProperties": {
+                  "maxLength": 4096,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "description": "Custom non-secret headers are supported. Authentication and transport headers are reserved; Accept/Content-Type retain MIME validation.",
+                "maxProperties": 64,
+                "propertyNames": {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[!#$%\u0026'*+.^_`|~0-9A-Za-z-]+$",
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "parameters": {
+                "additionalProperties": false,
+                "properties": {
+                  "redirectUri": {
+                    "maxLength": 2048,
+                    "pattern": "^[^\\r\\n\\x00]*$",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "type": "object"
+          },
+          "role": {
+            "const": "client",
+            "default": "client",
+            "type": "string"
+          },
+          "sourceType": {
+            "const": "ngp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "configVersion",
+          "sourceType",
+          "endpoint",
+          "options",
+          "auth"
+        ],
+        "type": "object"
+      },
+      "configVersion": 3,
+      "credentialAnyOf": [],
+      "credentialKeys": [
+        "appKey",
+        "appSecret",
+        "refreshToken"
+      ],
+      "credentialKinds": [
+        "vendorNative"
+      ],
+      "endpointSchemes": [
+        "https"
+      ],
+      "id": "ngp",
+      "name": "网上管家婆",
+      "operations": [
+        {
+          "id": "materials",
+          "name": "商品分页",
+          "method": "POST",
+          "path": "rest",
+          "readOnly": true
+        }
+      ],
+      "parameterKeys": [
+        "redirectUri"
+      ],
+      "protocol": "http-api"
+    },
+    {
+      "acquisitionSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "configSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "additionalProperties": false,
+            "description": "Endpoint-bound encrypted credential reference. Secret material is submitted separately and never returned in Source documents.",
+            "properties": {
+              "credentialRef": {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "vendorNative"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "credentialRef"
+            ],
+            "type": "object"
+          },
+          "configVersion": {
+            "const": 3,
+            "type": "integer"
+          },
+          "endpoint": {
+            "format": "uri",
+            "maxLength": 2048,
+            "minLength": 1,
+            "pattern": "^https://[^?#%\\\\\\s]+/$",
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": false,
+            "properties": {
+              "headers": {
+                "additionalProperties": {
+                  "maxLength": 4096,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "description": "Custom non-secret headers are supported. Authentication and transport headers are reserved; Accept/Content-Type retain MIME validation.",
+                "maxProperties": 64,
+                "propertyNames": {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[!#$%\u0026'*+.^_`|~0-9A-Za-z-]+$",
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "parameters": {
+                "additionalProperties": false,
+                "properties": {
+                  "acctId": {
+                    "allOf": [
+                      {
+                        "pattern": "[^\\s   - \u2028\u2029  　]"
+                      }
+                    ],
+                    "maxLength": 2048,
+                    "minLength": 1,
+                    "pattern": "^[^\\r\\n\\x00]*$",
+                    "type": "string"
+                  },
+                  "appId": {
+                    "maxLength": 2048,
+                    "pattern": "^[^\\r\\n\\x00]*$",
+                    "type": "string"
+                  },
+                  "lcid": {
+                    "allOf": [
+                      {
+                        "pattern": "[^\\s   - \u2028\u2029  　]"
+                      }
+                    ],
+                    "maxLength": 2048,
+                    "minLength": 1,
+                    "pattern": "^(?:[1-9][0-9]{0,8}|1[0-9]{9}|20[0-9]{8}|21[0-3][0-9]{7}|214[0-6][0-9]{6}|2147[0-3][0-9]{5}|21474[0-7][0-9]{4}|214748[0-2][0-9]{3}|2147483[0-5][0-9]{2}|21474836[0-3][0-9]|214748364[0-7])$",
+                    "type": "string"
+                  },
+                  "user": {
+                    "allOf": [
+                      {
+                        "pattern": "[^\\s   - \u2028\u2029  　]"
+                      }
+                    ],
+                    "maxLength": 2048,
+                    "minLength": 1,
+                    "pattern": "^[^\\r\\n\\x00]*$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "acctId",
+                  "user",
+                  "lcid"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "parameters"
+            ],
+            "type": "object"
+          },
+          "role": {
+            "const": "client",
+            "default": "client",
+            "type": "string"
+          },
+          "sourceType": {
+            "const": "kingdee-k3cloud",
+            "type": "string"
+          }
+        },
+        "required": [
+          "configVersion",
+          "sourceType",
+          "endpoint",
+          "options",
+          "auth"
+        ],
+        "type": "object"
+      },
+      "configVersion": 3,
+      "credentialAnyOf": [
+        "password",
+        "appSecret"
+      ],
+      "credentialKeys": [
+        "password",
+        "appSecret"
+      ],
+      "credentialKinds": [
+        "vendorNative"
+      ],
+      "endpointSchemes": [
+        "https"
+      ],
+      "id": "kingdee-k3cloud",
+      "name": "金蝶云星空",
+      "operations": [
+        {
+          "id": "query",
+          "name": "单据查询",
+          "method": "POST",
+          "path": "Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExecuteBillQuery.common.kdsvc",
+          "readOnly": true
+        },
+        {
+          "id": "view",
+          "name": "单据详情",
+          "method": "POST",
+          "path": "Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.View.common.kdsvc",
+          "readOnly": true
+        },
+        {
+          "id": "draft",
+          "name": "暂存",
+          "method": "POST",
+          "path": "Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.Draft.common.kdsvc",
+          "readOnly": false
+        },
+        {
+          "id": "save",
+          "name": "保存",
+          "method": "POST",
+          "path": "Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.Save.common.kdsvc",
+          "readOnly": false
+        },
+        {
+          "id": "submit",
+          "name": "提交",
+          "method": "POST",
+          "path": "Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.Submit.common.kdsvc",
+          "readOnly": false
+        },
+        {
+          "id": "audit",
+          "name": "审核",
+          "method": "POST",
+          "path": "Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.Audit.common.kdsvc",
+          "readOnly": false
+        },
+        {
+          "id": "delete",
+          "name": "删除未审核单据",
+          "method": "POST",
+          "path": "Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.Delete.common.kdsvc",
+          "readOnly": false
+        },
+        {
+          "id": "operation",
+          "name": "业务操作",
+          "method": "POST",
+          "path": "Kingdee.BOS.WebApi.ServicesStub.DynamicFormService.ExcuteOperation.common.kdsvc",
+          "readOnly": false
+        }
+      ],
+      "parameterKeys": [
+        "acctId",
+        "user",
+        "lcid",
+        "appId"
+      ],
+      "protocol": "http-api"
+    },
+    {
+      "acquisitionSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "configSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "additionalProperties": false,
+            "description": "Endpoint-bound encrypted credential reference. Secret material is submitted separately and never returned in Source documents.",
+            "properties": {
+              "credentialRef": {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "vendorNative"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "credentialRef"
+            ],
+            "type": "object"
+          },
+          "configVersion": {
+            "const": 3,
+            "type": "integer"
+          },
+          "endpoint": {
+            "format": "uri",
+            "maxLength": 2048,
+            "minLength": 1,
+            "pattern": "^https://[^?#%\\\\\\s]+/$",
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": false,
+            "properties": {
+              "headers": {
+                "additionalProperties": {
+                  "maxLength": 4096,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "description": "Custom non-secret headers are supported. Authentication and transport headers are reserved; Accept/Content-Type retain MIME validation.",
+                "maxProperties": 64,
+                "propertyNames": {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[!#$%\u0026'*+.^_`|~0-9A-Za-z-]+$",
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "parameters": {
+                "additionalProperties": false,
+                "properties": {
+                  "apiVersion": {
+                    "maxLength": 2048,
+                    "pattern": "^[^\\r\\n\\x00]*$",
+                    "type": "string"
+                  },
+                  "clientId": {
+                    "allOf": [
+                      {
+                        "pattern": "[^\\s   - \u2028\u2029  　]"
+                      }
+                    ],
+                    "maxLength": 1024,
+                    "minLength": 1,
+                    "pattern": "^[\\x20-\\x7e]+$",
+                    "type": "string"
+                  },
+                  "scopes": {
+                    "maxLength": 2048,
+                    "pattern": "^[^\\r\\n\\x00]*$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "clientId"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "parameters"
+            ],
+            "type": "object"
+          },
+          "role": {
+            "const": "client",
+            "default": "client",
+            "type": "string"
+          },
+          "sourceType": {
+            "const": "salesforce",
+            "type": "string"
+          }
+        },
+        "required": [
+          "configVersion",
+          "sourceType",
+          "endpoint",
+          "options",
+          "auth"
+        ],
+        "type": "object"
+      },
+      "configVersion": 3,
+      "credentialAnyOf": [],
+      "credentialKeys": [
+        "clientSecret"
+      ],
+      "credentialKinds": [
+        "vendorNative"
+      ],
+      "endpointSchemes": [
+        "https"
+      ],
+      "id": "salesforce",
+      "name": "Salesforce",
+      "operations": [
+        {
+          "id": "versions",
+          "name": "API 版本",
+          "method": "GET",
+          "path": "services/data/",
+          "readOnly": true
+        },
+        {
+          "id": "objects",
+          "name": "对象目录",
+          "method": "GET",
+          "path": "services/data/{version}/sobjects",
+          "readOnly": true
+        },
+        {
+          "id": "describe",
+          "name": "对象描述",
+          "method": "GET",
+          "path": "services/data/{version}/sobjects/{object}/describe",
+          "readOnly": true
+        },
+        {
+          "id": "query",
+          "name": "SOQL 查询",
+          "method": "GET",
+          "path": "services/data/{version}/query",
+          "readOnly": true
+        },
+        {
+          "id": "query-all",
+          "name": "含删除查询",
+          "method": "GET",
+          "path": "services/data/{version}/queryAll",
+          "readOnly": true
+        },
+        {
+          "id": "deleted",
+          "name": "删除记录",
+          "method": "GET",
+          "path": "services/data/{version}/sobjects/{object}/deleted",
+          "readOnly": true
+        },
+        {
+          "id": "create",
+          "name": "创建对象",
+          "method": "POST",
+          "path": "services/data/{version}/sobjects/{object}",
+          "readOnly": false
+        },
+        {
+          "id": "update",
+          "name": "更新对象",
+          "method": "PATCH",
+          "path": "services/data/{version}/sobjects/{object}/{id}",
+          "readOnly": false
+        },
+        {
+          "id": "bulk-start",
+          "name": "提交 Bulk 查询",
+          "method": "POST",
+          "path": "services/data/{version}/jobs/query",
+          "readOnly": false
+        },
+        {
+          "id": "bulk-status",
+          "name": "Bulk 状态",
+          "method": "GET",
+          "path": "services/data/{version}/jobs/query/{id}",
+          "readOnly": true
+        },
+        {
+          "id": "bulk-results",
+          "name": "Bulk 结果",
+          "method": "GET",
+          "path": "services/data/{version}/jobs/query/{id}/results",
+          "readOnly": true
+        }
+      ],
+      "parameterKeys": [
+        "apiVersion",
+        "clientId",
+        "scopes"
+      ],
+      "protocol": "http-api"
+    },
+    {
+      "acquisitionSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "configSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "additionalProperties": false,
+            "description": "Endpoint-bound encrypted credential reference. Secret material is submitted separately and never returned in Source documents.",
+            "properties": {
+              "credentialRef": {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "vendorNative"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "credentialRef"
+            ],
+            "type": "object"
+          },
+          "configVersion": {
+            "const": 3,
+            "type": "integer"
+          },
+          "endpoint": {
+            "format": "uri",
+            "maxLength": 2048,
+            "minLength": 1,
+            "pattern": "^https://[^?#%\\\\\\s]+/$",
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": false,
+            "properties": {
+              "headers": {
+                "additionalProperties": {
+                  "maxLength": 4096,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "description": "Custom non-secret headers are supported. Authentication and transport headers are reserved; Accept/Content-Type retain MIME validation.",
+                "maxProperties": 64,
+                "propertyNames": {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[!#$%\u0026'*+.^_`|~0-9A-Za-z-]+$",
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "parameters": {
+                "additionalProperties": false,
+                "properties": {
+                  "group": {
+                    "maxLength": 2048,
+                    "pattern": "^[^\\r\\n\\x00]*$",
+                    "type": "string"
+                  },
+                  "locale": {
+                    "maxLength": 2048,
+                    "pattern": "^[^\\r\\n\\x00]*$",
+                    "type": "string"
+                  },
+                  "role": {
+                    "maxLength": 2048,
+                    "pattern": "^[^\\r\\n\\x00]*$",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "type": "object"
+          },
+          "role": {
+            "const": "client",
+            "default": "client",
+            "type": "string"
+          },
+          "sourceType": {
+            "const": "teamcenter",
+            "type": "string"
+          }
+        },
+        "required": [
+          "configVersion",
+          "sourceType",
+          "endpoint",
+          "options",
+          "auth"
+        ],
+        "type": "object"
+      },
+      "configVersion": 3,
+      "credentialAnyOf": [],
+      "credentialKeys": [
+        "username",
+        "password"
+      ],
+      "credentialKinds": [
+        "vendorNative"
+      ],
+      "endpointSchemes": [
+        "https"
+      ],
+      "id": "teamcenter",
+      "name": "Teamcenter",
+      "operations": [
+        {
+          "id": "queries",
+          "name": "Saved Query 目录",
+          "method": "POST",
+          "path": "JsonRestServices/Query-2006-03-SavedQuery/getSavedQueries",
+          "readOnly": true
+        },
+        {
+          "id": "query",
+          "name": "执行查询",
+          "method": "POST",
+          "path": "JsonRestServices/Query-2008-06-SavedQuery/executeSavedQueries",
+          "readOnly": true
+        },
+        {
+          "id": "objects",
+          "name": "加载对象",
+          "method": "POST",
+          "path": "JsonRestServices/Core-2007-09-DataManagement/loadObjects",
+          "readOnly": true
+        },
+        {
+          "id": "properties",
+          "name": "读取属性",
+          "method": "POST",
+          "path": "JsonRestServices/Core-2006-03-DataManagement/getProperties",
+          "readOnly": true
+        },
+        {
+          "id": "tickets",
+          "name": "文件票据",
+          "method": "POST",
+          "path": "JsonRestServices/Core-2006-03-FileManagement/getFileReadTickets",
+          "readOnly": true
+        }
+      ],
+      "parameterKeys": [
+        "group",
+        "role",
+        "locale"
+      ],
+      "protocol": "http-api"
+    },
+    {
+      "acquisitionSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "type": "object"
+      },
+      "configSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "additionalProperties": false,
+            "description": "Endpoint-bound encrypted credential reference. Secret material is submitted separately and never returned in Source documents.",
+            "properties": {
+              "credentialRef": {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "vendorNative"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "credentialRef"
+            ],
+            "type": "object"
+          },
+          "configVersion": {
+            "const": 3,
+            "type": "integer"
+          },
+          "endpoint": {
+            "format": "uri",
+            "maxLength": 2048,
+            "minLength": 1,
+            "pattern": "^https://[^?#%\\\\\\s]+/$",
+            "type": "string"
+          },
+          "options": {
+            "additionalProperties": false,
+            "properties": {
+              "headers": {
+                "additionalProperties": {
+                  "maxLength": 4096,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "description": "Custom non-secret headers are supported. Authentication and transport headers are reserved; Accept/Content-Type retain MIME validation.",
+                "maxProperties": 64,
+                "propertyNames": {
+                  "maxLength": 128,
+                  "minLength": 1,
+                  "pattern": "^[!#$%\u0026'*+.^_`|~0-9A-Za-z-]+$",
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "parameters": {
+                "additionalProperties": false,
+                "properties": {},
+                "type": "object"
+              }
+            },
+            "type": "object"
+          },
+          "role": {
+            "const": "client",
+            "default": "client",
+            "type": "string"
+          },
+          "sourceType": {
+            "const": "hikvision-isapi",
+            "type": "string"
+          }
+        },
+        "required": [
+          "configVersion",
+          "sourceType",
+          "endpoint",
+          "options",
+          "auth"
+        ],
+        "type": "object"
+      },
+      "configVersion": 3,
+      "credentialAnyOf": [],
+      "credentialKeys": [
+        "username",
+        "password"
+      ],
+      "credentialKinds": [
+        "vendorNative"
+      ],
+      "endpointSchemes": [
+        "https"
+      ],
+      "id": "hikvision-isapi",
+      "name": "海康 ISAPI",
+      "operations": [
+        {
+          "id": "device",
+          "name": "设备信息",
+          "method": "GET",
+          "path": "ISAPI/System/deviceInfo",
+          "readOnly": true
+        },
+        {
+          "id": "users",
+          "name": "人员查询",
+          "method": "POST",
+          "path": "ISAPI/AccessControl/UserInfo/Search",
+          "readOnly": true
+        },
+        {
+          "id": "events",
+          "name": "门禁事件",
+          "method": "POST",
+          "path": "ISAPI/AccessControl/AcsEvent",
+          "readOnly": true
+        },
+        {
+          "id": "capabilities",
+          "name": "设备能力",
+          "method": "GET",
+          "path": "ISAPI/AccessControl/capabilities",
+          "readOnly": true
+        }
+      ],
+      "parameterKeys": [],
+      "protocol": "http-api"
+    }
+  ]
+}

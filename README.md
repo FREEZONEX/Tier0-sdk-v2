@@ -2,9 +2,11 @@
 
 Tier0 云端新架构的独立 TypeScript / JavaScript SDK。新仓库、新 npm 包，不覆盖 `@tier0/sdk`。
 
+当前分支准备 `0.5.0` 破坏协议切换候选，尚未发布，须由父任务整合后发布。npm 正式版本仍为 `0.4.0`；下方安装命令指向正式版本，本分支的新 HTTP 合同示例需使用候选源码或本地安装包验证。
+
 `0.4.0` 版本变更：相对 0.3.x 移除已退役的 Stream 就绪探针且不保留别名，改用服务端现有统一权限，不再配置逐 Key Control scopes/codes。0.3.0 起统一使用 OpenAPI v2 并退役重复及旧接口；与 0.2.x 存在不兼容变更，迁移方式见下方“本次接口退役”。对应 UNS v2 契约 5.0.0，与 0.1.0 不兼容（新错误模型 `execution` / `retry`、封顶计数、删除 `recordChangesPoll` 等）。Collection 支持 int、float、double 和 datetime 声明；格式注解不新增数值范围或日期格式校验，Sample 外层 time 保持不变。使用时需确认目标环境已部署对应后端。要求 Node.js 20.19+。浏览器 HTTP、MQTT、React、Vue 和服务端身份验签分别提供独立入口。
 
-本次合同固定到已部署 Backend `6cb53b80`，同步请求统一权限、移除旧探针，并保留该版本 Source discovery 的副作用分类及不自动重试语义。
+本轮候选快照固定到已提交 Backend `ae0407aec09926da6e7b8de48183fb4c92656db6`；发布前需核对目标环境部署。同步继续保留请求统一权限、旧探针退役门禁、Source discovery 的副作用分类及不自动重试语义。
 
 既有接口收敛：平台接口统一迁移到 `/openapi/v2`，Controls 使用 `/openapi/v2/uns/controls/*`；移除 21 个重复 UNS 入口和旧 Agent nodes/relations 方法。完善 Source 操作、Stream 发布回执及 UNS 创建快照的使用说明，保留精确发布编号和完整文档访问规则。
 
@@ -76,6 +78,8 @@ Source 负责连接外部系统，Stream 负责处理与运行，UNS 负责命�
 const sources = await tier0.source.documents.list({ page: 1, size: 20 });
 const programs = await tier0.stream.programs.list({ page: 1, size: 20 });
 ```
+
+HTTP Source 统一使用 `protocol: 'http-api'`，显式设置 `config.role: 'client'`（主动请求）或 `config.role: 'server'`（接收入站请求），与 Enterprise 一协议两角色保持一致；Cloud 管理文档的角色位于 config 内。旧 `http` 正向示例迁移为 `http-api` + `client`；Server 不能作为 Client 发起主动请求。独立异步 `http_push` 保留 202 accepted 合同，接受不代表处理完成。使用 `source.protocols.list({})` 核对目标环境支持，再通过现有 `source.documents.*` 管理配置。SDK 不新增猜测的 HTTP In API；npm 管理 SDK 与执行器中的 Goja Stream 脚本 API 分开使用。
 
 Source/Stream 仍保留 `{ code, msg, requestId, data }` 响应以及 `UnsV2Error` 错误类型。Source 配置统一使用 `source.documents`；Stream 草稿统一通过 `stream.documents` 创建、读取、校验和修改，输入 `program` 与 `document` 二选一。发布和回滚仍走 `stream.programs`。保存、部署、运行成功分别判断。
 

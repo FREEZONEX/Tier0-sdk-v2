@@ -1,4 +1,4 @@
-import { createClient, getCurrentAppId, type Tier0Client, type UnsV2Integer, type components } from '../../src/index.js';
+import { createClient, getCurrentAppId, type Tier0Client, type UnsV2Integer, type CloudSourceDocument, type CloudSourceConfig, type components } from '../../src/index.js';
 import { useTier0Query, useTier0Mutation } from '../../src/react.js';
 import { useTier0Request } from '../../src/vue.js';
 const sdk: Tier0Client = createClient({ apiHost: 'https://api.example.invalid', apiKey: 'placeholder' });
@@ -11,7 +11,7 @@ sdk.uns.sourceList({});
 // @ts-expect-error Stream management belongs to its own domain
 sdk.uns.streamProgramDeploy({ id: '123', dryRun: true });
 // @ts-expect-error Native documents cannot be passed as runtime programs
-sdk.stream.documents.validate({ program: { name: 'native', protocol: 'http', config: {} } });
+sdk.stream.documents.validate({ program: { name: 'native', protocol: 'http-api', config: {} } });
 sdk.mqttAuth.delete({ id: 9007199254740993n });
 const info = sdk.system.info();
 info.then(value => { const broker: string | undefined = value.mqttBroker; void broker; });
@@ -58,3 +58,19 @@ sdk.agent.nodes.searchSemantic({});
 
 // @ts-expect-error The retired readiness probe has no facade or compatibility alias.
 sdk.stream.runtime.capabilities({});
+
+// Both HTTP roles use the native management envelope, with the role inside config.
+const httpClient: CloudSourceDocument = { name: 'client', protocol: 'http-api',
+  config: { configVersion: 2, role: 'client', endpoint: 'https://fixture.invalid', options: {} } };
+const httpServer: CloudSourceDocument = { name: 'server', protocol: 'http-api',
+  config: { configVersion: 2, role: 'server', endpoint: 'http://managed', options: {} } };
+sdk.source.documents.create({ dryRun: true, document: httpClient });
+sdk.source.documents.create({ dryRun: true, document: httpServer });
+sdk.source.documents.list({ protocol: 'http-api' });
+// @ts-expect-error The old HTTP protocol is not a new management document protocol.
+const retiredHttpProtocol: CloudSourceDocument['protocol'] = 'http';
+// @ts-expect-error Connection roles come from the public contract.
+const invalidHttpRole: Extract<CloudSourceConfig, { configVersion: 2 }>['role'] = 'listener';
+// @ts-expect-error Enterprise projection roles cannot be copied to the Cloud document root.
+const misplacedHttpRole: CloudSourceDocument = { ...httpClient, role: 'client' };
+void [retiredHttpProtocol, invalidHttpRole, misplacedHttpRole];
