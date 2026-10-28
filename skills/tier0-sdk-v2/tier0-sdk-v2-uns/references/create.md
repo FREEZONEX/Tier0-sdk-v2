@@ -4,6 +4,8 @@
 
 集合 data 必须包含 name、recordSchema，可选 description、parentId、sampleSchema、indexes、semantics。parentId=null 表示根目录。索引创建后仍需确认状态为 ready。
 
+目录、集合和主题使用现有 name 填写易读的真实业务名称，语言遵循用户偏好和已有术语；不要用程序 alias、随机串或 ID 代替名称，也不新增展示名称字段。工业目录优先复用已有 ISA-95 设备层级，只创建业务已知的层级；修改既有名称须有用户授权，不借整理名称改写 ID、alias、权限或移动数据。
+
 ```ts
 import { createClient, type Tier0Client, type UnsV2Request } from '@tier0/sdk-v2';
 

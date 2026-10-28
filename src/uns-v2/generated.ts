@@ -3760,10 +3760,10 @@ export const UNS_V2_CODEC_SCHEMAS = {"UnsV2CatalogReq":{"k":"o"},"UnsV2Transacti
 
 export const UNS_V2_CONTRACT_PROVENANCE = {
   "repository": "FREEZONEX/Tier0-Backend",
-  "revision": "9befdfb8e0860b5e43b300fe927826eab78755be",
+  "revision": "120902c12b25ac2ef5f54fa3340a94fb3a5206b3",
   "version": "5.0.0",
   "source": "service/unssvr/internal/domain/unsv2/contract_generated.go#ContractJSON",
-  "cloudRevision": "9befdfb8e0860b5e43b300fe927826eab78755be",
+  "cloudRevision": "120902c12b25ac2ef5f54fa3340a94fb3a5206b3",
   "cloudContractRevision": "cloud-source-impact/2+source-vendor/2+app-create-capability/1+data/3+record-reads/1+stream-receipt/1+collection-namespace/1+http-acquisition/2+http-source-role/1+http-source-request/1+app-collection/2+collection-ownership/1+metadata/1+app-context/2+collection-ttl/1+error-model/1+crud-consolidation/1+record-insert-return/1+lifecycle-consolidation/1+api-surface/2+source-stream-single-model+app-data/2+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/1+http-in/1+app-resource-access/2+stream-control-probe-retirement/1+http-push-retirement/1",
   "resolvedCloudContract": true,
   "enterpriseBase": {
@@ -3773,12 +3773,12 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
     "source": "backend/internal/domain/unsv2/contract_generated.go",
     "note": "Reviewed Enterprise wire contract imported as editable Cloud contract source; regenerate all adapters with scripts/generate-uns-v2.mjs."
   },
-  "sourceDerivedContractSHA256": "4bddb5dd151fb2464965af5b31ffc7d6aac94b49d48cbce737a10d21c910b1b7",
+  "sourceDerivedContractSHA256": "27a23f7db02f2f0681d1a66565be3b6e478f07b3cd1a9c9e1e880bd304106614",
   "hashes": {
-    "contract": "4bddb5dd151fb2464965af5b31ffc7d6aac94b49d48cbce737a10d21c910b1b7",
+    "contract": "27a23f7db02f2f0681d1a66565be3b6e478f07b3cd1a9c9e1e880bd304106614",
     "cloudSupport": "23e5680ec2c4f645067789e366d783961817bbb7438a3aa98099fd5314e6a35f",
-    "manifest": "4f4cfa35618feadd753ba9d7e628e46883a006d44a7f6dbecd42cecfd17f99b7",
-    "provenance": "6eadf7c4c1d49cf89dbd9e85f776302c169c439a712bce785521a5758ce8b593",
+    "manifest": "ad9c0e97585be774e72c4335e801437c3dfd9187f0ce0c49e566aa98d4f79547",
+    "provenance": "5b8626103092682bb393c2d94142b410e293b1fcfdf057d65d91e6e4c5d66ac0",
     "registry": "62dd03cf1240dddf40dfb663c1f4e742d25d8b1d78f349927a2120656c7ed24d"
   },
   "publicOperationCount": 85,

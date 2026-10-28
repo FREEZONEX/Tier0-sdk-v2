@@ -7,7 +7,7 @@
 | source.runtime.get | /openapi/v2/uns/sources/runtime/get | id（必填） | 运行状态 |
 | source.observations.get | /openapi/v2/uns/sources/observations/get | items：id、expectedRevision | 指定源和修订的观测 |
 
-page 从 1 开始，size 1–200。列表默认安全摘要。get 省略 view 保持旧的 full 行为；summary 需要 uns.source.view 或 uns.source.manage，full 需要 uns.source.manage；API Key 读取完整文档还必须是 full_access（includeDocument:true 同样适用）。未知 revision 时可读取 summary；要完整替换 document 或查看配置时读取 full。已持有写回执中的 ID/revision 时，可直接提交 patch，无需为了编辑再 get；服务端仍会检查版本冲突。摘要不能用于重建完整配置。
+page 从 1 开始，size 1–200。列表默认安全摘要。get 省略 view 保持旧的 full 行为；summary 需要 uns.source.view 或 uns.source.manage，full 需要 uns.source.manage；API Key 读取完整文档还必须是 full_access（includeDocument:true 同样适用）。未知 revision 时可读取 summary；要完整替换 document 或查看配置时读取 full。已持有写回执中的 ID/revision 时，可直接提交 patch，无需为了编辑再 get；服务端仍会检查版本冲突。摘要不能用于重建完整配置。 对已知旧版配置，安全读取投影可能移除退休的 configVersion 标记；这不代表历史已经迁移或可以运行。写入仍使用当前无版本配置，不向请求补回旧标记或协议别名。
 
 ```ts
 import { createClient, type Tier0Client } from '@tier0/sdk-v2';

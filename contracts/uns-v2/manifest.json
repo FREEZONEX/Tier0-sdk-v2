@@ -2420,7 +2420,7 @@
       "appAllowed": false,
       "resourceId": 3339,
       "summary": "Hosted App Collection policy: Get",
-      "description": "Manage Collection access for an existing hosted App. Requires a current Builder session or full_access personal/Agent key. Shared data is granted to the recipient App collections; runtime App credentials cannot manage grants. Existing session governance may revoke grants.",
+      "description": "Read Collection grants for an existing hosted App. Current Builder sessions and full_access personal/Agent keys retain access. Platform system credentials (service/system/full_access with uns.write) may read every App in their current Workspace, including Apps other than their Builder target. This read access does not grant policy update authority. Ordinary service keys and runtime App credentials cannot query this endpoint.",
       "cloudExtension": true,
       "audience": "governance",
       "starter": false,
@@ -3561,11 +3561,11 @@
       "destructive": false,
       "appAllowed": false,
       "summary": "新增一条元数据",
-      "description": "创建目录、主题或集合。指定 appId/alias 时仅允许创建 Collection，由服务端原子绑定 App 授权，必须携带 idempotencyKey，并复验当前 Builder 权限。",
+      "description": "创建目录、主题或集合。指定 appId/alias 时仅允许创建 Collection，由服务端原子绑定 App 授权，必须携带 idempotencyKey，并复验当前 Builder 权限。\n\n工业数据优先按 ISA-95 设备层级组织：企业 Enterprise → 工厂/站点 Site → 区域/车间 Area → 工作中心 Work Center（如产线、生产单元、过程单元、仓储区）→ 工作单元 Work Unit。先用 metadataFind 分页查询并复用已有目录；只建立业务已知且有意义的层级，不编造企业、工厂或设备，不用 Level 0–4 控制功能层级替代设备层级。用 parentId 挂接数据或引用，跨区域共享数据放在合适的共同祖先；非工业业务按真实业务层级组织。目录、数据和引用直接使用现有 name 字段填写简洁、易读的业务名称，明确表达实际业务对象或用途；语言遵循用户偏好和已有业务术语，不限定中文，也不强制翻译。例如 Quality Inspection Records 或质检记录均可；不要仅把 quality_records 这类程序别名直接当作名称，不使用 App-时间戳、随机串或 ID 作为名称或无意义后缀。有真实业务含义的日期、版本和设备编号可以保留。对象 ID 默认由服务端生成；独立的 App alias 继续用于程序访问，不需要为展示新增名称字段。仅按用户授权修改已有 name，不改写 ID 或 alias，不自动移动既有数据或更改权限以整理目录。",
       "example": {
         "kind": "directory",
         "data": {
-          "name": "装配车间",
+          "name": "Assembly Workshop",
           "parentId": null
         }
       },
@@ -3656,7 +3656,7 @@
           "_id": "workshop-1"
         },
         "replacement": {
-          "name": "装配车间",
+          "name": "Assembly Workshop",
           "parentId": null
         }
       },
@@ -3880,14 +3880,14 @@
       "destructive": true,
       "appAllowed": false,
       "summary": "执行元数据混合批量写入",
-      "description": "同一 kind 下最多 200 个操作。默认原子；非原子时 ordered 控制失败后是否继续，按原始序号返回逐项结果。非原子执行只要有任一项已提交，失败响应的 error.execution=committed、retry.safe=false，错误信封 data 为与成功响应相同结构的累计结果（含 nextIndex，结局未知时另有 unknownUntil）：序号小于 nextIndex 且不在 errors 里的操作都已提交；[nextIndex, unknownUntil) 结局未知，带幂等键时同键重试，不带键时只有带客户端 id 的新增与按 id 的替换 / 删除能先按 id 读取状态再续做，服务端生成 id 的新增、按 filter 选择目标的操作与 $inc 等增量更新无法核对，结局未知时不能安全续做（这类写入应始终带幂等键）；没有 unknownUntil 时从 nextIndex 续做是安全的。只有全部未提交时才是 rolledBack 或 notStarted。",
+      "description": "同一 kind 下最多 200 个操作。默认原子；非原子时 ordered 控制失败后是否继续，按原始序号返回逐项结果。非原子执行只要有任一项已提交，失败响应的 error.execution=committed、retry.safe=false，错误信封 data 为与成功响应相同结构的累计结果（含 nextIndex，结局未知时另有 unknownUntil）：序号小于 nextIndex 且不在 errors 里的操作都已提交；[nextIndex, unknownUntil) 结局未知，带幂等键时同键重试，不带键时只有带客户端 id 的新增与按 id 的替换 / 删除能先按 id 读取状态再续做，服务端生成 id 的新增、按 filter 选择目标的操作与 $inc 等增量更新无法核对，结局未知时不能安全续做（这类写入应始终带幂等键）；没有 unknownUntil 时从 nextIndex 续做是安全的。只有全部未提交时才是 rolledBack 或 notStarted。\n\n工业数据优先按 ISA-95 设备层级组织：企业 Enterprise → 工厂/站点 Site → 区域/车间 Area → 工作中心 Work Center（如产线、生产单元、过程单元、仓储区）→ 工作单元 Work Unit。先用 metadataFind 分页查询并复用已有目录；只建立业务已知且有意义的层级，不编造企业、工厂或设备，不用 Level 0–4 控制功能层级替代设备层级。用 parentId 挂接数据或引用，跨区域共享数据放在合适的共同祖先；非工业业务按真实业务层级组织。目录、数据和引用直接使用现有 name 字段填写简洁、易读的业务名称，明确表达实际业务对象或用途；语言遵循用户偏好和已有业务术语，不限定中文，也不强制翻译。例如 Quality Inspection Records 或质检记录均可；不要仅把 quality_records 这类程序别名直接当作名称，不使用 App-时间戳、随机串或 ID 作为名称或无意义后缀。有真实业务含义的日期、版本和设备编号可以保留。对象 ID 默认由服务端生成；独立的 App alias 继续用于程序访问，不需要为展示新增名称字段。仅按用户授权修改已有 name，不改写 ID 或 alias，不自动移动既有数据或更改权限以整理目录。",
       "example": {
         "kind": "directory",
         "operations": [
           {
             "insertOne": {
               "data": {
-                "name": "装配车间",
+                "name": "Assembly Workshop",
                 "parentId": null
               }
             }
@@ -3929,7 +3929,7 @@
       "destructive": true,
       "appAllowed": false,
       "summary": "执行元数据事务",
-      "description": "跨目录、主题、集合的原子操作。opId/dependsOn 控制依赖，parentId/collectionId 支持 {ref:opId} 引用创建结果。最多 200 项；dryRun=true 执行预校验后回滚。",
+      "description": "跨目录、主题、集合的原子操作。opId/dependsOn 控制依赖，parentId/collectionId 支持 {ref:opId} 引用创建结果。最多 200 项；dryRun=true 执行预校验后回滚。\n\n工业数据优先按 ISA-95 设备层级组织：企业 Enterprise → 工厂/站点 Site → 区域/车间 Area → 工作中心 Work Center（如产线、生产单元、过程单元、仓储区）→ 工作单元 Work Unit。先用 metadataFind 分页查询并复用已有目录；只建立业务已知且有意义的层级，不编造企业、工厂或设备，不用 Level 0–4 控制功能层级替代设备层级。用 parentId 挂接数据或引用，跨区域共享数据放在合适的共同祖先；非工业业务按真实业务层级组织。目录、数据和引用直接使用现有 name 字段填写简洁、易读的业务名称，明确表达实际业务对象或用途；语言遵循用户偏好和已有业务术语，不限定中文，也不强制翻译。例如 Quality Inspection Records 或质检记录均可；不要仅把 quality_records 这类程序别名直接当作名称，不使用 App-时间戳、随机串或 ID 作为名称或无意义后缀。有真实业务含义的日期、版本和设备编号可以保留。对象 ID 默认由服务端生成；独立的 App alias 继续用于程序访问，不需要为展示新增名称字段。仅按用户授权修改已有 name，不改写 ID 或 alias，不自动移动既有数据或更改权限以整理目录。",
       "example": {
         "operations": [
           {
@@ -3937,7 +3937,7 @@
             "action": "insertOne",
             "kind": "directory",
             "data": {
-              "name": "装配车间",
+              "name": "Assembly Workshop",
               "parentId": null
             }
           },
