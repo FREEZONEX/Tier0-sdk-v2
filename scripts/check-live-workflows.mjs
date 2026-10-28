@@ -123,7 +123,7 @@ try {
 
   if (domains.has('stream') && !streamId) try {
     await step('Stream standalone draft create + read', async () => {
-      const document = { name: prefix, sdkVersion: 'tier0-stream/v2', timeoutMs: 5000,
+      const document = { name: prefix, timeoutMs: 5000,
         script: 'module.exports = api => { api.stream.onTimer({ id: "tick", intervalMs: 60000 }, async () => ({ value: 1 })); };' };
       const validation = await client.stream.documents.validate({ program: document });
       assert.equal(validation.data.valid, true);

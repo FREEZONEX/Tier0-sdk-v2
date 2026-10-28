@@ -12,10 +12,10 @@ Tier0 云端新架构的独立 TypeScript / JavaScript SDK。新仓库、新 npm
 
 ## 安装与初始化
 
-维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。业务项目安装精确版本：
+维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。业务项目安装当前发布版本：
 
 ```sh
-npm install --save-exact @tier0/sdk-v2@0.5.0
+npm install @tier0/sdk-v2
 ```
 
 ```ts
