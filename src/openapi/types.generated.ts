@@ -1373,8 +1373,6 @@ export interface components {
             /** @description 本发现响应合同版本，与单个 Control 的冻结合同版本独立 */
             contractVersion: string;
             deprecations: components["schemas"]["CapabilityDeprecation"][];
-            /** @description tier0-stream/v2 解释器合同，不是 npm 版本 */
-            interpreterContractVersions: string[];
             product: string;
             /** @description 仅返回显式配置的可信产品发布版本，未配置时省略 */
             productVersion?: string;

@@ -3914,13 +3914,6 @@
             },
             "type": "array"
           },
-          "interpreterContractVersions": {
-            "description": "tier0-stream/v2 解释器合同，不是 npm 版本",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
           "product": {
             "type": "string"
           },
@@ -3940,7 +3933,6 @@
           "product",
           "contractVersion",
           "apiContractVersions",
-          "interpreterContractVersions",
           "sdkContractVersions",
           "capabilities",
           "deprecations"

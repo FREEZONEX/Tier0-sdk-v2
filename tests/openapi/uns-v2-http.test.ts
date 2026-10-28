@@ -96,7 +96,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
       } });
       else if (req.url === '/openapi/v2/capabilities/discover') send(res, {
         product: 'cloud', contractVersion: '1.0', apiContractVersions: ['openapi/v1', 'openapi/v2'],
-        interpreterContractVersions: ['tier0-stream/v2'], sdkContractVersions: ['control/v1'], capabilities: [], deprecations: [],
+        sdkContractVersions: ['control/v1'], capabilities: [], deprecations: [],
       });
       else send(res, {});
     };
@@ -330,7 +330,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
     const start = received.length;
     respond = (_req, res) => send(res, { code: 503, msg: 'sample runtime unavailable', requestId: 'sample-unavailable' }, 503);
     const api = client();
-    await expect(api.stream.sampleTest({ document: { name: 'sample', model: 'script', script: { sdkVersion: 'tier0-stream/v2', code: '', timeoutMs: 1000 } }, entryId: 'sample', input: { value: 1 } })).rejects.toBeInstanceOf(UnsV2Error);
+    await expect(api.stream.sampleTest({ document: { name: 'sample', model: 'script', script: { code: '', timeoutMs: 1000 } }, entryId: 'sample', input: { value: 1 } })).rejects.toBeInstanceOf(UnsV2Error);
     expect(received.slice(start)).toHaveLength(1);
     expect(received[start].path).toBe('/openapi/v2/uns/streams/sample/test');
     const core = rawClient() as unknown as { call(name: string, request: unknown): Promise<unknown> };
@@ -348,7 +348,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
       'record-notifications/1', 'record-delete-samples/1', 'stream-history/1',
       'record-reads/1', 'app-context/2', 'collection-ttl/1', 'error-model/1', 'record-insert-return/1',
     ]));
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('86bef2325253c2f4eaab8168f983ac4ec09c0d2f');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('120902c12b25ac2ef5f54fa3340a94fb3a5206b3');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(UNS_V2_CONTRACT_PROVENANCE.sourceDerivedContractSHA256).toBe(UNS_V2_CONTRACT_PROVENANCE.hashes.contract);
     expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(85);
@@ -625,7 +625,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
     });
     await client().stream.documents.validate({ document: {
       name: 'collector', model: 'collection',
-      script: { sdkVersion: 'tier0-stream/v2', code: 'module.exports = api => api;', timeoutMs: 1_000 },
+      script: { code: 'module.exports = api => api;', timeoutMs: 1_000 },
       sources: [{ alias: 'plant', sourceId: 'source-1', configRevision: 2, resources: ['line/1', 'line/2'] }],
     } });
     expect(JSON.parse(received[start].body)).toMatchObject({
@@ -652,7 +652,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
     };
     const api = client();
     const created = await api.stream.documents.create({ dryRun: false, idempotencyKey: 'create-receipt',
-      program: { name: 'receipts', sdkVersion: 'tier0-stream/v2', script: 'module.exports=api=>{};' } });
+      program: { name: 'receipts', script: 'module.exports=api=>{};' } });
     if (!('id' in created.data)) throw new Error('Expected committed create receipt');
     expect(created.data).not.toHaveProperty('activeRelease');
     const deployed = await api.stream.programs.deploy({ id: created.data.id, expectedRevision: created.data.revision,

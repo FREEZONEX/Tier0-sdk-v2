@@ -11,7 +11,8 @@ description: 使用 @tier0/sdk-v2 的 client.stream 创建、查询、修改和�
 
 | 用户任务 | 参考 | 方法 |
 | --- | --- | --- |
-| 新建并绑定 HTTP Source | [创建](references/create.md) | documents.create({program}) |
+| 新建并绑定 HTTP Client Source | [创建](references/create.md) | documents.create({program}) |
+| HTTPServer 固定前缀与业务路由 | [HTTPServer](references/http-server.md) | documents.create({document})、api.stream.onRequest、ctx.reply |
 | 列表、完整文档、运行记录 | [查询](references/read.md) | programs.list、documents.get、observations.get、runs.list |
 | 修改草稿、脚本和绑定 | [修改](references/update.md) | documents.validate/update |
 | 发布、停用、版本回滚 | [部署](references/deploy.md) | programs.deploy/rollback、documents.disable |
@@ -22,7 +23,7 @@ description: 使用 @tier0/sdk-v2 的 client.stream 创建、查询、修改和�
 
 | 形态 | 完整输入 | 适用入口 |
 | --- | --- | --- |
-| Runtime program | name、sdkVersion、script 字符串、sourceBindings、timeoutMs | documents.create/update/validate({program}) |
+| Runtime program | name、script 字符串、sourceBindings、timeoutMs | documents.create/update/validate({program}) |
 | 云端原生文档 | name、model、script 对象、sources、entries | documents.create/get/update/validate |
 
 程序必须是完整 `module.exports = api => { ... }`，执行器 API 是 api.sources/api.uns/api.stream，与 npm 包的 client.source 不同。Runtime sourceBindings 为 sourceId/configRevision/acquisition；原生 sources 还使用 alias/resources。连接凭据不进脚本或 acquisition，秘密材料由 Source 执行宿主管理，不通过脚本读取、记录或返回。定时入口使用 api.stream.every，不传播旧注册别名；npm 的 client.controls 管理入口不作为 Goja 的 Stream 注册参数。
@@ -34,7 +35,8 @@ description: 使用 @tier0/sdk-v2 的 client.stream 创建、查询、修改和�
 3. 所有更新/部署/删除携带当前 expectedRevision。原生停用另需 expectedActiveRelease，避免停掉他人刚发布的版本。
 4. versionId 从 versions.list 取得，不把 release 序号当 ID。expectedSourceRevision 仅用于恰好一个依赖源，不代表多个源的修订。
 5. resources=[] 是空冻结资源集，不是通配符。写入本身由服务端校验，需要预览时单独 validate；当前云端程序 timeoutMs 上限 30000。旧 runtime.capabilities 查询已退役，不作为管理或执行前置检查，不为此增加 Control scope 或逐 Key 控制码授权。
-6. 仅执行用户要求的生命周期步骤；修改脚本不自动授予发布、停用或删除权限。
+6. HTTPServer 响应时机在 Stream：普通返回等处理/提交完成；HTTP onRequest 内 await ctx.reply 可先回复一次再继续，仍受超时/并发/权限约束，断线不取消但 shutdown 可取消，不保证崩溃重放。
+7. 仅执行用户要求的生命周期步骤；修改脚本不自动授予发布、停用或删除权限。
 
 ## 成功与异常
 

@@ -9,6 +9,8 @@ const consumer = resolve(process.argv[2]);
 const installed = resolve(consumer, 'node_modules/@tier0/sdk-v2');
 if (!existsSync(resolve(installed, 'dist/esm/index.js'))) throw new Error('Install the tarball before testing');
 cpSync(resolve(root, 'tests'), resolve(consumer, 'tests'), { recursive: true });
+// Standalone snippets are comparison fixtures; implementations and Skills still come from the tarball.
+cpSync(resolve(root, 'examples'), resolve(consumer, 'examples'), { recursive: true });
 cpSync(resolve(root, 'contracts'), resolve(consumer, 'contracts'), { recursive: true });
 cpSync(resolve(installed, 'skills'), resolve(consumer, 'skills'), { recursive: true });
 let testFiles = 0;

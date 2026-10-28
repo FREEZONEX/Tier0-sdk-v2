@@ -6,7 +6,6 @@
 | --- | --- | --- | --- |
 | dryRun | boolean | 是 | true 预检，false 保存草稿 |
 | program.name | string | 是 | 1–63 字符 |
-| program.sdkVersion | tier0-stream/v2 | 是 | 运行时脚本版本 |
 | program.script | string | 是 | 完整 module.exports 程序 |
 | program.timeoutMs | integer | 否 | 当前云端上限 30000 ms |
 | program.sourceBindings | array | 否 | sourceId、configRevision、acquisition |
@@ -25,12 +24,12 @@ export async function createHttpStream(
   if (!/^[1-9][0-9]*$/.test(sourceId)) throw new Error('Source ID 必须是正十进制字符串');
   const source = await client.source.documents.get({ id: sourceId, view: 'full' });
   if (!('document' in source.data)) throw new Error('需要完整 Source 文档');
-  if (source.data.document.protocol !== 'http-api' || source.data.document.config.configVersion !== 2 ||
+  if (source.data.document.protocol !== 'http-api' || 'sourceType' in source.data.document.config ||
       (source.data.document.config.role ?? 'client') !== 'client') {
     throw new Error('此主动请求示例需要 HTTP API Client Source');
   }
   const document: RuntimeStreamDefinition = {
-    name, sdkVersion: 'tier0-stream/v2', timeoutMs: 5000,
+    name, timeoutMs: 5000,
     sourceBindings: [{ sourceId, configRevision: source.data.revision, acquisition: {} }],
     script: [
       'module.exports = api => {',
@@ -56,4 +55,4 @@ export async function createHttpStream(
 
 programs.create 已退役，创建统一使用 documents.create。历史创建结局未知时先按已知 ID 或业务标识核对状态，不能将旧请求或幂等键改投 documents.create 重做。
 
-原生编辑器形态 `documents.create({dryRun, document})` 的 document 为 name/model/script对象/sources/entries，script 为 `{sdkVersion,code,timeoutMs}`，sources 用 alias/sourceId/configRevision/resources/acquisition。不要把上面的 script 字符串直接塞入原生文档。
+原生编辑器形态 `documents.create({dryRun, document})` 的 document 为 name/model/script对象/sources/entries，script 为 `{code,timeoutMs}`，sources 用 alias/sourceId/configRevision/resources/acquisition。不要把上面的 script 字符串直接塞入原生文档。

@@ -10,10 +10,6 @@
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false,
         "properties": {
-          "configVersion": {
-            "const": 2,
-            "type": "integer"
-          },
           "endpoint": {
             "const": "",
             "default": "",
@@ -26,7 +22,6 @@
           }
         },
         "required": [
-          "configVersion",
           "endpoint",
           "options"
         ],
@@ -38,45 +33,6 @@
         "receive"
       ],
       "protocol": "mqtt_device"
-    },
-    {
-      "acquisitionSchema": {
-        "additionalProperties": false,
-        "properties": {},
-        "type": "object"
-      },
-      "configSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "additionalProperties": false,
-        "properties": {
-          "configVersion": {
-            "const": 2,
-            "type": "integer"
-          },
-          "endpoint": {
-            "const": "",
-            "default": "",
-            "type": "string"
-          },
-          "options": {
-            "additionalProperties": false,
-            "properties": {},
-            "type": "object"
-          }
-        },
-        "required": [
-          "configVersion",
-          "endpoint",
-          "options"
-        ],
-        "type": "object"
-      },
-      "credentialKinds": [],
-      "name": "HTTP Push",
-      "operations": [
-        "receive"
-      ],
-      "protocol": "http_push"
     },
     {
       "acquisitionSchema": {
@@ -148,10 +104,6 @@
             ],
             "type": "object"
           },
-          "configVersion": {
-            "const": 2,
-            "type": "integer"
-          },
           "endpoint": {
             "format": "uri",
             "maxLength": 2048,
@@ -219,7 +171,6 @@
           }
         },
         "required": [
-          "configVersion",
           "endpoint",
           "options"
         ],
@@ -299,10 +250,6 @@
             ],
             "type": "object"
           },
-          "configVersion": {
-            "const": 2,
-            "type": "integer"
-          },
           "endpoint": {
             "format": "uri",
             "maxLength": 2048,
@@ -347,7 +294,6 @@
           }
         },
         "required": [
-          "configVersion",
           "endpoint",
           "options",
           "auth"
@@ -551,10 +497,6 @@
             ],
             "type": "object"
           },
-          "configVersion": {
-            "const": 2,
-            "type": "integer"
-          },
           "endpoint": {
             "format": "uri",
             "maxLength": 2048,
@@ -626,7 +568,6 @@
           }
         },
         "required": [
-          "configVersion",
           "endpoint",
           "options"
         ],
@@ -723,10 +664,6 @@
             ],
             "type": "object"
           },
-          "configVersion": {
-            "const": 2,
-            "type": "integer"
-          },
           "endpoint": {
             "format": "uri",
             "maxLength": 2048,
@@ -799,7 +736,6 @@
           }
         },
         "required": [
-          "configVersion",
           "endpoint",
           "options",
           "tls"
@@ -932,10 +868,6 @@
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false,
         "properties": {
-          "configVersion": {
-            "const": 2,
-            "type": "integer"
-          },
           "endpoint": {
             "format": "uri",
             "maxLength": 2048,
@@ -959,7 +891,6 @@
           }
         },
         "required": [
-          "configVersion",
           "endpoint",
           "options"
         ],
@@ -1005,10 +936,6 @@
               "credentialRef"
             ],
             "type": "object"
-          },
-          "configVersion": {
-            "const": 3,
-            "type": "integer"
           },
           "endpoint": {
             "format": "uri",
@@ -1061,7 +988,6 @@
           }
         },
         "required": [
-          "configVersion",
           "sourceType",
           "endpoint",
           "options",
@@ -1069,7 +995,6 @@
         ],
         "type": "object"
       },
-      "configVersion": 3,
       "credentialAnyOf": [],
       "credentialKeys": [
         "username",
@@ -1171,10 +1096,6 @@
             ],
             "type": "object"
           },
-          "configVersion": {
-            "const": 3,
-            "type": "integer"
-          },
           "endpoint": {
             "format": "uri",
             "maxLength": 2048,
@@ -1231,7 +1152,6 @@
           }
         },
         "required": [
-          "configVersion",
           "sourceType",
           "endpoint",
           "options",
@@ -1239,7 +1159,6 @@
         ],
         "type": "object"
       },
-      "configVersion": 3,
       "credentialAnyOf": [],
       "credentialKeys": [
         "apiKey"
@@ -1341,10 +1260,6 @@
             ],
             "type": "object"
           },
-          "configVersion": {
-            "const": 3,
-            "type": "integer"
-          },
           "endpoint": {
             "format": "uri",
             "maxLength": 2048,
@@ -1390,7 +1305,6 @@
           }
         },
         "required": [
-          "configVersion",
           "sourceType",
           "endpoint",
           "options",
@@ -1398,7 +1312,6 @@
         ],
         "type": "object"
       },
-      "configVersion": 3,
       "credentialAnyOf": [],
       "credentialKeys": [
         "token"
@@ -1492,10 +1405,6 @@
             ],
             "type": "object"
           },
-          "configVersion": {
-            "const": 3,
-            "type": "integer"
-          },
           "endpoint": {
             "format": "uri",
             "maxLength": 2048,
@@ -1547,7 +1456,6 @@
           }
         },
         "required": [
-          "configVersion",
           "sourceType",
           "endpoint",
           "options",
@@ -1555,7 +1463,6 @@
         ],
         "type": "object"
       },
-      "configVersion": 3,
       "credentialAnyOf": [],
       "credentialKeys": [
         "username",
@@ -1644,10 +1551,6 @@
             ],
             "type": "object"
           },
-          "configVersion": {
-            "const": 3,
-            "type": "integer"
-          },
           "endpoint": {
             "format": "uri",
             "maxLength": 2048,
@@ -1699,7 +1602,6 @@
           }
         },
         "required": [
-          "configVersion",
           "sourceType",
           "endpoint",
           "options",
@@ -1707,7 +1609,6 @@
         ],
         "type": "object"
       },
-      "configVersion": 3,
       "credentialAnyOf": [],
       "credentialKeys": [
         "appKey",
@@ -1767,10 +1668,6 @@
             ],
             "type": "object"
           },
-          "configVersion": {
-            "const": 3,
-            "type": "integer"
-          },
           "endpoint": {
             "format": "uri",
             "maxLength": 2048,
@@ -1822,7 +1719,6 @@
           }
         },
         "required": [
-          "configVersion",
           "sourceType",
           "endpoint",
           "options",
@@ -1830,7 +1726,6 @@
         ],
         "type": "object"
       },
-      "configVersion": 3,
       "credentialAnyOf": [],
       "credentialKeys": [
         "clientId",
@@ -1892,10 +1787,6 @@
             ],
             "type": "object"
           },
-          "configVersion": {
-            "const": 3,
-            "type": "integer"
-          },
           "endpoint": {
             "format": "uri",
             "maxLength": 2048,
@@ -1947,7 +1838,6 @@
           }
         },
         "required": [
-          "configVersion",
           "sourceType",
           "endpoint",
           "options",
@@ -1955,7 +1845,6 @@
         ],
         "type": "object"
       },
-      "configVersion": 3,
       "credentialAnyOf": [],
       "credentialKeys": [
         "appKey",
@@ -2015,10 +1904,6 @@
               "credentialRef"
             ],
             "type": "object"
-          },
-          "configVersion": {
-            "const": 3,
-            "type": "integer"
           },
           "endpoint": {
             "format": "uri",
@@ -2112,7 +1997,6 @@
           }
         },
         "required": [
-          "configVersion",
           "sourceType",
           "endpoint",
           "options",
@@ -2120,7 +2004,6 @@
         ],
         "type": "object"
       },
-      "configVersion": 3,
       "credentialAnyOf": [
         "password",
         "appSecret"
@@ -2235,10 +2118,6 @@
             ],
             "type": "object"
           },
-          "configVersion": {
-            "const": 3,
-            "type": "integer"
-          },
           "endpoint": {
             "format": "uri",
             "maxLength": 2048,
@@ -2312,7 +2191,6 @@
           }
         },
         "required": [
-          "configVersion",
           "sourceType",
           "endpoint",
           "options",
@@ -2320,7 +2198,6 @@
         ],
         "type": "object"
       },
-      "configVersion": 3,
       "credentialAnyOf": [],
       "credentialKeys": [
         "clientSecret"
@@ -2451,10 +2328,6 @@
             ],
             "type": "object"
           },
-          "configVersion": {
-            "const": 3,
-            "type": "integer"
-          },
           "endpoint": {
             "format": "uri",
             "maxLength": 2048,
@@ -2516,7 +2389,6 @@
           }
         },
         "required": [
-          "configVersion",
           "sourceType",
           "endpoint",
           "options",
@@ -2524,7 +2396,6 @@
         ],
         "type": "object"
       },
-      "configVersion": 3,
       "credentialAnyOf": [],
       "credentialKeys": [
         "username",
@@ -2614,10 +2485,6 @@
             ],
             "type": "object"
           },
-          "configVersion": {
-            "const": 3,
-            "type": "integer"
-          },
           "endpoint": {
             "format": "uri",
             "maxLength": 2048,
@@ -2663,7 +2530,6 @@
           }
         },
         "required": [
-          "configVersion",
           "sourceType",
           "endpoint",
           "options",
@@ -2671,7 +2537,6 @@
         ],
         "type": "object"
       },
-      "configVersion": 3,
       "credentialAnyOf": [],
       "credentialKeys": [
         "username",

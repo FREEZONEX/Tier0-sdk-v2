@@ -6177,7 +6177,6 @@
                       "sap",
                       "teamcenter",
                       "mqtt_device",
-                      "http_push",
                       "sql"
                     ]
                   },
@@ -7169,7 +7168,7 @@
         "tags": [
           "App 与授权"
         ],
-        "description": "读取真实 App 的 collections 授权。需要当前 Builder 会话或 full_access 个人/Agent key，运行时 App 凭证不可管理授权。",
+        "description": "读取真实 App 的 collections 授权。当前 Builder 会话或 full_access 个人/Agent Key 可用；平台系统凭证（service/system/full_access，具有 uns.write）可读取当前 Workspace 内所有 App，包括绑定目标以外的 App。此读取资格不授予修改授权的能力；普通 service Key 与运行时 App 凭证不可调用。",
         "x-tier0-audience": "governance",
         "x-tier0-starter": false,
         "x-tier0-readonly": true,
@@ -10613,7 +10612,7 @@
               "example": {
                 "kind": "directory",
                 "data": {
-                  "name": "装配车间",
+                  "name": "Assembly Workshop",
                   "parentId": null
                 }
               }
@@ -10661,7 +10660,7 @@
         "tags": [
           "元数据管理"
         ],
-        "description": "创建目录、主题或集合。指定 appId/alias 时仅允许创建 Collection，由服务端原子绑定 App 授权，必须携带 idempotencyKey，并复验当前 Builder 权限。",
+        "description": "创建目录、主题或集合。指定 appId/alias 时仅允许创建 Collection，由服务端原子绑定 App 授权，必须携带 idempotencyKey，并复验当前 Builder 权限。\n\n工业数据优先按 ISA-95 设备层级组织：企业 Enterprise → 工厂/站点 Site → 区域/车间 Area → 工作中心 Work Center（如产线、生产单元、过程单元、仓储区）→ 工作单元 Work Unit。先用 metadataFind 分页查询并复用已有目录；只建立业务已知且有意义的层级，不编造企业、工厂或设备，不用 Level 0–4 控制功能层级替代设备层级。用 parentId 挂接数据或引用，跨区域共享数据放在合适的共同祖先；非工业业务按真实业务层级组织。目录、数据和引用直接使用现有 name 字段填写简洁、易读的业务名称，明确表达实际业务对象或用途；语言遵循用户偏好和已有业务术语，不限定中文，也不强制翻译。例如 Quality Inspection Records 或质检记录均可；不要仅把 quality_records 这类程序别名直接当作名称，不使用 App-时间戳、随机串或 ID 作为名称或无意义后缀。有真实业务含义的日期、版本和设备编号可以保留。对象 ID 默认由服务端生成；独立的 App alias 继续用于程序访问，不需要为展示新增名称字段。仅按用户授权修改已有 name，不改写 ID 或 alias，不自动移动既有数据或更改权限以整理目录。",
         "x-tier0-audience": "builder",
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
@@ -11039,7 +11038,7 @@
                   "_id": "workshop-1"
                 },
                 "replacement": {
-                  "name": "装配车间",
+                  "name": "Assembly Workshop",
                   "parentId": null
                 }
               }
@@ -11789,7 +11788,7 @@
                   {
                     "insertOne": {
                       "data": {
-                        "name": "装配车间",
+                        "name": "Assembly Workshop",
                         "parentId": null
                       }
                     }
@@ -11843,7 +11842,7 @@
         "tags": [
           "元数据管理"
         ],
-        "description": "同一 kind 下最多 200 个操作。默认原子；非原子时 ordered 控制失败后是否继续，按原始序号返回逐项结果。非原子执行只要有任一项已提交，失败响应的 error.execution=committed、retry.safe=false，错误信封 data 为与成功响应相同结构的累计结果（含 nextIndex，结局未知时另有 unknownUntil）：序号小于 nextIndex 且不在 errors 里的操作都已提交；[nextIndex, unknownUntil) 结局未知，带幂等键时同键重试，不带键时只有带客户端 id 的新增与按 id 的替换 / 删除能先按 id 读取状态再续做，服务端生成 id 的新增、按 filter 选择目标的操作与 $inc 等增量更新无法核对，结局未知时不能安全续做（这类写入应始终带幂等键）；没有 unknownUntil 时从 nextIndex 续做是安全的。只有全部未提交时才是 rolledBack 或 notStarted。",
+        "description": "同一 kind 下最多 200 个操作。默认原子；非原子时 ordered 控制失败后是否继续，按原始序号返回逐项结果。非原子执行只要有任一项已提交，失败响应的 error.execution=committed、retry.safe=false，错误信封 data 为与成功响应相同结构的累计结果（含 nextIndex，结局未知时另有 unknownUntil）：序号小于 nextIndex 且不在 errors 里的操作都已提交；[nextIndex, unknownUntil) 结局未知，带幂等键时同键重试，不带键时只有带客户端 id 的新增与按 id 的替换 / 删除能先按 id 读取状态再续做，服务端生成 id 的新增、按 filter 选择目标的操作与 $inc 等增量更新无法核对，结局未知时不能安全续做（这类写入应始终带幂等键）；没有 unknownUntil 时从 nextIndex 续做是安全的。只有全部未提交时才是 rolledBack 或 notStarted。\n\n工业数据优先按 ISA-95 设备层级组织：企业 Enterprise → 工厂/站点 Site → 区域/车间 Area → 工作中心 Work Center（如产线、生产单元、过程单元、仓储区）→ 工作单元 Work Unit。先用 metadataFind 分页查询并复用已有目录；只建立业务已知且有意义的层级，不编造企业、工厂或设备，不用 Level 0–4 控制功能层级替代设备层级。用 parentId 挂接数据或引用，跨区域共享数据放在合适的共同祖先；非工业业务按真实业务层级组织。目录、数据和引用直接使用现有 name 字段填写简洁、易读的业务名称，明确表达实际业务对象或用途；语言遵循用户偏好和已有业务术语，不限定中文，也不强制翻译。例如 Quality Inspection Records 或质检记录均可；不要仅把 quality_records 这类程序别名直接当作名称，不使用 App-时间戳、随机串或 ID 作为名称或无意义后缀。有真实业务含义的日期、版本和设备编号可以保留。对象 ID 默认由服务端生成；独立的 App alias 继续用于程序访问，不需要为展示新增名称字段。仅按用户授权修改已有 name，不改写 ID 或 alias，不自动移动既有数据或更改权限以整理目录。",
         "x-tier0-audience": "builder",
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
@@ -11899,7 +11898,7 @@
                     "action": "insertOne",
                     "kind": "directory",
                     "data": {
-                      "name": "装配车间",
+                      "name": "Assembly Workshop",
                       "parentId": null
                     }
                   },
@@ -11963,7 +11962,7 @@
         "tags": [
           "元数据管理"
         ],
-        "description": "跨目录、主题、集合的原子操作。opId/dependsOn 控制依赖，parentId/collectionId 支持 {ref:opId} 引用创建结果。最多 200 项；dryRun=true 执行预校验后回滚。",
+        "description": "跨目录、主题、集合的原子操作。opId/dependsOn 控制依赖，parentId/collectionId 支持 {ref:opId} 引用创建结果。最多 200 项；dryRun=true 执行预校验后回滚。\n\n工业数据优先按 ISA-95 设备层级组织：企业 Enterprise → 工厂/站点 Site → 区域/车间 Area → 工作中心 Work Center（如产线、生产单元、过程单元、仓储区）→ 工作单元 Work Unit。先用 metadataFind 分页查询并复用已有目录；只建立业务已知且有意义的层级，不编造企业、工厂或设备，不用 Level 0–4 控制功能层级替代设备层级。用 parentId 挂接数据或引用，跨区域共享数据放在合适的共同祖先；非工业业务按真实业务层级组织。目录、数据和引用直接使用现有 name 字段填写简洁、易读的业务名称，明确表达实际业务对象或用途；语言遵循用户偏好和已有业务术语，不限定中文，也不强制翻译。例如 Quality Inspection Records 或质检记录均可；不要仅把 quality_records 这类程序别名直接当作名称，不使用 App-时间戳、随机串或 ID 作为名称或无意义后缀。有真实业务含义的日期、版本和设备编号可以保留。对象 ID 默认由服务端生成；独立的 App alias 继续用于程序访问，不需要为展示新增名称字段。仅按用户授权修改已有 name，不改写 ID 或 alias，不自动移动既有数据或更改权限以整理目录。",
         "x-tier0-audience": "builder",
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
@@ -16109,12 +16108,6 @@
             "type": "string",
             "writeOnly": true
           },
-          "sdkVersion": {
-            "enum": [
-              "tier0-stream/v2"
-            ],
-            "type": "string"
-          },
           "timeoutMs": {
             "default": 1000,
             "maximum": 60000,
@@ -16153,7 +16146,6 @@
           }
         },
         "required": [
-          "sdkVersion",
           "name",
           "script"
         ],
@@ -18499,10 +18491,6 @@
             "type": "object",
             "additionalProperties": false,
             "properties": {
-              "configVersion": {
-                "type": "integer",
-                "const": 2
-              },
               "endpoint": {
                 "type": "string",
                 "minLength": 0
@@ -18557,7 +18545,6 @@
               }
             },
             "required": [
-              "configVersion",
               "endpoint",
               "options"
             ],
@@ -18588,10 +18575,6 @@
                   "credentialRef"
                 ],
                 "type": "object"
-              },
-              "configVersion": {
-                "const": 3,
-                "type": "integer"
               },
               "endpoint": {
                 "format": "uri",
@@ -18644,7 +18627,6 @@
               }
             },
             "required": [
-              "configVersion",
               "sourceType",
               "endpoint",
               "options",
@@ -18677,10 +18659,6 @@
                   "credentialRef"
                 ],
                 "type": "object"
-              },
-              "configVersion": {
-                "const": 3,
-                "type": "integer"
               },
               "endpoint": {
                 "format": "uri",
@@ -18738,7 +18716,6 @@
               }
             },
             "required": [
-              "configVersion",
               "sourceType",
               "endpoint",
               "options",
@@ -18771,10 +18748,6 @@
                   "credentialRef"
                 ],
                 "type": "object"
-              },
-              "configVersion": {
-                "const": 3,
-                "type": "integer"
               },
               "endpoint": {
                 "format": "uri",
@@ -18821,7 +18794,6 @@
               }
             },
             "required": [
-              "configVersion",
               "sourceType",
               "endpoint",
               "options",
@@ -18855,10 +18827,6 @@
                   "credentialRef"
                 ],
                 "type": "object"
-              },
-              "configVersion": {
-                "const": 3,
-                "type": "integer"
               },
               "endpoint": {
                 "format": "uri",
@@ -18911,7 +18879,6 @@
               }
             },
             "required": [
-              "configVersion",
               "sourceType",
               "endpoint",
               "options",
@@ -18944,10 +18911,6 @@
                   "credentialRef"
                 ],
                 "type": "object"
-              },
-              "configVersion": {
-                "const": 3,
-                "type": "integer"
               },
               "endpoint": {
                 "format": "uri",
@@ -19000,7 +18963,6 @@
               }
             },
             "required": [
-              "configVersion",
               "sourceType",
               "endpoint",
               "options",
@@ -19033,10 +18995,6 @@
                   "credentialRef"
                 ],
                 "type": "object"
-              },
-              "configVersion": {
-                "const": 3,
-                "type": "integer"
               },
               "endpoint": {
                 "format": "uri",
@@ -19089,7 +19047,6 @@
               }
             },
             "required": [
-              "configVersion",
               "sourceType",
               "endpoint",
               "options",
@@ -19122,10 +19079,6 @@
                   "credentialRef"
                 ],
                 "type": "object"
-              },
-              "configVersion": {
-                "const": 3,
-                "type": "integer"
               },
               "endpoint": {
                 "format": "uri",
@@ -19178,7 +19131,6 @@
               }
             },
             "required": [
-              "configVersion",
               "sourceType",
               "endpoint",
               "options",
@@ -19211,10 +19163,6 @@
                   "credentialRef"
                 ],
                 "type": "object"
-              },
-              "configVersion": {
-                "const": 3,
-                "type": "integer"
               },
               "endpoint": {
                 "format": "uri",
@@ -19308,7 +19256,6 @@
               }
             },
             "required": [
-              "configVersion",
               "sourceType",
               "endpoint",
               "options",
@@ -19341,10 +19288,6 @@
                   "credentialRef"
                 ],
                 "type": "object"
-              },
-              "configVersion": {
-                "const": 3,
-                "type": "integer"
               },
               "endpoint": {
                 "format": "uri",
@@ -19419,7 +19362,6 @@
               }
             },
             "required": [
-              "configVersion",
               "sourceType",
               "endpoint",
               "options",
@@ -19452,10 +19394,6 @@
                   "credentialRef"
                 ],
                 "type": "object"
-              },
-              "configVersion": {
-                "const": 3,
-                "type": "integer"
               },
               "endpoint": {
                 "format": "uri",
@@ -19518,7 +19456,6 @@
               }
             },
             "required": [
-              "configVersion",
               "sourceType",
               "endpoint",
               "options",
@@ -19551,10 +19488,6 @@
                   "credentialRef"
                 ],
                 "type": "object"
-              },
-              "configVersion": {
-                "const": 3,
-                "type": "integer"
               },
               "endpoint": {
                 "format": "uri",
@@ -19601,7 +19534,6 @@
               }
             },
             "required": [
-              "configVersion",
               "sourceType",
               "endpoint",
               "options",
@@ -19634,7 +19566,6 @@
               "sap",
               "teamcenter",
               "mqtt_device",
-              "http_push",
               "sql"
             ]
           },
@@ -19727,10 +19658,6 @@
                           ],
                           "type": "object"
                         },
-                        "configVersion": {
-                          "const": 2,
-                          "type": "integer"
-                        },
                         "endpoint": {
                           "format": "uri",
                           "maxLength": 2048,
@@ -19798,7 +19725,6 @@
                         }
                       },
                       "required": [
-                        "configVersion",
                         "endpoint",
                         "options"
                       ],
@@ -19839,10 +19765,6 @@
                             "credentialRef"
                           ],
                           "type": "object"
-                        },
-                        "configVersion": {
-                          "const": 3,
-                          "type": "integer"
                         },
                         "endpoint": {
                           "format": "uri",
@@ -19895,7 +19817,6 @@
                         }
                       },
                       "required": [
-                        "configVersion",
                         "sourceType",
                         "endpoint",
                         "options",
@@ -19928,10 +19849,6 @@
                             "credentialRef"
                           ],
                           "type": "object"
-                        },
-                        "configVersion": {
-                          "const": 3,
-                          "type": "integer"
                         },
                         "endpoint": {
                           "format": "uri",
@@ -19989,7 +19906,6 @@
                         }
                       },
                       "required": [
-                        "configVersion",
                         "sourceType",
                         "endpoint",
                         "options",
@@ -20022,10 +19938,6 @@
                             "credentialRef"
                           ],
                           "type": "object"
-                        },
-                        "configVersion": {
-                          "const": 3,
-                          "type": "integer"
                         },
                         "endpoint": {
                           "format": "uri",
@@ -20072,7 +19984,6 @@
                         }
                       },
                       "required": [
-                        "configVersion",
                         "sourceType",
                         "endpoint",
                         "options",
@@ -20106,10 +20017,6 @@
                             "credentialRef"
                           ],
                           "type": "object"
-                        },
-                        "configVersion": {
-                          "const": 3,
-                          "type": "integer"
                         },
                         "endpoint": {
                           "format": "uri",
@@ -20162,7 +20069,6 @@
                         }
                       },
                       "required": [
-                        "configVersion",
                         "sourceType",
                         "endpoint",
                         "options",
@@ -20195,10 +20101,6 @@
                             "credentialRef"
                           ],
                           "type": "object"
-                        },
-                        "configVersion": {
-                          "const": 3,
-                          "type": "integer"
                         },
                         "endpoint": {
                           "format": "uri",
@@ -20251,7 +20153,6 @@
                         }
                       },
                       "required": [
-                        "configVersion",
                         "sourceType",
                         "endpoint",
                         "options",
@@ -20284,10 +20185,6 @@
                             "credentialRef"
                           ],
                           "type": "object"
-                        },
-                        "configVersion": {
-                          "const": 3,
-                          "type": "integer"
                         },
                         "endpoint": {
                           "format": "uri",
@@ -20340,7 +20237,6 @@
                         }
                       },
                       "required": [
-                        "configVersion",
                         "sourceType",
                         "endpoint",
                         "options",
@@ -20373,10 +20269,6 @@
                             "credentialRef"
                           ],
                           "type": "object"
-                        },
-                        "configVersion": {
-                          "const": 3,
-                          "type": "integer"
                         },
                         "endpoint": {
                           "format": "uri",
@@ -20429,7 +20321,6 @@
                         }
                       },
                       "required": [
-                        "configVersion",
                         "sourceType",
                         "endpoint",
                         "options",
@@ -20462,10 +20353,6 @@
                             "credentialRef"
                           ],
                           "type": "object"
-                        },
-                        "configVersion": {
-                          "const": 3,
-                          "type": "integer"
                         },
                         "endpoint": {
                           "format": "uri",
@@ -20559,7 +20446,6 @@
                         }
                       },
                       "required": [
-                        "configVersion",
                         "sourceType",
                         "endpoint",
                         "options",
@@ -20592,10 +20478,6 @@
                             "credentialRef"
                           ],
                           "type": "object"
-                        },
-                        "configVersion": {
-                          "const": 3,
-                          "type": "integer"
                         },
                         "endpoint": {
                           "format": "uri",
@@ -20670,7 +20552,6 @@
                         }
                       },
                       "required": [
-                        "configVersion",
                         "sourceType",
                         "endpoint",
                         "options",
@@ -20703,10 +20584,6 @@
                             "credentialRef"
                           ],
                           "type": "object"
-                        },
-                        "configVersion": {
-                          "const": 3,
-                          "type": "integer"
                         },
                         "endpoint": {
                           "format": "uri",
@@ -20769,7 +20646,6 @@
                         }
                       },
                       "required": [
-                        "configVersion",
                         "sourceType",
                         "endpoint",
                         "options",
@@ -20802,10 +20678,6 @@
                             "credentialRef"
                           ],
                           "type": "object"
-                        },
-                        "configVersion": {
-                          "const": 3,
-                          "type": "integer"
                         },
                         "endpoint": {
                           "format": "uri",
@@ -20852,7 +20724,6 @@
                         }
                       },
                       "required": [
-                        "configVersion",
                         "sourceType",
                         "endpoint",
                         "options",
@@ -20930,12 +20801,6 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "sdkVersion": {
-            "type": "string",
-            "enum": [
-              "tier0-stream/v2"
-            ]
-          },
           "code": {
             "type": "string"
           },
@@ -20946,7 +20811,6 @@
           }
         },
         "required": [
-          "sdkVersion",
           "code",
           "timeoutMs"
         ]
@@ -23485,9 +23349,6 @@
             "type": "object",
             "additionalProperties": true,
             "properties": {
-              "sdkVersion": {
-                "type": "string"
-              },
               "name": {
                 "type": "string"
               },
@@ -26447,9 +26308,6 @@
                               "type": "string"
                             },
                             "description": {
-                              "type": "string"
-                            },
-                            "sdkVersion": {
                               "type": "string"
                             },
                             "timeoutMs": {
@@ -32793,13 +32651,6 @@
             },
             "type": "array"
           },
-          "interpreterContractVersions": {
-            "description": "tier0-stream/v2 解释器合同，不是 npm 版本",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
           "product": {
             "type": "string"
           },
@@ -32819,7 +32670,6 @@
           "product",
           "contractVersion",
           "apiContractVersions",
-          "interpreterContractVersions",
           "sdkContractVersions",
           "capabilities",
           "deprecations"

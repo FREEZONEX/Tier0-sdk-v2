@@ -4,6 +4,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertNoRetiredStreamProbe } from './retired-stream-probe.mjs';
+import { assertNoRetiredHTTPPush } from './retired-http-push.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const [backend, requestedRef] = process.argv.slice(2);
@@ -30,6 +31,7 @@ for (const [local, remote] of Object.entries(inputs)) {
     data = Buffer.from(JSON.parse(match[1]) + '\n');
   }
   assertNoRetiredStreamProbe(data.toString('utf8'), remote);
+  assertNoRetiredHTTPPush(data.toString('utf8'), remote);
   contents[local] = data;
   entries[local] = { path: remote, sha256: createHash('sha256').update(data).digest('hex') };
 }

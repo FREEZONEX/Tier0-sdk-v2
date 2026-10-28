@@ -14,7 +14,7 @@ import {
 const client = createClient({ apiHost: 'https://example.invalid', apiKey: 'workspace-bound' });
 // Native runtime DTO from the pinned source; hosted Cloud documents retain their own shape.
 const nativeDefinition: RuntimeStreamDefinition = {
-  name: 'native-http', script: '', sdkVersion: 'tier0-stream/v2',
+  name: 'native-http', script: '',
   sourceBindings: [{ sourceId: '101', configRevision: new UnsV2RawNumber('9007199254740993'), acquisition: {} }],
 };
 const invalidBinding: NonNullable<RuntimeStreamDefinition['sourceBindings']>[number] = {
@@ -66,7 +66,7 @@ const streamObservation = client.stream.observations.get({ id: '202' });
 const runs = client.stream.runs.list({ id: '202', size: 20, cursor: 'opaque' });
 const documentValidation = client.stream.documents.validate({ document: {
   name: 'collector', model: 'collection',
-  script: { sdkVersion: 'tier0-stream/v2', code: 'module.exports = api => api;', timeoutMs: 1_000 },
+  script: { code: 'module.exports = api => api;', timeoutMs: 1_000 },
   sources: [{ alias: 'plant', sourceId: 'source-1', configRevision: 2, resources: ['line/1'] }],
 } });
 const operation: UnsV2OperationName = 'recordInsertOne';

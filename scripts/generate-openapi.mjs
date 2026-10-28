@@ -4,11 +4,13 @@ import { resolve } from 'node:path';
 import openapiTS, { astToString } from 'openapi-typescript';
 import ts from 'typescript';
 import { assertNoRetiredStreamProbe } from './retired-stream-probe.mjs';
+import { assertNoRetiredHTTPPush } from './retired-http-push.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 // The effective v2 contract is the only public route source. Legacy Swagger is not a fallback.
 const source = JSON.parse(readFileSync(resolve(root, 'contracts/openapi-v2.source.json'), 'utf8'));
 assertNoRetiredStreamProbe(source, 'contracts/openapi-v2.source.json');
+assertNoRetiredHTTPPush(source, 'contracts/openapi-v2.source.json');
 if (!source.servers?.some(server => server.url === '/openapi/v2')) throw new Error('Expected the public v2 server');
 const check = process.argv.includes('--check');
 const paths = {};

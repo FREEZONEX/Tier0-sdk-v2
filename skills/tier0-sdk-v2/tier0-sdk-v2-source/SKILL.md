@@ -23,7 +23,7 @@ Source 维护连接配置、认证引用与源状态。脚本处理用 [Stream](
 
 ## 核心约束
 
-1. Source 配置统一使用 documents.*，原生文档为 `{name,protocol,config}`，HTTP API 显式指定 `config.role`。HTTP 统一为 `protocol: http-api` + `config.role: client/server`；Client 主动请求，Server 接收入站请求，不能互换。独立异步 http_push 的 202 accepted 合同继续保留。
+1. Source 配置统一使用 documents.*，原生文档为 `{name,protocol,config}`，HTTP API 显式指定 `config.role`。HTTP 统一为 `protocol: http-api` + `config.role: client/server`；Client 主动请求，Server 接收入站请求，不能互换。HTTPServer 统一接收入站请求，固定前缀后的路由和响应时机属于 Stream；旧 http_push 不再用于新建。
 2. 已有 ID 和 revision 时优先用 documents.update 的 patch，避免额外 get；完整替换 document 前读取完整文档，安全列表摘要不能无损回写。原生 ID 是十进制字符串，revision 原样传递，不转 Number。
 3. 现有 Source 修改、启停、删除都要 expectedRevision。没有任何 Stream 引用时可直接提交；有草稿、活动、历史或不可见引用时仍需 confirmedImpactRevision。先形成精确意图，再读取全部影响分页；回执不可合成、跨意图复用或静默刷新。提供的回执始终严格校验，不自动获取并同意影响。
 4. 配置中保留认证/TLS 引用，不写明文秘密；HTTP Client 新凭据走创建专用 credentials；Server 不携带 Client auth/TLS 配置。

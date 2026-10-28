@@ -2,7 +2,7 @@
 
 Tier0 云端新架构的独立 TypeScript / JavaScript SDK。新仓库、新 npm 包，不覆盖 `@tier0/sdk`。
 
-`0.5.0` 将 Cloud HTTP Source 统一为 `protocol: http-api`，通过 `config.role: client | server` 区分主动请求与同步入站。升级时需迁移旧 `http` / 正向 `http_push` 配置；独立异步 `http_push` 的 202 accepted 合同继续保留。
+`0.6.0` 的 HTTP Source 只保留 `protocol: http-api`，通过 `config.role: client | server` 区分主动请求与入站服务。旧 `http` / `http_push` 配置需要迁移；响应时机属于 Stream，不再建立独立异步 Source。同步 singlemodel 合同后，Source 配置不再带 configVersion，Stream 输入不再带 sdkVersion；保留完整 module.exports 程序与原生 script 对象/Runtime program 字符串两种既有形态，不能将旧 transform 函数体直接改名迁入。
 
 `0.4.0` 版本变更：相对 0.3.x 移除已退役的 Stream 就绪探针且不保留别名，改用服务端现有统一权限，不再配置逐 Key Control scopes/codes。0.3.0 起统一使用 OpenAPI v2 并退役重复及旧接口；与 0.2.x 存在不兼容变更，迁移方式见下方“本次接口退役”。对应 UNS v2 契约 5.0.0，与 0.1.0 不兼容（新错误模型 `execution` / `retry`、封顶计数、删除 `recordChangesPoll` 等）。Collection 支持 int、float、double 和 datetime 声明；格式注解不新增数值范围或日期格式校验，Sample 外层 time 保持不变。使用时需确认目标环境已部署对应后端。要求 Node.js 20.19+。浏览器 HTTP、MQTT、React、Vue 和服务端身份验签分别提供独立入口。
 
@@ -79,7 +79,7 @@ const sources = await tier0.source.documents.list({ page: 1, size: 20 });
 const programs = await tier0.stream.programs.list({ page: 1, size: 20 });
 ```
 
-HTTP Source 统一使用 `protocol: 'http-api'`，显式设置 `config.role: 'client'`（主动请求）或 `config.role: 'server'`（接收入站请求），与 Enterprise 一协议两角色保持一致；Cloud 管理文档的角色位于 config 内。旧 `http` 正向示例迁移为 `http-api` + `client`；Server 不能作为 Client 发起主动请求。独立异步 `http_push` 保留 202 accepted 合同，接受不代表处理完成。使用 `source.protocols.list({})` 核对目标环境支持，再通过现有 `source.documents.*` 管理配置。HTTP Client 单条 inline 创建支持 Basic、Bearer、APIKey、OAuth 四类认证，凭据默认绑定 Source 基址 REQUEST，显式方法继续保留限制；独立 credentialCreate 仍为 coreOnly。SDK 不新增猜测的 HTTP In API；npm 管理 SDK 与执行器中的 Goja Stream 脚本 API 分开使用。
+HTTP Source 统一使用 `protocol: 'http-api'`，显式设置 `config.role: 'client'`（主动请求）或 `config.role: 'server'`（接收入站请求），与 Enterprise 一协议两角色保持一致；Cloud 管理文档的角色位于 config 内。旧 `http` 正向示例迁移为 `http-api` + `client`；Server 不能作为 Client 发起主动请求。HTTPServer 使用固定前缀 `/ingest/v1/{workspaceId}/{sourceId}`，业务路由注册在 Stream；普通返回在处理和提交完成后回复；HTTP `onRequest` 可通过一次 `await ctx.reply(...)` 先回复再继续，仍受超时、并发和权限限制，回复后不随客户端断线取消但可由 shutdown 取消，不保证崩溃重放。202 状态本身不证明处理完成。示例见 [HTTPServer Stream Skill](skills/tier0-sdk-v2/tier0-sdk-v2-stream/references/http-server.md)。使用 `source.protocols.list({})` 核对目标环境支持，再通过现有 `source.documents.*` 管理配置。HTTP Client 单条 inline 创建支持 Basic、Bearer、APIKey、OAuth 四类认证，凭据默认绑定 Source 基址 REQUEST，显式方法继续保留限制；独立 credentialCreate 仍为 coreOnly。SDK 不新增猜测的 HTTP In API；npm 管理 SDK 与执行器中的 Goja Stream 脚本 API 分开使用。
 
 Source/Stream 仍保留 `{ code, msg, requestId, data }` 响应以及 `UnsV2Error` 错误类型。Source 配置统一使用 `source.documents`；Stream 草稿统一通过 `stream.documents` 创建、读取、校验和修改，输入 `program` 与 `document` 二选一。发布和回滚仍走 `stream.programs`。保存、部署、运行成功分别判断。
 

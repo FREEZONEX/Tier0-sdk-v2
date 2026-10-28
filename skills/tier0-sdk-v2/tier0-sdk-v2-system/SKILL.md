@@ -51,7 +51,7 @@ info 返回 name/version/mqttBroker/capabilities，字段可能省略。MQTT bro
 | disabled / not_supported / unavailable | 展示具体不可用原因，不强制调用 |
 | readiness_unknown | 保留未知状态，不能按成功处理 |
 
-能力目录当前识别 namespace.v2、source.v1、stream.v2、control.v1、control.invoke.v1。contractVersions、apiContractVersions、sdkContractVersions 是契约标签，不是 npm 包版本；productVersion 未配置时可缺省。
+能力目录当前识别 namespace.v2、source、stream、control.v1、control.invoke.v1。Source/Stream 的 contractVersions 使用 openapi/v2，不要求或返回解释器版本。contractVersions、apiContractVersions、sdkContractVersions 是契约标签，不是 npm 包版本；productVersion 未配置时可缺省。
 
 ## 定位问题
 

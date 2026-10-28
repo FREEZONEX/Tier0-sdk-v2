@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertNoRetiredStreamProbe } from './retired-stream-probe.mjs';
+import { assertNoRetiredHTTPPush } from './retired-http-push.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const inputs = {
@@ -25,6 +26,7 @@ const provenanceText = read(inputs.provenance);
 const registryText = read(inputs.registry);
 for (const [name, text] of Object.entries({ contractText, cloudSupportText, manifestText, registryText })) {
   assertNoRetiredStreamProbe(text, name);
+  assertNoRetiredHTTPPush(text, name);
 }
 const contract = JSON.parse(contractText);
 const cloudSupport = JSON.parse(cloudSupportText);

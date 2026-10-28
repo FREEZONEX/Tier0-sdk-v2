@@ -3,11 +3,11 @@ import { capabilities, CapabilityError, configureClient, createClient } from '..
 
 const item = {
   code: 'control.invoke.v1', releaseEnabled: true, enabled: false, allowed: true,
-  state: 'readiness_unknown', availability: 'unknown', contractVersions: ['openapi/v1', 'tier0-stream/v2', 'control/v1'],
+  state: 'readiness_unknown', availability: 'unknown', contractVersions: ['openapi/v1', 'control/v1'],
 };
 const fixture = () => ({
   product: 'cloud', contractVersion: '1.0', apiContractVersions: ['openapi/v1', 'openapi/v2'],
-  interpreterContractVersions: ['tier0-stream/v2'], sdkContractVersions: ['control/v1'],
+  sdkContractVersions: ['control/v1'],
   capabilities: [{ ...item }], deprecations: [],
 });
 const client = () => createClient({ apiHost: 'https://cloud.example', apiKey: 'fixture-key', transportTimeoutMs: 100 }).capabilities;
@@ -46,11 +46,18 @@ describe('frozen capability discovery contract', () => {
     const body = fixture();
     // Both API contracts are advertised; SDK transport requires v2.
     body.capabilities = Object.entries({
-      'namespace.v2': ['openapi/v2'], 'source.v1': ['openapi/v1'], 'stream.v2': ['tier0-stream/v2'],
+      'namespace.v2': ['openapi/v2'], 'source': ['openapi/v2'], 'stream': ['openapi/v2'],
       'control.v1': ['openapi/v1', 'control/v1'], 'control.invoke.v1': item.contractVersions,
     }).map(([code, contractVersions]) => ({ ...item, code, contractVersions }));
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(reply(body)));
     expect(await client().discover()).toEqual(body);
+  });
+
+  it('does not require or expose the retired interpreter generation selector', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(reply({ ...fixture(), interpreterContractVersions: ['obsolete'] })));
+    const response = await client().discover();
+    expect(response).toEqual(fixture());
+    expect(response).not.toHaveProperty('interpreterContractVersions');
   });
 
   it('accepts the mixed Cloud API versions while preserving unavailable Control execution', async () => {
@@ -98,9 +105,9 @@ describe('frozen capability discovery contract', () => {
 
   it.each([
     { product: 'enterprise' }, { contractVersion: '2.0' }, { apiContractVersions: ['openapi/v1'] },
-    { interpreterContractVersions: ['tier0-stream/v3'] }, { sdkContractVersions: ['0.5.4'] },
+    { sdkContractVersions: ['0.5.4'] },
     { capabilities: [{ ...item, contractVersions: ['control/v2'] }] },
-    { capabilities: [{ ...item, contractVersions: ['openapi/v1', 'tier0-stream/v2', 'control/v2'] }] },
+    { capabilities: [{ ...item, contractVersions: ['openapi/v1', 'control/v2'] }] },
   ])('fails unsupported versions with a typed error and never substitutes enabled', async patch => {
     const fetch = vi.fn().mockResolvedValue(reply({ ...fixture(), ...patch }));
     vi.stubGlobal('fetch', fetch);
@@ -121,7 +128,7 @@ describe('frozen capability discovery contract', () => {
 
   it.each([
     null, [], { code: 200, data: fixture() }, { data: fixture() },
-    ...['product', 'contractVersion', 'apiContractVersions', 'interpreterContractVersions', 'sdkContractVersions', 'capabilities', 'deprecations']
+    ...['product', 'contractVersion', 'apiContractVersions', 'sdkContractVersions', 'capabilities', 'deprecations']
       .map(key => ({ ...fixture(), [key]: undefined })),
     { ...fixture(), productVersion: 12 }, { ...fixture(), productVersion: null },
     { ...fixture(), apiContractVersions: [1] }, { ...fixture(), sdkContractVersions: ['control/v1', 'control/v1'] },

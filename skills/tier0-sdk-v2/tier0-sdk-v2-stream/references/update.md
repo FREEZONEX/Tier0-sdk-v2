@@ -29,6 +29,6 @@ export async function updateStreamDescription(
 }
 ```
 
-代码应用可直接用 documents.update({id, expectedRevision, program, dryRun:false, idempotencyKey})，由服务端编译入口和绑定。编辑完整文档时保留 sdkVersion/timeoutMs，并同步 entries/sources；写入本身执行校验，只有需要提前展示问题时才单独 validate。不要对documents.get 的 summary 做展开更新。
+代码应用可直接用 documents.update({id, expectedRevision, program, dryRun:false, idempotencyKey})，由服务端编译入口和绑定。编辑完整文档时保留 script.code/timeoutMs，并同步 entries/sources；写入本身执行校验，只有需要提前展示问题时才单独 validate。不要对documents.get 的 summary 做展开更新。
 
 响应是完整 CloudStreamDocumentView 或预检结果；把 saved.data 直接传给下一步[发布示例](deploy.md)，无需为了 revision 再读取。已有当前完整文档时可省去示例最初的 get。保存草稿不会自动部署，activeDocument 可能仍是旧发布版本。VERSION_CONFLICT 后重新读取、比较并决策；不无条件覆盖。
