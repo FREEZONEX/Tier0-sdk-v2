@@ -230,6 +230,105 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     finished();
   });
 
+  it('saves a native HTTPServer Stream and registers its relative route and trusted request handler', async () => {
+    const current = source(7);
+    current.document.config.role = 'server';
+    current.document.config.endpoint = 'http://managed';
+    steps = [
+      { path: 'sources/documents/get', check: body => expect(body).toEqual({ id: current.id, view: 'full' }), data: current },
+      { path: 'streams/documents/create', check: body => {
+        expect(body).not.toHaveProperty('program');
+        expect(body.document.sources).toEqual([
+          { alias: 'incoming', sourceId: current.id, configRevision: 7, resources: [], acquisition: {} },
+        ]);
+        const server = {};
+        let route: unknown;
+        let handler: ((ctx: unknown) => unknown) | undefined;
+        const module = { exports: undefined as unknown };
+        runInNewContext(body.document.script.code, { module });
+        (module.exports as (api: unknown) => void)({
+          sources: { use: (alias: string) => { expect(alias).toBe('incoming'); return server; } },
+          stream: { onRequest: (registration: unknown, fn: typeof handler) => { route = registration; handler = fn; } },
+        });
+        expect(route).toEqual({ id: 'orders', source: server, method: 'POST', path: '/orders/:id' });
+        expect(handler!({ request: { params: { id: 'A-001' }, body: { quantity: 2 } } })).toEqual({
+          status: 200, body: { orderId: 'A-001', payload: { quantity: 2 } },
+        });
+      }, data: stream() },
+    ];
+    await example('stream', 'http-server').createHttpServerStream(current.id, 'incoming-orders', 'save-route', client);
+    expect(calls).toHaveLength(2);
+    const snippet = readFileSync(new URL('../skills/tier0-sdk-v2/tier0-sdk-v2-stream/references/http-server.md', import.meta.url), 'utf8');
+    expect(snippet).toContain(readFileSync(new URL('../examples/http-server.ts', import.meta.url), 'utf8'));
+    finished();
+  });
+
+  it.each([
+    ['http-api', 'client'], ['http-api', undefined], ['http_push', undefined], ['http', undefined],
+  ])('rejects %s/%s before saving an HTTPServer route', async (protocol, role) => {
+    const current = source();
+    steps = [{ path: 'sources/documents/get', data: { ...current,
+      document: { ...current.document, protocol, config: { ...current.document.config, role } } } }];
+    await expect(example('stream', 'http-server').createHttpServerStream(
+      current.id, 'incoming-orders', 'save-route', client,
+    )).rejects.toThrow('此入站路由示例需要 HTTP API Server Source');
+    expect(calls).toHaveLength(1);
+    finished();
+  });
+
+  it.each([false, true])('awaits the early HTTP reply before bounded work; write failure=%s', async failWrite => {
+    const current = source(7);
+    current.document.config.role = 'server';
+    current.document.config.endpoint = 'http://managed';
+    let code = '';
+    steps = [
+      { path: 'sources/documents/get', data: current },
+      { path: 'streams/documents/create', check: body => {
+        expect(body.document.script.timeoutMs).toBe(5000);
+        expect(body.document.sources[0]).toMatchObject({ sourceId: current.id, configRevision: 7 });
+        code = body.document.script.code;
+      }, data: stream() },
+    ];
+    await example('stream', 'http-server', 1).createHttpServerEarlyReplyStream(
+      current.id, 'orders', 'early-orders', 'save-early-route', client,
+    );
+    const events: string[] = [];
+    let finishReply!: () => void;
+    const replyFinished = new Promise<void>(resolve => { finishReply = resolve; });
+    const writeError = new Error('fixture write failed after reply');
+    let handler!: (ctx: unknown) => Promise<unknown>;
+    const module = { exports: undefined as unknown };
+    runInNewContext(code, { module });
+    (module.exports as (api: unknown) => void)({
+      sources: { use: () => ({}) },
+      uns: { use: (binding: unknown) => {
+        expect(binding).toEqual({ collectionId: 'orders', access: 'write' });
+        return { write: async (value: unknown) => {
+          events.push('write');
+          expect(value).toEqual({ recordId: 'A-001', record: { quantity: 2 } });
+          if (failWrite) throw writeError;
+        } };
+      } },
+      stream: { onRequest: (_route: unknown, fn: typeof handler) => { handler = fn; } },
+    });
+    const execution = handler({ request: { params: { id: 'A-001' }, body: { quantity: 2 } },
+      reply: async (response: unknown) => {
+        events.push('reply-start');
+        expect(response).toEqual({ status: 202, body: { accepted: true, orderId: 'A-001' } });
+        await replyFinished;
+        events.push('reply-sent');
+      },
+    });
+    expect(events).toEqual(['reply-start']);
+    finishReply();
+    if (failWrite) await expect(execution).rejects.toBe(writeError);
+    else await expect(execution).resolves.toBeUndefined();
+    expect(events).toEqual(['reply-start', 'reply-sent', 'write']);
+    const snippet = readFileSync(new URL('../skills/tier0-sdk-v2/tier0-sdk-v2-stream/references/http-server.md', import.meta.url), 'utf8');
+    expect(snippet).toContain(readFileSync(new URL('../examples/http-server-early-reply.ts', import.meta.url), 'utf8'));
+    finished();
+  });
+
   it.each([
     ['http-api', 'server'], ['http_push', undefined], ['http', undefined],
   ])('rejects %s/%s before creating an active-request Stream', async (protocol, role) => {

@@ -37,7 +37,7 @@ export async function createHttpSource(
 
 一次提交即可返回完整 data：id、revision、document、desiredState、runtimeState、health、createdAt、updatedAt，无需另行 get。需要单独预检时可先传 `dryRun: true`，返回 `{ validated: true, sideEffects: false }`，没有 ID。预检不保留提交条件；实际保存仍会校验。ID 原样保留十进制字符串。
 
-HTTP Server 同样使用 `protocol: http-api`，角色为 `config.role: server`；其配置以 `source.protocols.list({})` 返回的正式合同为准，不能复用下方 Client 的主动请求示例。独立异步 `http_push` 的 202 accepted 合同仍保留；202 仅表示接受，不能据此报告 Stream 执行完成。
+HTTP Server 同样使用 `protocol: http-api`，角色为 `config.role: server`；其配置以 `source.protocols.list({})` 返回的正式合同为准，不能复用下方 Client 的主动请求示例。入站业务统一绑定 HTTPServer Source，路由和响应时机在 Stream 定义；202 状态不能据此报告 Stream 执行完成。
 
 ## HTTP Client Bearer 凭据
 
@@ -84,7 +84,7 @@ export async function createHttpServerSource(
 }
 ```
 
-Server 的同步入站语义和 Bearer 要求由协议目录的 `x-tier0-http-in` 描述；本 npm 包提供 Source 管理方法，不把 Client 的 `upstream.request` 当作 Server 入站入口。独立异步 `http_push` 仍按自己的 202 accepted 合同处理。
+Server 的固定前缀 `/ingest/v1/{workspaceId}/{sourceId}` 和 Bearer 要求由协议目录的 `x-tier0-http-in` 描述。Source 不接受业务路径配置；在 [Stream HTTPServer 示例](../../tier0-sdk-v2-stream/references/http-server.md)中注册 `onRequest` 的 method/path。响应时机属于 Stream。
 
 ## 四类 inline 认证与 REQUEST 绑定
 
