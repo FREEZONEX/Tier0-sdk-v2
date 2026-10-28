@@ -5,7 +5,6 @@
 | 配置字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | role | client / server | HTTP 示例显式指定 | 省略时为 client；Server 使用托管地址和空 options |
-| configVersion | 2 | 是 | 新架构配置快照 |
 | endpoint | string | 是 | 地址，不内嵌凭据 |
 | options | object | 是 | 协议专用选项 |
 | auth.kind | string | 有认证时 | basic/bearer/apiKey/usernamePassword/oauth2ClientCredentials |
@@ -21,11 +20,11 @@ export async function inspectProtocolExamples() {
   const capabilities = await createClient().source.protocols.list({});
   const examples: CloudSourceDocument[] = [
     { name: 'orders-http', protocol: 'http-api',
-      config: { configVersion: 2, role: 'client', endpoint: 'https://orders.example.com', options: {} } },
+      config: { role: 'client', endpoint: 'https://orders.example.com', options: {} } },
     { name: 'line-plc', protocol: 'modbus',
-      config: { configVersion: 2, endpoint: 'tcp://plc.example.com:502', options: { unitId: 1 } } },
+      config: { endpoint: 'tcp://plc.example.com:502', options: { unitId: 1 } } },
     { name: 'line-mqtt', protocol: 'mqtt',
-      config: { configVersion: 2, endpoint: 'mqtt://broker.example.com:1883',
+      config: { endpoint: 'mqtt://broker.example.com:1883',
         options: { clientId: 'tier0-line-reader', subscriptions: { 'factory/line1/status': 1 } } } },
   ];
   return { capabilities: capabilities.data, examples };

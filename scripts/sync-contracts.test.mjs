@@ -28,7 +28,7 @@ test('sync extracts Unicode contract strings and pins committed inputs instead o
     put('share/unscontract/cloud-support.json', '{}\n');
     put('share/unscontract/registry_generated.go', 'package unscontract\n');
     const catalogFile = 'share/unscontract/source-protocols.json';
-    const catalog = JSON.stringify({ list: [{ protocol: 'http-api', roles: ['client', 'server'] }, { protocol: 'http_push' }] });
+    const catalog = JSON.stringify({ list: [{ protocol: 'http-api', roles: ['client', 'server'] }] });
     put(catalogFile, catalog);
     put('share/unscontract/provenance.json', JSON.stringify({ source: 'fixture' }));
     const git = (...args) => execFileSync('git', ['-C', backend, ...args], { encoding: 'utf8', stdio: 'pipe' });

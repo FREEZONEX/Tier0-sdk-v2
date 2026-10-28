@@ -63,7 +63,7 @@ const page = (list: unknown[]) => ({ list, total: list.length, page: 1, size: 20
   hasMore: false, complete: true, truncated: false, snapshotScope: 'thisRequestOnly' });
 const source = (revision = 1, name = 'orders') => ({
   id: '9007199254740993', revision, document: { name, protocol: 'http-api', description: '订单系统 HTTP 接入',
-    config: { configVersion: 2, role: 'client', endpoint: 'https://fixture.invalid', options: {} } },
+    config: { role: 'client', endpoint: 'https://fixture.invalid', options: {} } },
   desiredState: 'disabled', runtimeState: 'stopped', health: 'unknown', createdAt: 1, updatedAt: 1,
 });
 const token = 'si1_' + 'a'.repeat(43); // Fixture-only server-issued confirmation.
@@ -74,7 +74,7 @@ const impact = (action = 'update', revision = 1) => ({
 });
 const stream = (revision = 1, description = '', activeRelease = 0) => ({
   id: '9007199254740995', revision, document: { name: 'orders-stream', model: 'program', description,
-    script: { sdkVersion: 'tier0-stream/v2', code: 'module.exports=api=>{};', timeoutMs: 5000 },
+    script: { code: 'module.exports=api=>{};', timeoutMs: 5000 },
     sources: [{ alias: 'orders', sourceId: source().id, configRevision: 1, resources: [], acquisition: {} }],
     entries: [] },
   status: activeRelease ? 'active' : 'draft', activeRelease, createdAt: 1, updatedAt: 1,
@@ -146,7 +146,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     steps = [{ path: 'sources/documents/create', check: body => {
       expect(body).toEqual({ dryRun: false, idempotencyKey: 'create-inline',
         document: { name: 'orders', protocol: 'http-api',
-          config: { configVersion: 2, role: 'client', endpoint: 'https://fixture.invalid', options: {} } },
+          config: { role: 'client', endpoint: 'https://fixture.invalid', options: {} } },
         credentials });
     }, data: source() }];
     const created = await example('source', 'create', 3).createHttpSourceWithCredentials(
@@ -205,7 +205,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
   it('creates an HTTP Server using the managed endpoint without Client credentials', async () => {
     const current = source();
     const serverDocument = { name: 'orders-in', protocol: 'http-api',
-      config: { configVersion: 2, role: 'server', endpoint: 'http://managed', options: {} } };
+      config: { role: 'server', endpoint: 'http://managed', options: {} } };
     steps = [{ path: 'sources/documents/create', check: body => expect(body).toEqual({
       dryRun: false, idempotencyKey: 'create-server', document: serverDocument,
     }), data: { ...current, document: serverDocument } }];

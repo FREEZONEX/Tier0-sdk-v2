@@ -5,9 +5,9 @@ import { createClient, CapabilityError } from '../../src/index.js';
 
 const fixture = {
   product: 'cloud', contractVersion: '1.0', apiContractVersions: ['openapi/v1', 'openapi/v2'],
-  interpreterContractVersions: ['tier0-stream/v2'], sdkContractVersions: ['control/v1'],
+  sdkContractVersions: ['control/v1'],
   capabilities: [{ code: 'control.invoke.v1', releaseEnabled: true, allowed: true, enabled: false,
-    state: 'unavailable', availability: 'unavailable', contractVersions: ['openapi/v1', 'tier0-stream/v2', 'control/v1'] }],
+    state: 'unavailable', availability: 'unavailable', contractVersions: ['openapi/v1', 'control/v1'] }],
   deprecations: [],
 };
 const received: { path?: string; method?: string; headers: IncomingMessage['headers']; body: string }[] = [];

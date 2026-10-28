@@ -35,7 +35,7 @@ void invalid;
 
 export async function publishStreamFromReceipts(client: Tier0Client) {
   const created = await client.stream.documents.create({ dryRun: false, idempotencyKey: 'create',
-    program: { name: 'typed-receipts', sdkVersion: 'tier0-stream/v2', script: 'module.exports=api=>{};' } });
+    program: { name: 'typed-receipts', script: 'module.exports=api=>{};' } });
   if (!('id' in created.data)) return;
   const deployed = await client.stream.programs.deploy({ id: created.data.id,
     expectedRevision: created.data.revision, dryRun: false, idempotencyKey: 'deploy' });
@@ -61,19 +61,23 @@ sdk.stream.runtime.capabilities({});
 
 // Both HTTP roles use the native management envelope, with the role inside config.
 const httpClient: CloudSourceDocument = { name: 'client', protocol: 'http-api',
-  config: { configVersion: 2, role: 'client', endpoint: 'https://fixture.invalid', options: {} } };
+  config: { role: 'client', endpoint: 'https://fixture.invalid', options: {} } };
 const httpServer: CloudSourceDocument = { name: 'server', protocol: 'http-api',
-  config: { configVersion: 2, role: 'server', endpoint: 'http://managed', options: {} } };
+  config: { role: 'server', endpoint: 'http://managed', options: {} } };
 sdk.source.documents.create({ dryRun: true, document: httpClient });
 sdk.source.documents.create({ dryRun: true, document: httpServer });
 sdk.source.documents.list({ protocol: 'http-api' });
 // @ts-expect-error The old HTTP protocol is not a new management document protocol.
 const retiredHttpProtocol: CloudSourceDocument['protocol'] = 'http';
+// @ts-expect-error HTTP Push has no creation alias; use an HTTPServer Source and Stream route.
+const retiredPushProtocol: CloudSourceDocument['protocol'] = 'http_push';
+// @ts-expect-error The protocol filter cannot advertise retired Push Sources.
+sdk.source.documents.list({ protocol: 'http_push' });
 // @ts-expect-error Connection roles come from the public contract.
-const invalidHttpRole: Extract<CloudSourceConfig, { configVersion: 2 }>['role'] = 'listener';
+const invalidHttpRole: CloudSourceConfig['role'] = 'listener';
 // @ts-expect-error Enterprise projection roles cannot be copied to the Cloud document root.
 const misplacedHttpRole: CloudSourceDocument = { ...httpClient, role: 'client' };
-void [retiredHttpProtocol, invalidHttpRole, misplacedHttpRole];
+void [retiredHttpProtocol, retiredPushProtocol, invalidHttpRole, misplacedHttpRole];
 
 const inlineAuth: CloudSourceCreateCredentials[] = [
   { kind: 'basic', material: { username: 'fixture', password: 'fixture-only' } },
@@ -92,3 +96,15 @@ const vendorSessionInline: CloudSourceCreateCredentials = { kind: 'bearer', meth
 // @ts-expect-error The independent credential endpoint remains Core-only.
 sdk.source.credentials.create({});
 void [oldApiKeyMaterial, invalidApiKeyMethod, vendorSessionInline];
+
+// @ts-expect-error Single-model Source documents no longer select a config version.
+const retiredConfigSelector: CloudSourceConfig = { configVersion: 2, endpoint: 'https://fixture.invalid', options: {} };
+// @ts-expect-error Full Stream programs no longer select an interpreter generation.
+sdk.stream.documents.create({ dryRun: true, program: { name: 'single-model', script: 'module.exports=api=>{};', sdkVersion: 'tier0-stream/v2' } });
+// @ts-expect-error Native Stream script objects use code/timeoutMs without a generation selector.
+sdk.stream.documents.validate({ document: { name: 'single-model', model: 'program', script: { code: 'module.exports=api=>{};', timeoutMs: 1000, sdkVersion: 'tier0-stream/v2' } } });
+sdk.capabilities.discover().then(response => {
+  // @ts-expect-error Internal interpreter generations are not part of public discovery.
+  void response.interpreterContractVersions;
+});
+void retiredConfigSelector;

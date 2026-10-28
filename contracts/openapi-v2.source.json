@@ -6177,7 +6177,6 @@
                       "sap",
                       "teamcenter",
                       "mqtt_device",
-                      "http_push",
                       "sql"
                     ]
                   },
@@ -16109,12 +16108,6 @@
             "type": "string",
             "writeOnly": true
           },
-          "sdkVersion": {
-            "enum": [
-              "tier0-stream/v2"
-            ],
-            "type": "string"
-          },
           "timeoutMs": {
             "default": 1000,
             "maximum": 60000,
@@ -16153,7 +16146,6 @@
           }
         },
         "required": [
-          "sdkVersion",
           "name",
           "script"
         ],
@@ -18499,10 +18491,6 @@
             "type": "object",
             "additionalProperties": false,
             "properties": {
-              "configVersion": {
-                "type": "integer",
-                "const": 2
-              },
               "endpoint": {
                 "type": "string",
                 "minLength": 0
@@ -18557,7 +18545,6 @@
               }
             },
             "required": [
-              "configVersion",
               "endpoint",
               "options"
             ],
@@ -18588,10 +18575,6 @@
                   "credentialRef"
                 ],
                 "type": "object"
-              },
-              "configVersion": {
-                "const": 3,
-                "type": "integer"
               },
               "endpoint": {
                 "format": "uri",
@@ -18644,7 +18627,6 @@
               }
             },
             "required": [
-              "configVersion",
               "sourceType",
               "endpoint",
               "options",
@@ -18677,10 +18659,6 @@
                   "credentialRef"
                 ],
                 "type": "object"
-              },
-              "configVersion": {
-                "const": 3,
-                "type": "integer"
               },
               "endpoint": {
                 "format": "uri",
@@ -18738,7 +18716,6 @@
               }
             },
             "required": [
-              "configVersion",
               "sourceType",
               "endpoint",
               "options",
@@ -18771,10 +18748,6 @@
                   "credentialRef"
                 ],
                 "type": "object"
-              },
-              "configVersion": {
-                "const": 3,
-                "type": "integer"
               },
               "endpoint": {
                 "format": "uri",
@@ -18821,7 +18794,6 @@
               }
             },
             "required": [
-              "configVersion",
               "sourceType",
               "endpoint",
               "options",
@@ -18855,10 +18827,6 @@
                   "credentialRef"
                 ],
                 "type": "object"
-              },
-              "configVersion": {
-                "const": 3,
-                "type": "integer"
               },
               "endpoint": {
                 "format": "uri",
@@ -18911,7 +18879,6 @@
               }
             },
             "required": [
-              "configVersion",
               "sourceType",
               "endpoint",
               "options",
@@ -18944,10 +18911,6 @@
                   "credentialRef"
                 ],
                 "type": "object"
-              },
-              "configVersion": {
-                "const": 3,
-                "type": "integer"
               },
               "endpoint": {
                 "format": "uri",
@@ -19000,7 +18963,6 @@
               }
             },
             "required": [
-              "configVersion",
               "sourceType",
               "endpoint",
               "options",
@@ -19033,10 +18995,6 @@
                   "credentialRef"
                 ],
                 "type": "object"
-              },
-              "configVersion": {
-                "const": 3,
-                "type": "integer"
               },
               "endpoint": {
                 "format": "uri",
@@ -19089,7 +19047,6 @@
               }
             },
             "required": [
-              "configVersion",
               "sourceType",
               "endpoint",
               "options",
@@ -19122,10 +19079,6 @@
                   "credentialRef"
                 ],
                 "type": "object"
-              },
-              "configVersion": {
-                "const": 3,
-                "type": "integer"
               },
               "endpoint": {
                 "format": "uri",
@@ -19178,7 +19131,6 @@
               }
             },
             "required": [
-              "configVersion",
               "sourceType",
               "endpoint",
               "options",
@@ -19211,10 +19163,6 @@
                   "credentialRef"
                 ],
                 "type": "object"
-              },
-              "configVersion": {
-                "const": 3,
-                "type": "integer"
               },
               "endpoint": {
                 "format": "uri",
@@ -19308,7 +19256,6 @@
               }
             },
             "required": [
-              "configVersion",
               "sourceType",
               "endpoint",
               "options",
@@ -19341,10 +19288,6 @@
                   "credentialRef"
                 ],
                 "type": "object"
-              },
-              "configVersion": {
-                "const": 3,
-                "type": "integer"
               },
               "endpoint": {
                 "format": "uri",
@@ -19419,7 +19362,6 @@
               }
             },
             "required": [
-              "configVersion",
               "sourceType",
               "endpoint",
               "options",
@@ -19452,10 +19394,6 @@
                   "credentialRef"
                 ],
                 "type": "object"
-              },
-              "configVersion": {
-                "const": 3,
-                "type": "integer"
               },
               "endpoint": {
                 "format": "uri",
@@ -19518,7 +19456,6 @@
               }
             },
             "required": [
-              "configVersion",
               "sourceType",
               "endpoint",
               "options",
@@ -19551,10 +19488,6 @@
                   "credentialRef"
                 ],
                 "type": "object"
-              },
-              "configVersion": {
-                "const": 3,
-                "type": "integer"
               },
               "endpoint": {
                 "format": "uri",
@@ -19601,7 +19534,6 @@
               }
             },
             "required": [
-              "configVersion",
               "sourceType",
               "endpoint",
               "options",
@@ -19634,7 +19566,6 @@
               "sap",
               "teamcenter",
               "mqtt_device",
-              "http_push",
               "sql"
             ]
           },
@@ -19727,10 +19658,6 @@
                           ],
                           "type": "object"
                         },
-                        "configVersion": {
-                          "const": 2,
-                          "type": "integer"
-                        },
                         "endpoint": {
                           "format": "uri",
                           "maxLength": 2048,
@@ -19798,7 +19725,6 @@
                         }
                       },
                       "required": [
-                        "configVersion",
                         "endpoint",
                         "options"
                       ],
@@ -19839,10 +19765,6 @@
                             "credentialRef"
                           ],
                           "type": "object"
-                        },
-                        "configVersion": {
-                          "const": 3,
-                          "type": "integer"
                         },
                         "endpoint": {
                           "format": "uri",
@@ -19895,7 +19817,6 @@
                         }
                       },
                       "required": [
-                        "configVersion",
                         "sourceType",
                         "endpoint",
                         "options",
@@ -19928,10 +19849,6 @@
                             "credentialRef"
                           ],
                           "type": "object"
-                        },
-                        "configVersion": {
-                          "const": 3,
-                          "type": "integer"
                         },
                         "endpoint": {
                           "format": "uri",
@@ -19989,7 +19906,6 @@
                         }
                       },
                       "required": [
-                        "configVersion",
                         "sourceType",
                         "endpoint",
                         "options",
@@ -20022,10 +19938,6 @@
                             "credentialRef"
                           ],
                           "type": "object"
-                        },
-                        "configVersion": {
-                          "const": 3,
-                          "type": "integer"
                         },
                         "endpoint": {
                           "format": "uri",
@@ -20072,7 +19984,6 @@
                         }
                       },
                       "required": [
-                        "configVersion",
                         "sourceType",
                         "endpoint",
                         "options",
@@ -20106,10 +20017,6 @@
                             "credentialRef"
                           ],
                           "type": "object"
-                        },
-                        "configVersion": {
-                          "const": 3,
-                          "type": "integer"
                         },
                         "endpoint": {
                           "format": "uri",
@@ -20162,7 +20069,6 @@
                         }
                       },
                       "required": [
-                        "configVersion",
                         "sourceType",
                         "endpoint",
                         "options",
@@ -20195,10 +20101,6 @@
                             "credentialRef"
                           ],
                           "type": "object"
-                        },
-                        "configVersion": {
-                          "const": 3,
-                          "type": "integer"
                         },
                         "endpoint": {
                           "format": "uri",
@@ -20251,7 +20153,6 @@
                         }
                       },
                       "required": [
-                        "configVersion",
                         "sourceType",
                         "endpoint",
                         "options",
@@ -20284,10 +20185,6 @@
                             "credentialRef"
                           ],
                           "type": "object"
-                        },
-                        "configVersion": {
-                          "const": 3,
-                          "type": "integer"
                         },
                         "endpoint": {
                           "format": "uri",
@@ -20340,7 +20237,6 @@
                         }
                       },
                       "required": [
-                        "configVersion",
                         "sourceType",
                         "endpoint",
                         "options",
@@ -20373,10 +20269,6 @@
                             "credentialRef"
                           ],
                           "type": "object"
-                        },
-                        "configVersion": {
-                          "const": 3,
-                          "type": "integer"
                         },
                         "endpoint": {
                           "format": "uri",
@@ -20429,7 +20321,6 @@
                         }
                       },
                       "required": [
-                        "configVersion",
                         "sourceType",
                         "endpoint",
                         "options",
@@ -20462,10 +20353,6 @@
                             "credentialRef"
                           ],
                           "type": "object"
-                        },
-                        "configVersion": {
-                          "const": 3,
-                          "type": "integer"
                         },
                         "endpoint": {
                           "format": "uri",
@@ -20559,7 +20446,6 @@
                         }
                       },
                       "required": [
-                        "configVersion",
                         "sourceType",
                         "endpoint",
                         "options",
@@ -20592,10 +20478,6 @@
                             "credentialRef"
                           ],
                           "type": "object"
-                        },
-                        "configVersion": {
-                          "const": 3,
-                          "type": "integer"
                         },
                         "endpoint": {
                           "format": "uri",
@@ -20670,7 +20552,6 @@
                         }
                       },
                       "required": [
-                        "configVersion",
                         "sourceType",
                         "endpoint",
                         "options",
@@ -20703,10 +20584,6 @@
                             "credentialRef"
                           ],
                           "type": "object"
-                        },
-                        "configVersion": {
-                          "const": 3,
-                          "type": "integer"
                         },
                         "endpoint": {
                           "format": "uri",
@@ -20769,7 +20646,6 @@
                         }
                       },
                       "required": [
-                        "configVersion",
                         "sourceType",
                         "endpoint",
                         "options",
@@ -20802,10 +20678,6 @@
                             "credentialRef"
                           ],
                           "type": "object"
-                        },
-                        "configVersion": {
-                          "const": 3,
-                          "type": "integer"
                         },
                         "endpoint": {
                           "format": "uri",
@@ -20852,7 +20724,6 @@
                         }
                       },
                       "required": [
-                        "configVersion",
                         "sourceType",
                         "endpoint",
                         "options",
@@ -20930,12 +20801,6 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "sdkVersion": {
-            "type": "string",
-            "enum": [
-              "tier0-stream/v2"
-            ]
-          },
           "code": {
             "type": "string"
           },
@@ -20946,7 +20811,6 @@
           }
         },
         "required": [
-          "sdkVersion",
           "code",
           "timeoutMs"
         ]
@@ -23485,9 +23349,6 @@
             "type": "object",
             "additionalProperties": true,
             "properties": {
-              "sdkVersion": {
-                "type": "string"
-              },
               "name": {
                 "type": "string"
               },
@@ -26447,9 +26308,6 @@
                               "type": "string"
                             },
                             "description": {
-                              "type": "string"
-                            },
-                            "sdkVersion": {
                               "type": "string"
                             },
                             "timeoutMs": {
@@ -32793,13 +32651,6 @@
             },
             "type": "array"
           },
-          "interpreterContractVersions": {
-            "description": "tier0-stream/v2 解释器合同，不是 npm 版本",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
           "product": {
             "type": "string"
           },
@@ -32819,7 +32670,6 @@
           "product",
           "contractVersion",
           "apiContractVersions",
-          "interpreterContractVersions",
           "sdkContractVersions",
           "capabilities",
           "deprecations"

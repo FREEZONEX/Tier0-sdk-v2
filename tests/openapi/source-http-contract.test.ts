@@ -25,13 +25,14 @@ describe('Cloud HTTP Source management contract', () => {
       for (const name of ['CloudSourceDocument', 'CloudSourceDocumentListReq']) {
         const protocols = schemas[name].properties.protocol.enum;
         expect(protocols).toContain('http-api');
-        expect(protocols).toContain('http_push');
+        expect(protocols).not.toContain('http_push');
         expect(protocols).not.toContain('http');
       }
       expect(schemas.CloudSourceDocumentCreateReq.allOf[0].oneOf[1]
         .properties.document.properties.protocol.enum).toEqual(['http-api']);
     }
     expect(catalog.list.some((item: { protocol: string }) => item.protocol === 'http')).toBe(false);
+    expect(catalog.list.some((item: { protocol: string }) => item.protocol === 'http_push')).toBe(false);
   });
 
   it('keeps roles inside Cloud config and separates managed Server from outbound Client options', () => {
@@ -47,7 +48,7 @@ describe('Cloud HTTP Source management contract', () => {
       auth: false, endpoint: { const: 'http://managed' }, options: { const: {} }, tls: false,
     });
     expect(schema['x-tier0-http-in']).toMatchObject({
-      authentication: 'bearer', endpoint: 'http://managed', mode: 'synchronous',
+      authentication: 'bearer', endpoint: 'http://managed', prefix: '/ingest/v1/{workspaceId}/{sourceId}',
     });
   });
 
@@ -66,16 +67,31 @@ describe('Cloud HTTP Source management contract', () => {
     });
     expect(manifest.operations.find((item: { name: string }) => item.name === 'sourceCredentialCreate').coreOnly).toBe(true);
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudContractRevision.split('+')).toEqual(expect.arrayContaining(['http-source-role/1', 'http-source-request/1']));
+    expect(UNS_V2_CONTRACT_PROVENANCE.cloudContractRevision.split('+')).toContain('http-push-retirement/1');
   });
 
-  it('retains the independent asynchronous Push configuration without adding an SDK ingress API', () => {
-    const push = catalog.list.find((item: { protocol: string }) => item.protocol === 'http_push');
-    expect(push.operations).toEqual(['receive']);
-    expect(push.configSchema.properties.endpoint.const).toBe('');
-    expect(push.configSchema).not.toHaveProperty('x-tier0-http-in');
-    expect(push.configSchema.properties).not.toHaveProperty('role');
+  it('removes Push schemas and aliases without adding an SDK ingress or reply API', () => {
+    for (const input of [contract, manifest, JSON.parse(read('openapi-v2.source.json')), catalog]) {
+      expect(JSON.stringify(input)).not.toContain('http_push');
+      expect(JSON.stringify(input)).not.toContain('/ingest/v1/messages');
+    }
     for (const name of ['sourceIngressGet', 'sourceIngressRotate', 'sourceCredentialCreate']) {
       expect(UNS_V2_OPERATIONS).not.toHaveProperty(name);
+    }
+    expect(Object.keys(UNS_V2_OPERATIONS).some(name => /reply|push/i.test(name))).toBe(false);
+  });
+
+  it('uses the current single-model document shapes without restoring generation selectors', () => {
+    for (const schemas of [contract.schemas, manifest.schemas]) {
+      for (const config of schemas.CloudSourceConfig.oneOf) {
+        expect(config.properties).not.toHaveProperty('configVersion');
+      }
+      for (const name of ['RuntimeStreamDefinition', 'CloudStreamScript']) {
+        expect(schemas[name].properties).not.toHaveProperty('sdkVersion');
+        expect(schemas[name].required).not.toContain('sdkVersion');
+      }
+      expect(schemas.RuntimeStreamDefinition.properties.script.type).toBe('string');
+      expect(schemas.CloudStreamScript.properties.code.type).toBe('string');
     }
   });
 });

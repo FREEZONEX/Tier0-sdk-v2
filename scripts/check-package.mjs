@@ -54,7 +54,7 @@ run(['--input-type=module', '-e', `
   if (typeof client.source.documents.get !== 'function' || typeof client.stream.programs.deploy !== 'function') throw new Error('Missing domain entrypoints');
 `], consumer);
 for (const ext of ['mts', 'cts']) writeFileSync(resolve(consumer, `consumer.${ext}`), `
-import { createClient, type Tier0Client } from '@tier0/sdk-v2';
+import { createClient, type Tier0Client, type CloudSourceDocument } from '@tier0/sdk-v2';
 import { Tier0MQClient } from '@tier0/sdk-v2/mq';
 import { createSourceClient } from '@tier0/sdk-v2/source';
 import { createStreamClient } from '@tier0/sdk-v2/stream';
@@ -101,6 +101,15 @@ client.uns.recordFind({ collectionId: 'orders' });
 client.uns.recordInsertOne({ collectionId: 'orders', data: { code: 'A' }, returnDocument: 'after' });
 client.uns.metadataFind({ kind: 'collection', filter: { _id: 'orders' } });
 createSourceClient().documents.list({});
+// @ts-expect-error Packed declarations must not recreate HTTP Push as a Source protocol.
+const retiredPushProtocol: CloudSourceDocument['protocol'] = 'http_push';
+// @ts-expect-error The packed Source list filter must also reject HTTP Push.
+createSourceClient().documents.list({ protocol: 'http_push' });
+void retiredPushProtocol;
+// @ts-expect-error Packed Source documents must not restore the retired configuration selector.
+createSourceClient().documents.create({ dryRun: true, document: { name: 'single-model', protocol: 'http-api', config: { configVersion: 2, endpoint: 'http://managed', role: 'server', options: {} } } });
+// @ts-expect-error Packed native Stream scripts must not restore the retired interpreter selector.
+createStreamClient().documents.validate({ document: { name: 'single-model', model: 'program', script: { code: 'module.exports=api=>{};', timeoutMs: 1000, sdkVersion: 'tier0-stream/v2' } } });
 createStreamClient().programs.list({});
 // @ts-expect-error The retired readiness probe cannot return through packed declarations.
 createStreamClient().runtime.capabilities({});

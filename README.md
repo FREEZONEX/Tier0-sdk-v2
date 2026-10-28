@@ -2,7 +2,7 @@
 
 Tier0 云端新架构的独立 TypeScript / JavaScript SDK。新仓库、新 npm 包，不覆盖 `@tier0/sdk`。
 
-HTTP Source 只保留 `protocol: http-api`，通过 `config.role: client | server` 区分主动请求与入站服务。旧 `http` / `http_push` 配置需要迁移；响应时机属于 Stream，不再建立独立异步 Source。
+`0.6.0` 的 HTTP Source 只保留 `protocol: http-api`，通过 `config.role: client | server` 区分主动请求与入站服务。旧 `http` / `http_push` 配置需要迁移；响应时机属于 Stream，不再建立独立异步 Source。同步 singlemodel 合同后，Source 配置不再带 configVersion，Stream 输入不再带 sdkVersion；保留完整 module.exports 程序与原生 script 对象/Runtime program 字符串两种既有形态，不能将旧 transform 函数体直接改名迁入。
 
 `0.4.0` 版本变更：相对 0.3.x 移除已退役的 Stream 就绪探针且不保留别名，改用服务端现有统一权限，不再配置逐 Key Control scopes/codes。0.3.0 起统一使用 OpenAPI v2 并退役重复及旧接口；与 0.2.x 存在不兼容变更，迁移方式见下方“本次接口退役”。对应 UNS v2 契约 5.0.0，与 0.1.0 不兼容（新错误模型 `execution` / `retry`、封顶计数、删除 `recordChangesPoll` 等）。Collection 支持 int、float、double 和 datetime 声明；格式注解不新增数值范围或日期格式校验，Sample 外层 time 保持不变。使用时需确认目标环境已部署对应后端。要求 Node.js 20.19+。浏览器 HTTP、MQTT、React、Vue 和服务端身份验签分别提供独立入口。
 

@@ -8,7 +8,7 @@
 | document.name | string | 是 | 1–128 字符 |
 | document.protocol | string | 是 | 原生协议，如 http-api、mqtt、modbus |
 | document.config.role | client / server | HTTP API 显式指定 | client 主动请求；server 接收入站请求 |
-| document.config | object | 是 | configVersion=2、endpoint、options；见[协议配置](protocols.md) |
+| document.config | object | 是 | endpoint、options；见[协议配置](protocols.md) |
 | document.description | string | 否 | 最多 512 字符 |
 | credentials | object | 否 | 仅创建 HTTP Client 时提供新凭据，与已有 auth/TLS 引用互斥 |
 | idempotencyKey | string | 否 | 建议提供，最多 128 字符，同一业务意图保持不变 |
@@ -25,7 +25,7 @@ export async function createHttpSource(
 ) {
   const document: CloudSourceDocument = {
     name, protocol: 'http-api', description: '订单系统 HTTP 接入',
-    config: { configVersion: 2, role: 'client', endpoint, options: {} },
+    config: { role: 'client', endpoint, options: {} },
   };
   const saved = await client.source.documents.create({
     dryRun: false, document, idempotencyKey: intentKey,
@@ -52,7 +52,7 @@ export async function createAuthenticatedHttpSource(
 ) {
   const saved = await client.source.documents.create({
     dryRun: false, idempotencyKey: intentKey,
-    document: { name, protocol: 'http-api', config: { configVersion: 2, role: 'client', endpoint, options: {} } },
+    document: { name, protocol: 'http-api', config: { role: 'client', endpoint, options: {} } },
     credentials: { method: 'GET', kind: 'bearer', material: { token } },
   });
   if (!('id' in saved.data)) throw new Error('未返回 Source ID');
@@ -74,7 +74,7 @@ export async function createHttpServerSource(
 ) {
   const document: CloudSourceDocument = {
     name, protocol: 'http-api',
-    config: { configVersion: 2, role: 'server', endpoint: 'http://managed', options: {} },
+    config: { role: 'server', endpoint: 'http://managed', options: {} },
   };
   const saved = await client.source.documents.create({
     dryRun: false, document, idempotencyKey: intentKey,
@@ -109,7 +109,7 @@ export async function createHttpSourceWithCredentials(
   const saved = await client.source.documents.create({
     dryRun: false, idempotencyKey: intentKey,
     document: { name, protocol: 'http-api',
-      config: { configVersion: 2, role: 'client', endpoint, options: {} } },
+      config: { role: 'client', endpoint, options: {} } },
     credentials,
   });
   if (!('id' in saved.data)) throw new Error('未返回已保存的 Source');
