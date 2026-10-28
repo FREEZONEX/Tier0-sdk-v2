@@ -28908,7 +28908,8 @@
                       "type": "string",
                       "enum": [
                         "delivery",
-                        "control"
+                        "control",
+                        "http"
                       ]
                     },
                     "release": {
@@ -28940,6 +28941,12 @@
                       "type": "number",
                       "minimum": 0,
                       "nullable": true
+                    },
+                    "responseSentAt": {
+                      "type": "integer",
+                      "format": "int64",
+                      "nullable": true,
+                      "minimum": 0
                     }
                   },
                   "required": [
