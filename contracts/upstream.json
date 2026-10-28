@@ -4,7 +4,7 @@
   "inputs": {
     "contracts/openapi-v2.source.json": {
       "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
-      "sha256": "a22ea97265bdf6a160280caf93a1b3544a31f4055420f7cd73588850dc0ebf45"
+      "sha256": "72a582b7f4b4e291d851ff8ab5efc74296f4dfc4507898c8272122cde48fbd7a"
     },
     "contracts/uns-v2/contract.json": {
       "path": "service/unssvr/internal/domain/unsv2/contract_generated.go#ContractJSON",
@@ -12,7 +12,7 @@
     },
     "contracts/uns-v2/manifest.json": {
       "path": "share/unscontract/manifest.json",
-      "sha256": "ad9c0e97585be774e72c4335e801437c3dfd9187f0ce0c49e566aa98d4f79547"
+      "sha256": "ed0ff0f1d26d5075e58cefe64c4fc4d98d593b59ccdedb02c061b883107f7757"
     },
     "contracts/uns-v2/cloud-support.json": {
       "path": "share/unscontract/cloud-support.json",
@@ -26,5 +26,33 @@
       "path": "share/unscontract/source-protocols.json",
       "sha256": "4b5e79fab713dbbd6d6224d1383b5d1ab02b6715814384618788ca321d92d2e9"
     }
-  }
+  },
+  "schemaUpdates": [
+    {
+      "revision": "b7bc9272f3bc1a46bf65cafba45b4db928681b97",
+      "schemas": [
+        "CloudStreamRunsListResponse"
+      ],
+      "fields": [
+        "items.kind:http",
+        "items.responseSentAt"
+      ],
+      "inputs": {
+        "contracts/uns-v2/manifest.json": {
+          "path": "share/unscontract/manifest.json",
+          "schema": "CloudStreamRunsListResponse",
+          "sourceSHA256": "1df6663cf354828a2883523c745a747dcfecf0f8bfcb8973718fbfea591709d7",
+          "baseSHA256": "ad9c0e97585be774e72c4335e801437c3dfd9187f0ce0c49e566aa98d4f79547",
+          "resultSHA256": "ed0ff0f1d26d5075e58cefe64c4fc4d98d593b59ccdedb02c061b883107f7757"
+        },
+        "contracts/openapi-v2.source.json": {
+          "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
+          "schema": "DocUnsV2StreamRunsListResponse",
+          "sourceSHA256": "72a582b7f4b4e291d851ff8ab5efc74296f4dfc4507898c8272122cde48fbd7a",
+          "baseSHA256": "a22ea97265bdf6a160280caf93a1b3544a31f4055420f7cd73588850dc0ebf45",
+          "resultSHA256": "72a582b7f4b4e291d851ff8ab5efc74296f4dfc4507898c8272122cde48fbd7a"
+        }
+      }
+    }
+  ]
 }
