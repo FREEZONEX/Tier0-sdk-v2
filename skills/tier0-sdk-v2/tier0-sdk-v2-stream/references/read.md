@@ -57,3 +57,5 @@ export async function readPublishedRuns(
 失败或结果未知的运行可带 `error:{code,stage,message,repair,sourceRequest?}` 安全诊断。`SOURCE_TARGET_SCOPE_MISMATCH`、`stage:validate_binding` 表示请求超出 Source 凭据范围，应检查绑定基址与实际 method/path/query，保留原授权限制。`sourceRequest:notDispatched` 只证明失败的这一次 Source 请求未发送，不能推断整个 Stream 未开始或此前没有写入。
 
 `EXECUTION_FAILED` 和 `RESULT_UNKNOWN` 是安全通用诊断，分别保留失败和结果未知的区别。按 code/stage 判断，展示服务端 message/repair；没有 error 的旧记录仍按 status 解释，不补造原因，也不因可重试猜测而自动重新执行。运行诊断不包含 token、凭据引用或完整请求 URL。
+
+支持 HTTP 响应诊断的后端还会保留 `SOURCE_HTTP_<三位状态码>`（300–599）、`stage:source_response`，例如 `SOURCE_HTTP_401`。这是可信宿主在本轮观察到的非 2xx 响应；不是脚本错误文案，也不证明它是所有后续失败的唯一原因。`status:unknown` 可以同时带此诊断：已知上游返回 401，不等于整轮外部副作用已确定或可以安全重试。只读查询 runs 的 HTTP 200 也不等于采集成功。运行最终成功时不会附加此前已被脚本处理的 HTTP 错误。

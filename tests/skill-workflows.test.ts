@@ -147,7 +147,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     await example('stream', 'create').createHttpStream(created.current, 'inventory-stream', 'create-stream', client);
     const module = { exports: undefined as unknown as (api: unknown) => void };
     runInNewContext(script, { module });
-    const request = vi.fn().mockResolvedValue({ data: [{ sku: 'fixture-sku' }] });
+    const request = vi.fn().mockResolvedValue({ status: 200, data: [{ sku: 'fixture-sku' }] });
     const use = vi.fn().mockReturnValue({ request });
     const every = vi.fn();
     module.exports({ sources: { use }, stream: { every } });
@@ -251,6 +251,29 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     ];
     await example('stream', 'create').createHttpStream({ ...current, document: { ...current.document, config } }, 'orders-stream', 'create-stream', client);
     expect(calls).toHaveLength(1);
+    finished();
+  });
+
+  it.each([200, 401, 403, 429, 502])('HTTP collection example checks upstream status %s before accepting data', async status => {
+    let script = '';
+    steps = [{ path: 'streams/documents/create', check: body => { script = body.program.script; }, data: stream() }];
+    await example('stream', 'create').createHttpStream(source(), 'inventory-stream', 'create-stream', client);
+    const module = { exports: (_api: unknown) => {} };
+    runInNewContext(script, { module });
+    let handler: () => Promise<unknown> = async () => { throw new Error('Missing handler'); };
+    const request = vi.fn().mockResolvedValue({ status, data: [{ matnr: 'fixture' }], headers: { secret: 'secret-marker' } });
+    module.exports({ sources: { use: () => ({ request }) }, stream: { every: (entry: { intervalMs: number }, run: typeof handler) => {
+      expect(entry.intervalMs).toBe(60000);
+      handler = run;
+    } } });
+    if (status === 200) {
+      await expect(handler()).resolves.toEqual([{ matnr: 'fixture' }]);
+      request.mockResolvedValueOnce({ status: 200, data: { error: 'secret-marker' } });
+      await expect(handler()).rejects.toThrow('Unexpected upstream inventory response format');
+    } else {
+      await expect(handler()).rejects.toThrow('Upstream inventory HTTP request failed');
+    }
+    expect(request).toHaveBeenCalledTimes(status === 200 ? 2 : 1);
     finished();
   });
 
