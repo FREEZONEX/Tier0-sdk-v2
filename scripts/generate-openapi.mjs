@@ -6,6 +6,7 @@ import ts from 'typescript';
 import { assertNoRetiredStreamProbe } from './retired-stream-probe.mjs';
 import { assertNoRetiredHTTPPush } from './retired-http-push.mjs';
 import { assertNoRetiredControls } from './retired-controls.mjs';
+import { platformSchemaProjection } from './platform-schema-projection.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 // The effective v2 contract is the only public route source. Legacy Swagger is not a fallback.
@@ -26,8 +27,7 @@ for (const [path, item] of Object.entries(source.paths)) {
   }
 }
 // Retain the SDK's stable schema names while taking their definitions from v2.
-const platformSchemas = Object.fromEntries(Object.entries(source.components.schemas)
-  .filter(([name]) => name.startsWith('Platform')).map(([name, schema]) => [name.slice('Platform'.length), schema]));
+const platformSchemas = platformSchemaProjection(source.components.schemas, paths);
 const spec = JSON.parse(JSON.stringify({ ...source, servers: [{ url: '/' }], paths, components: { ...source.components, schemas: platformSchemas } })
   .replaceAll('#/components/schemas/Platform', '#/components/schemas/'));
 const schemas = spec.components.schemas;

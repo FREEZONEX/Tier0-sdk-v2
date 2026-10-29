@@ -21,6 +21,8 @@ description: 使用 @tier0/sdk-v2/data 在 App 服务端声明并读写本 App �
 
 ## 最小用法
 
+新 App 没有集合时是正常空态：`uns.dataAppContext({})` 返回 `dataState: "uninitialized"` 和空集合，不创建任何数据。无需先调用 context 或手工激活数据策略；声明真实业务集合后，第一次数据访问会自动初始化。`dataState: "ready"` 也不代表可访问整个工作空间，仍以返回的集合授权为准。引用已有 WMS 等集合需要明确共享授权，不能创建同名空集合代替。管理员停用返回 `FORBIDDEN`、reason `APP_DATA_POLICY_DISABLED`，不得自动恢复。
+
 ```ts
 import { z } from 'zod';
 import { createDataClient } from '@tier0/sdk-v2/data';

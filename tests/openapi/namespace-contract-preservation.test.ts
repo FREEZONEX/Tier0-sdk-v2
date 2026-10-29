@@ -21,7 +21,7 @@ function canonical(value: unknown): unknown {
     .map(([key, item]) => [key, canonical(item)]));
 }
 
-it('preserves the 53 common Namespace operations and all 202 transitive schemas from released 0.6.2', () => {
+it('preserves the released Namespace contract except the explicit AppContext dataState addition', () => {
   const manifest = JSON.parse(readFileSync(new URL('../../contracts/uns-v2/manifest.json', import.meta.url), 'utf8'));
   const operations = Object.fromEntries(names.map(name => {
     const operation = manifest.operations.find((item: { name: string }) => item.name === name);
@@ -48,6 +48,20 @@ it('preserves the 53 common Namespace operations and all 202 transitive schemas 
   }
   expect(Object.keys(operations)).toHaveLength(53);
   expect(Object.keys(schemas)).toHaveLength(202);
-  const digest = createHash('sha256').update(JSON.stringify(canonical({ operations, schemas }))).digest('hex');
+  // The current producer adds app-context/3 state. Verify this exact delta,
+  // then compare every other operation and reachable schema to the old digest.
+  const appContext = schemas.AppContext as {
+    properties: Record<string, { type?: string; enum?: string[]; description?: string }>;
+    required: string[];
+  };
+  expect(appContext.properties.dataState.type).toBe('string');
+  expect(appContext.properties.dataState.enum).toEqual(['uninitialized', 'ready']);
+  expect(appContext.properties.dataState.description).toContain('APP_DATA_POLICY_DISABLED');
+  expect(appContext.required.filter(name => name === 'dataState')).toHaveLength(1);
+  const baselineSchemas = structuredClone(schemas);
+  const baselineAppContext = baselineSchemas.AppContext as typeof appContext;
+  delete baselineAppContext.properties.dataState;
+  baselineAppContext.required = baselineAppContext.required.filter(name => name !== 'dataState');
+  const digest = createHash('sha256').update(JSON.stringify(canonical({ operations, schemas: baselineSchemas }))).digest('hex');
   expect(digest).toBe('c11a131d8a49f573cf7e3eb3bf7bef25994192f81cf37db76d615e99042a1f63');
 });

@@ -1,6 +1,6 @@
 # 下载与应用附件保存
 
-v2 方法：`files.download({filePath,…}, {signal}?) → Promise<Response>`。与 v1 不同，返回值本身就是 Response，不再取 result.response。
+v2 方法：`files.download({filePath,…}, {signal}?) → Promise<Response>`。返回值本身就是 Response。
 
 v2 先请求文件 URL，再匿名读取对象存储；不沿用带 Key 的重定向下载链。平台认证信息不能转发给存储。
 

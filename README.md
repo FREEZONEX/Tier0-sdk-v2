@@ -25,9 +25,8 @@ import { createClient } from '@tier0/sdk-v2';
 
 // 服务端环境注入 TIER0_API_HOST 和 TIER0_API_KEY。
 const tier0 = createClient();
+// 首次接入时确认身份与 Workspace；不需要在每次业务操作前重复调用。
 const user = await tier0.system.whoami();
-const platform = await tier0.system.info();
-const capabilities = await tier0.capabilities.discover();
 ```
 
 也可显式配置 `{ apiHost, apiKey, transportTimeoutMs, fetch }`，或提供 `getApiHost` / `getApiKey` 回调。裸域名默认使用 HTTPS；本地 HTTP 测试请显式写 `http://127.0.0.1:端口`。不自动向浏览器注入或读取 `VITE_` API Key。
@@ -80,11 +79,9 @@ const sources = await tier0.source.documents.list({ page: 1, size: 20 });
 const programs = await tier0.stream.programs.list({ page: 1, size: 20 });
 ```
 
-HTTP Source 统一使用 `protocol: 'http-api'`，显式设置 `config.role: 'client'`（主动请求）或 `config.role: 'server'`（接收入站请求），与 Enterprise 一协议两角色保持一致；Cloud 管理文档的角色位于 config 内。旧 `http` 正向示例迁移为 `http-api` + `client`；Server 不能作为 Client 发起主动请求。HTTPServer 使用固定前缀 `/ingest/v1/{workspaceId}/{sourceId}`，业务路由注册在 Stream；普通返回在处理和提交完成后回复；HTTP `onRequest` 可通过一次 `await ctx.reply(...)` 先回复再继续，仍受超时、并发和权限限制，回复后不随客户端断线取消但可由 shutdown 取消，不保证崩溃重放。202 状态本身不证明处理完成。示例见 [HTTPServer Stream Skill](skills/tier0-sdk-v2/tier0-sdk-v2-stream/references/http-server.md)。使用 `source.protocols.list({})` 核对目标环境支持，再通过现有 `source.documents.*` 管理配置。HTTP Client 单条 inline 创建支持 Basic、Bearer、APIKey、OAuth 四类认证，凭据默认绑定 Source 基址 REQUEST，显式方法继续保留限制；独立 credentialCreate 仍为 coreOnly。SDK 不新增猜测的 HTTP In API；npm 管理 SDK 与执行器中的 Goja Stream 脚本 API 分开使用。
+HTTP Source 统一使用 `protocol: 'http-api'`，显式设置 `config.role: 'client'`（主动请求）或 `config.role: 'server'`（接收入站请求），与 Enterprise 一协议两角色保持一致；Cloud 管理文档的角色位于 config 内。Server 不能作为 Client 发起主动请求。HTTPServer 使用固定前缀 `/ingest/v1/{workspaceId}/{sourceId}`，业务路由注册在 Stream；普通返回在处理和提交完成后回复；HTTP `onRequest` 可通过一次 `await ctx.reply(...)` 先回复再继续，仍受超时、并发和权限限制，回复后不随客户端断线取消但可由 shutdown 取消，不保证崩溃重放。202 状态本身不证明处理完成。示例见 [HTTPServer Stream Skill](skills/tier0-sdk-v2/tier0-sdk-v2-stream/references/http-server.md)。使用 `source.protocols.list({})` 核对目标环境支持，再通过现有 `source.documents.*` 管理配置。HTTP Client 单条 inline 创建支持 Basic、Bearer、APIKey、OAuth 四类认证，凭据默认绑定 Source 基址 REQUEST，显式方法继续保留限制；独立 credentialCreate 仍为 coreOnly。SDK 不新增猜测的 HTTP In API；npm 管理 SDK 与执行器中的 Goja Stream 脚本 API 分开使用。
 
 Source/Stream 仍保留 `{ code, msg, requestId, data }` 响应以及 `UnsV2Error` 错误类型。Source 配置统一使用 `source.documents`；Stream 草稿统一通过 `stream.documents` 创建、读取、校验和修改，输入 `program` 与 `document` 二选一。发布和回滚仍走 `stream.programs`。保存、部署、运行成功分别判断。
-
-旧 `stream.runtime.capabilities()` 及底层 `streamRuntimeCapabilitiesGet` 已退役，没有兼容别名；不要把该查询当作 Stream 前置检查，也不要为消除它的 403 增加 Control scope 或逐 Key 的控制码授权。Stream 管理、实际执行、发布、回滚及运行记录继续通过各自接口和统一权限校验；通用能力发现不代替实际操作结果。
 
 - 已知 Source ID/revision 且没有 Stream 引用时，可 [直接 patch 或变更状态](skills/tier0-sdk-v2/tier0-sdk-v2-source/references/update.md)；有引用时仍按精确意图确认影响。
 - Stream 创建/更新回执的 revision 可直接用于发布；[发布回执](skills/tier0-sdk-v2/tier0-sdk-v2-stream/references/deploy.md) 的 activeRelease 用于观察这次发布，无需前后各查询一次。
@@ -142,14 +139,15 @@ await tier0.notifications.send({
 ```ts
 const saved = await tier0.files.upload(new File(['report'], 'report.txt'));
 const stableReference = saved.filePath;
-const { fileUrl } = await tier0.files.url({ filePath: stableReference });
 const response = await tier0.files.download({ filePath: stableReference });
 const bytes = await response.arrayBuffer();
 ```
 
+只需要临时链接时调用 `files.url({ filePath })`；`download()` 已包含获取链接，无需先调用 url。
+
 保存 `filePath`，不把临时签名地址当作持久化引用。上传由平台签发地址后直传对象存储，平台 API Key 不传到存储域名；下载先获取签名地址，再匿名获取文件，避免认证重定向泄漏凭证。
 
-超过 100 MiB 自动使用分片上传，也可调用 `uploadMultipart(file, { partSize, signal, onProgress })`。首版顺序上传分片，不自动重试。中断后 `MultipartUploadError.session` 保留 uploadId、fileKey、已完成 parts 和 `completionAttempted`，可以通过 `files.multipart` 完成或终止；尝试过 complete 后必须先核对结果。未实现自动断点续传。
+超过 100 MiB 自动使用分片上传，也可调用 `uploadMultipart(file, { partSize, signal, onProgress })`。顺序上传分片，不自动重试。中断后 `MultipartUploadError.session` 保留 uploadId、fileKey、已完成 parts 和 `completionAttempted`，可以通过 `files.multipart` 完成或终止；尝试过 complete 后必须先核对结果。未实现自动断点续传。
 
 返回的下载 `Response` 由调用方消费；文件传输配置超时约束取得响应头的阶段，后续流式读取由调用方管理。所有业务附件、头像、导入/导出文件使用平台文件存储，不以 App 本地目录作为持久化存储。
 
@@ -226,6 +224,12 @@ node scripts/check-live-workflows.mjs <consumer> <workspaceId> .tmp/live-workflo
 node scripts/check-live-transports.mjs <consumer> <workspaceId> .tmp/live-transports.json --write-test-fixtures
 ```
 
-写入验收不发布 Stream、不启用 Source、不发送通知。归档资源保留正常产品恢复能力；报告区分通过、服务端拒绝和未验证范围。分片上传失败会保留错误原因，确认尚未尝试 complete 时清理本次会话；完成结果未知时先对账。完整结果见 [2026-10-22 验收报告](docs/acceptance-2026-10-22.md)。
+写入验收不发布 Stream、不启用 Source、不发送通知。归档资源保留正常产品恢复能力；报告区分通过、服务端拒绝和未验证范围。分片上传失败会保留错误原因，确认尚未尝试 complete 时清理本次会话；完成结果未知时先对账。
 
-业务接入时仍需核对验收报告中的环境限制并补齐未验收范围、将 App 脚手架精确依赖更新为 `"@tier0/sdk-v2": "0.3.0"`，并按需更新已安装的 Skill。
+Stream 发布和实际运行使用单独的验收脚本，同样只在明确授权的测试 Workspace 执行；按脚本报告区分已测和未测的生命周期阶段：
+
+```sh
+node scripts/check-live-stream-runtime.mjs <consumer> <workspaceId> .tmp/live-stream-runtime.json --write-test-fixtures
+```
+
+业务项目锁定实际安装的版本并同步更新随包 Skills；本地检查不代表线上业务验收通过。

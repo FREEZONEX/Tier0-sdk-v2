@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { Script } from 'node:vm';
+import { Script, runInNewContext } from 'node:vm';
 import ts from 'typescript';
 
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
@@ -53,6 +53,15 @@ for (const path of ['scripts/check-live-stream-runtime.mjs', 'scripts/check-live
     assert.equal(typeof program.script, 'string', 'Runtime programs retain their complete module.exports string');
     assert.doesNotThrow(() => new Script(program.script));
     assert.match(program.script, /module\.exports\s*=/);
+    const module = { exports: undefined };
+    let registrations = 0;
+    runInNewContext(program.script, { module });
+    module.exports({ stream: { every(options, handler) {
+      assert.ok(options.intervalMs > 0);
+      assert.equal(typeof handler, 'function');
+      registrations++;
+    } } });
+    assert.equal(registrations, 1, 'Program must use the supported timer entrypoint');
     assert.equal(Object.hasOwn(program, 'sdkVersion'), false);
     assert.equal(Object.hasOwn(schema.properties, 'sdkVersion'), false);
   });

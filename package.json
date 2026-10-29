@@ -155,7 +155,7 @@
   "scripts": {
     "sync:contracts": "node scripts/sync-contracts.mjs",
     "generate": "node scripts/generate-openapi.mjs && node scripts/generate-uns-v2.mjs",
-    "check:contracts": "node scripts/check-contracts.mjs && node --test scripts/retired-stream-probe.test.mjs scripts/retired-http-push.test.mjs scripts/retired-controls.test.mjs scripts/sync-contracts.test.mjs scripts/live-program-contract.test.mjs scripts/sync-http-run-observations.test.mjs && node scripts/generate-openapi.mjs --check && node scripts/generate-uns-v2.mjs --check",
+    "check:contracts": "node scripts/check-contracts.mjs && node --test scripts/retired-stream-probe.test.mjs scripts/retired-http-push.test.mjs scripts/retired-controls.test.mjs scripts/platform-schema-projection.test.mjs scripts/sync-contracts.test.mjs scripts/live-program-contract.test.mjs scripts/sync-http-run-observations.test.mjs && node scripts/generate-openapi.mjs --check && node scripts/generate-uns-v2.mjs --check",
     "check:skills": "node scripts/check-skills.mjs && node scripts/check-skill-examples.mjs",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.tests.json",
     "build": "node scripts/build.mjs",

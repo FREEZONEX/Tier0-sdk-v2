@@ -164,19 +164,35 @@ describe('UNS v2 localhost HTTP fixture', () => {
     expect(received[start].headers['x-tier0-app-data-subject']).toBe(proof);
   });
 
-  it('reads the current hosted App context without an App selector or retries', async () => {
+  it.each(['uninitialized', 'ready'] as const)('reads %s hosted App context without an App selector or initialization writes', async dataState => {
     const start = received.length;
     respond = (_req, res) => send(res, { code: 200, msg: '', requestId: 'app-context', data: {
-      appId: '14bfc189-8516-4709-a4c9-865a0f1dc345', name: 'Hosted App', revision: 1,
+      appId: '14bfc189-8516-4709-a4c9-865a0f1dc345', name: 'Hosted App', revision: dataState === 'uninitialized' ? 0 : 1, dataState,
       collections: [], platformPermissions: [],
     } });
     const out = await client().uns.dataAppContext({});
     expect(out.data.appId).toBe('14bfc189-8516-4709-a4c9-865a0f1dc345');
     expect(out.data.name).toBe('Hosted App');
+    expect(out.data.dataState).toBe(dataState);
+    expect(out.data.revision).toBe(dataState === 'uninitialized' ? 0 : 1);
     expect(out.data.collections).toEqual([]);
     expect(received.length - start).toBe(1);
     expect(received.at(-1)?.path).toBe('/openapi/v2/uns/app/context');
     expect(received.at(-1)?.body).toBe('{}');
+  });
+
+  it('keeps disabled App context forbidden without retrying or initializing data', async () => {
+    const start = received.length;
+    respond = (_req, res) => send(res, {
+      code: 403, msg: 'App data policy is disabled by an administrator', requestId: 'disabled-app',
+      data: { reason: 'APP_DATA_POLICY_DISABLED' },
+      error: { code: 'FORBIDDEN', reason: 'APP_DATA_POLICY_DISABLED', details: [], execution: 'notStarted', retry: { safe: false } },
+    }, 403);
+    await expect(client().uns.dataAppContext({})).rejects.toMatchObject({
+      status: 403, code: 'FORBIDDEN', reason: 'APP_DATA_POLICY_DISABLED', execution: 'notStarted', retry: { safe: false },
+    });
+    expect(received.slice(start)).toHaveLength(1);
+    expect(received.at(-1)?.path).toBe('/openapi/v2/uns/app/context');
   });
 
   it('decodes current employee create capability separately from readable fields without adding a selector or binding to the request', async () => {
@@ -289,11 +305,11 @@ describe('UNS v2 localhost HTTP fixture', () => {
     expect(received.slice(start)).toHaveLength(1);
     expect(received[start].path).toBe('/openapi/v2/uns/streams/sample/test');
     const core = rawClient() as unknown as { call(name: string, request: unknown): Promise<unknown> };
-    for (const name of ['graph', 'sourceCredentialCreate', 'sourceIngressGet', 'sourceIngressRotate']) {
+    for (const name of ['graph', 'sourceCredentialCreate', 'sourceIngressGet', 'sourceIngressRotate', 'sourceIngressRevoke']) {
       expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(false);
       await expect(core.call(name, {})).rejects.toThrow('unknown UNS v2 operation');
     }
-    for (const name of ['CloudSourceCredentialCreateReq', 'CloudSourceCredentialCreateResponse', 'CloudSourceIngressGetReq', 'CloudSourceIngressRotateReq']) {
+    for (const name of ['CloudSourceCredentialCreateReq', 'CloudSourceCredentialCreateResponse', 'CloudSourceIngressGetReq', 'CloudSourceIngressRotateReq', 'CloudSourceIngressRevokeReq']) {
       expect(Object.hasOwn(UNS_V2_CODEC_SCHEMAS, name)).toBe(false);
     }
     expect(UNS_V2_CONTRACT_PROVENANCE.version).toBe('5.0.0');
@@ -301,9 +317,9 @@ describe('UNS v2 localhost HTTP fixture', () => {
       'cloud-source-impact/2', 'app-create-capability/1', 'data/3', 'collection-namespace/1', 'http-acquisition/2',
       'app-collection/2', 'metadata/1', 'app-data/2', 'hosted-control/1', 'source-bindings/1',
       'record-notifications/1', 'record-delete-samples/1', 'stream-history/1',
-      'record-reads/1', 'app-context/2', 'collection-ttl/1', 'error-model/1', 'record-insert-return/1',
+      'record-reads/1', 'app-context/3', 'collection-ttl/1', 'error-model/1', 'record-insert-return/1',
     ]));
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('5e11f9c46cbfceecf27ae352882bce3663a0cafa');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('c90d0e2c7514e8c454f13578cb6a0487d7e15710');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(UNS_V2_CONTRACT_PROVENANCE.sourceDerivedContractSHA256).toBe(UNS_V2_CONTRACT_PROVENANCE.hashes.contract);
     expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(82);

@@ -17,6 +17,6 @@ export async function deleteAttachment(filePath: string, client: Tier0Client = c
 }
 ```
 
-删除前明确目标及业务引用，读取/下载不附带删除。返回已解包的 {deleted}；不要复制 v1 把 204/空体也无条件视为成功的逻辑。v2 要按实际回执判断。
+删除前明确目标及业务引用，读取/下载不附带删除。返回已解包的 {deleted}，检查 deleted 确认结果。
 
 对象删除不提供 SDK 恢复功能。401/403 处理身份与授权；网络中断/结果未知时先对账，不把错误当“已经不存在”，不自动换身份重试。

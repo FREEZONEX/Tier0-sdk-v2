@@ -45,7 +45,7 @@ export async function subscribeTelemetry(
 
 回调是 (topic,payload)，payload 为字符串。subscribe 返回 void，订阅失败通过 error 事件，不把函数返回当 broker SUBACK。此例独占连接；共享连接只退订自己的 handler，不关闭其他消费者。
 
-+ 匹配一层，# 匹配多层，订阅范围必须属于任务和主题授权。不能从旧 v1 的 Metric/Action/State 路径、enableHistory 或字段规则推断新 UNS MQTT 映射；先核实目标平台的实际主题和消息契约。App 服务端订阅新 UNS Record 变更用 `@tier0/sdk-v2/data` 的 `data.subscribe`（`records:subscribe` 服务端推送），不是 MQTT 主题。
++ 匹配一层，# 匹配多层，订阅范围必须属于任务和主题授权。主题和消息格式以目标平台的实际契约为准。App 服务端订阅新 UNS Record 变更用 `@tier0/sdk-v2/data` 的 `data.subscribe`（`records:subscribe` 服务端推送），不是 MQTT 主题。
 
 ## 发布
 
@@ -66,4 +66,4 @@ connect/disconnect/error/message/subscriptionDropped 反映客户端状态。isC
 
 创建凭据用 client.mqttAuth.create({name})，撤销用 delete({id})，检查 success。回执的 clientID 对应配置 clientId；完整密码只在创建时返回一次，受控保存。
 
-Not authorized/CONNACK 5/重连循环时核对注入的 Key 类型、过期/撤销、授权和 Broker ws/wss 地址。v2 不回退 Enterprise 身份，也不套用旧包升级到 @tier0/sdk@latest 的建议；不因连接失败自动新建凭据。
+Not authorized/CONNACK 5/重连循环时核对注入的 Key 类型、过期/撤销、授权和 Broker ws/wss 地址。v2 不回退 Enterprise 身份；不因连接失败自动新建凭据。

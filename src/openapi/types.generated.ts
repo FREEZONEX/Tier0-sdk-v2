@@ -870,436 +870,24 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        AgentAnalysisDispatchReq: {
-            canvasId?: string;
-            cardId?: string;
-            kind: string;
-            operationId: string;
-            resultId?: string;
-            task: unknown;
-        };
-        AgentAnalysisDispatchResp: {
-            dispatchState: string;
-            errorCode: string;
-            errorMessage: string;
-            runId: string;
-        };
-        AgentAnalysisGetReq: {
-            runId: string;
-        };
-        AgentAnalysisGetResp: {
-            run: components["schemas"]["AgentJobRunRecord"];
-        };
-        AgentCanvasListReq: {
-            page: number | bigint;
-            sessionId?: string;
-            size: number | bigint;
-        };
-        AgentCanvasListResp: {
-            list: components["schemas"]["AgentCanvasRecord"][];
-            page: number | bigint;
-            size: number | bigint;
-            total: number | bigint;
-        };
-        AgentCanvasRecord: {
-            canvasId: string;
-            createdAt: number | bigint;
+        InfoResp: {
+            capabilities: string[];
+            mqttBroker: string;
             name: string;
-            sessionId: string;
-            updatedAt: number | bigint;
+            /** @description API version of the requested HTTP entry point */
+            version: string;
         };
-        AgentCardDeleteReq: {
-            canvasId: string;
-            cardId: string;
-            expectedCardSpec: unknown;
-        };
-        AgentCardDeleteResp: {
-            cardId: string;
-        };
-        AgentCardGetReq: {
-            canvasId: string;
-            cardId: string;
-        };
-        AgentCardGetResp: {
-            canvasId: string;
-            cardId: string;
-            cardKey: string;
-            cardSpec: unknown;
-            updatedAt: number | bigint;
-        };
-        AgentCardListReq: {
-            canvasId: string;
-            page: number | bigint;
-            size: number | bigint;
-        };
-        AgentCardListResp: {
-            list: components["schemas"]["AgentCardGetResp"][];
-            page: number | bigint;
-            size: number | bigint;
-            total: number | bigint;
-        };
-        AgentCardUpdateReq: {
-            canvasId?: string;
-            cardId: string;
-            cardSpec: unknown;
-            /** @description 读取到的完整原卡内容，变化时返回HTTP409 */
-            expectedCardSpec: unknown;
-            /** @description 画布内顺序：不传 = 不改（转调 unssvr 时补 -1），传了原样透传；用指针区分「没传」和「传 0」 */
-            ord?: number | bigint;
-            position?: unknown;
-        };
-        AgentCardUpdateResp: {
-            cardId: string;
-        };
-        AgentJobCreateReq: {
-            cardId?: string;
-            cronExpr?: string;
-            expiresAt?: number | bigint;
-            intervalSeconds?: number | bigint;
-            name: string;
-            notify?: unknown;
-            scheduleKind: string;
-            sessionId: string;
-            sourceBlockId?: string;
-            sourceId?: string;
-            sourceName?: string;
-            sourceType: string;
-            task: unknown;
-            type?: string;
-        };
-        AgentJobGetResp: {
-            job: components["schemas"]["AgentJobRecord"];
-        };
-        AgentJobIDReq: {
-            jobId: string;
-        };
-        AgentJobListReq: {
-            cardId?: string;
-            page: number | bigint;
-            search?: string;
-            size: number | bigint;
-            sourceId?: string;
-            sourceType?: string;
-            status?: string;
-            type?: string;
-        };
-        AgentJobListResp: {
-            list: components["schemas"]["AgentJobRecord"][];
-            page: number | bigint;
-            size: number | bigint;
-            total: number | bigint;
-        };
-        AgentJobMutationResp: {
-            jobId: string;
-        };
-        AgentJobRecord: {
-            attentionReason: string;
-            cardId: string;
-            createdAt: number | bigint;
-            cronExpr: string;
-            expiresAt: number | bigint;
-            intervalSeconds: number | bigint;
-            jobId: string;
-            lastFiredAt: number | bigint;
-            name: string;
-            nextRunAt: number | bigint;
-            notify?: unknown;
-            orphanedAt: number | bigint;
-            scheduleKind: string;
-            sessionId: string;
-            sourceBlockId: string;
-            sourceId: string;
-            sourceName: string;
-            sourceType: string;
-            status: string;
-            task: unknown;
-            type: string;
-            updatedAt: number | bigint;
-        };
-        AgentJobRunGetReq: {
-            jobId: string;
-            jobRunId: string;
-        };
-        AgentJobRunGetResp: {
-            run: components["schemas"]["AgentJobRunRecord"];
-        };
-        AgentJobRunListReq: {
-            jobId: string;
-            page: number | bigint;
-            size: number | bigint;
-            status?: string;
-        };
-        AgentJobRunListResp: {
-            list: components["schemas"]["AgentJobRunRecord"][];
-            page: number | bigint;
-            size: number | bigint;
-            total: number | bigint;
-        };
-        AgentJobRunRecord: {
-            dispatchState: string;
-            errorCode?: string;
-            errorMessage?: string;
-            finishedAt?: number | bigint;
-            firedAt: number | bigint;
-            jobId: string;
-            jobRunId: string;
-            resultId?: string;
-            resultSummary?: unknown;
-            severity?: string;
-            status: string;
-            trigger?: string;
-        };
-        AgentJobTriggerResp: {
-            dispatchState: string;
-            jobId: string;
-            jobRunId: string;
-        };
-        AgentJobUpdateReq: {
-            cardId?: string;
-            cronExpr?: string;
-            expiresAt?: number | bigint;
-            intervalSeconds?: number | bigint;
-            jobId: string;
-            name?: string;
-            notify?: unknown;
-            /** @description 省略沿用原通知，1必须提供notify对象，2关闭通知且不提供notify */
-            notifyEnabled?: number | bigint;
-            scheduleKind?: string;
-            sessionId?: string;
-            sourceBlockId?: string;
-            sourceId?: string;
-            sourceName?: string;
-            sourceType?: string;
-            task?: unknown;
-            type?: string;
-        };
-        AgentLibraryCreateReq: {
-            cardKey: string;
-            cardSpec: unknown;
-            sourceSessionId?: string;
-            tags?: string[];
-        };
-        AgentLibraryGetReq: {
-            libraryItemId: string;
-        };
-        AgentLibraryGetResp: {
-            item: components["schemas"]["AgentLibraryItem"];
-        };
-        AgentLibraryItem: {
-            cardKey: string;
-            cardSpec: unknown;
-            createdAt: number | bigint;
-            libraryItemId: string;
-            sourceSessionId: string;
-            tags: string[];
-            updatedAt: number | bigint;
-        };
-        AgentLibraryListReq: {
-            page: number | bigint;
-            search?: string;
-            size: number | bigint;
-            tags?: string[];
-        };
-        AgentLibraryListResp: {
-            list: components["schemas"]["AgentLibraryItem"][];
-            page: number | bigint;
-            size: number | bigint;
-            total: number | bigint;
-        };
-        AgentLibraryMutationResp: {
-            libraryItemId: string;
-        };
-        AgentLibrarySnapshot: {
-            cardKey: string;
-            cardSpec: unknown;
-            sourceSessionId: string;
-            tags: string[];
-        };
-        AgentLibraryUpdateReq: {
-            cardSpec: unknown;
-            expectedItem: components["schemas"]["AgentLibrarySnapshot"];
-            libraryItemId: string;
-            sourceSessionId?: string;
-            tags?: string[];
-        };
-        AgentResultCreateReq: {
-            cardSpec?: unknown;
-            dataScope?: unknown;
-            images?: unknown[];
-            missingData: unknown;
-            operationId: string;
-            resultSchemaVersion: number | bigint;
-            source: components["schemas"]["AgentResultSource"];
-            steps?: unknown[];
-            summary?: string;
-            tables?: unknown[];
-            title: string;
-            warnings?: string[];
-        };
-        AgentResultCreateResp: {
-            jobRunId: string;
-            resultId: string;
-        };
-        AgentResultGetReq: {
-            /** @description 与resultId二选一，保存超时后按原编号查回，不重复保存 */
-            operationId?: string;
-            resultId?: string;
-        };
-        AgentResultGetResp: {
-            result: components["schemas"]["AgentStoredResult"];
-        };
-        AgentResultListReq: {
-            page: number | bigint;
-            platformSessionId?: string;
-            size: number | bigint;
-        };
-        AgentResultListResp: {
-            list: components["schemas"]["AgentStoredResult"][];
-            page: number | bigint;
-            size: number | bigint;
-            total: number | bigint;
-        };
-        AgentResultPinReq: {
-            canvasId: string;
-            position?: unknown;
-            resultId: string;
-        };
-        AgentResultPinResp: {
-            cardId: string;
-        };
-        AgentResultSource: {
-            agentId: string;
-            platformRunId?: string;
-            platformSessionId: string;
-            platformUserId?: string;
-            skillVersion?: string;
-        };
-        AgentStoredResult: {
-            agentId: string;
-            byteSize: number | bigint;
-            cardSpec?: unknown;
-            createdAt: number | bigint;
-            manifest: unknown;
-            operationId: string;
-            platformRunId: string;
-            platformSessionId: string;
-            resultId: string;
-            skillVersion: string;
-            sourceKind: string;
-        };
-        AppAccessMemberResp: {
-            email?: string;
-            /** @description 毫秒 */
-            grantedAt: number | bigint;
-            roles: components["schemas"]["AppAccessMemberRoleResp"][];
-            userId: string;
-            userName?: string;
-        };
-        AppAccessMemberRoleResp: {
-            roleId: string;
-            roleKey: string;
-            roleName: string;
-            sources: components["schemas"]["AppAccessRoleSourceResp"][];
-        };
-        AppAccessMembersListReq: {
-            appId: string;
-            /** @description 毫秒，闭区间，精度为秒 */
-            grantedAtEnd?: number | bigint;
-            /** @description 毫秒，闭区间，精度为秒 */
-            grantedAtStart?: number | bigint;
-            page?: number | bigint;
-            /** @description 任一命中即可，大小写不敏感 */
-            roleKeys?: string[];
-            size?: number | bigint;
-        };
-        AppAccessMembersListResp: {
-            /** @description 1:所有 active 成员都可访问 2:按角色授权 */
-            allActiveMembers: number | bigint;
-            appId: string;
-            list: components["schemas"]["AppAccessMemberResp"][];
-            page: number | bigint;
-            productionVersionId?: string;
-            /** @description 1:已发布 2:未发布 */
-            published: number | bigint;
-            roles: components["schemas"]["AppAccessRoleResp"][];
-            size: number | bigint;
-            total: number | bigint;
-        };
-        AppAccessRoleResp: {
-            description?: string;
-            memberCount: number | bigint;
-            roleId: string;
-            roleKey: string;
-            roleName: string;
-            /** @description active / retired */
-            status: string;
-        };
-        AppAccessRoleSourceResp: {
-            groupId?: string;
-            groupName?: string;
-            /** @description direct / group */
-            type: string;
-        };
-        AssetFileDeleteReq: {
-            filePath: string;
-        };
-        AssetFileDeleteResp: {
-            deleted: boolean;
-        };
-        AssetFileMultipartAbortReq: {
-            fileKey: string;
-            uploadId: string;
-        };
-        AssetFileMultipartAbortResp: {
-            aborted: number | bigint;
-        };
-        AssetFileMultipartCompleteReq: {
-            fileKey: string;
-            parts: components["schemas"]["AssetFileMultipartPart"][];
-            uploadId: string;
-        };
-        AssetFileMultipartCompleteResp: {
-            expiresAt?: number | bigint;
-            filePath: string;
-            fileUrl?: string;
-            sizeBytes: number | bigint;
-        };
-        AssetFileMultipartInitReq: {
-            appInstanceId?: string;
-            bizId?: string;
-            business?: string;
-            contentType?: string;
-            fileName: string;
-            partSize?: number | bigint;
-            sessionId?: string;
-            size: number | bigint;
-            useBy?: string;
-            visibility?: string;
-        };
-        AssetFileMultipartInitResp: {
-            expiresAt: number | bigint;
-            fileKey: string;
-            filePath: string;
-            partCount: number | bigint;
-            partSize: number | bigint;
-            uploadId: string;
-        };
-        AssetFileMultipartPart: {
-            etag: string;
-            partNumber: number | bigint;
-        };
-        AssetFileMultipartPartUrl: {
-            expiresAt: number | bigint;
-            partNumber: number | bigint;
-            url: string;
-        };
-        AssetFileMultipartPartUrlsReq: {
-            fileKey: string;
-            partNumbers: (number | bigint)[];
-            uploadId: string;
-        };
-        AssetFileMultipartPartUrlsResp: {
-            partUrls: components["schemas"]["AssetFileMultipartPartUrl"][];
+        AuthWhoamiResp: {
+            apiKeyName: string;
+            email: string;
+            keyPrefix: string;
+            keyType: string;
+            permissions: string[];
+            roles: string[];
+            userID: number | bigint;
+            userName: string;
+            workspaceID: number | bigint;
+            workspaceName: string;
         };
         AssetFileUploadReq: {
             appInstanceId?: string;
@@ -1327,6 +915,67 @@ export interface components {
             expiresAt?: number | bigint;
             fileUrl: string;
         };
+        AssetFileDeleteReq: {
+            filePath: string;
+        };
+        AssetFileDeleteResp: {
+            deleted: boolean;
+        };
+        AssetFileMultipartInitReq: {
+            appInstanceId?: string;
+            bizId?: string;
+            business?: string;
+            contentType?: string;
+            fileName: string;
+            partSize?: number | bigint;
+            sessionId?: string;
+            size: number | bigint;
+            useBy?: string;
+            visibility?: string;
+        };
+        AssetFileMultipartInitResp: {
+            expiresAt: number | bigint;
+            fileKey: string;
+            filePath: string;
+            partCount: number | bigint;
+            partSize: number | bigint;
+            uploadId: string;
+        };
+        AssetFileMultipartPartUrlsReq: {
+            fileKey: string;
+            partNumbers: (number | bigint)[];
+            uploadId: string;
+        };
+        AssetFileMultipartPartUrlsResp: {
+            partUrls: components["schemas"]["AssetFileMultipartPartUrl"][];
+        };
+        AssetFileMultipartPartUrl: {
+            expiresAt: number | bigint;
+            partNumber: number | bigint;
+            url: string;
+        };
+        AssetFileMultipartCompleteReq: {
+            fileKey: string;
+            parts: components["schemas"]["AssetFileMultipartPart"][];
+            uploadId: string;
+        };
+        AssetFileMultipartPart: {
+            etag: string;
+            partNumber: number | bigint;
+        };
+        AssetFileMultipartCompleteResp: {
+            expiresAt?: number | bigint;
+            filePath: string;
+            fileUrl?: string;
+            sizeBytes: number | bigint;
+        };
+        AssetFileMultipartAbortReq: {
+            fileKey: string;
+            uploadId: string;
+        };
+        AssetFileMultipartAbortResp: {
+            aborted: number | bigint;
+        };
         AssetUploadReq: {
             business?: string;
             contentType?: string;
@@ -1348,41 +997,42 @@ export interface components {
             /** @description 预签名 POST 地址；multipart/form-data 上传 */
             postUrl: string;
         };
-        AuthWhoamiResp: {
-            apiKeyName: string;
-            email: string;
-            keyPrefix: string;
-            keyType: string;
-            permissions: string[];
-            roles: string[];
-            userID: number | bigint;
-            userName: string;
-            workspaceID: number | bigint;
-            workspaceName: string;
+        SendNotificationReq: {
+            channels?: ("web" | "mobile")[];
+            content: string;
+            idempotencyKey: string;
+            link?: string;
+            mode?: string;
+            recipientUserId: string;
+            sender?: components["schemas"]["NotificationSender"];
+            /** @description 已废弃：过渡期作 sender.name 别名（sender.name 优先），后续移除 */
+            source?: string;
+            title: string;
+            type: string;
         };
-        CapabilityDeprecation: {
-            contract: string;
-            replacement?: string;
-            sunsetAt?: string;
+        NotificationSender: {
+            /** @description app 必填=appId（agent-platform UUID）；other 可选；system 可选；字符集 [0-9a-zA-Z-]{1,128} */
+            id?: string;
+            /** @description 类型专属附加信息，序列化后≤500字节 */
+            meta?: {
+                [key: string]: string;
+            };
+            /** @description 人读显示名（接替废弃的 source），≤100字符 */
+            name?: string;
+            /**
+             * @description 枚举 app/other/system，缺省 other；system=平台内部服务，仅 usage_type=internal 的 API key 可用（否则 400），建信归 workspace 分组（System tab）
+             * @default other
+             * @enum {string}
+             */
+            type?: "app" | "other" | "system";
         };
-        CapabilityDiscoverResp: {
-            /** @description openapi/v1 */
-            apiContractVersions: string[];
-            /** @description 只返回当前 Key 有授权摘要的已知能力，关闭的能力仍返回状态 */
-            capabilities: components["schemas"]["PublicCapability"][];
-            /** @description 本发现响应合同版本，与单个 Stream request 的冻结合同版本独立 */
-            contractVersion: string;
-            deprecations: components["schemas"]["CapabilityDeprecation"][];
-            product: string;
-            /** @description 仅返回显式配置的可信产品发布版本，未配置时省略 */
-            productVersion?: string;
-            /** @description stream-requests/v1 公共 SDK 合同，不是 npm 版本 */
-            sdkContractVersions: string[];
+        SendNotificationResp: {
+            createdAt: string;
+            messageId: string;
+            status: string;
         };
-        CapabilityErrorResp: {
-            /** @description INVALID_CREDENTIAL / CAPABILITY_INVALID_REQUEST / CAPABILITY_FORBIDDEN / CAPABILITY_UNAVAILABLE / CAPABILITY_INTERNAL_ERROR */
+        NotificationError: {
             errorCode: string;
-            /** @description 固定公开消息，不透传内部异常 */
             message: string;
         };
         GetNotificationReq: {
@@ -1397,12 +1047,89 @@ export interface components {
             status: string;
             type: string;
         };
-        InfoResp: {
-            capabilities: string[];
-            mqttBroker: string;
-            name: string;
-            /** @description API version of the requested HTTP entry point */
-            version: string;
+        PlatformGetMembersReq: {
+            keyword?: string;
+            page?: number | bigint;
+            roleKey?: string;
+            roles?: string[];
+            size?: number | bigint;
+            statuses?: string[];
+            updatedAtEnd?: string;
+            updatedAtStart?: string;
+        };
+        PlatformMembersResp: {
+            list: components["schemas"]["PlatformMemberResp"][];
+            page: number | bigint;
+            size: number | bigint;
+            total: number | bigint;
+        };
+        PlatformMemberResp: {
+            email?: string;
+            nickName?: string;
+            roles: components["schemas"]["PlatformMemberRoleResp"][];
+            status: string;
+            updatedAt: string;
+            userId: string;
+            userName?: string;
+        };
+        PlatformMemberRoleResp: {
+            description?: string;
+            roleId: string;
+            roleKey: string;
+            roleName?: string;
+        };
+        AppAccessMembersListReq: {
+            appId: string;
+            /** @description 毫秒，闭区间，精度为秒 */
+            grantedAtEnd?: number | bigint;
+            /** @description 毫秒，闭区间，精度为秒 */
+            grantedAtStart?: number | bigint;
+            page?: number | bigint;
+            /** @description 任一命中即可，大小写不敏感 */
+            roleKeys?: string[];
+            size?: number | bigint;
+        };
+        AppAccessMembersListResp: {
+            /** @description 1:所有 active 成员都可访问 2:按角色授权 */
+            allActiveMembers: number | bigint;
+            appId: string;
+            list: components["schemas"]["AppAccessMemberResp"][];
+            page: number | bigint;
+            productionVersionId?: string;
+            /** @description 1:已发布 2:未发布 */
+            published: number | bigint;
+            roles: components["schemas"]["AppAccessRoleResp"][];
+            size: number | bigint;
+            total: number | bigint;
+        };
+        AppAccessMemberResp: {
+            email?: string;
+            /** @description 毫秒 */
+            grantedAt: number | bigint;
+            roles: components["schemas"]["AppAccessMemberRoleResp"][];
+            userId: string;
+            userName?: string;
+        };
+        AppAccessMemberRoleResp: {
+            roleId: string;
+            roleKey: string;
+            roleName: string;
+            sources: components["schemas"]["AppAccessRoleSourceResp"][];
+        };
+        AppAccessRoleSourceResp: {
+            groupId?: string;
+            groupName?: string;
+            /** @description direct / group */
+            type: string;
+        };
+        AppAccessRoleResp: {
+            description?: string;
+            memberCount: number | bigint;
+            roleId: string;
+            roleKey: string;
+            roleName: string;
+            /** @description active / retired */
+            status: string;
         };
         MqttAuthCreateReq: {
             clientIDRandomSuffixEnabled?: boolean;
@@ -1423,88 +1150,491 @@ export interface components {
         MqttAuthDeleteResp: {
             success: boolean;
         };
-        NotificationSender: {
-            /** @description app 必填=appId（agent-platform UUID）；other 可选；system 可选；字符集 [0-9a-zA-Z-]{1,128} */
-            id?: string;
-            /** @description 类型专属附加信息，序列化后≤500字节 */
-            meta?: {
-                [key: string]: string;
-            };
-            /** @description 人读显示名（接替废弃的 source），≤100字符 */
-            name?: string;
+        /**
+         * Tier0 capability discovery
+         * @description OpenAPI 3.0 wire schema. Array contains/cardinality annotations and cross-field proof ordering require the shared JSON Schema plus SDK semantic checks; this projection alone is not full contract acceptance.
+         */
+        CapabilityDiscoverV2Resp: {
+            /** @enum {unknown} */
+            product: "cloud" | "enterprise";
+            productVersion?: string;
+            /** @enum {unknown} */
+            contractVersion: "1.0";
+            apiContractVersions: string[];
+            sdkContractVersions: string[];
+            capabilities: components["schemas"]["CapabilityDiscoverycapability"][] & (unknown & unknown & unknown & unknown & unknown);
+            deprecations: {
+                contract: string;
+                replacement?: string;
+                sunsetAt?: string;
+            }[];
+        } & (unknown | {
+            apiContractVersions?: unknown[];
+        });
+        /** @description Unknown capability codes are ignored; only recognized codes use the frozen assessment contract. */
+        CapabilityDiscoverycapability: {
+            code: string;
+        } & (unknown | components["schemas"]["CapabilityDiscoveryknownCapability"]);
+        CapabilityDiscoveryknownCapability: {
+            releaseEnabled: boolean;
+            enabled: boolean;
+            allowed: boolean;
+            /** @enum {unknown} */
+            state: "disabled" | "not_supported" | "unavailable" | "readiness_unknown" | "ready";
+            /** @enum {unknown} */
+            availability: "unavailable" | "unknown" | "available";
+            reasonCode?: string;
+            /** Format: date-time */
+            checkedAt?: string;
             /**
-             * @description 枚举 app/other/system，缺省 other；system=平台内部服务，仅 usage_type=internal 的 API key 可用（否则 400），建信归 workspace 分组（System tab）
-             * @default other
-             * @enum {string}
+             * Format: date-time
+             * @description Proof expiry must follow checkedAt. Cross-field chronological ordering is a semantic constraint checked by consumers in addition to this structural JSON Schema.
              */
-            type?: "app" | "other" | "system";
+            validUntil?: string;
+            retryAfterMs?: number | bigint;
+            code: string;
+            contractVersions: string[];
+            operations?: components["schemas"]["CapabilityDiscoveryoperation"][];
+        } & (((unknown | {
+            /** @enum {unknown} */
+            enabled?: true;
+            /** @enum {unknown} */
+            releaseEnabled?: true;
+            /** @enum {unknown} */
+            allowed?: true;
+            /** @enum {unknown} */
+            availability?: "available";
+        }) & ({
+            /** @enum {unknown} */
+            state?: "ready";
+        } | {
+            /** @enum {unknown} */
+            enabled?: false;
+        })) & ((unknown | {
+            /** @enum {unknown} */
+            releaseEnabled?: false;
+        }) & ({
+            /** @enum {unknown} */
+            state?: "disabled";
+        } | {
+            /** @enum {unknown} */
+            releaseEnabled?: true;
+        })) & (unknown | {
+            /** @enum {unknown} */
+            availability?: "unknown";
+        }) & (unknown | {
+            /** @enum {unknown} */
+            availability?: "unavailable";
+        }) & (unknown | {
+            /** @enum {unknown} */
+            state?: "ready";
+            checkedAt: unknown;
+        }) & (unknown | ({
+            operations?: ((unknown | components["schemas"]["CapabilityDiscoveryknownOperation"]) & (unknown | {
+                /** @enum {unknown} */
+                requiresResourceCheck?: true;
+            }))[] & (unknown & unknown & unknown & unknown & unknown & unknown);
+        } & (unknown | {
+            operations?: (unknown | {
+                /** @enum {unknown} */
+                releaseEnabled?: false;
+            })[];
+        }))) & (unknown | ({
+            operations?: ((unknown | components["schemas"]["CapabilityDiscoveryknownOperation"]) & (unknown | {
+                /** @enum {unknown} */
+                requiresResourceCheck?: true;
+            }))[] & (unknown & unknown & unknown & unknown & unknown & unknown);
+        } & (unknown | {
+            operations?: (unknown | {
+                /** @enum {unknown} */
+                releaseEnabled?: false;
+            })[];
+        }))) & (unknown | {
+            contractVersions?: unknown[];
+        }) & (unknown | {
+            contractVersions?: unknown[] & (unknown & unknown);
+        }));
+        /** @description Unknown operation names are ignored within their parent capability; known names are validated by that capability. */
+        CapabilityDiscoveryoperation: {
+            operation: string;
         };
-        PlatformGetMembersReq: {
-            keyword?: string;
-            page?: number | bigint;
-            roleKey?: string;
-            roles?: string[];
-            size?: number | bigint;
-            statuses?: string[];
-            updatedAtEnd?: string;
-            updatedAtStart?: string;
+        CapabilityDiscoveryknownOperation: {
+            releaseEnabled: boolean;
+            enabled: boolean;
+            allowed: boolean;
+            /** @enum {unknown} */
+            state: "disabled" | "not_supported" | "unavailable" | "readiness_unknown" | "ready";
+            /** @enum {unknown} */
+            availability: "unavailable" | "unknown" | "available";
+            reasonCode?: string;
+            /** Format: date-time */
+            checkedAt?: string;
+            /**
+             * Format: date-time
+             * @description Proof expiry must follow checkedAt. Cross-field chronological ordering is a semantic constraint checked by consumers in addition to this structural JSON Schema.
+             */
+            validUntil?: string;
+            retryAfterMs?: number | bigint;
+            operation: string;
+            requiresResourceCheck: boolean;
+        } & (((unknown | {
+            /** @enum {unknown} */
+            enabled?: true;
+            /** @enum {unknown} */
+            releaseEnabled?: true;
+            /** @enum {unknown} */
+            allowed?: true;
+            /** @enum {unknown} */
+            availability?: "available";
+        }) & ({
+            /** @enum {unknown} */
+            state?: "ready";
+        } | {
+            /** @enum {unknown} */
+            enabled?: false;
+        })) & ((unknown | {
+            /** @enum {unknown} */
+            releaseEnabled?: false;
+        }) & ({
+            /** @enum {unknown} */
+            state?: "disabled";
+        } | {
+            /** @enum {unknown} */
+            releaseEnabled?: true;
+        })) & (unknown | {
+            /** @enum {unknown} */
+            availability?: "unknown";
+        }) & (unknown | {
+            /** @enum {unknown} */
+            availability?: "unavailable";
+        }) & (unknown | {
+            /** @enum {unknown} */
+            state?: "ready";
+            checkedAt: unknown;
+        }));
+        CapabilityErrorResp: {
+            /** @description INVALID_CREDENTIAL / CAPABILITY_INVALID_REQUEST / CAPABILITY_FORBIDDEN / CAPABILITY_UNAVAILABLE / CAPABILITY_INTERNAL_ERROR */
+            errorCode: string;
+            /** @description 固定公开消息，不透传内部异常 */
+            message: string;
         };
-        PlatformMemberResp: {
-            email?: string;
-            nickName?: string;
-            roles: components["schemas"]["PlatformMemberRoleResp"][];
-            status: string;
-            updatedAt: string;
-            userId: string;
-            userName?: string;
+        AgentCardGetReq: {
+            canvasId: string;
+            cardId: string;
         };
-        PlatformMemberRoleResp: {
-            description?: string;
-            roleId: string;
-            roleKey: string;
-            roleName?: string;
+        AgentCardGetResp: {
+            canvasId: string;
+            cardId: string;
+            cardKey: string;
+            cardSpec: unknown;
+            updatedAt: number | bigint;
         };
-        PlatformMembersResp: {
-            list: components["schemas"]["PlatformMemberResp"][];
+        AgentResultCreateReq: {
+            cardSpec?: unknown;
+            dataScope?: unknown;
+            images?: unknown[];
+            missingData: unknown;
+            operationId: string;
+            resultSchemaVersion: number | bigint;
+            source: components["schemas"]["AgentResultSource"];
+            steps?: unknown[];
+            summary?: string;
+            tables?: unknown[];
+            title: string;
+            warnings?: string[];
+        };
+        AgentResultSource: {
+            agentId: string;
+            platformRunId?: string;
+            platformSessionId: string;
+            platformUserId?: string;
+            skillVersion?: string;
+        };
+        AgentResultCreateResp: {
+            jobRunId: string;
+            resultId: string;
+        };
+        AgentResultGetReq: {
+            /** @description 与resultId二选一，保存超时后按原编号查回，不重复保存 */
+            operationId?: string;
+            resultId?: string;
+        };
+        AgentResultGetResp: {
+            result: components["schemas"]["AgentStoredResult"];
+        };
+        AgentStoredResult: {
+            agentId: string;
+            byteSize: number | bigint;
+            cardSpec?: unknown;
+            createdAt: number | bigint;
+            manifest: unknown;
+            operationId: string;
+            platformRunId: string;
+            platformSessionId: string;
+            resultId: string;
+            skillVersion: string;
+            sourceKind: string;
+        };
+        AgentResultListReq: {
+            page: number | bigint;
+            platformSessionId?: string;
+            size: number | bigint;
+        };
+        AgentResultListResp: {
+            list: components["schemas"]["AgentStoredResult"][];
             page: number | bigint;
             size: number | bigint;
             total: number | bigint;
         };
-        PublicCapability: {
-            /** @description 当前 Key 的能力授权摘要，不替代具体 Stream request code 与读写权限检查 */
-            allowed: boolean;
-            /** @description unavailable / unknown / available；不是设备在线或执行成功证明 */
-            availability: string;
-            code: string;
-            contractVersions: string[];
-            /** @description 仅发布、实现和 readiness 均满足时为 true */
-            enabled: boolean;
-            /** @description 公开发布开关与当前 Workspace 灰度的交集，不表示 runtime 就绪 */
-            releaseEnabled: boolean;
-            /** @description disabled / not_supported / unavailable / readiness_unknown / ready */
-            state: string;
+        AgentCardUpdateReq: {
+            canvasId?: string;
+            cardId: string;
+            cardSpec: unknown;
+            /** @description 读取到的完整原卡内容，变化时返回HTTP409 */
+            expectedCardSpec: unknown;
+            /** @description 画布内顺序：不传 = 不改（转调 unssvr 时补 -1），传了原样透传；用指针区分「没传」和「传 0」 */
+            ord?: number | bigint;
+            position?: unknown;
         };
-        SendNotificationReq: {
-            channels?: ("web" | "mobile")[];
-            content: string;
-            idempotencyKey: string;
-            link?: string;
-            mode?: string;
-            recipientUserId: string;
-            sender?: components["schemas"]["NotificationSender"];
-            /** @description 已废弃：过渡期作 sender.name 别名（sender.name 优先），后续移除 */
-            source?: string;
-            title: string;
-            type: string;
+        AgentCardUpdateResp: {
+            cardId: string;
         };
-        SendNotificationResp: {
-            createdAt: string;
-            messageId: string;
+        AgentCardListReq: {
+            canvasId: string;
+            page: number | bigint;
+            size: number | bigint;
+        };
+        AgentCardListResp: {
+            list: components["schemas"]["AgentCardGetResp"][];
+            page: number | bigint;
+            size: number | bigint;
+            total: number | bigint;
+        };
+        AgentResultPinReq: {
+            canvasId: string;
+            position?: unknown;
+            resultId: string;
+        };
+        AgentResultPinResp: {
+            cardId: string;
+        };
+        AgentJobCreateReq: {
+            cardId?: string;
+            cronExpr?: string;
+            expiresAt?: number | bigint;
+            intervalSeconds?: number | bigint;
+            name: string;
+            notify?: unknown;
+            scheduleKind: string;
+            sessionId: string;
+            sourceBlockId?: string;
+            sourceId?: string;
+            sourceName?: string;
+            sourceType: string;
+            task: unknown;
+            type?: string;
+        };
+        AgentJobMutationResp: {
+            jobId: string;
+        };
+        AgentJobUpdateReq: {
+            cardId?: string;
+            cronExpr?: string;
+            expiresAt?: number | bigint;
+            intervalSeconds?: number | bigint;
+            jobId: string;
+            name?: string;
+            notify?: unknown;
+            /** @description 省略沿用原通知，1必须提供notify对象，2关闭通知且不提供notify */
+            notifyEnabled?: number | bigint;
+            scheduleKind?: string;
+            sessionId?: string;
+            sourceBlockId?: string;
+            sourceId?: string;
+            sourceName?: string;
+            sourceType?: string;
+            task?: unknown;
+            type?: string;
+        };
+        AgentJobIDReq: {
+            jobId: string;
+        };
+        AgentJobGetResp: {
+            job: components["schemas"]["AgentJobRecord"];
+        };
+        AgentJobRecord: {
+            attentionReason: string;
+            cardId: string;
+            createdAt: number | bigint;
+            cronExpr: string;
+            expiresAt: number | bigint;
+            intervalSeconds: number | bigint;
+            jobId: string;
+            lastFiredAt: number | bigint;
+            name: string;
+            nextRunAt: number | bigint;
+            notify?: unknown;
+            orphanedAt: number | bigint;
+            scheduleKind: string;
+            sessionId: string;
+            sourceBlockId: string;
+            sourceId: string;
+            sourceName: string;
+            sourceType: string;
             status: string;
+            task: unknown;
+            type: string;
+            updatedAt: number | bigint;
         };
-        NotificationError: {
+        AgentJobListReq: {
+            cardId?: string;
+            page: number | bigint;
+            search?: string;
+            size: number | bigint;
+            sourceId?: string;
+            sourceType?: string;
+            /** @description active / paused / needs_attention / expired */
+            status?: string;
+            type?: string;
+        };
+        AgentJobListResp: {
+            list: components["schemas"]["AgentJobRecord"][];
+            page: number | bigint;
+            size: number | bigint;
+            total: number | bigint;
+        };
+        AgentJobRunGetReq: {
+            jobId: string;
+            jobRunId: string;
+        };
+        AgentJobRunGetResp: {
+            run: components["schemas"]["AgentJobRunRecord"];
+        };
+        AgentJobRunRecord: {
+            dispatchState: string;
+            errorCode?: string;
+            errorMessage?: string;
+            finishedAt?: number | bigint;
+            firedAt: number | bigint;
+            jobId: string;
+            jobRunId: string;
+            resultId?: string;
+            resultSummary?: unknown;
+            severity?: string;
+            status: string;
+            trigger?: string;
+        };
+        AgentJobRunListReq: {
+            jobId: string;
+            page: number | bigint;
+            size: number | bigint;
+            status?: string;
+        };
+        AgentJobRunListResp: {
+            list: components["schemas"]["AgentJobRunRecord"][];
+            page: number | bigint;
+            size: number | bigint;
+            total: number | bigint;
+        };
+        AgentJobTriggerResp: {
+            dispatchState: string;
+            jobId: string;
+            jobRunId: string;
+        };
+        AgentCanvasListReq: {
+            page: number | bigint;
+            sessionId?: string;
+            size: number | bigint;
+        };
+        AgentCanvasListResp: {
+            list: components["schemas"]["AgentCanvasRecord"][];
+            page: number | bigint;
+            size: number | bigint;
+            total: number | bigint;
+        };
+        AgentCanvasRecord: {
+            canvasId: string;
+            createdAt: number | bigint;
+            name: string;
+            sessionId: string;
+            updatedAt: number | bigint;
+        };
+        AgentLibraryListReq: {
+            page: number | bigint;
+            search?: string;
+            size: number | bigint;
+            tags?: string[];
+        };
+        AgentLibraryListResp: {
+            list: components["schemas"]["AgentLibraryItem"][];
+            page: number | bigint;
+            size: number | bigint;
+            total: number | bigint;
+        };
+        AgentLibraryItem: {
+            cardKey: string;
+            cardSpec: unknown;
+            createdAt: number | bigint;
+            libraryItemId: string;
+            sourceSessionId: string;
+            tags: string[];
+            updatedAt: number | bigint;
+        };
+        AgentLibraryGetReq: {
+            libraryItemId: string;
+        };
+        AgentLibraryGetResp: {
+            item: components["schemas"]["AgentLibraryItem"];
+        };
+        AgentLibraryCreateReq: {
+            cardKey: string;
+            cardSpec: unknown;
+            sourceSessionId?: string;
+            tags?: string[];
+        };
+        AgentLibraryMutationResp: {
+            libraryItemId: string;
+        };
+        AgentLibraryUpdateReq: {
+            cardSpec: unknown;
+            expectedItem: components["schemas"]["AgentLibrarySnapshot"];
+            libraryItemId: string;
+            sourceSessionId?: string;
+            tags?: string[];
+        };
+        AgentLibrarySnapshot: {
+            cardKey: string;
+            cardSpec: unknown;
+            sourceSessionId: string;
+            tags: string[];
+        };
+        AgentCardDeleteReq: {
+            canvasId: string;
+            cardId: string;
+            expectedCardSpec: unknown;
+        };
+        AgentCardDeleteResp: {
+            cardId: string;
+        };
+        AgentAnalysisDispatchReq: {
+            canvasId?: string;
+            cardId?: string;
+            kind: string;
+            operationId: string;
+            resultId?: string;
+            task: unknown;
+        };
+        AgentAnalysisDispatchResp: {
+            dispatchState: string;
             errorCode: string;
-            message: string;
+            errorMessage: string;
+            runId: string;
+        };
+        AgentAnalysisGetReq: {
+            runId: string;
+        };
+        AgentAnalysisGetResp: {
+            run: components["schemas"]["AgentJobRunRecord"];
         };
         SdksystemInfoData: components["schemas"]["InfoResp"];
         SdksystemInfoWire: {
@@ -1617,7 +1747,7 @@ export interface components {
             msg: string;
             data: components["schemas"]["SdkmqttAuthDeleteData"];
         };
-        SdkcapabilitiesDiscoverData: components["schemas"]["CapabilityDiscoverResp"];
+        SdkcapabilitiesDiscoverData: components["schemas"]["CapabilityDiscoverV2Resp"];
         SdkcapabilitiesDiscoverWire: components["schemas"]["SdkcapabilitiesDiscoverData"];
         SdkagentCardsGetRequest: components["schemas"]["AgentCardGetReq"];
         SdkagentCardsGetData: components["schemas"]["AgentCardGetResp"];

@@ -37,6 +37,6 @@ export async function uploadWithProgress(
 
 成功后才持久化 filePath。中断 session 包含 fileKey、uploadId、parts（partNumber/etag）、completionAttempted；session 不是完成回执，不公开到日志或无关用户。
 
-v2 首版顺序上传，无自动重试、并发参数或一键续传。不要复制 v1 的 resumeMultipartUpload、multipartSession 等不存在的助手。部分 PUT 可能成功但回执丢失，不能仅凭本地 parts 判断远端完整状态。跨域存储需要暴露 ETag 响应头。
+分片顺序上传，无自动重试、并发参数或一键续传。部分 PUT 可能成功但回执丢失，不能仅凭本地 parts 判断远端完整状态。跨域存储需要暴露 ETag 响应头。
 
 completionAttempted=true 表示 complete 可能已提交，先对账最终文件，不能直接 abort 或重复 complete。明确放弃未完成会话时才调用 abort；初始化请求本身结果未知且无 session 时，保存错误信息交由平台对账，不猜 uploadId。
