@@ -2,6 +2,8 @@
 
 创建并发布时，将 [创建](create.md) 或 [修改](update.md) 回执中的草稿直接交给 [发布](deploy.md)，再用发布回执的 activeRelease [观察运行](read.md#观察本次发布)，无需在发布前后各 get 一次。只有缺少当前草稿、处理版本冲突或需要最新状态时才 [查询](read.md)。停用、回滚和 [删除](delete.md) 按任务选择，不自动执行整套生命周期。
 
+HTTP 采集的常规顺序是选定或创建 Source → 用 Source 回执绑定并保存 Stream → 发布 → 观察该发布的真实采集。Source 保存基址和认证，Stream 指定 method/path/query。预检按需使用；静态校验只能发现可确定的问题，脚本动态请求仍需通过代表性实际运行验证，不能把配置通过、网络可达或样例通过等同于采集成功。
+
 ## 原生文档样例测试
 
 方法：stream.sampleTest；输入 document、entryId、input。document 来自 documents.get 的完整草稿，entryId 必须在该文档注册的 entries 内。

@@ -1219,7 +1219,7 @@
           "数据源"
         ],
         "summary": "探测数据源连接",
-        "description": "在 timeoutMs 内探测指定数据源；dryRun=true 只校验探测请求。",
+        "description": "在 timeoutMs 内探测指定数据源；HTTP 探测仅确认网络连接，不发送业务 HTTP 请求，不证明认证有效或采集成功。dryRun=true 只校验探测请求。",
         "requestBody": {
           "required": true,
           "content": {
@@ -7003,7 +7003,7 @@
         "tags": [
           "处理流"
         ],
-        "description": "按 id 查询处理流运行记录，使用 size、cursor 分页。",
+        "description": "按 id 查询处理流运行记录，使用 size、cursor 分页；失败记录可包含安全的 error 原因和修复指引。error.sourceRequest 只描述失败的 Source 调用，不能据此推断整个运行没有副作用。",
         "x-tier0-audience": "operations",
         "x-tier0-starter": false,
         "x-tier0-readonly": true,
@@ -23374,6 +23374,42 @@
           }
         }
       },
+      "CloudStreamRunError": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "服务端允许列表中的安全运行诊断；不包含凭据、上游响应正文、查询参数或任意脚本异常。旧记录或旧服务可能没有该字段。",
+        "required": [
+          "code",
+          "stage",
+          "message",
+          "repair"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "稳定原因码；调用方须兼容新增原因码。"
+          },
+          "stage": {
+            "type": "string",
+            "description": "已确认的失败阶段；未细分的失败为 execution，结果无法确认时为 unknown。"
+          },
+          "message": {
+            "type": "string",
+            "description": "经过服务端允许列表筛选的固定原因说明。"
+          },
+          "repair": {
+            "type": "string",
+            "description": "固定修复指引；不能据此自动扩大授权或重放写操作。"
+          },
+          "sourceRequest": {
+            "type": "string",
+            "enum": [
+              "notDispatched"
+            ],
+            "description": "仅描述导致该错误的 Source 请求尚未发出；不代表整个运行没有此前的外部调用或写入。无法确认或与 Source 请求无关时省略。"
+          }
+        }
+      },
       "CloudSourceCreateCredentials": {
         "type": "object",
         "additionalProperties": false,
@@ -23390,7 +23426,7 @@
               "OPTIONS",
               "REQUEST"
             ],
-            "description": "Defaults to REQUEST for the Source base URL; an explicit method remains restricted."
+            "description": "Omit for normal HTTP Source creation: authentication is bound to the Source base URL and its child paths on the same origin. Configure the actual HTTP method, path and query in the Stream. REQUEST is an internal base-URL scope marker, not an HTTP verb or a read-only guarantee. Explicit basic/bearer methods retain legacy exact method AND full URL matching, including query; existing restricted references are never widened automatically. OAuth GET retains its existing compatibility semantics."
           },
           "kind": {
             "type": "string",
@@ -28956,6 +28992,9 @@
                       "format": "int64",
                       "nullable": true,
                       "minimum": 0
+                    },
+                    "error": {
+                      "$ref": "#/components/schemas/CloudStreamRunError"
                     }
                   },
                   "required": [

@@ -53,3 +53,7 @@ export async function readPublishedRuns(
 ```
 
 此函数只读一页。items 为空但 nextCursor 非空时，下一页仍可能有匹配记录；达到调用方的观察时限就报告“尚未观察到”。匹配记录也要检查 status、entryId 和时间，不能把存在记录当成执行成功。历史幂等回执若缺少 activeRelease，应保留为未确认，不能用当前 head 的发布号代替。
+
+失败或结果未知的运行可带 `error:{code,stage,message,repair,sourceRequest?}` 安全诊断。`SOURCE_TARGET_SCOPE_MISMATCH`、`stage:validate_binding` 表示请求超出 Source 凭据范围，应检查绑定基址与实际 method/path/query，保留原授权限制。`sourceRequest:notDispatched` 只证明失败的这一次 Source 请求未发送，不能推断整个 Stream 未开始或此前没有写入。
+
+`EXECUTION_FAILED` 和 `RESULT_UNKNOWN` 是安全通用诊断，分别保留失败和结果未知的区别。按 code/stage 判断，展示服务端 message/repair；没有 error 的旧记录仍按 status 解释，不补造原因，也不因可重试猜测而自动重新执行。运行诊断不包含 token、凭据引用或完整请求 URL。
