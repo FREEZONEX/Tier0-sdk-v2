@@ -357,6 +357,10 @@ describe('UNS v2 localhost HTTP fixture', () => {
         repair: 'Check the run outcome before deciding whether to retry.',
       } },
       { ...base, id: 'legacy', status: 'failed' },
+      { ...base, id: 'http-401', status: 'unknown', error: {
+        code: 'SOURCE_HTTP_401', stage: 'source_response', message: 'An HTTP Source request returned HTTP 401 during this run.',
+        repair: 'Check the Source credential; inspect prior external effects before retrying.',
+      } },
     ];
     respond = (_req, res) => send(res, { code: 200, msg: '', requestId: 'run-diagnostics',
       data: { items, nextCursor: '', checkedAt: 3 } });
@@ -364,6 +368,8 @@ describe('UNS v2 localhost HTTP fixture', () => {
     expect(result.data.items).toEqual(items);
     expect(result.data.items[1]).not.toHaveProperty('error.sourceRequest');
     expect(result.data.items[2]).not.toHaveProperty('error');
+    expect(result.data.items[3].status).toBe('unknown');
+    expect(result.data.items[3]).not.toHaveProperty('error.sourceRequest');
     expect(received.slice(start)).toHaveLength(1);
   });
 

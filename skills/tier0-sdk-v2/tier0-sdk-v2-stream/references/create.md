@@ -37,6 +37,8 @@ export async function createHttpStream(
       '  const upstream = api.sources.use({ id: ' + JSON.stringify(sourceId) + ', resources: [] });',
       '  api.stream.every({ id: "tick", intervalMs: 60000 }, async () => {',
       '    const response = await upstream.request({ method: "GET", path: "inventory", query: { limit: "5000" } });',
+      '    if (response.status !== 200) throw new Error("Upstream inventory HTTP request failed");',
+      '    if (!Array.isArray(response.data)) throw new Error("Unexpected upstream inventory response format");',
       '    return response.data;',
       '  });',
       '};',
@@ -51,6 +53,10 @@ export async function createHttpStream(
 ```
 
 将 path="inventory"、query 和 60 秒周期改为业务实际值。示例保存草稿，不部署，也不将返回值自动写入 UNS；需要写入集合时按执行器能力定义 api.uns 操作。resources=[] 是空冻结资源集，不是通配授权。源地址和凭据留在 Source，不能拷进 acquisition 或脚本。
+
+`upstream.request` 收到完整的 401/403/429/5xx 响应时仍返回 `{status,headers,data}`，不会仅因非 2xx 自动抛错；必须先检查状态，再校验业务数据，最后才缓冲 UNS 写入。此库存示例约定 200 和数组；其他接口按其合同调整，不能把错误响应当业务数据。脚本异常只使用固定文案，不拼接响应正文、认证头或 URL。
+
+运行记录与 SDK 管理请求异常是两层：创建/发布成功不代表上游成功。支持 HTTP 响应诊断的后端可在失败或未知运行中返回 `SOURCE_HTTP_401`、`stage:source_response`；401 应核对或更新上游拒绝的凭据，403 核对上游授权，429 核对采集频率。不要自动刷新凭据、扩大权限或立即重试。旧后端可能仍只返回 `RESULT_UNKNOWN`；仅修改 throw 文案不能让它保留 HTTP 状态。详见[运行诊断](read.md)。
 
 创建 data 为 CloudStreamDocumentView 或预检结果，实际保存返回 id、revision 和完整 document；预检不生成 ID。需要展示预检时单独调用 documents.validate({program})；普通保存无需先校验再保存。当前后端创建/校验需要注册 Worker 可用。TEMPORARILY_UNAVAILABLE 不代表脚本一定错误。
 
