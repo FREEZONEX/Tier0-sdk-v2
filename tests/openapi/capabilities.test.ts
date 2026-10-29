@@ -109,7 +109,7 @@ describe('frozen capability discovery contract', () => {
   });
 
   it.each([
-    { product: 'enterprise' }, { contractVersion: '2.0' }, { apiContractVersions: ['openapi/v1'] },
+    { product: 'unknown-product' }, { contractVersion: '2.0' }, { apiContractVersions: ['openapi/v1'] },
     { capabilities: [{ ...item, contractVersions: ['openapi/v3'] }] },
     { capabilities: [{ ...item, contractVersions: [] }] },
   ])('fails unsupported versions with a typed error and never substitutes enabled', async patch => {

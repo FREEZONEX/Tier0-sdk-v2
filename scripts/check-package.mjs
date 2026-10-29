@@ -148,5 +148,6 @@ for (const subpath of ['', '/source', '/stream', '/mq', '/react', '/vue', '/data
 // The data layer is server-only: a browser bundle must fail on its Node built-ins instead of shipping it.
 const dataBundle = await build({ absWorkingDir: consumer, stdin: { contents: `export * from '@tier0/sdk-v2/data';`, resolveDir: consumer }, bundle: true, platform: 'browser', format: 'esm', write: false, logLevel: 'silent' }).then(() => 'bundled', () => 'rejected');
 if (dataBundle !== 'rejected') throw new Error('@tier0/sdk-v2/data must not bundle for the browser');
+execFileSync(process.execPath, ['scripts/check-capability-package.mjs', consumer], { cwd: root, stdio: 'inherit' });
 execFileSync(process.execPath, ['scripts/check-installed-tests.mjs', consumer], { cwd: root, stdio: 'inherit' });
 console.log(`Verified packed ${pkg.name}@${pkg.version}: ESM/CJS runtime + declarations, browser bundles, server-only data entry, exports, bundled Skills and installed behavioral suite. Tarball: ${resolve(consumer, archive.filename)}`);

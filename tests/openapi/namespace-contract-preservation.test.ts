@@ -54,6 +54,7 @@ it('preserves the released Namespace contract except the explicit AppContext dat
     properties: Record<string, { type?: string; enum?: string[]; description?: string }>;
     required: string[];
   };
+  expect(Object.keys(appContext.properties.dataState).sort()).toEqual(['description', 'enum', 'type']);
   expect(appContext.properties.dataState.type).toBe('string');
   expect(appContext.properties.dataState.enum).toEqual(['uninitialized', 'ready']);
   expect(appContext.properties.dataState.description).toContain('APP_DATA_POLICY_DISABLED');
