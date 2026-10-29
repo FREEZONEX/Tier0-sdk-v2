@@ -3,7 +3,7 @@
   "info": {
     "title": "Tier0 Cloud OpenAPI v2",
     "version": "5.0.0",
-    "description": "云端集合、业务数据、时序数据及数据源、处理流、控制接口。使用绑定工作空间的 API Key。\n\n### UNS 接口错误\n各接口只展开成功结果；失败统一使用 default 响应。HTTP 状态码：401 未认证、403 无权限或未开通、404 对象不存在、409 状态、版本、唯一键冲突或凭据已变化、413 内容超限、422 参数或业务校验失败、429 过载、500 服务端错误、503 暂不可用、504 查询超时。具体原因以 error.code 为准。error.execution 说明执行到哪一步：notStarted、rolledBack 可证明没有副作用，committed 表示已提交，unknown 只出现在写操作上、表示无法证明是否提交。error.retry.safe=true 时可原样重发（写入复用原幂等键），retry.afterMs 与 Retry-After 给出最短等待时间；safe=false 时先修正请求或恢复授权。\n\n### 平台接口\n通知、文件、成员、身份、MQTT 凭证和 Agent 接口复用已有业务规则。平台接口保留各自响应格式：文件下载返回 302，通知与能力发现直接返回业务 JSON，其他平台接口使用 code/msg/data。上面的 UNS 错误格式仅适用于 /uns/ 路径。"
+    "description": "云端集合、业务数据、时序数据及数据源、处理流与 App 策略管理接口。使用绑定工作空间的 API Key。\n\n### UNS 接口错误\n各接口只展开成功结果；失败统一使用 default 响应。HTTP 状态码：401 未认证、403 无权限或未开通、404 对象不存在、409 状态、版本、唯一键冲突或凭据已变化、413 内容超限、422 参数或业务校验失败、429 过载、500 服务端错误、503 暂不可用、504 查询超时。具体原因以 error.code 为准。error.execution 说明执行到哪一步：notStarted、rolledBack 可证明没有副作用，committed 表示已提交，unknown 只出现在写操作上、表示无法证明是否提交。error.retry.safe=true 时可原样重发（写入复用原幂等键），retry.afterMs 与 Retry-After 给出最短等待时间；safe=false 时先修正请求或恢复授权。\n\n### 平台接口\n通知、文件、成员、身份、MQTT 凭证和 Agent 接口复用已有业务规则。平台接口保留各自响应格式：文件下载返回 302，通知与能力发现直接返回业务 JSON，其他平台接口使用 code/msg/data。上面的 UNS 错误格式仅适用于 /uns/ 路径。"
   },
   "tags": [
     {
@@ -43,16 +43,8 @@
       "description": "采样追加、多记录查询、聚合、最新值与显式时间范围删除。最新值仅指真实 Sample。"
     },
     {
-      "name": "控制",
-      "description": "控制接口"
-    },
-    {
       "name": "App 与授权",
       "description": "App 与授权接口"
-    },
-    {
-      "name": "元数据",
-      "description": "元数据接口"
     }
   ],
   "servers": [
@@ -946,7 +938,7 @@
     },
     "/openapi/v2/capabilities/discover": {
       "post": {
-        "description": "需要有效 Workspace API Key，Body 仅接受空 JSON 对象，最大 4KiB UTF-8 字节，不接受查询参数或 Workspace 覆盖。成功响应直接为 CapabilityDiscoverResp，不包裹 code/msg/data。能力由默认关闭的公开发布开关、Workspace FeatureGate、Key 显式授权共同裁决；Control 能力仅报告当前发布与授权，运行可用性保持 readiness_unknown，不触发运行时探针。实际操作由后端执行安全检查，失败返回真实错误。响应允许客户端忽略未知扩展字段；版本标签不表示设备 ACK 或 npm 包版本。错误直接返回 CapabilityErrorResp 和真实 HTTP 状态，不泄漏内部异常。",
+        "description": "需要有效 Workspace API Key，Body 仅接受空 JSON 对象，最大 4KiB UTF-8 字节，不接受查询参数或 Workspace 覆盖。成功响应直接为 CapabilityDiscoverResp，不包裹 code/msg/data。能力由默认关闭的公开发布开关、Workspace FeatureGate、Key 显式授权共同裁决；Stream request 能力仅报告当前发布与授权，运行可用性保持 readiness_unknown，不触发运行时探针。实际操作由后端执行安全检查，失败返回真实错误。响应允许客户端忽略未知扩展字段；版本标签不表示设备 ACK 或 npm 包版本。错误直接返回 CapabilityErrorResp 和真实 HTTP 状态，不泄漏内部异常。",
         "operationId": "PlatformV2CapabilityDiscover",
         "responses": {
           "200": {
@@ -2128,80 +2120,206 @@
       }
     },
     "schemas": {
-      "AgentAnalysisDispatchReq": {
+      "InfoResp": {
         "properties": {
-          "canvasId": {
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "mqttBroker": {
             "type": "string"
           },
-          "cardId": {
+          "name": {
             "type": "string"
           },
-          "kind": {
-            "type": "string"
-          },
-          "operationId": {
-            "type": "string"
-          },
-          "resultId": {
-            "type": "string"
-          },
-          "task": {}
-        },
-        "required": [
-          "operationId",
-          "kind",
-          "task"
-        ],
-        "type": "object"
-      },
-      "AgentAnalysisDispatchResp": {
-        "properties": {
-          "dispatchState": {
-            "type": "string"
-          },
-          "errorCode": {
-            "type": "string"
-          },
-          "errorMessage": {
-            "type": "string"
-          },
-          "runId": {
+          "version": {
+            "description": "API version of the requested HTTP entry point",
             "type": "string"
           }
         },
         "required": [
-          "runId",
-          "dispatchState",
-          "errorCode",
-          "errorMessage"
+          "name",
+          "version",
+          "mqttBroker",
+          "capabilities"
         ],
         "type": "object"
       },
-      "AgentAnalysisGetReq": {
+      "AuthWhoamiResp": {
         "properties": {
-          "runId": {
+          "apiKeyName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "keyPrefix": {
+            "type": "string"
+          },
+          "keyType": {
+            "type": "string"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "userID": {
+            "type": "integer"
+          },
+          "userName": {
+            "type": "string"
+          },
+          "workspaceID": {
+            "type": "integer"
+          },
+          "workspaceName": {
             "type": "string"
           }
         },
         "required": [
-          "runId"
+          "userID",
+          "userName",
+          "email",
+          "workspaceID",
+          "workspaceName",
+          "apiKeyName",
+          "keyPrefix",
+          "permissions",
+          "roles",
+          "keyType"
         ],
         "type": "object"
       },
-      "AgentAnalysisGetResp": {
+      "AssetFileUploadReq": {
         "properties": {
-          "run": {
-            "$ref": "#/components/schemas/AgentJobRunRecord"
+          "appInstanceId": {
+            "type": "string"
+          },
+          "business": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "useBy": {
+            "type": "string"
+          },
+          "visibility": {
+            "type": "string"
           }
         },
         "required": [
-          "run"
+          "fileName",
+          "size"
         ],
         "type": "object"
       },
-      "AgentCanvasListReq": {
+      "AssetFileUploadResp": {
         "properties": {
-          "page": {
+          "expiresAt": {
+            "type": "integer"
+          },
+          "fileId": {
+            "type": "integer"
+          },
+          "filePath": {
+            "type": "string"
+          },
+          "fileUrl": {
+            "type": "string"
+          },
+          "postFields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "先写入全部签名字段，再追加 file；policy 约束 key 和大小",
+            "type": "object"
+          },
+          "postUrl": {
+            "description": "预签名 POST 地址；multipart/form-data 上传",
+            "type": "string"
+          }
+        },
+        "required": [
+          "filePath",
+          "postUrl",
+          "postFields"
+        ],
+        "type": "object"
+      },
+      "AssetFileUrlResp": {
+        "properties": {
+          "expiresAt": {
+            "type": "integer"
+          },
+          "fileUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileUrl"
+        ],
+        "type": "object"
+      },
+      "AssetFileDeleteReq": {
+        "properties": {
+          "filePath": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "filePath"
+        ],
+        "type": "object"
+      },
+      "AssetFileDeleteResp": {
+        "properties": {
+          "deleted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "deleted"
+        ],
+        "type": "object"
+      },
+      "AssetFileMultipartInitReq": {
+        "properties": {
+          "appInstanceId": {
+            "type": "string"
+          },
+          "bizId": {
+            "type": "string"
+          },
+          "business": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "partSize": {
             "type": "integer"
           },
           "sessionId": {
@@ -2209,19 +2327,450 @@
           },
           "size": {
             "type": "integer"
+          },
+          "useBy": {
+            "type": "string"
+          },
+          "visibility": {
+            "type": "string"
           }
         },
         "required": [
-          "page",
+          "fileName",
           "size"
         ],
         "type": "object"
       },
-      "AgentCanvasListResp": {
+      "AssetFileMultipartInitResp": {
+        "properties": {
+          "expiresAt": {
+            "type": "integer"
+          },
+          "fileKey": {
+            "type": "string"
+          },
+          "filePath": {
+            "type": "string"
+          },
+          "partCount": {
+            "type": "integer"
+          },
+          "partSize": {
+            "type": "integer"
+          },
+          "uploadId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileKey",
+          "filePath",
+          "uploadId",
+          "partSize",
+          "partCount",
+          "expiresAt"
+        ],
+        "type": "object"
+      },
+      "AssetFileMultipartPartUrlsReq": {
+        "properties": {
+          "fileKey": {
+            "type": "string"
+          },
+          "partNumbers": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "uploadId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileKey",
+          "uploadId",
+          "partNumbers"
+        ],
+        "type": "object"
+      },
+      "AssetFileMultipartPartUrlsResp": {
+        "properties": {
+          "partUrls": {
+            "items": {
+              "$ref": "#/components/schemas/AssetFileMultipartPartUrl"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "partUrls"
+        ],
+        "type": "object"
+      },
+      "AssetFileMultipartPartUrl": {
+        "properties": {
+          "expiresAt": {
+            "type": "integer"
+          },
+          "partNumber": {
+            "type": "integer"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "partNumber",
+          "url",
+          "expiresAt"
+        ],
+        "type": "object"
+      },
+      "AssetFileMultipartCompleteReq": {
+        "properties": {
+          "fileKey": {
+            "type": "string"
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/AssetFileMultipartPart"
+            },
+            "type": "array"
+          },
+          "uploadId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileKey",
+          "uploadId",
+          "parts"
+        ],
+        "type": "object"
+      },
+      "AssetFileMultipartPart": {
+        "properties": {
+          "etag": {
+            "type": "string"
+          },
+          "partNumber": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "partNumber",
+          "etag"
+        ],
+        "type": "object"
+      },
+      "AssetFileMultipartCompleteResp": {
+        "properties": {
+          "expiresAt": {
+            "type": "integer"
+          },
+          "filePath": {
+            "type": "string"
+          },
+          "fileUrl": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "filePath",
+          "sizeBytes"
+        ],
+        "type": "object"
+      },
+      "AssetFileMultipartAbortReq": {
+        "properties": {
+          "fileKey": {
+            "type": "string"
+          },
+          "uploadId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileKey",
+          "uploadId"
+        ],
+        "type": "object"
+      },
+      "AssetFileMultipartAbortResp": {
+        "properties": {
+          "aborted": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "aborted"
+        ],
+        "type": "object"
+      },
+      "AssetUploadReq": {
+        "properties": {
+          "business": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "isPublic": {
+            "type": "boolean"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "sizeBytes": {
+            "type": "integer"
+          },
+          "storageKey": {
+            "type": "string"
+          },
+          "useBy": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileName",
+          "sizeBytes"
+        ],
+        "type": "object"
+      },
+      "AssetUploadResp": {
+        "properties": {
+          "filePath": {
+            "type": "string"
+          },
+          "fileUrl": {
+            "type": "string"
+          },
+          "postFields": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "先写入全部签名字段，再追加 file；policy 约束 key 和大小",
+            "type": "object"
+          },
+          "postUrl": {
+            "description": "预签名 POST 地址；multipart/form-data 上传",
+            "type": "string"
+          }
+        },
+        "required": [
+          "postUrl",
+          "postFields",
+          "filePath"
+        ],
+        "type": "object"
+      },
+      "SendNotificationReq": {
+        "properties": {
+          "channels": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "web",
+                "mobile"
+              ]
+            },
+            "type": "array"
+          },
+          "content": {
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "link": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "recipientUserId": {
+            "type": "string"
+          },
+          "sender": {
+            "$ref": "#/components/schemas/NotificationSender"
+          },
+          "source": {
+            "description": "已废弃：过渡期作 sender.name 别名（sender.name 优先），后续移除",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "recipientUserId",
+          "type",
+          "title",
+          "content",
+          "idempotencyKey"
+        ],
+        "type": "object"
+      },
+      "NotificationSender": {
+        "properties": {
+          "id": {
+            "description": "app 必填=appId（agent-platform UUID）；other 可选；system 可选；字符集 [0-9a-zA-Z-]{1,128}",
+            "type": "string"
+          },
+          "meta": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "类型专属附加信息，序列化后≤500字节",
+            "type": "object"
+          },
+          "name": {
+            "description": "人读显示名（接替废弃的 source），≤100字符",
+            "type": "string"
+          },
+          "type": {
+            "description": "枚举 app/other/system，缺省 other；system=平台内部服务，仅 usage_type=internal 的 API key 可用（否则 400），建信归 workspace 分组（System tab）",
+            "type": "string",
+            "enum": [
+              "app",
+              "other",
+              "system"
+            ],
+            "default": "other"
+          }
+        },
+        "type": "object"
+      },
+      "SendNotificationResp": {
+        "properties": {
+          "createdAt": {
+            "type": "string"
+          },
+          "messageId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "messageId",
+          "status",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "NotificationError": {
+        "type": "object",
+        "required": [
+          "errorCode",
+          "message"
+        ],
+        "properties": {
+          "errorCode": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "GetNotificationReq": {
+        "properties": {
+          "messageId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "messageId"
+        ],
+        "type": "object"
+      },
+      "GetNotificationResp": {
+        "properties": {
+          "completedAt": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "errorCode": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "messageId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "messageId",
+          "type",
+          "status",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "PlatformGetMembersReq": {
+        "properties": {
+          "keyword": {
+            "type": "string"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "roleKey": {
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "statuses": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "updatedAtEnd": {
+            "type": "string"
+          },
+          "updatedAtStart": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "PlatformMembersResp": {
         "properties": {
           "list": {
             "items": {
-              "$ref": "#/components/schemas/AgentCanvasRecord"
+              "$ref": "#/components/schemas/PlatformMemberResp"
             },
             "type": "array"
           },
@@ -2236,65 +2785,2744 @@
           }
         },
         "required": [
-          "page",
-          "size",
+          "list",
           "total",
-          "list"
+          "page",
+          "size"
         ],
         "type": "object"
       },
-      "AgentCanvasRecord": {
+      "PlatformMemberResp": {
         "properties": {
-          "canvasId": {
+          "email": {
             "type": "string"
           },
-          "createdAt": {
+          "nickName": {
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/PlatformMemberRoleResp"
+            },
+            "type": "array"
+          },
+          "status": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "userName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "status",
+          "roles",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "PlatformMemberRoleResp": {
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "roleId": {
+            "type": "string"
+          },
+          "roleKey": {
+            "type": "string"
+          },
+          "roleName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "roleId",
+          "roleKey"
+        ],
+        "type": "object"
+      },
+      "AppAccessMembersListReq": {
+        "properties": {
+          "appId": {
+            "type": "string"
+          },
+          "grantedAtEnd": {
+            "description": "毫秒，闭区间，精度为秒",
+            "type": "integer"
+          },
+          "grantedAtStart": {
+            "description": "毫秒，闭区间，精度为秒",
+            "type": "integer"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "roleKeys": {
+            "description": "任一命中即可，大小写不敏感",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "size": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "appId"
+        ],
+        "type": "object"
+      },
+      "AppAccessMembersListResp": {
+        "properties": {
+          "allActiveMembers": {
+            "description": "1:所有 active 成员都可访问 2:按角色授权",
+            "type": "integer"
+          },
+          "appId": {
+            "type": "string"
+          },
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/AppAccessMemberResp"
+            },
+            "type": "array"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "productionVersionId": {
+            "type": "string"
+          },
+          "published": {
+            "description": "1:已发布 2:未发布",
+            "type": "integer"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/AppAccessRoleResp"
+            },
+            "type": "array"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "appId",
+          "published",
+          "allActiveMembers",
+          "roles",
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "type": "object"
+      },
+      "AppAccessMemberResp": {
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "grantedAt": {
+            "description": "毫秒",
+            "type": "integer"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/AppAccessMemberRoleResp"
+            },
+            "type": "array"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "userName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "userId",
+          "grantedAt",
+          "roles"
+        ],
+        "type": "object"
+      },
+      "AppAccessMemberRoleResp": {
+        "properties": {
+          "roleId": {
+            "type": "string"
+          },
+          "roleKey": {
+            "type": "string"
+          },
+          "roleName": {
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/AppAccessRoleSourceResp"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "roleId",
+          "roleKey",
+          "roleName",
+          "sources"
+        ],
+        "type": "object"
+      },
+      "AppAccessRoleSourceResp": {
+        "properties": {
+          "groupId": {
+            "type": "string"
+          },
+          "groupName": {
+            "type": "string"
+          },
+          "type": {
+            "description": "direct / group",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
+      "AppAccessRoleResp": {
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "memberCount": {
+            "type": "integer"
+          },
+          "roleId": {
+            "type": "string"
+          },
+          "roleKey": {
+            "type": "string"
+          },
+          "roleName": {
+            "type": "string"
+          },
+          "status": {
+            "description": "active / retired",
+            "type": "string"
+          }
+        },
+        "required": [
+          "roleId",
+          "roleKey",
+          "roleName",
+          "status",
+          "memberCount"
+        ],
+        "type": "object"
+      },
+      "MqttAuthCreateReq": {
+        "properties": {
+          "clientIDRandomSuffixEnabled": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "MqttAuthCreateResp": {
+        "properties": {
+          "clientID": {
+            "type": "string"
+          },
+          "clientIDRandomSuffixEnabled": {
+            "type": "boolean"
+          },
+          "id": {
             "type": "integer"
           },
           "name": {
             "type": "string"
           },
-          "sessionId": {
+          "password": {
             "type": "string"
           },
-          "updatedAt": {
+          "username": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "clientID",
+          "username",
+          "password",
+          "clientIDRandomSuffixEnabled"
+        ],
+        "type": "object"
+      },
+      "MqttAuthDeleteReq": {
+        "properties": {
+          "id": {
             "type": "integer"
           }
         },
         "required": [
-          "canvasId",
-          "sessionId",
-          "name",
-          "createdAt",
-          "updatedAt"
+          "id"
         ],
         "type": "object"
       },
-      "AgentCardDeleteReq": {
+      "MqttAuthDeleteResp": {
         "properties": {
-          "canvasId": {
-            "type": "string"
-          },
-          "cardId": {
-            "type": "string"
-          },
-          "expectedCardSpec": {}
+          "success": {
+            "type": "boolean"
+          }
         },
         "required": [
-          "canvasId",
-          "cardId",
-          "expectedCardSpec"
+          "success"
         ],
         "type": "object"
       },
-      "AgentCardDeleteResp": {
+      "CapabilityDiscoverV2Resp": {
+        "title": "Tier0 capability discovery",
+        "type": "object",
+        "required": [
+          "product",
+          "contractVersion",
+          "apiContractVersions",
+          "sdkContractVersions",
+          "capabilities",
+          "deprecations"
+        ],
         "properties": {
-          "cardId": {
+          "product": {
+            "enum": [
+              "cloud",
+              "enterprise"
+            ]
+          },
+          "productVersion": {
+            "type": "string",
+            "minLength": 1
+          },
+          "contractVersion": {
+            "enum": [
+              "1.0"
+            ]
+          },
+          "apiContractVersions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "x-json-schema-contains": {
+              "const": "openapi/v2"
+            },
+            "uniqueItems": true
+          },
+          "sdkContractVersions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CapabilityDiscoverycapability"
+            },
+            "allOf": [
+              {
+                "x-json-schema-contains": {
+                  "type": "object",
+                  "required": [
+                    "code"
+                  ],
+                  "properties": {
+                    "code": {
+                      "const": "namespace.v2"
+                    }
+                  }
+                },
+                "x-json-schema-minContains": 0,
+                "x-json-schema-maxContains": 1
+              },
+              {
+                "x-json-schema-contains": {
+                  "type": "object",
+                  "required": [
+                    "code"
+                  ],
+                  "properties": {
+                    "code": {
+                      "const": "source"
+                    }
+                  }
+                },
+                "x-json-schema-minContains": 0,
+                "x-json-schema-maxContains": 1
+              },
+              {
+                "x-json-schema-contains": {
+                  "type": "object",
+                  "required": [
+                    "code"
+                  ],
+                  "properties": {
+                    "code": {
+                      "const": "stream"
+                    }
+                  }
+                },
+                "x-json-schema-minContains": 0,
+                "x-json-schema-maxContains": 1
+              },
+              {
+                "x-json-schema-contains": {
+                  "type": "object",
+                  "required": [
+                    "code"
+                  ],
+                  "properties": {
+                    "code": {
+                      "const": "stream.requests.v1"
+                    }
+                  }
+                },
+                "x-json-schema-minContains": 0,
+                "x-json-schema-maxContains": 1
+              },
+              {
+                "x-json-schema-contains": {
+                  "type": "object",
+                  "required": [
+                    "code"
+                  ],
+                  "properties": {
+                    "code": {
+                      "const": "stream.requests.invoke.v1"
+                    }
+                  }
+                },
+                "x-json-schema-minContains": 0,
+                "x-json-schema-maxContains": 1
+              }
+            ]
+          },
+          "deprecations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "contract"
+              ],
+              "properties": {
+                "contract": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "replacement": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sunsetAt": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        },
+        "allOf": [
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "capabilities": {
+                          "type": "array",
+                          "x-json-schema-contains": {
+                            "type": "object",
+                            "required": [
+                              "code"
+                            ],
+                            "properties": {
+                              "code": {
+                                "enum": [
+                                  "stream.requests.v1",
+                                  "stream.requests.invoke.v1"
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "apiContractVersions": {
+                        "type": "array",
+                        "x-json-schema-contains": {
+                          "const": "openapi/v1"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "description": "OpenAPI 3.0 wire schema. Array contains/cardinality annotations and cross-field proof ordering require the shared JSON Schema plus SDK semantic checks; this projection alone is not full contract acceptance.",
+        "x-tier0-json-schema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "$id": "urn:tier0:capability-discovery",
+          "title": "Tier0 capability discovery",
+          "type": "object",
+          "required": [
+            "product",
+            "contractVersion",
+            "apiContractVersions",
+            "sdkContractVersions",
+            "capabilities",
+            "deprecations"
+          ],
+          "properties": {
+            "product": {
+              "enum": [
+                "cloud",
+                "enterprise"
+              ]
+            },
+            "productVersion": {
+              "type": "string",
+              "minLength": 1
+            },
+            "contractVersion": {
+              "const": "1.0"
+            },
+            "apiContractVersions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "contains": {
+                "const": "openapi/v2"
+              },
+              "uniqueItems": true
+            },
+            "sdkContractVersions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "capabilities": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/capability"
+              },
+              "allOf": [
+                {
+                  "contains": {
+                    "type": "object",
+                    "required": [
+                      "code"
+                    ],
+                    "properties": {
+                      "code": {
+                        "const": "namespace.v2"
+                      }
+                    }
+                  },
+                  "minContains": 0,
+                  "maxContains": 1
+                },
+                {
+                  "contains": {
+                    "type": "object",
+                    "required": [
+                      "code"
+                    ],
+                    "properties": {
+                      "code": {
+                        "const": "source"
+                      }
+                    }
+                  },
+                  "minContains": 0,
+                  "maxContains": 1
+                },
+                {
+                  "contains": {
+                    "type": "object",
+                    "required": [
+                      "code"
+                    ],
+                    "properties": {
+                      "code": {
+                        "const": "stream"
+                      }
+                    }
+                  },
+                  "minContains": 0,
+                  "maxContains": 1
+                },
+                {
+                  "contains": {
+                    "type": "object",
+                    "required": [
+                      "code"
+                    ],
+                    "properties": {
+                      "code": {
+                        "const": "stream.requests.v1"
+                      }
+                    }
+                  },
+                  "minContains": 0,
+                  "maxContains": 1
+                },
+                {
+                  "contains": {
+                    "type": "object",
+                    "required": [
+                      "code"
+                    ],
+                    "properties": {
+                      "code": {
+                        "const": "stream.requests.invoke.v1"
+                      }
+                    }
+                  },
+                  "minContains": 0,
+                  "maxContains": 1
+                }
+              ]
+            },
+            "deprecations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "contract"
+                ],
+                "properties": {
+                  "contract": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "replacement": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "sunsetAt": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          },
+          "$defs": {
+            "capability": {
+              "type": "object",
+              "required": [
+                "code"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "description": "Unknown capability codes are ignored; only recognized codes use the frozen assessment contract.",
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "code": {
+                        "enum": [
+                          "namespace.v2",
+                          "source",
+                          "stream",
+                          "stream.requests.v1",
+                          "stream.requests.invoke.v1"
+                        ]
+                      }
+                    }
+                  },
+                  "then": {
+                    "$ref": "#/$defs/knownCapability"
+                  }
+                }
+              ]
+            },
+            "operation": {
+              "type": "object",
+              "required": [
+                "operation"
+              ],
+              "properties": {
+                "operation": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "description": "Unknown operation names are ignored within their parent capability; known names are validated by that capability."
+            },
+            "knownCapability": {
+              "type": "object",
+              "required": [
+                "code",
+                "contractVersions",
+                "releaseEnabled",
+                "enabled",
+                "allowed",
+                "state",
+                "availability"
+              ],
+              "properties": {
+                "releaseEnabled": {
+                  "type": "boolean"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "allowed": {
+                  "type": "boolean"
+                },
+                "state": {
+                  "enum": [
+                    "disabled",
+                    "not_supported",
+                    "unavailable",
+                    "readiness_unknown",
+                    "ready"
+                  ]
+                },
+                "availability": {
+                  "enum": [
+                    "unavailable",
+                    "unknown",
+                    "available"
+                  ]
+                },
+                "reasonCode": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "checkedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "minLength": 1
+                },
+                "validUntil": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "Proof expiry must follow checkedAt. Cross-field chronological ordering is a semantic constraint checked by consumers in addition to this structural JSON Schema.",
+                  "minLength": 1
+                },
+                "retryAfterMs": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "code": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "contractVersions": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "uniqueItems": true
+                },
+                "operations": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/operation"
+                  }
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "state": {
+                        "const": "ready"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "enabled": {
+                        "const": true
+                      },
+                      "releaseEnabled": {
+                        "const": true
+                      },
+                      "allowed": {
+                        "const": true
+                      },
+                      "availability": {
+                        "const": "available"
+                      }
+                    }
+                  },
+                  "else": {
+                    "properties": {
+                      "enabled": {
+                        "const": false
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "state": {
+                        "const": "disabled"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "releaseEnabled": {
+                        "const": false
+                      }
+                    }
+                  },
+                  "else": {
+                    "properties": {
+                      "releaseEnabled": {
+                        "const": true
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "state": {
+                        "const": "readiness_unknown"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "availability": {
+                        "const": "unknown"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "state": {
+                        "enum": [
+                          "disabled",
+                          "not_supported",
+                          "unavailable"
+                        ]
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "availability": {
+                        "const": "unavailable"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "required": [
+                      "validUntil"
+                    ],
+                    "properties": {
+                      "validUntil": {}
+                    }
+                  },
+                  "then": {
+                    "required": [
+                      "checkedAt"
+                    ],
+                    "properties": {
+                      "state": {
+                        "const": "ready"
+                      },
+                      "checkedAt": {}
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "code": {
+                        "const": "source"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "operations": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "allOf": [
+                            {
+                              "if": {
+                                "properties": {
+                                  "operation": {
+                                    "enum": [
+                                      "read",
+                                      "configure",
+                                      "test",
+                                      "discover",
+                                      "enable",
+                                      "disable"
+                                    ]
+                                  }
+                                }
+                              },
+                              "then": {
+                                "$ref": "#/$defs/knownOperation"
+                              }
+                            },
+                            {
+                              "if": {
+                                "properties": {
+                                  "operation": {
+                                    "enum": [
+                                      "test",
+                                      "discover",
+                                      "enable"
+                                    ]
+                                  }
+                                }
+                              },
+                              "then": {
+                                "properties": {
+                                  "requiresResourceCheck": {
+                                    "const": true
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "allOf": [
+                          {
+                            "contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "read"
+                                }
+                              }
+                            },
+                            "minContains": 0,
+                            "maxContains": 1
+                          },
+                          {
+                            "contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "configure"
+                                }
+                              }
+                            },
+                            "minContains": 0,
+                            "maxContains": 1
+                          },
+                          {
+                            "contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "test"
+                                }
+                              }
+                            },
+                            "minContains": 0,
+                            "maxContains": 1
+                          },
+                          {
+                            "contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "discover"
+                                }
+                              }
+                            },
+                            "minContains": 0,
+                            "maxContains": 1
+                          },
+                          {
+                            "contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "enable"
+                                }
+                              }
+                            },
+                            "minContains": 0,
+                            "maxContains": 1
+                          },
+                          {
+                            "contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "disable"
+                                }
+                              }
+                            },
+                            "minContains": 0,
+                            "maxContains": 1
+                          }
+                        ]
+                      }
+                    },
+                    "allOf": [
+                      {
+                        "if": {
+                          "properties": {
+                            "releaseEnabled": {
+                              "const": false
+                            }
+                          }
+                        },
+                        "then": {
+                          "properties": {
+                            "operations": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "if": {
+                                  "properties": {
+                                    "operation": {
+                                      "enum": [
+                                        "read",
+                                        "configure",
+                                        "test",
+                                        "discover",
+                                        "enable",
+                                        "disable"
+                                      ]
+                                    }
+                                  }
+                                },
+                                "then": {
+                                  "properties": {
+                                    "releaseEnabled": {
+                                      "const": false
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "code": {
+                        "const": "stream"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "operations": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "allOf": [
+                            {
+                              "if": {
+                                "properties": {
+                                  "operation": {
+                                    "enum": [
+                                      "read",
+                                      "configure",
+                                      "validate",
+                                      "deploy",
+                                      "execute",
+                                      "disable"
+                                    ]
+                                  }
+                                }
+                              },
+                              "then": {
+                                "$ref": "#/$defs/knownOperation"
+                              }
+                            },
+                            {
+                              "if": {
+                                "properties": {
+                                  "operation": {
+                                    "enum": [
+                                      "deploy",
+                                      "execute"
+                                    ]
+                                  }
+                                }
+                              },
+                              "then": {
+                                "properties": {
+                                  "requiresResourceCheck": {
+                                    "const": true
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "allOf": [
+                          {
+                            "contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "read"
+                                }
+                              }
+                            },
+                            "minContains": 0,
+                            "maxContains": 1
+                          },
+                          {
+                            "contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "configure"
+                                }
+                              }
+                            },
+                            "minContains": 0,
+                            "maxContains": 1
+                          },
+                          {
+                            "contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "validate"
+                                }
+                              }
+                            },
+                            "minContains": 0,
+                            "maxContains": 1
+                          },
+                          {
+                            "contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "deploy"
+                                }
+                              }
+                            },
+                            "minContains": 0,
+                            "maxContains": 1
+                          },
+                          {
+                            "contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "execute"
+                                }
+                              }
+                            },
+                            "minContains": 0,
+                            "maxContains": 1
+                          },
+                          {
+                            "contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "disable"
+                                }
+                              }
+                            },
+                            "minContains": 0,
+                            "maxContains": 1
+                          }
+                        ]
+                      }
+                    },
+                    "allOf": [
+                      {
+                        "if": {
+                          "properties": {
+                            "releaseEnabled": {
+                              "const": false
+                            }
+                          }
+                        },
+                        "then": {
+                          "properties": {
+                            "operations": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "if": {
+                                  "properties": {
+                                    "operation": {
+                                      "enum": [
+                                        "read",
+                                        "configure",
+                                        "validate",
+                                        "deploy",
+                                        "execute",
+                                        "disable"
+                                      ]
+                                    }
+                                  }
+                                },
+                                "then": {
+                                  "properties": {
+                                    "releaseEnabled": {
+                                      "const": false
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "code": {
+                        "enum": [
+                          "namespace.v2",
+                          "source",
+                          "stream"
+                        ]
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "contractVersions": {
+                        "type": "array",
+                        "contains": {
+                          "const": "openapi/v2"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "code": {
+                        "enum": [
+                          "stream.requests.v1",
+                          "stream.requests.invoke.v1"
+                        ]
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "contractVersions": {
+                        "type": "array",
+                        "allOf": [
+                          {
+                            "contains": {
+                              "const": "openapi/v1"
+                            }
+                          },
+                          {
+                            "contains": {
+                              "const": "stream-requests/v1"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "knownOperation": {
+              "type": "object",
+              "required": [
+                "operation",
+                "requiresResourceCheck",
+                "releaseEnabled",
+                "enabled",
+                "allowed",
+                "state",
+                "availability"
+              ],
+              "properties": {
+                "releaseEnabled": {
+                  "type": "boolean"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "allowed": {
+                  "type": "boolean"
+                },
+                "state": {
+                  "enum": [
+                    "disabled",
+                    "not_supported",
+                    "unavailable",
+                    "readiness_unknown",
+                    "ready"
+                  ]
+                },
+                "availability": {
+                  "enum": [
+                    "unavailable",
+                    "unknown",
+                    "available"
+                  ]
+                },
+                "reasonCode": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "checkedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "minLength": 1
+                },
+                "validUntil": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "Proof expiry must follow checkedAt. Cross-field chronological ordering is a semantic constraint checked by consumers in addition to this structural JSON Schema.",
+                  "minLength": 1
+                },
+                "retryAfterMs": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "operation": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "requiresResourceCheck": {
+                  "type": "boolean"
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "state": {
+                        "const": "ready"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "enabled": {
+                        "const": true
+                      },
+                      "releaseEnabled": {
+                        "const": true
+                      },
+                      "allowed": {
+                        "const": true
+                      },
+                      "availability": {
+                        "const": "available"
+                      }
+                    }
+                  },
+                  "else": {
+                    "properties": {
+                      "enabled": {
+                        "const": false
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "state": {
+                        "const": "disabled"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "releaseEnabled": {
+                        "const": false
+                      }
+                    }
+                  },
+                  "else": {
+                    "properties": {
+                      "releaseEnabled": {
+                        "const": true
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "state": {
+                        "const": "readiness_unknown"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "availability": {
+                        "const": "unknown"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "state": {
+                        "enum": [
+                          "disabled",
+                          "not_supported",
+                          "unavailable"
+                        ]
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "availability": {
+                        "const": "unavailable"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "required": [
+                      "validUntil"
+                    ],
+                    "properties": {
+                      "validUntil": {}
+                    }
+                  },
+                  "then": {
+                    "required": [
+                      "checkedAt"
+                    ],
+                    "properties": {
+                      "state": {
+                        "const": "ready"
+                      },
+                      "checkedAt": {}
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "capabilities": {
+                    "type": "array",
+                    "contains": {
+                      "type": "object",
+                      "required": [
+                        "code"
+                      ],
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "stream.requests.v1",
+                            "stream.requests.invoke.v1"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "apiContractVersions": {
+                    "type": "array",
+                    "contains": {
+                      "const": "openapi/v1"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "CapabilityDiscoverycapability": {
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "description": "Unknown capability codes are ignored; only recognized codes use the frozen assessment contract.",
+        "allOf": [
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "namespace.v2",
+                            "source",
+                            "stream",
+                            "stream.requests.v1",
+                            "stream.requests.invoke.v1"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "$ref": "#/components/schemas/CapabilityDiscoveryknownCapability"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "CapabilityDiscoveryknownCapability": {
+        "type": "object",
+        "required": [
+          "code",
+          "contractVersions",
+          "releaseEnabled",
+          "enabled",
+          "allowed",
+          "state",
+          "availability"
+        ],
+        "properties": {
+          "releaseEnabled": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "allowed": {
+            "type": "boolean"
+          },
+          "state": {
+            "enum": [
+              "disabled",
+              "not_supported",
+              "unavailable",
+              "readiness_unknown",
+              "ready"
+            ]
+          },
+          "availability": {
+            "enum": [
+              "unavailable",
+              "unknown",
+              "available"
+            ]
+          },
+          "reasonCode": {
+            "type": "string",
+            "minLength": 1
+          },
+          "checkedAt": {
+            "type": "string",
+            "format": "date-time",
+            "minLength": 1
+          },
+          "validUntil": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Proof expiry must follow checkedAt. Cross-field chronological ordering is a semantic constraint checked by consumers in addition to this structural JSON Schema.",
+            "minLength": 1
+          },
+          "retryAfterMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "contractVersions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "operations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CapabilityDiscoveryoperation"
+            }
+          }
+        },
+        "allOf": [
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "state": {
+                          "enum": [
+                            "ready"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "enabled": {
+                        "enum": [
+                          true
+                        ]
+                      },
+                      "releaseEnabled": {
+                        "enum": [
+                          true
+                        ]
+                      },
+                      "allowed": {
+                        "enum": [
+                          true
+                        ]
+                      },
+                      "availability": {
+                        "enum": [
+                          "available"
+                        ]
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "anyOf": [
+                  {
+                    "properties": {
+                      "state": {
+                        "enum": [
+                          "ready"
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "enabled": {
+                        "enum": [
+                          false
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "state": {
+                          "enum": [
+                            "disabled"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "releaseEnabled": {
+                        "enum": [
+                          false
+                        ]
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "anyOf": [
+                  {
+                    "properties": {
+                      "state": {
+                        "enum": [
+                          "disabled"
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "releaseEnabled": {
+                        "enum": [
+                          true
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "state": {
+                          "enum": [
+                            "readiness_unknown"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "availability": {
+                        "enum": [
+                          "unknown"
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "state": {
+                          "enum": [
+                            "disabled",
+                            "not_supported",
+                            "unavailable"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "availability": {
+                        "enum": [
+                          "unavailable"
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "required": [
+                        "validUntil"
+                      ],
+                      "properties": {
+                        "validUntil": {}
+                      }
+                    }
+                  },
+                  {
+                    "required": [
+                      "checkedAt"
+                    ],
+                    "properties": {
+                      "state": {
+                        "enum": [
+                          "ready"
+                        ]
+                      },
+                      "checkedAt": {}
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "source"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "operations": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "allOf": [
+                            {
+                              "allOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "not": {
+                                        "properties": {
+                                          "operation": {
+                                            "enum": [
+                                              "read",
+                                              "configure",
+                                              "test",
+                                              "discover",
+                                              "enable",
+                                              "disable"
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "$ref": "#/components/schemas/CapabilityDiscoveryknownOperation"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "allOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "not": {
+                                        "properties": {
+                                          "operation": {
+                                            "enum": [
+                                              "test",
+                                              "discover",
+                                              "enable"
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "properties": {
+                                        "requiresResourceCheck": {
+                                          "enum": [
+                                            true
+                                          ]
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "allOf": [
+                          {
+                            "x-json-schema-contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "read"
+                                }
+                              }
+                            },
+                            "x-json-schema-minContains": 0,
+                            "x-json-schema-maxContains": 1
+                          },
+                          {
+                            "x-json-schema-contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "configure"
+                                }
+                              }
+                            },
+                            "x-json-schema-minContains": 0,
+                            "x-json-schema-maxContains": 1
+                          },
+                          {
+                            "x-json-schema-contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "test"
+                                }
+                              }
+                            },
+                            "x-json-schema-minContains": 0,
+                            "x-json-schema-maxContains": 1
+                          },
+                          {
+                            "x-json-schema-contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "discover"
+                                }
+                              }
+                            },
+                            "x-json-schema-minContains": 0,
+                            "x-json-schema-maxContains": 1
+                          },
+                          {
+                            "x-json-schema-contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "enable"
+                                }
+                              }
+                            },
+                            "x-json-schema-minContains": 0,
+                            "x-json-schema-maxContains": 1
+                          },
+                          {
+                            "x-json-schema-contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "disable"
+                                }
+                              }
+                            },
+                            "x-json-schema-minContains": 0,
+                            "x-json-schema-maxContains": 1
+                          }
+                        ]
+                      }
+                    },
+                    "allOf": [
+                      {
+                        "allOf": [
+                          {
+                            "anyOf": [
+                              {
+                                "not": {
+                                  "properties": {
+                                    "releaseEnabled": {
+                                      "enum": [
+                                        false
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "properties": {
+                                  "operations": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "allOf": [
+                                        {
+                                          "anyOf": [
+                                            {
+                                              "not": {
+                                                "properties": {
+                                                  "operation": {
+                                                    "enum": [
+                                                      "read",
+                                                      "configure",
+                                                      "test",
+                                                      "discover",
+                                                      "enable",
+                                                      "disable"
+                                                    ]
+                                                  }
+                                                }
+                                              }
+                                            },
+                                            {
+                                              "properties": {
+                                                "releaseEnabled": {
+                                                  "enum": [
+                                                    false
+                                                  ]
+                                                }
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "stream"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "operations": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "allOf": [
+                            {
+                              "allOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "not": {
+                                        "properties": {
+                                          "operation": {
+                                            "enum": [
+                                              "read",
+                                              "configure",
+                                              "validate",
+                                              "deploy",
+                                              "execute",
+                                              "disable"
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "$ref": "#/components/schemas/CapabilityDiscoveryknownOperation"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "allOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "not": {
+                                        "properties": {
+                                          "operation": {
+                                            "enum": [
+                                              "deploy",
+                                              "execute"
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "properties": {
+                                        "requiresResourceCheck": {
+                                          "enum": [
+                                            true
+                                          ]
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "allOf": [
+                          {
+                            "x-json-schema-contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "read"
+                                }
+                              }
+                            },
+                            "x-json-schema-minContains": 0,
+                            "x-json-schema-maxContains": 1
+                          },
+                          {
+                            "x-json-schema-contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "configure"
+                                }
+                              }
+                            },
+                            "x-json-schema-minContains": 0,
+                            "x-json-schema-maxContains": 1
+                          },
+                          {
+                            "x-json-schema-contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "validate"
+                                }
+                              }
+                            },
+                            "x-json-schema-minContains": 0,
+                            "x-json-schema-maxContains": 1
+                          },
+                          {
+                            "x-json-schema-contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "deploy"
+                                }
+                              }
+                            },
+                            "x-json-schema-minContains": 0,
+                            "x-json-schema-maxContains": 1
+                          },
+                          {
+                            "x-json-schema-contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "execute"
+                                }
+                              }
+                            },
+                            "x-json-schema-minContains": 0,
+                            "x-json-schema-maxContains": 1
+                          },
+                          {
+                            "x-json-schema-contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "disable"
+                                }
+                              }
+                            },
+                            "x-json-schema-minContains": 0,
+                            "x-json-schema-maxContains": 1
+                          }
+                        ]
+                      }
+                    },
+                    "allOf": [
+                      {
+                        "allOf": [
+                          {
+                            "anyOf": [
+                              {
+                                "not": {
+                                  "properties": {
+                                    "releaseEnabled": {
+                                      "enum": [
+                                        false
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "properties": {
+                                  "operations": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "allOf": [
+                                        {
+                                          "anyOf": [
+                                            {
+                                              "not": {
+                                                "properties": {
+                                                  "operation": {
+                                                    "enum": [
+                                                      "read",
+                                                      "configure",
+                                                      "validate",
+                                                      "deploy",
+                                                      "execute",
+                                                      "disable"
+                                                    ]
+                                                  }
+                                                }
+                                              }
+                                            },
+                                            {
+                                              "properties": {
+                                                "releaseEnabled": {
+                                                  "enum": [
+                                                    false
+                                                  ]
+                                                }
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "namespace.v2",
+                            "source",
+                            "stream"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "contractVersions": {
+                        "type": "array",
+                        "x-json-schema-contains": {
+                          "const": "openapi/v2"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "stream.requests.v1",
+                            "stream.requests.invoke.v1"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "contractVersions": {
+                        "type": "array",
+                        "allOf": [
+                          {
+                            "x-json-schema-contains": {
+                              "const": "openapi/v1"
+                            }
+                          },
+                          {
+                            "x-json-schema-contains": {
+                              "const": "stream-requests/v1"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "CapabilityDiscoveryoperation": {
+        "type": "object",
+        "required": [
+          "operation"
+        ],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "description": "Unknown operation names are ignored within their parent capability; known names are validated by that capability."
+      },
+      "CapabilityDiscoveryknownOperation": {
+        "type": "object",
+        "required": [
+          "operation",
+          "requiresResourceCheck",
+          "releaseEnabled",
+          "enabled",
+          "allowed",
+          "state",
+          "availability"
+        ],
+        "properties": {
+          "releaseEnabled": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "allowed": {
+            "type": "boolean"
+          },
+          "state": {
+            "enum": [
+              "disabled",
+              "not_supported",
+              "unavailable",
+              "readiness_unknown",
+              "ready"
+            ]
+          },
+          "availability": {
+            "enum": [
+              "unavailable",
+              "unknown",
+              "available"
+            ]
+          },
+          "reasonCode": {
+            "type": "string",
+            "minLength": 1
+          },
+          "checkedAt": {
+            "type": "string",
+            "format": "date-time",
+            "minLength": 1
+          },
+          "validUntil": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Proof expiry must follow checkedAt. Cross-field chronological ordering is a semantic constraint checked by consumers in addition to this structural JSON Schema.",
+            "minLength": 1
+          },
+          "retryAfterMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "operation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "requiresResourceCheck": {
+            "type": "boolean"
+          }
+        },
+        "allOf": [
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "state": {
+                          "enum": [
+                            "ready"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "enabled": {
+                        "enum": [
+                          true
+                        ]
+                      },
+                      "releaseEnabled": {
+                        "enum": [
+                          true
+                        ]
+                      },
+                      "allowed": {
+                        "enum": [
+                          true
+                        ]
+                      },
+                      "availability": {
+                        "enum": [
+                          "available"
+                        ]
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "anyOf": [
+                  {
+                    "properties": {
+                      "state": {
+                        "enum": [
+                          "ready"
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "enabled": {
+                        "enum": [
+                          false
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "state": {
+                          "enum": [
+                            "disabled"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "releaseEnabled": {
+                        "enum": [
+                          false
+                        ]
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "anyOf": [
+                  {
+                    "properties": {
+                      "state": {
+                        "enum": [
+                          "disabled"
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "releaseEnabled": {
+                        "enum": [
+                          true
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "state": {
+                          "enum": [
+                            "readiness_unknown"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "availability": {
+                        "enum": [
+                          "unknown"
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "state": {
+                          "enum": [
+                            "disabled",
+                            "not_supported",
+                            "unavailable"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "availability": {
+                        "enum": [
+                          "unavailable"
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "required": [
+                        "validUntil"
+                      ],
+                      "properties": {
+                        "validUntil": {}
+                      }
+                    }
+                  },
+                  {
+                    "required": [
+                      "checkedAt"
+                    ],
+                    "properties": {
+                      "state": {
+                        "enum": [
+                          "ready"
+                        ]
+                      },
+                      "checkedAt": {}
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "CapabilityErrorResp": {
+        "properties": {
+          "errorCode": {
+            "description": "INVALID_CREDENTIAL / CAPABILITY_INVALID_REQUEST / CAPABILITY_FORBIDDEN / CAPABILITY_UNAVAILABLE / CAPABILITY_INTERNAL_ERROR",
+            "type": "string"
+          },
+          "message": {
+            "description": "固定公开消息，不透传内部异常",
             "type": "string"
           }
         },
         "required": [
-          "cardId"
+          "errorCode",
+          "message"
         ],
         "type": "object"
       },
@@ -2335,6 +5563,239 @@
           "cardKey",
           "cardSpec",
           "updatedAt"
+        ],
+        "type": "object"
+      },
+      "AgentResultCreateReq": {
+        "properties": {
+          "cardSpec": {},
+          "dataScope": {},
+          "images": {
+            "type": "array"
+          },
+          "missingData": {},
+          "operationId": {
+            "type": "string"
+          },
+          "resultSchemaVersion": {
+            "type": "integer"
+          },
+          "source": {
+            "$ref": "#/components/schemas/AgentResultSource"
+          },
+          "steps": {
+            "type": "array"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "tables": {
+            "type": "array"
+          },
+          "title": {
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "resultSchemaVersion",
+          "title",
+          "missingData",
+          "operationId",
+          "source"
+        ],
+        "type": "object"
+      },
+      "AgentResultSource": {
+        "properties": {
+          "agentId": {
+            "type": "string"
+          },
+          "platformRunId": {
+            "type": "string"
+          },
+          "platformSessionId": {
+            "type": "string"
+          },
+          "platformUserId": {
+            "type": "string"
+          },
+          "skillVersion": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "platformSessionId",
+          "agentId"
+        ],
+        "type": "object"
+      },
+      "AgentResultCreateResp": {
+        "properties": {
+          "jobRunId": {
+            "type": "string"
+          },
+          "resultId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "resultId",
+          "jobRunId"
+        ],
+        "type": "object"
+      },
+      "AgentResultGetReq": {
+        "properties": {
+          "operationId": {
+            "description": "与resultId二选一，保存超时后按原编号查回，不重复保存",
+            "type": "string"
+          },
+          "resultId": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "AgentResultGetResp": {
+        "properties": {
+          "result": {
+            "$ref": "#/components/schemas/AgentStoredResult"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object"
+      },
+      "AgentStoredResult": {
+        "properties": {
+          "agentId": {
+            "type": "string"
+          },
+          "byteSize": {
+            "type": "integer"
+          },
+          "cardSpec": {},
+          "createdAt": {
+            "type": "integer"
+          },
+          "manifest": {},
+          "operationId": {
+            "type": "string"
+          },
+          "platformRunId": {
+            "type": "string"
+          },
+          "platformSessionId": {
+            "type": "string"
+          },
+          "resultId": {
+            "type": "string"
+          },
+          "skillVersion": {
+            "type": "string"
+          },
+          "sourceKind": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "resultId",
+          "operationId",
+          "sourceKind",
+          "platformSessionId",
+          "platformRunId",
+          "agentId",
+          "skillVersion",
+          "manifest",
+          "byteSize",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "AgentResultListReq": {
+        "properties": {
+          "page": {
+            "type": "integer"
+          },
+          "platformSessionId": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "size"
+        ],
+        "type": "object"
+      },
+      "AgentResultListResp": {
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/AgentStoredResult"
+            },
+            "type": "array"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "size",
+          "total",
+          "list"
+        ],
+        "type": "object"
+      },
+      "AgentCardUpdateReq": {
+        "properties": {
+          "canvasId": {
+            "type": "string"
+          },
+          "cardId": {
+            "type": "string"
+          },
+          "cardSpec": {},
+          "expectedCardSpec": {
+            "description": "读取到的完整原卡内容，变化时返回HTTP409"
+          },
+          "ord": {
+            "description": "画布内顺序：不传 = 不改（转调 unssvr 时补 -1），传了原样透传；用指针区分「没传」和「传 0」",
+            "type": "integer"
+          },
+          "position": {}
+        },
+        "required": [
+          "cardId",
+          "cardSpec",
+          "expectedCardSpec"
+        ],
+        "type": "object"
+      },
+      "AgentCardUpdateResp": {
+        "properties": {
+          "cardId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "cardId"
         ],
         "type": "object"
       },
@@ -2383,32 +5844,23 @@
         ],
         "type": "object"
       },
-      "AgentCardUpdateReq": {
+      "AgentResultPinReq": {
         "properties": {
           "canvasId": {
             "type": "string"
           },
-          "cardId": {
+          "position": {},
+          "resultId": {
             "type": "string"
-          },
-          "cardSpec": {},
-          "expectedCardSpec": {
-            "description": "读取到的完整原卡内容，变化时返回HTTP409"
-          },
-          "ord": {
-            "description": "画布内顺序：不传 = 不改（转调 unssvr 时补 -1），传了原样透传；用指针区分「没传」和「传 0」",
-            "type": "integer"
-          },
-          "position": {}
+          }
         },
         "required": [
-          "cardId",
-          "cardSpec",
-          "expectedCardSpec"
+          "resultId",
+          "canvasId"
         ],
         "type": "object"
       },
-      "AgentCardUpdateResp": {
+      "AgentResultPinResp": {
         "properties": {
           "cardId": {
             "type": "string"
@@ -2469,14 +5921,67 @@
         ],
         "type": "object"
       },
-      "AgentJobGetResp": {
+      "AgentJobMutationResp": {
         "properties": {
-          "job": {
-            "$ref": "#/components/schemas/AgentJobRecord"
+          "jobId": {
+            "type": "string"
           }
         },
         "required": [
-          "job"
+          "jobId"
+        ],
+        "type": "object"
+      },
+      "AgentJobUpdateReq": {
+        "properties": {
+          "cardId": {
+            "type": "string"
+          },
+          "cronExpr": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "integer"
+          },
+          "intervalSeconds": {
+            "type": "integer"
+          },
+          "jobId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "notify": {},
+          "notifyEnabled": {
+            "description": "省略沿用原通知，1必须提供notify对象，2关闭通知且不提供notify",
+            "type": "integer"
+          },
+          "scheduleKind": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "sourceBlockId": {
+            "type": "string"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "sourceName": {
+            "type": "string"
+          },
+          "sourceType": {
+            "type": "string"
+          },
+          "task": {},
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobId"
         ],
         "type": "object"
       },
@@ -2491,73 +5996,14 @@
         ],
         "type": "object"
       },
-      "AgentJobListReq": {
+      "AgentJobGetResp": {
         "properties": {
-          "cardId": {
-            "type": "string"
-          },
-          "page": {
-            "type": "integer"
-          },
-          "search": {
-            "type": "string"
-          },
-          "size": {
-            "type": "integer"
-          },
-          "sourceId": {
-            "type": "string"
-          },
-          "sourceType": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string"
+          "job": {
+            "$ref": "#/components/schemas/AgentJobRecord"
           }
         },
         "required": [
-          "page",
-          "size"
-        ],
-        "type": "object"
-      },
-      "AgentJobListResp": {
-        "properties": {
-          "list": {
-            "items": {
-              "$ref": "#/components/schemas/AgentJobRecord"
-            },
-            "type": "array"
-          },
-          "page": {
-            "type": "integer"
-          },
-          "size": {
-            "type": "integer"
-          },
-          "total": {
-            "type": "integer"
-          }
-        },
-        "required": [
-          "page",
-          "size",
-          "total",
-          "list"
-        ],
-        "type": "object"
-      },
-      "AgentJobMutationResp": {
-        "properties": {
-          "jobId": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "jobId"
+          "job"
         ],
         "type": "object"
       },
@@ -2651,6 +6097,66 @@
         ],
         "type": "object"
       },
+      "AgentJobListReq": {
+        "properties": {
+          "cardId": {
+            "type": "string"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "search": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "sourceId": {
+            "type": "string"
+          },
+          "sourceType": {
+            "type": "string"
+          },
+          "status": {
+            "description": "active / paused / needs_attention / expired",
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "page",
+          "size"
+        ],
+        "type": "object"
+      },
+      "AgentJobListResp": {
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/AgentJobRecord"
+            },
+            "type": "array"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "size",
+          "total",
+          "list"
+        ],
+        "type": "object"
+      },
       "AgentJobRunGetReq": {
         "properties": {
           "jobId": {
@@ -2674,6 +6180,52 @@
         },
         "required": [
           "run"
+        ],
+        "type": "object"
+      },
+      "AgentJobRunRecord": {
+        "properties": {
+          "dispatchState": {
+            "type": "string"
+          },
+          "errorCode": {
+            "type": "string"
+          },
+          "errorMessage": {
+            "type": "string"
+          },
+          "finishedAt": {
+            "type": "integer"
+          },
+          "firedAt": {
+            "type": "integer"
+          },
+          "jobId": {
+            "type": "string"
+          },
+          "jobRunId": {
+            "type": "string"
+          },
+          "resultId": {
+            "type": "string"
+          },
+          "resultSummary": {},
+          "severity": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "trigger": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobRunId",
+          "jobId",
+          "status",
+          "dispatchState",
+          "firedAt"
         ],
         "type": "object"
       },
@@ -2725,52 +6277,6 @@
         ],
         "type": "object"
       },
-      "AgentJobRunRecord": {
-        "properties": {
-          "dispatchState": {
-            "type": "string"
-          },
-          "errorCode": {
-            "type": "string"
-          },
-          "errorMessage": {
-            "type": "string"
-          },
-          "finishedAt": {
-            "type": "integer"
-          },
-          "firedAt": {
-            "type": "integer"
-          },
-          "jobId": {
-            "type": "string"
-          },
-          "jobRunId": {
-            "type": "string"
-          },
-          "resultId": {
-            "type": "string"
-          },
-          "resultSummary": {},
-          "severity": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string"
-          },
-          "trigger": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "jobRunId",
-          "jobId",
-          "status",
-          "dispatchState",
-          "firedAt"
-        ],
-        "type": "object"
-      },
       "AgentJobTriggerResp": {
         "properties": {
           "dispatchState": {
@@ -2790,134 +6296,72 @@
         ],
         "type": "object"
       },
-      "AgentJobUpdateReq": {
+      "AgentCanvasListReq": {
         "properties": {
-          "cardId": {
-            "type": "string"
-          },
-          "cronExpr": {
-            "type": "string"
-          },
-          "expiresAt": {
+          "page": {
             "type": "integer"
-          },
-          "intervalSeconds": {
-            "type": "integer"
-          },
-          "jobId": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "notify": {},
-          "notifyEnabled": {
-            "description": "省略沿用原通知，1必须提供notify对象，2关闭通知且不提供notify",
-            "type": "integer"
-          },
-          "scheduleKind": {
-            "type": "string"
           },
           "sessionId": {
             "type": "string"
           },
-          "sourceBlockId": {
-            "type": "string"
-          },
-          "sourceId": {
-            "type": "string"
-          },
-          "sourceName": {
-            "type": "string"
-          },
-          "sourceType": {
-            "type": "string"
-          },
-          "task": {},
-          "type": {
-            "type": "string"
+          "size": {
+            "type": "integer"
           }
         },
         "required": [
-          "jobId"
+          "page",
+          "size"
         ],
         "type": "object"
       },
-      "AgentLibraryCreateReq": {
+      "AgentCanvasListResp": {
         "properties": {
-          "cardKey": {
-            "type": "string"
-          },
-          "cardSpec": {},
-          "sourceSessionId": {
-            "type": "string"
-          },
-          "tags": {
+          "list": {
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/AgentCanvasRecord"
             },
             "type": "array"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "size": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
           }
         },
         "required": [
-          "cardKey",
-          "cardSpec"
+          "page",
+          "size",
+          "total",
+          "list"
         ],
         "type": "object"
       },
-      "AgentLibraryGetReq": {
+      "AgentCanvasRecord": {
         "properties": {
-          "libraryItemId": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "libraryItemId"
-        ],
-        "type": "object"
-      },
-      "AgentLibraryGetResp": {
-        "properties": {
-          "item": {
-            "$ref": "#/components/schemas/AgentLibraryItem"
-          }
-        },
-        "required": [
-          "item"
-        ],
-        "type": "object"
-      },
-      "AgentLibraryItem": {
-        "properties": {
-          "cardKey": {
+          "canvasId": {
             "type": "string"
           },
-          "cardSpec": {},
           "createdAt": {
             "type": "integer"
           },
-          "libraryItemId": {
+          "name": {
             "type": "string"
           },
-          "sourceSessionId": {
+          "sessionId": {
             "type": "string"
-          },
-          "tags": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
           },
           "updatedAt": {
             "type": "integer"
           }
         },
         "required": [
-          "cardKey",
-          "cardSpec",
-          "tags",
-          "sourceSessionId",
-          "libraryItemId",
+          "canvasId",
+          "sessionId",
+          "name",
           "createdAt",
           "updatedAt"
         ],
@@ -2973,7 +6417,43 @@
         ],
         "type": "object"
       },
-      "AgentLibraryMutationResp": {
+      "AgentLibraryItem": {
+        "properties": {
+          "cardKey": {
+            "type": "string"
+          },
+          "cardSpec": {},
+          "createdAt": {
+            "type": "integer"
+          },
+          "libraryItemId": {
+            "type": "string"
+          },
+          "sourceSessionId": {
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "updatedAt": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cardKey",
+          "cardSpec",
+          "tags",
+          "sourceSessionId",
+          "libraryItemId",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "AgentLibraryGetReq": {
         "properties": {
           "libraryItemId": {
             "type": "string"
@@ -2984,7 +6464,18 @@
         ],
         "type": "object"
       },
-      "AgentLibrarySnapshot": {
+      "AgentLibraryGetResp": {
+        "properties": {
+          "item": {
+            "$ref": "#/components/schemas/AgentLibraryItem"
+          }
+        },
+        "required": [
+          "item"
+        ],
+        "type": "object"
+      },
+      "AgentLibraryCreateReq": {
         "properties": {
           "cardKey": {
             "type": "string"
@@ -3002,9 +6493,18 @@
         },
         "required": [
           "cardKey",
-          "cardSpec",
-          "tags",
-          "sourceSessionId"
+          "cardSpec"
+        ],
+        "type": "object"
+      },
+      "AgentLibraryMutationResp": {
+        "properties": {
+          "libraryItemId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "libraryItemId"
         ],
         "type": "object"
       },
@@ -3034,36 +6534,16 @@
         ],
         "type": "object"
       },
-      "AgentResultCreateReq": {
+      "AgentLibrarySnapshot": {
         "properties": {
+          "cardKey": {
+            "type": "string"
+          },
           "cardSpec": {},
-          "dataScope": {},
-          "images": {
-            "type": "array"
-          },
-          "missingData": {},
-          "operationId": {
+          "sourceSessionId": {
             "type": "string"
           },
-          "resultSchemaVersion": {
-            "type": "integer"
-          },
-          "source": {
-            "$ref": "#/components/schemas/AgentResultSource"
-          },
-          "steps": {
-            "type": "array"
-          },
-          "summary": {
-            "type": "string"
-          },
-          "tables": {
-            "type": "array"
-          },
-          "title": {
-            "type": "string"
-          },
-          "warnings": {
+          "tags": {
             "items": {
               "type": "string"
             },
@@ -3071,113 +6551,31 @@
           }
         },
         "required": [
-          "resultSchemaVersion",
-          "title",
-          "missingData",
-          "operationId",
-          "source"
+          "cardKey",
+          "cardSpec",
+          "tags",
+          "sourceSessionId"
         ],
         "type": "object"
       },
-      "AgentResultCreateResp": {
-        "properties": {
-          "jobRunId": {
-            "type": "string"
-          },
-          "resultId": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "resultId",
-          "jobRunId"
-        ],
-        "type": "object"
-      },
-      "AgentResultGetReq": {
-        "properties": {
-          "operationId": {
-            "description": "与resultId二选一，保存超时后按原编号查回，不重复保存",
-            "type": "string"
-          },
-          "resultId": {
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "AgentResultGetResp": {
-        "properties": {
-          "result": {
-            "$ref": "#/components/schemas/AgentStoredResult"
-          }
-        },
-        "required": [
-          "result"
-        ],
-        "type": "object"
-      },
-      "AgentResultListReq": {
-        "properties": {
-          "page": {
-            "type": "integer"
-          },
-          "platformSessionId": {
-            "type": "string"
-          },
-          "size": {
-            "type": "integer"
-          }
-        },
-        "required": [
-          "page",
-          "size"
-        ],
-        "type": "object"
-      },
-      "AgentResultListResp": {
-        "properties": {
-          "list": {
-            "items": {
-              "$ref": "#/components/schemas/AgentStoredResult"
-            },
-            "type": "array"
-          },
-          "page": {
-            "type": "integer"
-          },
-          "size": {
-            "type": "integer"
-          },
-          "total": {
-            "type": "integer"
-          }
-        },
-        "required": [
-          "page",
-          "size",
-          "total",
-          "list"
-        ],
-        "type": "object"
-      },
-      "AgentResultPinReq": {
+      "AgentCardDeleteReq": {
         "properties": {
           "canvasId": {
             "type": "string"
           },
-          "position": {},
-          "resultId": {
+          "cardId": {
             "type": "string"
-          }
+          },
+          "expectedCardSpec": {}
         },
         "required": [
-          "resultId",
-          "canvasId"
+          "canvasId",
+          "cardId",
+          "expectedCardSpec"
         ],
         "type": "object"
       },
-      "AgentResultPinResp": {
+      "AgentCardDeleteResp": {
         "properties": {
           "cardId": {
             "type": "string"
@@ -3188,1187 +6586,76 @@
         ],
         "type": "object"
       },
-      "AgentResultSource": {
+      "AgentAnalysisDispatchReq": {
         "properties": {
-          "agentId": {
+          "canvasId": {
             "type": "string"
           },
-          "platformRunId": {
+          "cardId": {
             "type": "string"
           },
-          "platformSessionId": {
+          "kind": {
             "type": "string"
           },
-          "platformUserId": {
-            "type": "string"
-          },
-          "skillVersion": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "platformSessionId",
-          "agentId"
-        ],
-        "type": "object"
-      },
-      "AgentStoredResult": {
-        "properties": {
-          "agentId": {
-            "type": "string"
-          },
-          "byteSize": {
-            "type": "integer"
-          },
-          "cardSpec": {},
-          "createdAt": {
-            "type": "integer"
-          },
-          "manifest": {},
           "operationId": {
-            "type": "string"
-          },
-          "platformRunId": {
-            "type": "string"
-          },
-          "platformSessionId": {
             "type": "string"
           },
           "resultId": {
             "type": "string"
           },
-          "skillVersion": {
-            "type": "string"
-          },
-          "sourceKind": {
-            "type": "string"
-          }
+          "task": {}
         },
         "required": [
-          "resultId",
           "operationId",
-          "sourceKind",
-          "platformSessionId",
-          "platformRunId",
-          "agentId",
-          "skillVersion",
-          "manifest",
-          "byteSize",
-          "createdAt"
+          "kind",
+          "task"
         ],
         "type": "object"
       },
-      "AppAccessMemberResp": {
+      "AgentAnalysisDispatchResp": {
         "properties": {
-          "email": {
+          "dispatchState": {
             "type": "string"
           },
-          "grantedAt": {
-            "description": "毫秒",
-            "type": "integer"
-          },
-          "roles": {
-            "items": {
-              "$ref": "#/components/schemas/AppAccessMemberRoleResp"
-            },
-            "type": "array"
-          },
-          "userId": {
-            "type": "string"
-          },
-          "userName": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "userId",
-          "grantedAt",
-          "roles"
-        ],
-        "type": "object"
-      },
-      "AppAccessMemberRoleResp": {
-        "properties": {
-          "roleId": {
-            "type": "string"
-          },
-          "roleKey": {
-            "type": "string"
-          },
-          "roleName": {
-            "type": "string"
-          },
-          "sources": {
-            "items": {
-              "$ref": "#/components/schemas/AppAccessRoleSourceResp"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "roleId",
-          "roleKey",
-          "roleName",
-          "sources"
-        ],
-        "type": "object"
-      },
-      "AppAccessMembersListReq": {
-        "properties": {
-          "appId": {
-            "type": "string"
-          },
-          "grantedAtEnd": {
-            "description": "毫秒，闭区间，精度为秒",
-            "type": "integer"
-          },
-          "grantedAtStart": {
-            "description": "毫秒，闭区间，精度为秒",
-            "type": "integer"
-          },
-          "page": {
-            "type": "integer"
-          },
-          "roleKeys": {
-            "description": "任一命中即可，大小写不敏感",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "size": {
-            "type": "integer"
-          }
-        },
-        "required": [
-          "appId"
-        ],
-        "type": "object"
-      },
-      "AppAccessMembersListResp": {
-        "properties": {
-          "allActiveMembers": {
-            "description": "1:所有 active 成员都可访问 2:按角色授权",
-            "type": "integer"
-          },
-          "appId": {
-            "type": "string"
-          },
-          "list": {
-            "items": {
-              "$ref": "#/components/schemas/AppAccessMemberResp"
-            },
-            "type": "array"
-          },
-          "page": {
-            "type": "integer"
-          },
-          "productionVersionId": {
-            "type": "string"
-          },
-          "published": {
-            "description": "1:已发布 2:未发布",
-            "type": "integer"
-          },
-          "roles": {
-            "items": {
-              "$ref": "#/components/schemas/AppAccessRoleResp"
-            },
-            "type": "array"
-          },
-          "size": {
-            "type": "integer"
-          },
-          "total": {
-            "type": "integer"
-          }
-        },
-        "required": [
-          "appId",
-          "published",
-          "allActiveMembers",
-          "roles",
-          "list",
-          "total",
-          "page",
-          "size"
-        ],
-        "type": "object"
-      },
-      "AppAccessRoleResp": {
-        "properties": {
-          "description": {
-            "type": "string"
-          },
-          "memberCount": {
-            "type": "integer"
-          },
-          "roleId": {
-            "type": "string"
-          },
-          "roleKey": {
-            "type": "string"
-          },
-          "roleName": {
-            "type": "string"
-          },
-          "status": {
-            "description": "active / retired",
-            "type": "string"
-          }
-        },
-        "required": [
-          "roleId",
-          "roleKey",
-          "roleName",
-          "status",
-          "memberCount"
-        ],
-        "type": "object"
-      },
-      "AppAccessRoleSourceResp": {
-        "properties": {
-          "groupId": {
-            "type": "string"
-          },
-          "groupName": {
-            "type": "string"
-          },
-          "type": {
-            "description": "direct / group",
-            "type": "string"
-          }
-        },
-        "required": [
-          "type"
-        ],
-        "type": "object"
-      },
-      "AssetFileDeleteReq": {
-        "properties": {
-          "filePath": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "filePath"
-        ],
-        "type": "object"
-      },
-      "AssetFileDeleteResp": {
-        "properties": {
-          "deleted": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "deleted"
-        ],
-        "type": "object"
-      },
-      "AssetFileMultipartAbortReq": {
-        "properties": {
-          "fileKey": {
-            "type": "string"
-          },
-          "uploadId": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "fileKey",
-          "uploadId"
-        ],
-        "type": "object"
-      },
-      "AssetFileMultipartAbortResp": {
-        "properties": {
-          "aborted": {
-            "type": "integer"
-          }
-        },
-        "required": [
-          "aborted"
-        ],
-        "type": "object"
-      },
-      "AssetFileMultipartCompleteReq": {
-        "properties": {
-          "fileKey": {
-            "type": "string"
-          },
-          "parts": {
-            "items": {
-              "$ref": "#/components/schemas/AssetFileMultipartPart"
-            },
-            "type": "array"
-          },
-          "uploadId": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "fileKey",
-          "uploadId",
-          "parts"
-        ],
-        "type": "object"
-      },
-      "AssetFileMultipartCompleteResp": {
-        "properties": {
-          "expiresAt": {
-            "type": "integer"
-          },
-          "filePath": {
-            "type": "string"
-          },
-          "fileUrl": {
-            "type": "string"
-          },
-          "sizeBytes": {
-            "type": "integer"
-          }
-        },
-        "required": [
-          "filePath",
-          "sizeBytes"
-        ],
-        "type": "object"
-      },
-      "AssetFileMultipartInitReq": {
-        "properties": {
-          "appInstanceId": {
-            "type": "string"
-          },
-          "bizId": {
-            "type": "string"
-          },
-          "business": {
-            "type": "string"
-          },
-          "contentType": {
-            "type": "string"
-          },
-          "fileName": {
-            "type": "string"
-          },
-          "partSize": {
-            "type": "integer"
-          },
-          "sessionId": {
-            "type": "string"
-          },
-          "size": {
-            "type": "integer"
-          },
-          "useBy": {
-            "type": "string"
-          },
-          "visibility": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "fileName",
-          "size"
-        ],
-        "type": "object"
-      },
-      "AssetFileMultipartInitResp": {
-        "properties": {
-          "expiresAt": {
-            "type": "integer"
-          },
-          "fileKey": {
-            "type": "string"
-          },
-          "filePath": {
-            "type": "string"
-          },
-          "partCount": {
-            "type": "integer"
-          },
-          "partSize": {
-            "type": "integer"
-          },
-          "uploadId": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "fileKey",
-          "filePath",
-          "uploadId",
-          "partSize",
-          "partCount",
-          "expiresAt"
-        ],
-        "type": "object"
-      },
-      "AssetFileMultipartPart": {
-        "properties": {
-          "etag": {
-            "type": "string"
-          },
-          "partNumber": {
-            "type": "integer"
-          }
-        },
-        "required": [
-          "partNumber",
-          "etag"
-        ],
-        "type": "object"
-      },
-      "AssetFileMultipartPartUrl": {
-        "properties": {
-          "expiresAt": {
-            "type": "integer"
-          },
-          "partNumber": {
-            "type": "integer"
-          },
-          "url": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "partNumber",
-          "url",
-          "expiresAt"
-        ],
-        "type": "object"
-      },
-      "AssetFileMultipartPartUrlsReq": {
-        "properties": {
-          "fileKey": {
-            "type": "string"
-          },
-          "partNumbers": {
-            "items": {
-              "type": "integer"
-            },
-            "type": "array"
-          },
-          "uploadId": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "fileKey",
-          "uploadId",
-          "partNumbers"
-        ],
-        "type": "object"
-      },
-      "AssetFileMultipartPartUrlsResp": {
-        "properties": {
-          "partUrls": {
-            "items": {
-              "$ref": "#/components/schemas/AssetFileMultipartPartUrl"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "partUrls"
-        ],
-        "type": "object"
-      },
-      "AssetFileUploadReq": {
-        "properties": {
-          "appInstanceId": {
-            "type": "string"
-          },
-          "business": {
-            "type": "string"
-          },
-          "contentType": {
-            "type": "string"
-          },
-          "fileName": {
-            "type": "string"
-          },
-          "sessionId": {
-            "type": "string"
-          },
-          "size": {
-            "type": "integer"
-          },
-          "useBy": {
-            "type": "string"
-          },
-          "visibility": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "fileName",
-          "size"
-        ],
-        "type": "object"
-      },
-      "AssetFileUploadResp": {
-        "properties": {
-          "expiresAt": {
-            "type": "integer"
-          },
-          "fileId": {
-            "type": "integer"
-          },
-          "filePath": {
-            "type": "string"
-          },
-          "fileUrl": {
-            "type": "string"
-          },
-          "postFields": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "description": "先写入全部签名字段，再追加 file；policy 约束 key 和大小",
-            "type": "object"
-          },
-          "postUrl": {
-            "description": "预签名 POST 地址；multipart/form-data 上传",
-            "type": "string"
-          }
-        },
-        "required": [
-          "filePath",
-          "postUrl",
-          "postFields"
-        ],
-        "type": "object"
-      },
-      "AssetFileUrlResp": {
-        "properties": {
-          "expiresAt": {
-            "type": "integer"
-          },
-          "fileUrl": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "fileUrl"
-        ],
-        "type": "object"
-      },
-      "AssetUploadReq": {
-        "properties": {
-          "business": {
-            "type": "string"
-          },
-          "contentType": {
-            "type": "string"
-          },
-          "fileName": {
-            "type": "string"
-          },
-          "isPublic": {
-            "type": "boolean"
-          },
-          "sha256": {
-            "type": "string"
-          },
-          "size": {
-            "type": "integer"
-          },
-          "sizeBytes": {
-            "type": "integer"
-          },
-          "storageKey": {
-            "type": "string"
-          },
-          "useBy": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "fileName",
-          "sizeBytes"
-        ],
-        "type": "object"
-      },
-      "AssetUploadResp": {
-        "properties": {
-          "filePath": {
-            "type": "string"
-          },
-          "fileUrl": {
-            "type": "string"
-          },
-          "postFields": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "description": "先写入全部签名字段，再追加 file；policy 约束 key 和大小",
-            "type": "object"
-          },
-          "postUrl": {
-            "description": "预签名 POST 地址；multipart/form-data 上传",
-            "type": "string"
-          }
-        },
-        "required": [
-          "postUrl",
-          "postFields",
-          "filePath"
-        ],
-        "type": "object"
-      },
-      "AuthWhoamiResp": {
-        "properties": {
-          "apiKeyName": {
-            "type": "string"
-          },
-          "email": {
-            "type": "string"
-          },
-          "keyPrefix": {
-            "type": "string"
-          },
-          "keyType": {
-            "type": "string"
-          },
-          "permissions": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "roles": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "userID": {
-            "type": "integer"
-          },
-          "userName": {
-            "type": "string"
-          },
-          "workspaceID": {
-            "type": "integer"
-          },
-          "workspaceName": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "userID",
-          "userName",
-          "email",
-          "workspaceID",
-          "workspaceName",
-          "apiKeyName",
-          "keyPrefix",
-          "permissions",
-          "roles",
-          "keyType"
-        ],
-        "type": "object"
-      },
-      "CapabilityDeprecation": {
-        "properties": {
-          "contract": {
-            "type": "string"
-          },
-          "replacement": {
-            "type": "string"
-          },
-          "sunsetAt": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "contract"
-        ],
-        "type": "object"
-      },
-      "CapabilityDiscoverResp": {
-        "properties": {
-          "apiContractVersions": {
-            "description": "openapi/v1",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "capabilities": {
-            "description": "只返回当前 Key 有授权摘要的已知能力，关闭的能力仍返回状态",
-            "items": {
-              "$ref": "#/components/schemas/PublicCapability"
-            },
-            "type": "array"
-          },
-          "contractVersion": {
-            "description": "本发现响应合同版本，与单个 Control 的冻结合同版本独立",
-            "type": "string"
-          },
-          "deprecations": {
-            "items": {
-              "$ref": "#/components/schemas/CapabilityDeprecation"
-            },
-            "type": "array"
-          },
-          "product": {
-            "type": "string"
-          },
-          "productVersion": {
-            "description": "仅返回显式配置的可信产品发布版本，未配置时省略",
-            "type": "string"
-          },
-          "sdkContractVersions": {
-            "description": "control/v1 公共 SDK 合同，不是 npm 版本",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "product",
-          "contractVersion",
-          "apiContractVersions",
-          "sdkContractVersions",
-          "capabilities",
-          "deprecations"
-        ],
-        "type": "object"
-      },
-      "CapabilityErrorResp": {
-        "properties": {
           "errorCode": {
-            "description": "INVALID_CREDENTIAL / CAPABILITY_INVALID_REQUEST / CAPABILITY_FORBIDDEN / CAPABILITY_UNAVAILABLE / CAPABILITY_INTERNAL_ERROR",
             "type": "string"
           },
-          "message": {
-            "description": "固定公开消息，不透传内部异常",
+          "errorMessage": {
+            "type": "string"
+          },
+          "runId": {
             "type": "string"
           }
         },
         "required": [
+          "runId",
+          "dispatchState",
           "errorCode",
-          "message"
+          "errorMessage"
         ],
         "type": "object"
       },
-      "GetNotificationReq": {
+      "AgentAnalysisGetReq": {
         "properties": {
-          "messageId": {
+          "runId": {
             "type": "string"
           }
         },
         "required": [
-          "messageId"
+          "runId"
         ],
         "type": "object"
       },
-      "GetNotificationResp": {
+      "AgentAnalysisGetResp": {
         "properties": {
-          "completedAt": {
-            "type": "string"
-          },
-          "createdAt": {
-            "type": "string"
-          },
-          "errorCode": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          },
-          "messageId": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string"
+          "run": {
+            "$ref": "#/components/schemas/AgentJobRunRecord"
           }
         },
         "required": [
-          "messageId",
-          "type",
-          "status",
-          "createdAt"
+          "run"
         ],
         "type": "object"
-      },
-      "InfoResp": {
-        "properties": {
-          "capabilities": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "mqttBroker": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "version": {
-            "description": "API version of the requested HTTP entry point",
-            "type": "string"
-          }
-        },
-        "required": [
-          "name",
-          "version",
-          "mqttBroker",
-          "capabilities"
-        ],
-        "type": "object"
-      },
-      "MqttAuthCreateReq": {
-        "properties": {
-          "clientIDRandomSuffixEnabled": {
-            "type": "boolean"
-          },
-          "description": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "name"
-        ],
-        "type": "object"
-      },
-      "MqttAuthCreateResp": {
-        "properties": {
-          "clientID": {
-            "type": "string"
-          },
-          "clientIDRandomSuffixEnabled": {
-            "type": "boolean"
-          },
-          "id": {
-            "type": "integer"
-          },
-          "name": {
-            "type": "string"
-          },
-          "password": {
-            "type": "string"
-          },
-          "username": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "clientID",
-          "username",
-          "password",
-          "clientIDRandomSuffixEnabled"
-        ],
-        "type": "object"
-      },
-      "MqttAuthDeleteReq": {
-        "properties": {
-          "id": {
-            "type": "integer"
-          }
-        },
-        "required": [
-          "id"
-        ],
-        "type": "object"
-      },
-      "MqttAuthDeleteResp": {
-        "properties": {
-          "success": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "success"
-        ],
-        "type": "object"
-      },
-      "NotificationSender": {
-        "properties": {
-          "id": {
-            "description": "app 必填=appId（agent-platform UUID）；other 可选；system 可选；字符集 [0-9a-zA-Z-]{1,128}",
-            "type": "string"
-          },
-          "meta": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "description": "类型专属附加信息，序列化后≤500字节",
-            "type": "object"
-          },
-          "name": {
-            "description": "人读显示名（接替废弃的 source），≤100字符",
-            "type": "string"
-          },
-          "type": {
-            "description": "枚举 app/other/system，缺省 other；system=平台内部服务，仅 usage_type=internal 的 API key 可用（否则 400），建信归 workspace 分组（System tab）",
-            "type": "string",
-            "enum": [
-              "app",
-              "other",
-              "system"
-            ],
-            "default": "other"
-          }
-        },
-        "type": "object"
-      },
-      "PlatformGetMembersReq": {
-        "properties": {
-          "keyword": {
-            "type": "string"
-          },
-          "page": {
-            "type": "integer"
-          },
-          "roleKey": {
-            "type": "string"
-          },
-          "roles": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "size": {
-            "type": "integer"
-          },
-          "statuses": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "updatedAtEnd": {
-            "type": "string"
-          },
-          "updatedAtStart": {
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "PlatformMemberResp": {
-        "properties": {
-          "email": {
-            "type": "string"
-          },
-          "nickName": {
-            "type": "string"
-          },
-          "roles": {
-            "items": {
-              "$ref": "#/components/schemas/PlatformMemberRoleResp"
-            },
-            "type": "array"
-          },
-          "status": {
-            "type": "string"
-          },
-          "updatedAt": {
-            "type": "string"
-          },
-          "userId": {
-            "type": "string"
-          },
-          "userName": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "userId",
-          "status",
-          "roles",
-          "updatedAt"
-        ],
-        "type": "object"
-      },
-      "PlatformMemberRoleResp": {
-        "properties": {
-          "description": {
-            "type": "string"
-          },
-          "roleId": {
-            "type": "string"
-          },
-          "roleKey": {
-            "type": "string"
-          },
-          "roleName": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "roleId",
-          "roleKey"
-        ],
-        "type": "object"
-      },
-      "PlatformMembersResp": {
-        "properties": {
-          "list": {
-            "items": {
-              "$ref": "#/components/schemas/PlatformMemberResp"
-            },
-            "type": "array"
-          },
-          "page": {
-            "type": "integer"
-          },
-          "size": {
-            "type": "integer"
-          },
-          "total": {
-            "type": "integer"
-          }
-        },
-        "required": [
-          "list",
-          "total",
-          "page",
-          "size"
-        ],
-        "type": "object"
-      },
-      "PublicCapability": {
-        "properties": {
-          "allowed": {
-            "description": "当前 Key 的能力授权摘要，不替代具体 Control code 与读写权限检查",
-            "type": "boolean"
-          },
-          "availability": {
-            "description": "unavailable / unknown / available；不是设备在线或执行成功证明",
-            "type": "string"
-          },
-          "code": {
-            "type": "string"
-          },
-          "contractVersions": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "enabled": {
-            "description": "仅发布、实现和 readiness 均满足时为 true",
-            "type": "boolean"
-          },
-          "releaseEnabled": {
-            "description": "公开发布开关与当前 Workspace 灰度的交集，不表示 runtime 就绪",
-            "type": "boolean"
-          },
-          "state": {
-            "description": "disabled / not_supported / unavailable / readiness_unknown / ready",
-            "type": "string"
-          }
-        },
-        "required": [
-          "code",
-          "releaseEnabled",
-          "enabled",
-          "allowed",
-          "state",
-          "availability",
-          "contractVersions"
-        ],
-        "type": "object"
-      },
-      "SendNotificationReq": {
-        "properties": {
-          "channels": {
-            "items": {
-              "type": "string",
-              "enum": [
-                "web",
-                "mobile"
-              ]
-            },
-            "type": "array"
-          },
-          "content": {
-            "type": "string"
-          },
-          "idempotencyKey": {
-            "type": "string"
-          },
-          "link": {
-            "type": "string"
-          },
-          "mode": {
-            "type": "string"
-          },
-          "recipientUserId": {
-            "type": "string"
-          },
-          "sender": {
-            "$ref": "#/components/schemas/NotificationSender"
-          },
-          "source": {
-            "description": "已废弃：过渡期作 sender.name 别名（sender.name 优先），后续移除",
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "type": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "recipientUserId",
-          "type",
-          "title",
-          "content",
-          "idempotencyKey"
-        ],
-        "type": "object"
-      },
-      "SendNotificationResp": {
-        "properties": {
-          "createdAt": {
-            "type": "string"
-          },
-          "messageId": {
-            "type": "string"
-          },
-          "status": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "messageId",
-          "status",
-          "createdAt"
-        ],
-        "type": "object"
-      },
-      "NotificationError": {
-        "type": "object",
-        "required": [
-          "errorCode",
-          "message"
-        ],
-        "properties": {
-          "errorCode": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          }
-        }
       },
       "SdksystemInfoData": {
         "$ref": "#/components/schemas/InfoResp"
@@ -4764,7 +7051,7 @@
         }
       },
       "SdkcapabilitiesDiscoverData": {
-        "$ref": "#/components/schemas/CapabilityDiscoverResp"
+        "$ref": "#/components/schemas/CapabilityDiscoverV2Resp"
       },
       "SdkcapabilitiesDiscoverWire": {
         "$ref": "#/components/schemas/SdkcapabilitiesDiscoverData"

@@ -26,16 +26,16 @@ const operation = (name: string) => manifest.operations.find(item => item.name =
 
 describe('Backend App UNS access contract without generic record audit', () => {
   it('pins the exact upstream commit and all generator inputs', () => {
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('da656ec46935d4349548812c1ef458cf53c7e67a');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('397ac88a89593872cf76ad579a3c59753d832668');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     for (const [key, file] of Object.entries({ contract: 'contract.json', cloudSupport: 'cloud-support.json', manifest: 'manifest.json', provenance: 'provenance.json', registry: 'registry_generated.go' })) {
       expect(UNS_V2_CONTRACT_PROVENANCE.hashes[key as keyof typeof UNS_V2_CONTRACT_PROVENANCE.hashes]).toBe(
         createHash('sha256').update(read(file)).digest('hex')
       );
     }
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(85);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(82);
     expect(UNS_V2_CONTRACT_PROVENANCE.streamOperationCount).toBe(1);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(98);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(95);
     // Error envelopes are decoded by every operation, although success DTOs do not reference them.
     expect(Object.hasOwn(UNS_V2_CODEC_SCHEMAS, 'UnsV2ErrorResponse')).toBe(true);
     expect(Object.hasOwn(manifest.schemas, 'UnsV2ErrorResponse')).toBe(true);
@@ -84,11 +84,15 @@ describe('Backend App UNS access contract without generic record audit', () => {
     }
   });
 
-  it('uses unified request permissions and never offers API Key Control grants', () => {
-    expect(operation('controlDiscover').permission).toBe('stream.requests.read');
-    expect(operation('controlInvoke').permission).toBe('stream.requests.invoke');
-    expect(operation('controlGrantSet').permission).toBe('stream.requests.manage');
-    const grant = manifest.schemas.CloudControlGrantSetReq.properties!;
+  it('uses the neutral management contract without exposing retired execution aliases or API Key grants', () => {
+    expect(operation('streamRequestGrantGet').permission).toBe('stream.requests.manage');
+    expect(operation('streamRequestGrantSet').permission).toBe('stream.requests.manage');
+    for (const name of ['controlDiscover', 'controlDescribe', 'controlInvoke', 'controlGrantGet', 'controlGrantSet',
+      'hostedAppControlPolicyGet', 'hostedAppControlPolicyUpdate']) {
+      expect(manifest.operations.some(item => item.name === name), name).toBe(false);
+      expect(Object.hasOwn(UNS_V2_OPERATIONS, name), name).toBe(false);
+    }
+    const grant = manifest.schemas.CloudStreamRequestGrantSetReq.properties!;
     expect(grant.principalKind).toMatchObject({ enum: ['app', 'user'] });
     expect(Object.hasOwn(UNS_V2_OPERATIONS, 'streamRuntimeCapabilitiesGet')).toBe(false);
     expect(manifest.operations.some(item => item.name === 'streamRuntimeCapabilitiesGet')).toBe(false);
@@ -156,10 +160,15 @@ describe('Backend App UNS access contract without generic record audit', () => {
       expect(operation(name)).toMatchObject({ appAllowed: false, coreOnly: false, permission: 'uns.write', minPermission: 3 });
       expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(true);
     }
-    for (const name of ['hostedAppControlPolicyGet', 'hostedAppControlPolicyUpdate']) {
+    for (const name of ['appStreamPolicyGet', 'appStreamPolicyUpdate']) {
       expect(operation(name)).toMatchObject({ appAllowed: false, permission: 'stream.requests.manage', minPermission: 3 });
       expect(operation(name).coreOnly).not.toBe(true);
       expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(true);
+    }
+    for (const name of ['appRegistrationCapabilities', 'appRegistrationList', 'appRegistrationGet',
+      'appRegistrationCreate', 'appRegistrationUpdate', 'appRegistrationPermissionsUpdate']) {
+      expect(operation(name)).toMatchObject({ appAllowed: false, coreOnly: true });
+      expect(Object.hasOwn(UNS_V2_OPERATIONS, name), name).toBe(false);
     }
     for (const name of ['appAccessGet', 'appAccessUpdate']) {
       expect(manifest.operations.some(item => item.name === name)).toBe(false);

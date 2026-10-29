@@ -284,7 +284,7 @@ export class UnsV2ClientCore {
     }
     let response: Awaited<ReturnType<CloudTransport['postText']>>;
     try {
-      response = await this.transport.postText(path, body, options);
+      response = await this.transport.postText(path, body, options, name);
     } catch (error) {
       if (!(error instanceof CloudTransportError)) throw error;
       const message = error.kind === 'TRANSPORT_TIMEOUT'
@@ -351,7 +351,7 @@ export class UnsV2ClientCore {
     const path = UNS_V2_STREAM_OPERATIONS.recordSubscribe.path + (query.size ? `?${query}` : '');
     let opened: Awaited<ReturnType<CloudTransport['getEventStream']>>;
     try {
-      opened = await this.transport.getEventStream(path, options);
+      opened = await this.transport.getEventStream(path, options, name);
     } catch (error) {
       if (!(error instanceof CloudTransportError)) throw error;
       if (error.kind === 'TRANSPORT_ABORTED') return;

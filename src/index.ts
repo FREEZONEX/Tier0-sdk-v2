@@ -8,7 +8,6 @@ export { ApiError, TransportError, configureClient } from './openapi/client.js';
 export type { ClientConfig, RequestOptions } from './openapi/client.js';
 export type { components, paths } from './openapi/types.generated.js';
 export * from './uns-v2/index.js';
-export * from './controls.js';
 export * from './capabilities.js';
 export * from './files.js';
 export * from './runtime-context.js';

@@ -85,76 +85,31 @@ describe('UNS v2 localhost HTTP fixture', () => {
     expect(received.at(-1)?.headers['x-tier0-app-data-subject']).toBeUndefined();
   });
 
-  it('never sends a Control/capability, legacy or asset proof header, even on post to a v2 path', async () => {
+  it('sends data delegation only for registered UNS data operations, not management or arbitrary paths', async () => {
     const start = received.length;
     const config = { apiHost, apiKey: 'workspace-bound-key', unsV2AppDataSubject: 'gateway.user.signature' };
     const api = createClient(config);
     respond = (req, res) => {
-      if (req.url === '/openapi/v2/uns/controls/discover') send(res, { code: 200, msg: '', requestId: 'controls', data: { total: 0, list: [] } });
-      else if (req.url === '/openapi/v2/uns/controls/invoke') send(res, { code: 200, msg: '', requestId: 'control', data: {
-        code: 'pump.start', contractVersion: '1', result: {}, runId: 'fixture-run', status: 'succeeded', replayed: false,
-      } });
-      else if (req.url === '/openapi/v2/capabilities/discover') send(res, {
-        product: 'cloud', contractVersion: '1.0', apiContractVersions: ['openapi/v1', 'openapi/v2'],
-        sdkContractVersions: ['control/v1'], capabilities: [], deprecations: [],
+      if (req.url === '/openapi/v2/capabilities/discover') send(res, {
+        product: 'cloud', contractVersion: '1.0', apiContractVersions: ['openapi/v2'],
+        sdkContractVersions: ['stream-requests/v1'], capabilities: [], deprecations: [],
       });
-      else send(res, {});
+      else send(res, { code: 200, msg: '', requestId: 'fixture', data: {} });
     };
     const http = new HttpClient(config);
     const transport = new CloudTransport(() => http, config);
-    await Promise.all([
-      api.controls.discover(), api.controls.use({ code: 'pump.start' }).invoke({}), api.capabilities.discover(),
-      http.post('/openapi/v2/uns/query', {}), http.post('/openapi/v2/assets/files/url', {}),
-      transport.post('/openapi/v2/uns/test', {}),
-      ...['/legacy/uns/query', '/openapi/v2/assets/test', '/openapi/v2/uns-other/test', '/openapi/v2/uns']
-        .map(path => transport.postText(path, '{}')),
-    ]);
-    expect(received.slice(start)).toHaveLength(10);
+    await api.source.documents.list({});
+    await api.stream.programs.list({});
+    await api.uns.appStreamAccessList({ appId: 'fixture-app' });
+    await api.capabilities.discover();
+    await http.post('/openapi/v2/uns/query', {});
+    await http.post('/openapi/v2/assets/files/url', {});
+    await transport.post('/openapi/v2/uns/test', {});
+    for (const path of ['/legacy/uns/query', '/openapi/v2/assets/test', '/openapi/v2/uns-other/test', '/openapi/v2/uns', '/openapi/v2/uns/collections/orders/records:find']) {
+      await transport.postText(path, '{}');
+    }
+    expect(received.slice(start)).toHaveLength(12);
     for (const row of received.slice(start)) expect(row.headers['x-tier0-app-data-subject']).toBeUndefined();
-  });
-
-  it.each(['controlDiscover', 'controlDescribe', 'controlInvoke'] as const)
-  ('never forwards data delegation through unsV2.%s', async operation => {
-    const start = received.length;
-    const definition = {
-      code: 'pump.start', name: 'Start pump', contractVersion: '1',
-      inputSchema: {}, outputSchema: {}, sideEffect: 'write', idempotency: 'required', timeoutMs: 1000,
-    } as const;
-    const envelope = { code: 200, msg: 'ok', requestId: 'v2-control-fixture' };
-    const responses = {
-      controlDiscover: { ...envelope, data: {
-        list: [definition], total: 1, page: 1, size: 20, hasMore: false,
-        complete: true, truncated: false, snapshotScope: 'thisRequestOnly',
-      } },
-      controlDescribe: { ...envelope, data: definition },
-      controlInvoke: { ...envelope, data: {
-        code: 'pump.start', contractVersion: '1', result: { started: true },
-        runId: 'v2-control-run', status: 'succeeded', replayed: false,
-      } },
-    } satisfies { [Name in typeof operation]: UnsV2Response<Name> };
-    const requests = {
-      controlDiscover: { page: 1, size: 20 },
-      controlDescribe: { code: 'pump.start' },
-      controlInvoke: { code: 'pump.start', input: {}, idempotencyKey: 'v2-control-intent' },
-    };
-    respond = (_req, res) => send(res, responses[operation]);
-    const results = {
-      controlDiscover: () => rawClient({ unsV2AppDataSubject: 'gateway.user.signature' }).controlDiscover(requests.controlDiscover),
-      controlDescribe: () => rawClient({ unsV2AppDataSubject: 'gateway.user.signature' }).controlDescribe(requests.controlDescribe),
-      controlInvoke: () => rawClient({ unsV2AppDataSubject: 'gateway.user.signature' }).controlInvoke(requests.controlInvoke),
-    };
-    await expect(results[operation]()).resolves.toEqual(responses[operation]);
-    const paths = {
-      controlDiscover: '/openapi/v2/uns/controls/discover',
-      controlDescribe: '/openapi/v2/uns/controls/describe',
-      controlInvoke: '/openapi/v2/uns/controls/invoke',
-    };
-    expect(received.slice(start)).toHaveLength(1);
-    expect(received[start]).toMatchObject({ method: 'POST', path: paths[operation] });
-    expect(JSON.parse(received[start].body)).toEqual(requests[operation]);
-    expect(received[start].headers['x-tier0-app-data-subject']).toBeUndefined();
-    expect(received[start].headers.authorization).toBe('Bearer workspace-bound-key');
-    expect(received[start].headers['x-api-key']).toBe('workspace-bound-key');
   });
 
   it('rejects invalid proof configurations synchronously without requests or value disclosure', () => {
@@ -395,11 +350,11 @@ describe('UNS v2 localhost HTTP fixture', () => {
       'record-notifications/1', 'record-delete-samples/1', 'stream-history/1',
       'record-reads/1', 'app-context/3', 'collection-ttl/1', 'error-model/1', 'record-insert-return/1', 'stream-run-error/1',
     ]));
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('da656ec46935d4349548812c1ef458cf53c7e67a');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('397ac88a89593872cf76ad579a3c59753d832668');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(UNS_V2_CONTRACT_PROVENANCE.sourceDerivedContractSHA256).toBe(UNS_V2_CONTRACT_PROVENANCE.hashes.contract);
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(85);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(98);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(82);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(95);
     expect(received.slice(start)).toHaveLength(1);
   });
 

@@ -6,7 +6,7 @@ import { patchRunSchema } from './sync-http-run-observations.mjs';
 const current = JSON.parse(readFileSync(new URL('../contracts/uns-v2/manifest.json', import.meta.url))).schemas.CloudStreamRunsListResponse;
 const item = schema => schema.properties.data.properties.items.items;
 const base = structuredClone(current);
-item(base).properties.kind.enum = ['delivery', 'control'];
+item(base).properties.kind.enum = ['delivery', 'request'];
 delete item(base).properties.responseSentAt;
 
 test('imports only the reviewed HTTP kind and optional nullable int64; leaves its inputs unchanged', () => {
@@ -24,6 +24,7 @@ test('rejects additional run schema changes and weakened timestamp contracts', (
     schema => { item(schema).properties.responseSentAt.type = 'string'; },
     schema => { item(schema).properties.responseSentAt.nullable = false; },
     schema => { item(schema).properties.kind.enum.push('guessed'); },
+    schema => { item(schema).properties.kind.enum = ['delivery', 'control', 'http']; },
   ]) {
     const changed = structuredClone(current); mutate(changed);
     assert.throws(() => patchRunSchema(base, changed));

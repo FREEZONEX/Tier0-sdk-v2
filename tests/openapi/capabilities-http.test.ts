@@ -5,9 +5,9 @@ import { createClient, CapabilityError } from '../../src/index.js';
 
 const fixture = {
   product: 'cloud', contractVersion: '1.0', apiContractVersions: ['openapi/v1', 'openapi/v2'],
-  sdkContractVersions: ['control/v1'],
-  capabilities: [{ code: 'control.invoke.v1', releaseEnabled: true, allowed: true, enabled: false,
-    state: 'unavailable', availability: 'unavailable', contractVersions: ['openapi/v1', 'control/v1'] }],
+  sdkContractVersions: ['stream-requests/v1'],
+  capabilities: [{ code: 'namespace.v2', releaseEnabled: true, allowed: true, enabled: false,
+    state: 'unavailable', availability: 'unavailable', contractVersions: ['openapi/v2'] }],
   deprecations: [],
 };
 const received: { path?: string; method?: string; headers: IncomingMessage['headers']; body: string }[] = [];
@@ -44,19 +44,17 @@ describe('capability real HTTP fixture (no device execution or external credenti
     expect(received[start].headers['idempotency-key']).toBeUndefined();
   });
 
-  it('accepts Namespace API v2 beside Control API v1 over the actual HTTP transport', async () => {
+  it('keeps Namespace discovery available beside an unsupported optional interaction contract', async () => {
     const start = received.length;
-    const body = { ...fixture, apiContractVersions: ['openapi/v1', 'openapi/v2'], capabilities: [
-      { code: 'namespace.v2', releaseEnabled: true, allowed: true, enabled: true,
-        state: 'ready', availability: 'available', contractVersions: ['openapi/v2'] },
+    const body = { ...fixture, sdkContractVersions: ['stream-requests/future'], capabilities: [
       ...fixture.capabilities,
+      { code: 'stream.requests.v1', contractVersions: ['stream-requests/future'] },
     ] };
     respond = (_req, res) => send(res, body);
     const result = await client().capabilities.discover();
-    expect(result).toEqual(body);
-    expect(result.capabilities[1]).toMatchObject({ enabled: false, state: 'unavailable' });
+    expect(result).toEqual({ ...body, capabilities: fixture.capabilities });
+    expect(result.capabilities[0]).toMatchObject({ enabled: false, state: 'unavailable' });
     expect(received.length - start).toBe(1);
-    expect(received[start].path).toBe('/openapi/v2/capabilities/discover');
   });
 
   it('does not cache a release or readiness transition', async () => {

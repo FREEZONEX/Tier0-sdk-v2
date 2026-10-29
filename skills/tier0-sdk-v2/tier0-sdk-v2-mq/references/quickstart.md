@@ -58,7 +58,7 @@ export async function publishEvent(mq: Tier0MQClient, topic: string, eventId: st
 }
 ```
 
-payload 必须符合实际主题契约；对象用 JSON.stringify，不可包含 bigint。publish resolve 不证明已收 PUBACK，更不证明设备执行；业务闭环用关联 ID/ACK 或 Control。订阅 QoS 1，发布默认 QoS 0/retain=false，消费端考虑重复消息。
+payload 必须符合实际主题契约；对象用 JSON.stringify，不可包含 bigint。publish resolve 不证明已收 PUBACK，更不证明设备执行；业务闭环用关联 ID/ACK 或独立交互 SDK 的 Stream 请求。订阅 QoS 1，发布默认 QoS 0/retain=false，消费端考虑重复消息。
 
 ## 事件、背压和鉴权
 

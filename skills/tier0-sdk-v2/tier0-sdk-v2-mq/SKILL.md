@@ -69,7 +69,7 @@ export async function publishMeasurement(mq: Tier0MQClient, topic: string, value
 }
 ```
 
-publish 目前在建立连接并调用 MQTT 库发布后返回，不等待业务执行确认，也不保证已收到 broker PUBACK。需要闭环时使用业务 ACK 主题/关联 ID 或 Control 契约，不能把 Promise resolve 当成设备执行完成。
+publish 目前在建立连接并调用 MQTT 库发布后返回，不等待业务执行确认，也不保证已收到 broker PUBACK。需要闭环时使用业务 ACK 主题/关联 ID 或独立交互 SDK 的 Stream 请求合同，不能把 Promise resolve 当成设备执行完成。
 
 订阅内部 QoS 为 1；发布默认 QoS 0、retain=false。业务消费者需考虑重复消息。对象 payload 经 JSON.stringify，不能直接包含 bigint；按协议约定编码精确值，不假设 MQTT 自动使用 UNS 的无损 codec。
 

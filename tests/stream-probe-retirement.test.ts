@@ -22,13 +22,13 @@ describe('retired Stream readiness probe', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('preserves Stream management and execution methods without a readiness preflight', () => {
+  it('preserves Stream management methods without a readiness preflight', () => {
     const stream = createStreamClient();
     for (const method of [stream.documents.create, stream.documents.update, stream.documents.get,
       stream.documents.validate, stream.documents.disable, stream.programs.deploy, stream.programs.rollback,
       stream.programs.delete, stream.programs.versions.list, stream.observations.get, stream.runs.list, stream.sampleTest]) {
       expect(method).toBeTypeOf('function');
     }
-    expect(createClient().controls.use({ code: 'device.read' }).invoke).toBeTypeOf('function');
+    expect(createClient()).not.toHaveProperty('controls');
   });
 });

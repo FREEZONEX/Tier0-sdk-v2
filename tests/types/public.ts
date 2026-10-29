@@ -2,6 +2,14 @@ import { createClient, getCurrentAppId, type Tier0Client, type UnsV2Integer, typ
 import { useTier0Query, useTier0Mutation } from '../../src/react.js';
 import { useTier0Request } from '../../src/vue.js';
 const sdk: Tier0Client = createClient({ apiHost: 'https://api.example.invalid', apiKey: 'placeholder' });
+// @ts-expect-error Retired convenience API has no alias.
+sdk.controls;
+// @ts-expect-error Stream interactions belong to the independent @tier0/sdk package.
+sdk.streams;
+// @ts-expect-error The data SDK does not re-export retired error classes.
+type RetiredControlError = import('../../src/index.js').ControlError;
+// @ts-expect-error The data SDK does not rename the old unknown error into a second Stream API.
+type RetiredUnknownError = import('../../src/index.js').ControlResultUnknownError;
 sdk.uns.recordFind({ collectionId: 'orders' }, { signal: new AbortController().signal });
 sdk.source.documents.list({ includeDocument: false });
 sdk.source.discover({ id: '101', expectedRevision: 1 });

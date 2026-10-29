@@ -40,7 +40,6 @@ try {
     ['system.info', () => client.system.info()],
     ['members.listWorkspace', () => client.members.listWorkspace()],
     ['capabilities.discover', () => client.api.capabilities.discover()],
-    ['controls.discover', () => client.controls.discover({})],
     ['source.protocols.list', () => client.source.protocols.list({})],
     ['source.documents.list', () => client.source.documents.list({ page: 1, size: 20 })],
     ['source.documents.list', () => client.source.documents.list({ page: 1, size: 20, includeDocument: false })],

@@ -3,7 +3,7 @@
   "info": {
     "title": "Tier0 Cloud OpenAPI v2",
     "version": "5.0.0",
-    "description": "云端集合、业务数据、时序数据及数据源、处理流、控制接口。使用绑定工作空间的 API Key。\n\n### UNS 接口错误\n各接口只展开成功结果；失败统一使用 default 响应。HTTP 状态码：401 未认证、403 无权限或未开通、404 对象不存在、409 状态、版本、唯一键冲突或凭据已变化、413 内容超限、422 参数或业务校验失败、429 过载、500 服务端错误、503 暂不可用、504 查询超时。具体原因以 error.code 为准。error.execution 说明执行到哪一步：notStarted、rolledBack 可证明没有副作用，committed 表示已提交，unknown 只出现在写操作上、表示无法证明是否提交。error.retry.safe=true 时可原样重发（写入复用原幂等键），retry.afterMs 与 Retry-After 给出最短等待时间；safe=false 时先修正请求或恢复授权。\n\n### 平台接口\n通知、文件、成员、身份、MQTT 凭证和 Agent 接口复用已有业务规则。平台接口保留各自响应格式：文件下载返回 302，通知与能力发现直接返回业务 JSON，其他平台接口使用 code/msg/data。上面的 UNS 错误格式仅适用于 /uns/ 路径。"
+    "description": "云端集合、业务数据、时序数据及数据源、处理流与 App 策略管理接口。使用绑定工作空间的 API Key。\n\n### UNS 接口错误\n各接口只展开成功结果；失败统一使用 default 响应。HTTP 状态码：401 未认证、403 无权限或未开通、404 对象不存在、409 状态、版本、唯一键冲突或凭据已变化、413 内容超限、422 参数或业务校验失败、429 过载、500 服务端错误、503 暂不可用、504 查询超时。具体原因以 error.code 为准。error.execution 说明执行到哪一步：notStarted、rolledBack 可证明没有副作用，committed 表示已提交，unknown 只出现在写操作上、表示无法证明是否提交。error.retry.safe=true 时可原样重发（写入复用原幂等键），retry.afterMs 与 Retry-After 给出最短等待时间；safe=false 时先修正请求或恢复授权。\n\n### 平台接口\n通知、文件、成员、身份、MQTT 凭证和 Agent 接口复用已有业务规则。平台接口保留各自响应格式：文件下载返回 302，通知与能力发现直接返回业务 JSON，其他平台接口使用 code/msg/data。上面的 UNS 错误格式仅适用于 /uns/ 路径。"
   },
   "tags": [
     {
@@ -43,16 +43,8 @@
       "description": "采样追加、多记录查询、聚合、最新值与显式时间范围删除。最新值仅指真实 Sample。"
     },
     {
-      "name": "控制",
-      "description": "控制接口"
-    },
-    {
       "name": "App 与授权",
       "description": "App 与授权接口"
-    },
-    {
-      "name": "元数据",
-      "description": "元数据接口"
     }
   ],
   "servers": [
@@ -4980,253 +4972,6 @@
         "x-tier0-destructive": false
       }
     },
-    "/uns/controls/discover": {
-      "post": {
-        "operationId": "UnsV2ControlDiscover",
-        "summary": "发现控制能力",
-        "deprecated": false,
-        "security": [
-          {
-            "ApiKey": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "page": {
-                    "type": "integer",
-                    "minimum": 1
-                  },
-                  "size": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 200
-                  },
-                  "search": {
-                    "type": "string"
-                  }
-                },
-                "required": []
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "查询结果。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocUnsV2ControlDiscoverResponse"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocCommonError"
-                },
-                "example": {
-                  "code": 422,
-                  "msg": "请求参数不合法",
-                  "requestId": "request-id",
-                  "data": null,
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "reason": "filter.status must be a string",
-                    "details": [],
-                    "execution": "notStarted",
-                    "retry": {
-                      "safe": false
-                    },
-                    "path": "filter.status"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "控制"
-        ],
-        "description": "按关键词分页查询当前凭证可见的控制能力。",
-        "x-tier0-audience": "operations",
-        "x-tier0-starter": false,
-        "x-tier0-readonly": true,
-        "x-tier0-destructive": false
-      }
-    },
-    "/uns/controls/describe": {
-      "post": {
-        "operationId": "UnsV2ControlDescribe",
-        "summary": "读取控制定义",
-        "deprecated": false,
-        "security": [
-          {
-            "ApiKey": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "code": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "code"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "查询结果。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocUnsV2ControlDescribeResponse"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocCommonError"
-                },
-                "example": {
-                  "code": 422,
-                  "msg": "请求参数不合法",
-                  "requestId": "request-id",
-                  "data": null,
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "reason": "filter.status must be a string",
-                    "details": [],
-                    "execution": "notStarted",
-                    "retry": {
-                      "safe": false
-                    },
-                    "path": "filter.status"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "控制"
-        ],
-        "description": "按 code 返回控制定义及输入要求。",
-        "x-tier0-audience": "operations",
-        "x-tier0-starter": false,
-        "x-tier0-readonly": true,
-        "x-tier0-destructive": false
-      }
-    },
-    "/uns/controls/invoke": {
-      "post": {
-        "operationId": "UnsV2ControlInvoke",
-        "summary": "执行控制",
-        "deprecated": false,
-        "security": [
-          {
-            "ApiKey": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "code": {
-                    "type": "string"
-                  },
-                  "input": {
-                    "nullable": true
-                  },
-                  "idempotencyKey": {
-                    "type": "string",
-                    "maxLength": 128,
-                    "description": "可选幂等键；重试同一请求时复用，相同键不得用于不同请求。"
-                  }
-                },
-                "required": [
-                  "code",
-                  "input"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "操作结果。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocUnsV2ControlInvokeResponse"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocCommonError"
-                },
-                "example": {
-                  "code": 422,
-                  "msg": "请求参数不合法",
-                  "requestId": "request-id",
-                  "data": null,
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "reason": "filter.status must be a string",
-                    "details": [],
-                    "execution": "notStarted",
-                    "retry": {
-                      "safe": false
-                    },
-                    "path": "filter.status"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "控制"
-        ],
-        "description": "按 code 和 input 调用控制能力。相同业务意图重试时复用 idempotencyKey；失败时按 error.execution 与 error.retry 判断，execution=unknown 时只能复用原幂等键重试，避免重复执行。",
-        "x-tier0-audience": "operations",
-        "x-tier0-starter": false,
-        "x-tier0-readonly": false,
-        "x-tier0-destructive": false
-      }
-    },
     "/uns/sources/documents/get": {
       "post": {
         "operationId": "UnsV2SourceDocumentGet",
@@ -7339,7 +7084,7 @@
         "tags": [
           "App 与授权"
         ],
-        "description": "使用 changes 按集合原子新增、修改或移除授权；省略字段保留原值，不需回传其他集合或员工规则。collections 仍用于显式完整替换，两种模式互斥。permissionLevel 的 read/readwrite/manage 对应业务记录只读、读写、管理（含删除），与底层 permissions 互斥。新增权限不能超出当前管理者能力；保留 Control 边界，必须提供 expectedRevision 和 idempotencyKey。同键原样重试重放结果，不重新扩大授权。",
+        "description": "使用 changes 按集合原子新增、修改或移除授权；省略字段保留原值，不需回传其他集合或员工规则。collections 仍用于显式完整替换，两种模式互斥。permissionLevel 的 read/readwrite/manage 对应业务记录只读、读写、管理（含删除），与底层 permissions 互斥。新增权限不能超出当前管理者能力；保留 Stream 策略边界，必须提供 expectedRevision 和 idempotencyKey。同键原样重试重放结果，不重新扩大授权。",
         "x-tier0-audience": "governance",
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
@@ -7417,9 +7162,9 @@
         "x-tier0-destructive": false
       }
     },
-    "/uns/hosted-app-control-policy/get": {
+    "/uns/app-stream-policy/get": {
       "post": {
-        "operationId": "CloudHostedAppControlPolicyGet",
+        "operationId": "CloudAppStreamPolicyGet",
         "summary": "查看 App 的 Stream 权限上限",
         "deprecated": false,
         "security": [
@@ -7455,7 +7200,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DocCloudHostedAppControlPolicyGetResponse"
+                  "$ref": "#/components/schemas/DocCloudAppStreamPolicyGetResponse"
                 }
               }
             }
@@ -7488,18 +7233,19 @@
           }
         },
         "tags": [
-          "元数据"
+          "App 与授权"
         ],
-        "description": "读取同一真实 App 的控制权限上限，需当前 Builder 会话或 full_access 个人/Agent Key，且有 uns.write 与 stream.requests.manage。此上限与具体 Stream 入口授权共同生效。",
+        "description": "读取同一真实 App 的Stream 请求与消息权限上限，需当前 Builder 会话或 full_access 个人/Agent Key，且有 uns.write 与 stream.requests.manage。此上限与具体 Stream 入口授权共同生效。",
         "x-tier0-audience": "governance",
         "x-tier0-starter": false,
+        "x-tier0-mcp": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
     },
-    "/uns/hosted-app-control-policy/update": {
+    "/uns/app-stream-policy/update": {
       "post": {
-        "operationId": "CloudHostedAppControlPolicyUpdate",
+        "operationId": "CloudAppStreamPolicyUpdate",
         "summary": "更新 App 的 Stream 权限上限",
         "deprecated": false,
         "security": [
@@ -7524,7 +7270,7 @@
                   "expectedRevision": {
                     "type": "integer",
                     "minimum": 0,
-                    "description": "Shared hosted policy metadata revision. 0 attaches to a real App; either data or Control updates increment this revision."
+                    "description": "Shared hosted policy metadata revision. 0 attaches to a real App; either data or Stream policy updates increment this revision."
                   },
                   "status": {
                     "type": "string",
@@ -7545,15 +7291,24 @@
                   },
                   "platformPermissions": {
                     "type": "array",
-                    "maxItems": 3,
+                    "maxItems": 5,
                     "uniqueItems": true,
                     "items": {
                       "type": "string",
                       "enum": [
                         "stream.requests.read",
                         "stream.requests.invoke",
-                        "stream.requests.write"
+                        "stream.requests.write",
+                        "stream.messages.publish",
+                        "stream.messages.subscribe"
                       ]
+                    }
+                  },
+                  "messageTopics": {
+                    "type": "array",
+                    "maxItems": 32,
+                    "items": {
+                      "$ref": "#/components/schemas/CloudStreamMessageTopicPermission"
                     }
                   }
                 },
@@ -7575,7 +7330,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DocCloudHostedAppControlPolicyUpdateResponse"
+                  "$ref": "#/components/schemas/DocCloudAppStreamPolicyUpdateResponse"
                 },
                 "example": {
                   "code": 200,
@@ -7627,11 +7382,12 @@
           }
         },
         "tags": [
-          "元数据"
+          "App 与授权"
         ],
         "description": "复用现有 App 策略，保留 Collection 授权和员工规则；需 expectedRevision、idempotencyKey 和 dryRun。仅当前 Builder 会话或 full_access 个人/Agent Key 可用，并需 uns.write 与 stream.requests.manage。不会自动授予任何 Stream 入口，也不会升级 App Key。",
         "x-tier0-audience": "governance",
         "x-tier0-starter": false,
+        "x-tier0-mcp": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -8146,9 +7902,9 @@
         "x-tier0-destructive": false
       }
     },
-    "/uns/controls/grants/get": {
+    "/uns/stream-requests/grants/get": {
       "post": {
-        "operationId": "UnsV2ControlGrantGet",
+        "operationId": "UnsV2StreamRequestGrantGet",
         "summary": "读取 Stream 入口授权",
         "deprecated": false,
         "security": [
@@ -8202,7 +7958,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DocUnsV2ControlGrantGetResponse"
+                  "$ref": "#/components/schemas/DocUnsV2StreamRequestGrantGetResponse"
                 }
               }
             }
@@ -8235,18 +7991,19 @@
           }
         },
         "tags": [
-          "控制"
+          "处理流"
         ],
         "description": "按 code 和接收方（仅 app/user）读取授权、当前发布绑定和权限上限，返回用于并发校验的 snapshotToken。当前管理会话或 full_access 个人/Agent Key 可用，需 stream.requests.manage（授权配置）和 uns.source.manage；App 与服务 Key 不可配置授权。不返回 Source 配置或凭据。",
         "x-tier0-audience": "governance",
         "x-tier0-starter": false,
+        "x-tier0-mcp": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
     },
-    "/uns/controls/grants/set": {
+    "/uns/stream-requests/grants/set": {
       "post": {
-        "operationId": "UnsV2ControlGrantSet",
+        "operationId": "UnsV2StreamRequestGrantSet",
         "summary": "设置或撤销 Stream 入口授权",
         "deprecated": false,
         "security": [
@@ -8311,7 +8068,7 @@
                   "targetRevisions": {
                     "type": "array",
                     "items": {
-                      "$ref": "#/components/schemas/CloudControlGrantTargetRevision"
+                      "$ref": "#/components/schemas/CloudStreamRequestGrantTargetRevision"
                     },
                     "maxItems": 128,
                     "description": "兼容旧调用的目标版本列表；历史目标较多时请使用 expectedSnapshotToken 撤销。"
@@ -8383,7 +8140,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DocUnsV2ControlGrantSetResponse"
+                  "$ref": "#/components/schemas/DocUnsV2StreamRequestGrantSetResponse"
                 }
               }
             }
@@ -8416,11 +8173,12 @@
           }
         },
         "tags": [
-          "控制"
+          "处理流"
         ],
         "description": "使用 get 返回的 expectedSnapshotToken 原子修改授权，无需回传全部目标版本。active=1 新增或更新，actions 仅允许 stream.requests.read、stream.requests.invoke、stream.requests.write，write 需要 invoke。资源“管理”包含查看、调用和写操作；stream.requests.manage 是调用方的授权配置能力。active=2 撤销全部历史目标，actions 必须为空，不依赖接收方或当前发布在线。保留旧版本字段兼容，两种校验方式互斥。版本冲突或响应丢失后先重新读取、核对当前状态，再确认是否修改，不能盲目覆盖。",
         "x-tier0-audience": "governance",
         "x-tier0-starter": false,
+        "x-tier0-mcp": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -8531,6 +8289,7 @@
         "description": "服务端汇总已配置入口、Stream 名称、授权动作及当前受阻原因。默认仅返回尚未撤销的授权，includeInactive=1 包含撤销项。结果是当前授权状态快照，执行仍会复核；不会因此扩大 App 的全局权限上限。",
         "x-tier0-audience": "governance",
         "x-tier0-starter": false,
+        "x-tier0-mcp": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -13090,14 +12849,14 @@
     },
     "/capabilities/discover": {
       "post": {
-        "description": "需要有效 Workspace API Key，Body 仅接受空 JSON 对象，最大 4KiB UTF-8 字节，不接受查询参数或 Workspace 覆盖。成功响应直接为 CapabilityDiscoverResp，不包裹 code/msg/data。能力由默认关闭的公开发布开关、Workspace FeatureGate、Key 显式授权共同裁决；Control 能力仅报告当前发布与授权，运行可用性保持 readiness_unknown，不触发运行时探针。实际操作由后端执行安全检查，失败返回真实错误。响应允许客户端忽略未知扩展字段；版本标签不表示设备 ACK 或 npm 包版本。错误直接返回 CapabilityErrorResp 和真实 HTTP 状态，不泄漏内部异常。",
+        "description": "需要有效 Workspace API Key，Body 仅接受空 JSON 对象，最大 4KiB UTF-8 字节，不接受查询参数或 Workspace 覆盖。成功响应直接为 CapabilityDiscoverResp，不包裹 code/msg/data。能力由默认关闭的公开发布开关、Workspace FeatureGate、Key 显式授权共同裁决；Stream request 能力仅报告当前发布与授权，运行可用性保持 readiness_unknown，不触发运行时探针。实际操作由后端执行安全检查，失败返回真实错误。响应允许客户端忽略未知扩展字段；版本标签不表示设备 ACK 或 npm 包版本。错误直接返回 CapabilityErrorResp 和真实 HTTP 状态，不泄漏内部异常。",
         "operationId": "PlatformV2CapabilityDiscover",
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PlatformCapabilityDiscoverResp"
+                  "$ref": "#/components/schemas/PlatformCapabilityDiscoverV2Resp"
                 }
               }
             },
@@ -20747,7 +20506,7 @@
           }
         ]
       },
-      "CloudControlDefinition": {
+      "CloudStreamRequestDefinition": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -20878,8 +20637,13 @@
             "type": "object",
             "additionalProperties": true
           },
-          "control": {
-            "$ref": "#/components/schemas/CloudControlDefinition"
+          "topic": {
+            "type": "string",
+            "maxLength": 128,
+            "readOnly": true
+          },
+          "request": {
+            "$ref": "#/components/schemas/CloudStreamRequestDefinition"
           }
         },
         "required": [
@@ -20918,6 +20682,14 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CloudStreamEntry"
+            }
+          },
+          "messages": {
+            "type": "array",
+            "maxItems": 32,
+            "readOnly": true,
+            "items": {
+              "$ref": "#/components/schemas/CloudStreamMessageDeclaration"
             }
           }
         },
@@ -20959,6 +20731,10 @@
           },
           "updatedAt": {
             "type": "integer"
+          },
+          "platformReadiness": {
+            "$ref": "#/components/schemas/CloudPlatformReadiness",
+            "description": "Platform prerequisites only; resource checks still apply. Independent of resource execution, deployment and entry states."
           }
         },
         "required": [
@@ -21004,6 +20780,10 @@
           },
           "updatedAt": {
             "type": "integer"
+          },
+          "platformReadiness": {
+            "$ref": "#/components/schemas/CloudPlatformReadiness",
+            "description": "Platform prerequisites only; resource checks still apply. Independent of resource execution, deployment and entry states."
           }
         },
         "required": [
@@ -21080,6 +20860,10 @@
             "enum": [
               true
             ]
+          },
+          "platformReadiness": {
+            "$ref": "#/components/schemas/CloudPlatformReadiness",
+            "description": "Platform prerequisites only; resource checks still apply. Independent of resource execution, deployment and entry states."
           }
         },
         "required": [
@@ -21161,6 +20945,10 @@
           },
           "updatedAt": {
             "type": "integer"
+          },
+          "platformReadiness": {
+            "$ref": "#/components/schemas/CloudPlatformReadiness",
+            "description": "Platform prerequisites only; resource checks still apply. Independent of resource execution, deployment and entry states."
           }
         },
         "required": [
@@ -21317,7 +21105,7 @@
           "appName"
         ]
       },
-      "CloudHostedAppControlPolicy": {
+      "CloudAppStreamPolicy": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -21334,7 +21122,7 @@
           "version": {
             "type": "string",
             "enum": [
-              "cloud-hosted-app-control/v1"
+              "cloud-hosted-app-stream/v1"
             ]
           },
           "status": {
@@ -21359,15 +21147,24 @@
           },
           "platformPermissions": {
             "type": "array",
-            "maxItems": 3,
+            "maxItems": 5,
             "uniqueItems": true,
             "items": {
               "type": "string",
               "enum": [
                 "stream.requests.read",
                 "stream.requests.invoke",
-                "stream.requests.write"
+                "stream.requests.write",
+                "stream.messages.publish",
+                "stream.messages.subscribe"
               ]
+            }
+          },
+          "messageTopics": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "$ref": "#/components/schemas/CloudStreamMessageTopicPermission"
             }
           }
         },
@@ -21930,7 +21727,7 @@
         ],
         "description": "SSE 帧：event 为帧类型，id 为续传位置，data 为 JSON。连接建立后立即发送一次 heartbeat（id 为当前位置），之后每 15 秒一次；change 按写入事务的顺序投递（同一记录的 revision 不保证单调，见 CloudRecordChangeEvent.occurredAt）；reset 后连接关闭。"
       },
-      "CloudControlGrantTargetRevision": {
+      "CloudStreamRequestGrantTargetRevision": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -21948,7 +21745,7 @@
           "revision"
         ]
       },
-      "CloudControlGrantTargetInfo": {
+      "CloudStreamRequestGrantTargetInfo": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -21994,7 +21791,7 @@
           "reference"
         ]
       },
-      "CloudControlGrantInfo": {
+      "CloudStreamRequestGrantInfo": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -22075,7 +21872,7 @@
           "targets": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/CloudControlGrantTargetInfo"
+              "$ref": "#/components/schemas/CloudStreamRequestGrantTargetInfo"
             }
           },
           "createdPrincipal": {
@@ -22128,7 +21925,7 @@
           "snapshotToken"
         ]
       },
-      "CloudControlGrantMutation": {
+      "CloudStreamRequestGrantMutation": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -22353,7 +22150,7 @@
                 "deployer_unavailable",
                 "state_changed",
                 "grant_insufficient",
-                "app_control_ceiling",
+                "app_stream_ceiling",
                 "target_not_granted",
                 "collection_not_granted"
               ]
@@ -22407,6 +22204,50 @@
           "page",
           "size",
           "total"
+        ]
+      },
+      "CloudStreamMessageTopicPermission": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "topic": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._/-]{0,127}$"
+          },
+          "publish": {
+            "type": "boolean"
+          },
+          "subscribe": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "topic",
+          "publish",
+          "subscribe"
+        ]
+      },
+      "CloudStreamMessageDeclaration": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "topic": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "access": {
+            "type": "string",
+            "enum": [
+              "publish"
+            ]
+          }
+        },
+        "required": [
+          "topic",
+          "access"
         ]
       },
       "CloudRecordTotalOption": {
@@ -23371,6 +23212,10 @@
                 "type": "boolean"
               }
             }
+          },
+          "platformReadiness": {
+            "$ref": "#/components/schemas/CloudPlatformReadiness",
+            "description": "Platform prerequisites only; resource checks still apply. Independent of resource execution, deployment and entry states."
           }
         }
       },
@@ -24740,6 +24585,10 @@
           },
           "health": {
             "type": "string"
+          },
+          "platformReadiness": {
+            "$ref": "#/components/schemas/CloudPlatformReadiness",
+            "description": "Platform prerequisites only; resource checks still apply. Independent of resource execution, deployment and entry states."
           }
         },
         "required": [
@@ -24795,6 +24644,10 @@
           },
           "activeRelease": {
             "type": "integer"
+          },
+          "platformReadiness": {
+            "$ref": "#/components/schemas/CloudPlatformReadiness",
+            "description": "Platform prerequisites only; resource checks still apply. Independent of resource execution, deployment and entry states."
           }
         },
         "required": [
@@ -24809,6 +24662,34 @@
           "status",
           "activeRelease"
         ]
+      },
+      "CloudPlatformReadiness": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ready",
+          "reasonCode"
+        ],
+        "properties": {
+          "ready": {
+            "type": "boolean"
+          },
+          "reasonCode": {
+            "type": "string"
+          },
+          "checkedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "validUntil": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "retryAfterMs": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
       },
       "DocItemFault": {
         "type": "object",
@@ -27898,160 +27779,6 @@
           "data"
         ]
       },
-      "DocUnsV2ControlDiscoverResponse": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "code": {
-            "type": "integer"
-          },
-          "msg": {
-            "type": "string"
-          },
-          "requestId": {
-            "type": "string"
-          },
-          "data": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "list": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/CloudControlDefinition"
-                }
-              },
-              "total": {
-                "type": "integer"
-              },
-              "page": {
-                "type": "integer"
-              },
-              "size": {
-                "type": "integer"
-              },
-              "hasMore": {
-                "type": "boolean"
-              },
-              "complete": {
-                "type": "boolean"
-              },
-              "truncated": {
-                "type": "boolean"
-              },
-              "snapshotScope": {
-                "type": "string",
-                "enum": [
-                  "thisRequestOnly"
-                ]
-              },
-              "nextPage": {
-                "type": "integer"
-              }
-            },
-            "required": [
-              "list",
-              "total",
-              "page",
-              "size",
-              "hasMore",
-              "complete",
-              "truncated",
-              "snapshotScope"
-            ]
-          }
-        },
-        "required": [
-          "code",
-          "msg",
-          "requestId",
-          "data"
-        ]
-      },
-      "DocUnsV2ControlDescribeResponse": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "code": {
-            "type": "integer"
-          },
-          "msg": {
-            "type": "string"
-          },
-          "requestId": {
-            "type": "string"
-          },
-          "data": {
-            "$ref": "#/components/schemas/CloudControlDefinition"
-          }
-        },
-        "required": [
-          "code",
-          "msg",
-          "requestId",
-          "data"
-        ]
-      },
-      "DocUnsV2ControlInvokeResponse": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "code": {
-            "type": "integer"
-          },
-          "msg": {
-            "type": "string"
-          },
-          "requestId": {
-            "type": "string"
-          },
-          "data": {
-            "oneOf": [
-              {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "code": {
-                    "type": "string"
-                  },
-                  "contractVersion": {
-                    "type": "string"
-                  },
-                  "result": {
-                    "nullable": true
-                  },
-                  "runId": {
-                    "type": "string"
-                  },
-                  "status": {
-                    "type": "string"
-                  },
-                  "replayed": {
-                    "type": "boolean"
-                  }
-                },
-                "required": [
-                  "code",
-                  "contractVersion",
-                  "result",
-                  "runId",
-                  "status",
-                  "replayed"
-                ]
-              },
-              {
-                "$ref": "#/components/schemas/CloudPreviewResult"
-              }
-            ]
-          }
-        },
-        "required": [
-          "code",
-          "msg",
-          "requestId",
-          "data"
-        ]
-      },
       "DocUnsV2SourceDocumentGetResponse": {
         "type": "object",
         "additionalProperties": false,
@@ -28953,7 +28680,7 @@
                       "type": "string",
                       "enum": [
                         "delivery",
-                        "control",
+                        "request",
                         "http"
                       ]
                     },
@@ -29274,7 +29001,7 @@
           "data"
         ]
       },
-      "DocCloudHostedAppControlPolicyGetResponse": {
+      "DocCloudAppStreamPolicyGetResponse": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -29288,7 +29015,7 @@
             "type": "string"
           },
           "data": {
-            "$ref": "#/components/schemas/CloudHostedAppControlPolicy"
+            "$ref": "#/components/schemas/CloudAppStreamPolicy"
           }
         },
         "required": [
@@ -29298,7 +29025,7 @@
           "data"
         ]
       },
-      "DocCloudHostedAppControlPolicyUpdateResult": {
+      "DocCloudAppStreamPolicyUpdateResult": {
         "additionalProperties": false,
         "properties": {
           "opId": {
@@ -29337,7 +29064,7 @@
         ],
         "type": "object"
       },
-      "DocCloudHostedAppControlPolicyUpdateOutcome": {
+      "DocCloudAppStreamPolicyUpdateOutcome": {
         "additionalProperties": false,
         "properties": {
           "jobId": {
@@ -29349,7 +29076,7 @@
           "results": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/DocCloudHostedAppControlPolicyUpdateResult"
+              "$ref": "#/components/schemas/DocCloudAppStreamPolicyUpdateResult"
             }
           },
           "status": {
@@ -29376,7 +29103,7 @@
         ],
         "type": "object"
       },
-      "DocCloudHostedAppControlPolicyUpdateResponse": {
+      "DocCloudAppStreamPolicyUpdateResponse": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -29390,7 +29117,7 @@
             "type": "string"
           },
           "data": {
-            "$ref": "#/components/schemas/DocCloudHostedAppControlPolicyUpdateOutcome"
+            "$ref": "#/components/schemas/DocCloudAppStreamPolicyUpdateOutcome"
           }
         },
         "required": [
@@ -29658,7 +29385,7 @@
           "data"
         ]
       },
-      "DocUnsV2ControlGrantGetResponse": {
+      "DocUnsV2StreamRequestGrantGetResponse": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -29672,7 +29399,7 @@
             "type": "string"
           },
           "data": {
-            "$ref": "#/components/schemas/CloudControlGrantInfo"
+            "$ref": "#/components/schemas/CloudStreamRequestGrantInfo"
           }
         },
         "required": [
@@ -29682,7 +29409,7 @@
           "data"
         ]
       },
-      "DocUnsV2ControlGrantSetResponse": {
+      "DocUnsV2StreamRequestGrantSetResponse": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -29696,7 +29423,7 @@
             "type": "string"
           },
           "data": {
-            "$ref": "#/components/schemas/CloudControlGrantMutation"
+            "$ref": "#/components/schemas/CloudStreamRequestGrantMutation"
           }
         },
         "required": [
@@ -31304,6 +31031,7 @@
             "type": "string"
           },
           "status": {
+            "description": "active / paused / needs_attention / expired",
             "type": "string"
           },
           "type": {
@@ -32663,74 +32391,6 @@
         ],
         "type": "object"
       },
-      "PlatformCapabilityDeprecation": {
-        "properties": {
-          "contract": {
-            "type": "string"
-          },
-          "replacement": {
-            "type": "string"
-          },
-          "sunsetAt": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "contract"
-        ],
-        "type": "object"
-      },
-      "PlatformCapabilityDiscoverResp": {
-        "properties": {
-          "apiContractVersions": {
-            "description": "openapi/v1",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "capabilities": {
-            "description": "只返回当前 Key 有授权摘要的已知能力，关闭的能力仍返回状态",
-            "items": {
-              "$ref": "#/components/schemas/PlatformPublicCapability"
-            },
-            "type": "array"
-          },
-          "contractVersion": {
-            "description": "本发现响应合同版本，与单个 Control 的冻结合同版本独立",
-            "type": "string"
-          },
-          "deprecations": {
-            "items": {
-              "$ref": "#/components/schemas/PlatformCapabilityDeprecation"
-            },
-            "type": "array"
-          },
-          "product": {
-            "type": "string"
-          },
-          "productVersion": {
-            "description": "仅返回显式配置的可信产品发布版本，未配置时省略",
-            "type": "string"
-          },
-          "sdkContractVersions": {
-            "description": "control/v1 公共 SDK 合同，不是 npm 版本",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "product",
-          "contractVersion",
-          "apiContractVersions",
-          "sdkContractVersions",
-          "capabilities",
-          "deprecations"
-        ],
-        "type": "object"
-      },
       "PlatformCapabilityErrorResp": {
         "properties": {
           "errorCode": {
@@ -33035,49 +32695,6 @@
         ],
         "type": "object"
       },
-      "PlatformPublicCapability": {
-        "properties": {
-          "allowed": {
-            "description": "当前 Key 的能力授权摘要，不替代具体 Control code 与读写权限检查",
-            "type": "boolean"
-          },
-          "availability": {
-            "description": "unavailable / unknown / available；不是设备在线或执行成功证明",
-            "type": "string"
-          },
-          "code": {
-            "type": "string"
-          },
-          "contractVersions": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "enabled": {
-            "description": "仅发布、实现和 readiness 均满足时为 true",
-            "type": "boolean"
-          },
-          "releaseEnabled": {
-            "description": "公开发布开关与当前 Workspace 灰度的交集，不表示 runtime 就绪",
-            "type": "boolean"
-          },
-          "state": {
-            "description": "disabled / not_supported / unavailable / readiness_unknown / ready",
-            "type": "string"
-          }
-        },
-        "required": [
-          "code",
-          "releaseEnabled",
-          "enabled",
-          "allowed",
-          "state",
-          "availability",
-          "contractVersions"
-        ],
-        "type": "object"
-      },
       "PlatformSendNotificationReq": {
         "properties": {
           "channels": {
@@ -33146,6 +32763,2411 @@
           "createdAt"
         ],
         "type": "object"
+      },
+      "CapabilityDiscoverycapability": {
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "description": "Unknown capability codes are ignored; only recognized codes use the frozen assessment contract.",
+        "allOf": [
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "namespace.v2",
+                            "source",
+                            "stream",
+                            "stream.requests.v1",
+                            "stream.requests.invoke.v1"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "$ref": "#/components/schemas/CapabilityDiscoveryknownCapability"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "CapabilityDiscoveryoperation": {
+        "type": "object",
+        "required": [
+          "operation"
+        ],
+        "properties": {
+          "operation": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "description": "Unknown operation names are ignored within their parent capability; known names are validated by that capability."
+      },
+      "CapabilityDiscoveryknownCapability": {
+        "type": "object",
+        "required": [
+          "code",
+          "contractVersions",
+          "releaseEnabled",
+          "enabled",
+          "allowed",
+          "state",
+          "availability"
+        ],
+        "properties": {
+          "releaseEnabled": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "allowed": {
+            "type": "boolean"
+          },
+          "state": {
+            "enum": [
+              "disabled",
+              "not_supported",
+              "unavailable",
+              "readiness_unknown",
+              "ready"
+            ]
+          },
+          "availability": {
+            "enum": [
+              "unavailable",
+              "unknown",
+              "available"
+            ]
+          },
+          "reasonCode": {
+            "type": "string",
+            "minLength": 1
+          },
+          "checkedAt": {
+            "type": "string",
+            "format": "date-time",
+            "minLength": 1
+          },
+          "validUntil": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Proof expiry must follow checkedAt. Cross-field chronological ordering is a semantic constraint checked by consumers in addition to this structural JSON Schema.",
+            "minLength": 1
+          },
+          "retryAfterMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "contractVersions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "operations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CapabilityDiscoveryoperation"
+            }
+          }
+        },
+        "allOf": [
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "state": {
+                          "enum": [
+                            "ready"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "enabled": {
+                        "enum": [
+                          true
+                        ]
+                      },
+                      "releaseEnabled": {
+                        "enum": [
+                          true
+                        ]
+                      },
+                      "allowed": {
+                        "enum": [
+                          true
+                        ]
+                      },
+                      "availability": {
+                        "enum": [
+                          "available"
+                        ]
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "anyOf": [
+                  {
+                    "properties": {
+                      "state": {
+                        "enum": [
+                          "ready"
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "enabled": {
+                        "enum": [
+                          false
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "state": {
+                          "enum": [
+                            "disabled"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "releaseEnabled": {
+                        "enum": [
+                          false
+                        ]
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "anyOf": [
+                  {
+                    "properties": {
+                      "state": {
+                        "enum": [
+                          "disabled"
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "releaseEnabled": {
+                        "enum": [
+                          true
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "state": {
+                          "enum": [
+                            "readiness_unknown"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "availability": {
+                        "enum": [
+                          "unknown"
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "state": {
+                          "enum": [
+                            "disabled",
+                            "not_supported",
+                            "unavailable"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "availability": {
+                        "enum": [
+                          "unavailable"
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "required": [
+                        "validUntil"
+                      ],
+                      "properties": {
+                        "validUntil": {}
+                      }
+                    }
+                  },
+                  {
+                    "required": [
+                      "checkedAt"
+                    ],
+                    "properties": {
+                      "state": {
+                        "enum": [
+                          "ready"
+                        ]
+                      },
+                      "checkedAt": {}
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "source"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "operations": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "allOf": [
+                            {
+                              "allOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "not": {
+                                        "properties": {
+                                          "operation": {
+                                            "enum": [
+                                              "read",
+                                              "configure",
+                                              "test",
+                                              "discover",
+                                              "enable",
+                                              "disable"
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "$ref": "#/components/schemas/CapabilityDiscoveryknownOperation"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "allOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "not": {
+                                        "properties": {
+                                          "operation": {
+                                            "enum": [
+                                              "test",
+                                              "discover",
+                                              "enable"
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "properties": {
+                                        "requiresResourceCheck": {
+                                          "enum": [
+                                            true
+                                          ]
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "allOf": [
+                          {
+                            "x-json-schema-contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "read"
+                                }
+                              }
+                            },
+                            "x-json-schema-minContains": 0,
+                            "x-json-schema-maxContains": 1
+                          },
+                          {
+                            "x-json-schema-contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "configure"
+                                }
+                              }
+                            },
+                            "x-json-schema-minContains": 0,
+                            "x-json-schema-maxContains": 1
+                          },
+                          {
+                            "x-json-schema-contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "test"
+                                }
+                              }
+                            },
+                            "x-json-schema-minContains": 0,
+                            "x-json-schema-maxContains": 1
+                          },
+                          {
+                            "x-json-schema-contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "discover"
+                                }
+                              }
+                            },
+                            "x-json-schema-minContains": 0,
+                            "x-json-schema-maxContains": 1
+                          },
+                          {
+                            "x-json-schema-contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "enable"
+                                }
+                              }
+                            },
+                            "x-json-schema-minContains": 0,
+                            "x-json-schema-maxContains": 1
+                          },
+                          {
+                            "x-json-schema-contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "disable"
+                                }
+                              }
+                            },
+                            "x-json-schema-minContains": 0,
+                            "x-json-schema-maxContains": 1
+                          }
+                        ]
+                      }
+                    },
+                    "allOf": [
+                      {
+                        "allOf": [
+                          {
+                            "anyOf": [
+                              {
+                                "not": {
+                                  "properties": {
+                                    "releaseEnabled": {
+                                      "enum": [
+                                        false
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "properties": {
+                                  "operations": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "allOf": [
+                                        {
+                                          "anyOf": [
+                                            {
+                                              "not": {
+                                                "properties": {
+                                                  "operation": {
+                                                    "enum": [
+                                                      "read",
+                                                      "configure",
+                                                      "test",
+                                                      "discover",
+                                                      "enable",
+                                                      "disable"
+                                                    ]
+                                                  }
+                                                }
+                                              }
+                                            },
+                                            {
+                                              "properties": {
+                                                "releaseEnabled": {
+                                                  "enum": [
+                                                    false
+                                                  ]
+                                                }
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "stream"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "operations": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "allOf": [
+                            {
+                              "allOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "not": {
+                                        "properties": {
+                                          "operation": {
+                                            "enum": [
+                                              "read",
+                                              "configure",
+                                              "validate",
+                                              "deploy",
+                                              "execute",
+                                              "disable"
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "$ref": "#/components/schemas/CapabilityDiscoveryknownOperation"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "allOf": [
+                                {
+                                  "anyOf": [
+                                    {
+                                      "not": {
+                                        "properties": {
+                                          "operation": {
+                                            "enum": [
+                                              "deploy",
+                                              "execute"
+                                            ]
+                                          }
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "properties": {
+                                        "requiresResourceCheck": {
+                                          "enum": [
+                                            true
+                                          ]
+                                        }
+                                      }
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "allOf": [
+                          {
+                            "x-json-schema-contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "read"
+                                }
+                              }
+                            },
+                            "x-json-schema-minContains": 0,
+                            "x-json-schema-maxContains": 1
+                          },
+                          {
+                            "x-json-schema-contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "configure"
+                                }
+                              }
+                            },
+                            "x-json-schema-minContains": 0,
+                            "x-json-schema-maxContains": 1
+                          },
+                          {
+                            "x-json-schema-contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "validate"
+                                }
+                              }
+                            },
+                            "x-json-schema-minContains": 0,
+                            "x-json-schema-maxContains": 1
+                          },
+                          {
+                            "x-json-schema-contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "deploy"
+                                }
+                              }
+                            },
+                            "x-json-schema-minContains": 0,
+                            "x-json-schema-maxContains": 1
+                          },
+                          {
+                            "x-json-schema-contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "execute"
+                                }
+                              }
+                            },
+                            "x-json-schema-minContains": 0,
+                            "x-json-schema-maxContains": 1
+                          },
+                          {
+                            "x-json-schema-contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "disable"
+                                }
+                              }
+                            },
+                            "x-json-schema-minContains": 0,
+                            "x-json-schema-maxContains": 1
+                          }
+                        ]
+                      }
+                    },
+                    "allOf": [
+                      {
+                        "allOf": [
+                          {
+                            "anyOf": [
+                              {
+                                "not": {
+                                  "properties": {
+                                    "releaseEnabled": {
+                                      "enum": [
+                                        false
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "properties": {
+                                  "operations": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "allOf": [
+                                        {
+                                          "anyOf": [
+                                            {
+                                              "not": {
+                                                "properties": {
+                                                  "operation": {
+                                                    "enum": [
+                                                      "read",
+                                                      "configure",
+                                                      "validate",
+                                                      "deploy",
+                                                      "execute",
+                                                      "disable"
+                                                    ]
+                                                  }
+                                                }
+                                              }
+                                            },
+                                            {
+                                              "properties": {
+                                                "releaseEnabled": {
+                                                  "enum": [
+                                                    false
+                                                  ]
+                                                }
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "namespace.v2",
+                            "source",
+                            "stream"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "contractVersions": {
+                        "type": "array",
+                        "x-json-schema-contains": {
+                          "const": "openapi/v2"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "stream.requests.v1",
+                            "stream.requests.invoke.v1"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "contractVersions": {
+                        "type": "array",
+                        "allOf": [
+                          {
+                            "x-json-schema-contains": {
+                              "const": "openapi/v1"
+                            }
+                          },
+                          {
+                            "x-json-schema-contains": {
+                              "const": "stream-requests/v1"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "CapabilityDiscoveryknownOperation": {
+        "type": "object",
+        "required": [
+          "operation",
+          "requiresResourceCheck",
+          "releaseEnabled",
+          "enabled",
+          "allowed",
+          "state",
+          "availability"
+        ],
+        "properties": {
+          "releaseEnabled": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "allowed": {
+            "type": "boolean"
+          },
+          "state": {
+            "enum": [
+              "disabled",
+              "not_supported",
+              "unavailable",
+              "readiness_unknown",
+              "ready"
+            ]
+          },
+          "availability": {
+            "enum": [
+              "unavailable",
+              "unknown",
+              "available"
+            ]
+          },
+          "reasonCode": {
+            "type": "string",
+            "minLength": 1
+          },
+          "checkedAt": {
+            "type": "string",
+            "format": "date-time",
+            "minLength": 1
+          },
+          "validUntil": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Proof expiry must follow checkedAt. Cross-field chronological ordering is a semantic constraint checked by consumers in addition to this structural JSON Schema.",
+            "minLength": 1
+          },
+          "retryAfterMs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "operation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "requiresResourceCheck": {
+            "type": "boolean"
+          }
+        },
+        "allOf": [
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "state": {
+                          "enum": [
+                            "ready"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "enabled": {
+                        "enum": [
+                          true
+                        ]
+                      },
+                      "releaseEnabled": {
+                        "enum": [
+                          true
+                        ]
+                      },
+                      "allowed": {
+                        "enum": [
+                          true
+                        ]
+                      },
+                      "availability": {
+                        "enum": [
+                          "available"
+                        ]
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "anyOf": [
+                  {
+                    "properties": {
+                      "state": {
+                        "enum": [
+                          "ready"
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "enabled": {
+                        "enum": [
+                          false
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "state": {
+                          "enum": [
+                            "disabled"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "releaseEnabled": {
+                        "enum": [
+                          false
+                        ]
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "anyOf": [
+                  {
+                    "properties": {
+                      "state": {
+                        "enum": [
+                          "disabled"
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "releaseEnabled": {
+                        "enum": [
+                          true
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "state": {
+                          "enum": [
+                            "readiness_unknown"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "availability": {
+                        "enum": [
+                          "unknown"
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "state": {
+                          "enum": [
+                            "disabled",
+                            "not_supported",
+                            "unavailable"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "availability": {
+                        "enum": [
+                          "unavailable"
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "required": [
+                        "validUntil"
+                      ],
+                      "properties": {
+                        "validUntil": {}
+                      }
+                    }
+                  },
+                  {
+                    "required": [
+                      "checkedAt"
+                    ],
+                    "properties": {
+                      "state": {
+                        "enum": [
+                          "ready"
+                        ]
+                      },
+                      "checkedAt": {}
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "PlatformCapabilityDiscoverV2Resp": {
+        "title": "Tier0 capability discovery",
+        "type": "object",
+        "required": [
+          "product",
+          "contractVersion",
+          "apiContractVersions",
+          "sdkContractVersions",
+          "capabilities",
+          "deprecations"
+        ],
+        "properties": {
+          "product": {
+            "enum": [
+              "cloud",
+              "enterprise"
+            ]
+          },
+          "productVersion": {
+            "type": "string",
+            "minLength": 1
+          },
+          "contractVersion": {
+            "enum": [
+              "1.0"
+            ]
+          },
+          "apiContractVersions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "x-json-schema-contains": {
+              "const": "openapi/v2"
+            },
+            "uniqueItems": true
+          },
+          "sdkContractVersions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CapabilityDiscoverycapability"
+            },
+            "allOf": [
+              {
+                "x-json-schema-contains": {
+                  "type": "object",
+                  "required": [
+                    "code"
+                  ],
+                  "properties": {
+                    "code": {
+                      "const": "namespace.v2"
+                    }
+                  }
+                },
+                "x-json-schema-minContains": 0,
+                "x-json-schema-maxContains": 1
+              },
+              {
+                "x-json-schema-contains": {
+                  "type": "object",
+                  "required": [
+                    "code"
+                  ],
+                  "properties": {
+                    "code": {
+                      "const": "source"
+                    }
+                  }
+                },
+                "x-json-schema-minContains": 0,
+                "x-json-schema-maxContains": 1
+              },
+              {
+                "x-json-schema-contains": {
+                  "type": "object",
+                  "required": [
+                    "code"
+                  ],
+                  "properties": {
+                    "code": {
+                      "const": "stream"
+                    }
+                  }
+                },
+                "x-json-schema-minContains": 0,
+                "x-json-schema-maxContains": 1
+              },
+              {
+                "x-json-schema-contains": {
+                  "type": "object",
+                  "required": [
+                    "code"
+                  ],
+                  "properties": {
+                    "code": {
+                      "const": "stream.requests.v1"
+                    }
+                  }
+                },
+                "x-json-schema-minContains": 0,
+                "x-json-schema-maxContains": 1
+              },
+              {
+                "x-json-schema-contains": {
+                  "type": "object",
+                  "required": [
+                    "code"
+                  ],
+                  "properties": {
+                    "code": {
+                      "const": "stream.requests.invoke.v1"
+                    }
+                  }
+                },
+                "x-json-schema-minContains": 0,
+                "x-json-schema-maxContains": 1
+              }
+            ]
+          },
+          "deprecations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "contract"
+              ],
+              "properties": {
+                "contract": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "replacement": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sunsetAt": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        },
+        "allOf": [
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "capabilities": {
+                          "type": "array",
+                          "x-json-schema-contains": {
+                            "type": "object",
+                            "required": [
+                              "code"
+                            ],
+                            "properties": {
+                              "code": {
+                                "enum": [
+                                  "stream.requests.v1",
+                                  "stream.requests.invoke.v1"
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "properties": {
+                      "apiContractVersions": {
+                        "type": "array",
+                        "x-json-schema-contains": {
+                          "const": "openapi/v1"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "description": "OpenAPI 3.0 wire schema. Array contains/cardinality annotations and cross-field proof ordering require the shared JSON Schema plus SDK semantic checks; this projection alone is not full contract acceptance.",
+        "x-tier0-json-schema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "$id": "urn:tier0:capability-discovery",
+          "title": "Tier0 capability discovery",
+          "type": "object",
+          "required": [
+            "product",
+            "contractVersion",
+            "apiContractVersions",
+            "sdkContractVersions",
+            "capabilities",
+            "deprecations"
+          ],
+          "properties": {
+            "product": {
+              "enum": [
+                "cloud",
+                "enterprise"
+              ]
+            },
+            "productVersion": {
+              "type": "string",
+              "minLength": 1
+            },
+            "contractVersion": {
+              "const": "1.0"
+            },
+            "apiContractVersions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "contains": {
+                "const": "openapi/v2"
+              },
+              "uniqueItems": true
+            },
+            "sdkContractVersions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "capabilities": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/capability"
+              },
+              "allOf": [
+                {
+                  "contains": {
+                    "type": "object",
+                    "required": [
+                      "code"
+                    ],
+                    "properties": {
+                      "code": {
+                        "const": "namespace.v2"
+                      }
+                    }
+                  },
+                  "minContains": 0,
+                  "maxContains": 1
+                },
+                {
+                  "contains": {
+                    "type": "object",
+                    "required": [
+                      "code"
+                    ],
+                    "properties": {
+                      "code": {
+                        "const": "source"
+                      }
+                    }
+                  },
+                  "minContains": 0,
+                  "maxContains": 1
+                },
+                {
+                  "contains": {
+                    "type": "object",
+                    "required": [
+                      "code"
+                    ],
+                    "properties": {
+                      "code": {
+                        "const": "stream"
+                      }
+                    }
+                  },
+                  "minContains": 0,
+                  "maxContains": 1
+                },
+                {
+                  "contains": {
+                    "type": "object",
+                    "required": [
+                      "code"
+                    ],
+                    "properties": {
+                      "code": {
+                        "const": "stream.requests.v1"
+                      }
+                    }
+                  },
+                  "minContains": 0,
+                  "maxContains": 1
+                },
+                {
+                  "contains": {
+                    "type": "object",
+                    "required": [
+                      "code"
+                    ],
+                    "properties": {
+                      "code": {
+                        "const": "stream.requests.invoke.v1"
+                      }
+                    }
+                  },
+                  "minContains": 0,
+                  "maxContains": 1
+                }
+              ]
+            },
+            "deprecations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "contract"
+                ],
+                "properties": {
+                  "contract": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "replacement": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "sunsetAt": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          },
+          "$defs": {
+            "capability": {
+              "type": "object",
+              "required": [
+                "code"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "description": "Unknown capability codes are ignored; only recognized codes use the frozen assessment contract.",
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "code": {
+                        "enum": [
+                          "namespace.v2",
+                          "source",
+                          "stream",
+                          "stream.requests.v1",
+                          "stream.requests.invoke.v1"
+                        ]
+                      }
+                    }
+                  },
+                  "then": {
+                    "$ref": "#/$defs/knownCapability"
+                  }
+                }
+              ]
+            },
+            "operation": {
+              "type": "object",
+              "required": [
+                "operation"
+              ],
+              "properties": {
+                "operation": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "description": "Unknown operation names are ignored within their parent capability; known names are validated by that capability."
+            },
+            "knownCapability": {
+              "type": "object",
+              "required": [
+                "code",
+                "contractVersions",
+                "releaseEnabled",
+                "enabled",
+                "allowed",
+                "state",
+                "availability"
+              ],
+              "properties": {
+                "releaseEnabled": {
+                  "type": "boolean"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "allowed": {
+                  "type": "boolean"
+                },
+                "state": {
+                  "enum": [
+                    "disabled",
+                    "not_supported",
+                    "unavailable",
+                    "readiness_unknown",
+                    "ready"
+                  ]
+                },
+                "availability": {
+                  "enum": [
+                    "unavailable",
+                    "unknown",
+                    "available"
+                  ]
+                },
+                "reasonCode": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "checkedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "minLength": 1
+                },
+                "validUntil": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "Proof expiry must follow checkedAt. Cross-field chronological ordering is a semantic constraint checked by consumers in addition to this structural JSON Schema.",
+                  "minLength": 1
+                },
+                "retryAfterMs": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "code": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "contractVersions": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "uniqueItems": true
+                },
+                "operations": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/operation"
+                  }
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "state": {
+                        "const": "ready"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "enabled": {
+                        "const": true
+                      },
+                      "releaseEnabled": {
+                        "const": true
+                      },
+                      "allowed": {
+                        "const": true
+                      },
+                      "availability": {
+                        "const": "available"
+                      }
+                    }
+                  },
+                  "else": {
+                    "properties": {
+                      "enabled": {
+                        "const": false
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "state": {
+                        "const": "disabled"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "releaseEnabled": {
+                        "const": false
+                      }
+                    }
+                  },
+                  "else": {
+                    "properties": {
+                      "releaseEnabled": {
+                        "const": true
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "state": {
+                        "const": "readiness_unknown"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "availability": {
+                        "const": "unknown"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "state": {
+                        "enum": [
+                          "disabled",
+                          "not_supported",
+                          "unavailable"
+                        ]
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "availability": {
+                        "const": "unavailable"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "required": [
+                      "validUntil"
+                    ],
+                    "properties": {
+                      "validUntil": {}
+                    }
+                  },
+                  "then": {
+                    "required": [
+                      "checkedAt"
+                    ],
+                    "properties": {
+                      "state": {
+                        "const": "ready"
+                      },
+                      "checkedAt": {}
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "code": {
+                        "const": "source"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "operations": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "allOf": [
+                            {
+                              "if": {
+                                "properties": {
+                                  "operation": {
+                                    "enum": [
+                                      "read",
+                                      "configure",
+                                      "test",
+                                      "discover",
+                                      "enable",
+                                      "disable"
+                                    ]
+                                  }
+                                }
+                              },
+                              "then": {
+                                "$ref": "#/$defs/knownOperation"
+                              }
+                            },
+                            {
+                              "if": {
+                                "properties": {
+                                  "operation": {
+                                    "enum": [
+                                      "test",
+                                      "discover",
+                                      "enable"
+                                    ]
+                                  }
+                                }
+                              },
+                              "then": {
+                                "properties": {
+                                  "requiresResourceCheck": {
+                                    "const": true
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "allOf": [
+                          {
+                            "contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "read"
+                                }
+                              }
+                            },
+                            "minContains": 0,
+                            "maxContains": 1
+                          },
+                          {
+                            "contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "configure"
+                                }
+                              }
+                            },
+                            "minContains": 0,
+                            "maxContains": 1
+                          },
+                          {
+                            "contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "test"
+                                }
+                              }
+                            },
+                            "minContains": 0,
+                            "maxContains": 1
+                          },
+                          {
+                            "contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "discover"
+                                }
+                              }
+                            },
+                            "minContains": 0,
+                            "maxContains": 1
+                          },
+                          {
+                            "contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "enable"
+                                }
+                              }
+                            },
+                            "minContains": 0,
+                            "maxContains": 1
+                          },
+                          {
+                            "contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "disable"
+                                }
+                              }
+                            },
+                            "minContains": 0,
+                            "maxContains": 1
+                          }
+                        ]
+                      }
+                    },
+                    "allOf": [
+                      {
+                        "if": {
+                          "properties": {
+                            "releaseEnabled": {
+                              "const": false
+                            }
+                          }
+                        },
+                        "then": {
+                          "properties": {
+                            "operations": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "if": {
+                                  "properties": {
+                                    "operation": {
+                                      "enum": [
+                                        "read",
+                                        "configure",
+                                        "test",
+                                        "discover",
+                                        "enable",
+                                        "disable"
+                                      ]
+                                    }
+                                  }
+                                },
+                                "then": {
+                                  "properties": {
+                                    "releaseEnabled": {
+                                      "const": false
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "code": {
+                        "const": "stream"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "operations": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "allOf": [
+                            {
+                              "if": {
+                                "properties": {
+                                  "operation": {
+                                    "enum": [
+                                      "read",
+                                      "configure",
+                                      "validate",
+                                      "deploy",
+                                      "execute",
+                                      "disable"
+                                    ]
+                                  }
+                                }
+                              },
+                              "then": {
+                                "$ref": "#/$defs/knownOperation"
+                              }
+                            },
+                            {
+                              "if": {
+                                "properties": {
+                                  "operation": {
+                                    "enum": [
+                                      "deploy",
+                                      "execute"
+                                    ]
+                                  }
+                                }
+                              },
+                              "then": {
+                                "properties": {
+                                  "requiresResourceCheck": {
+                                    "const": true
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "allOf": [
+                          {
+                            "contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "read"
+                                }
+                              }
+                            },
+                            "minContains": 0,
+                            "maxContains": 1
+                          },
+                          {
+                            "contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "configure"
+                                }
+                              }
+                            },
+                            "minContains": 0,
+                            "maxContains": 1
+                          },
+                          {
+                            "contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "validate"
+                                }
+                              }
+                            },
+                            "minContains": 0,
+                            "maxContains": 1
+                          },
+                          {
+                            "contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "deploy"
+                                }
+                              }
+                            },
+                            "minContains": 0,
+                            "maxContains": 1
+                          },
+                          {
+                            "contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "execute"
+                                }
+                              }
+                            },
+                            "minContains": 0,
+                            "maxContains": 1
+                          },
+                          {
+                            "contains": {
+                              "type": "object",
+                              "required": [
+                                "operation"
+                              ],
+                              "properties": {
+                                "operation": {
+                                  "const": "disable"
+                                }
+                              }
+                            },
+                            "minContains": 0,
+                            "maxContains": 1
+                          }
+                        ]
+                      }
+                    },
+                    "allOf": [
+                      {
+                        "if": {
+                          "properties": {
+                            "releaseEnabled": {
+                              "const": false
+                            }
+                          }
+                        },
+                        "then": {
+                          "properties": {
+                            "operations": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "if": {
+                                  "properties": {
+                                    "operation": {
+                                      "enum": [
+                                        "read",
+                                        "configure",
+                                        "validate",
+                                        "deploy",
+                                        "execute",
+                                        "disable"
+                                      ]
+                                    }
+                                  }
+                                },
+                                "then": {
+                                  "properties": {
+                                    "releaseEnabled": {
+                                      "const": false
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "code": {
+                        "enum": [
+                          "namespace.v2",
+                          "source",
+                          "stream"
+                        ]
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "contractVersions": {
+                        "type": "array",
+                        "contains": {
+                          "const": "openapi/v2"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "code": {
+                        "enum": [
+                          "stream.requests.v1",
+                          "stream.requests.invoke.v1"
+                        ]
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "contractVersions": {
+                        "type": "array",
+                        "allOf": [
+                          {
+                            "contains": {
+                              "const": "openapi/v1"
+                            }
+                          },
+                          {
+                            "contains": {
+                              "const": "stream-requests/v1"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "knownOperation": {
+              "type": "object",
+              "required": [
+                "operation",
+                "requiresResourceCheck",
+                "releaseEnabled",
+                "enabled",
+                "allowed",
+                "state",
+                "availability"
+              ],
+              "properties": {
+                "releaseEnabled": {
+                  "type": "boolean"
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "allowed": {
+                  "type": "boolean"
+                },
+                "state": {
+                  "enum": [
+                    "disabled",
+                    "not_supported",
+                    "unavailable",
+                    "readiness_unknown",
+                    "ready"
+                  ]
+                },
+                "availability": {
+                  "enum": [
+                    "unavailable",
+                    "unknown",
+                    "available"
+                  ]
+                },
+                "reasonCode": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "checkedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "minLength": 1
+                },
+                "validUntil": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "Proof expiry must follow checkedAt. Cross-field chronological ordering is a semantic constraint checked by consumers in addition to this structural JSON Schema.",
+                  "minLength": 1
+                },
+                "retryAfterMs": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "operation": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "requiresResourceCheck": {
+                  "type": "boolean"
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "state": {
+                        "const": "ready"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "enabled": {
+                        "const": true
+                      },
+                      "releaseEnabled": {
+                        "const": true
+                      },
+                      "allowed": {
+                        "const": true
+                      },
+                      "availability": {
+                        "const": "available"
+                      }
+                    }
+                  },
+                  "else": {
+                    "properties": {
+                      "enabled": {
+                        "const": false
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "state": {
+                        "const": "disabled"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "releaseEnabled": {
+                        "const": false
+                      }
+                    }
+                  },
+                  "else": {
+                    "properties": {
+                      "releaseEnabled": {
+                        "const": true
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "state": {
+                        "const": "readiness_unknown"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "availability": {
+                        "const": "unknown"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "state": {
+                        "enum": [
+                          "disabled",
+                          "not_supported",
+                          "unavailable"
+                        ]
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "availability": {
+                        "const": "unavailable"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "required": [
+                      "validUntil"
+                    ],
+                    "properties": {
+                      "validUntil": {}
+                    }
+                  },
+                  "then": {
+                    "required": [
+                      "checkedAt"
+                    ],
+                    "properties": {
+                      "state": {
+                        "const": "ready"
+                      },
+                      "checkedAt": {}
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "capabilities": {
+                    "type": "array",
+                    "contains": {
+                      "type": "object",
+                      "required": [
+                        "code"
+                      ],
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            "stream.requests.v1",
+                            "stream.requests.invoke.v1"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "apiContractVersions": {
+                    "type": "array",
+                    "contains": {
+                      "const": "openapi/v1"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
       },
       "PlatformNotificationError": {
         "type": "object",

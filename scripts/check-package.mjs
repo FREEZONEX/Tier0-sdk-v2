@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
+import { assertNoRetiredControls, retiredControlOperations, retiredControlSchemas } from './retired-controls.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const npm = process.env.npm_execpath ?? resolve(dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js');
@@ -20,6 +21,9 @@ writeFileSync(resolve(consumer, 'package.json'), JSON.stringify({ name: 'sdk-pac
 run([npm, 'install', '--prefer-offline', '--ignore-scripts', '--no-audit', '--no-fund', '--legacy-peer-deps', resolve(consumer, archive.filename)], consumer);
 const installed = resolve(consumer, 'node_modules/@tier0/sdk-v2');
 for (const path of files) {
+  if (path.startsWith('dist/') && /\.(?:js|d\.ts)$/.test(path)) {
+    assertNoRetiredControls(readFileSync(resolve(installed, path), 'utf8'), path);
+  }
   if (path.endsWith('.js.map')) {
     const map = JSON.parse(readFileSync(resolve(installed, path), 'utf8'));
     if (!map.sourcesContent?.length || map.sourcesContent.some(source => typeof source !== 'string')) throw new Error(`Unusable packed source map: ${path}`);
@@ -44,17 +48,22 @@ run(['--input-type=module', '-e', `
   if ('getCurrentProjectId' in sdk || 'flow' in client || 'launchpad' in client.api) throw new Error('Legacy API leaked');
   const operations = Object.keys(UNS_V2_OPERATIONS);
   const raw = createUnsV2Client();
+  if (${JSON.stringify(retiredControlOperations)}.some(name => name in raw || name in UNS_V2_OPERATIONS)) throw new Error('Retired Controls raw operation leaked');
   if (operations.length !== UNS_V2_CONTRACT_PROVENANCE.publicOperationCount || operations.some(name => typeof raw[name] !== 'function')) throw new Error('Missing generated operations');
   if (typeof client.uns.metadataFind !== 'function' || typeof client.uns.metadataBulkWrite !== 'function') throw new Error('Missing metadata operations');
   if ('collectionCreate' in client.uns || 'metaBatchExecute' in client.uns) throw new Error('Retired metadata routes leaked');
   if ('sourceList' in client.uns || 'streamProgramDeploy' in client.uns || 'controlInvoke' in client.uns) throw new Error('Mixed domain entrypoints');
-  if ('list' in client.source || 'get' in client.stream.programs || 'nodes' in client.agent || 'controls' in client.api) throw new Error('Retired facade aliases leaked');
+  if ('list' in client.source || 'get' in client.stream.programs || 'nodes' in client.agent || 'controls' in client.api || 'controls' in client || 'ControlError' in sdk || 'ControlResultUnknownError' in sdk) throw new Error('Retired facade aliases leaked');
   if (['sourceList', 'streamProgramCreate', 'recordInsertMany', 'recordDistinct', 'metadataFindOne'].some(name => name in raw)) throw new Error('Retired raw operations leaked');
   if ('runtime' in client.stream || 'streamRuntimeCapabilitiesGet' in raw || 'streamRuntimeCapabilitiesGet' in UNS_V2_OPERATIONS) throw new Error('Retired readiness probe leaked');
   if (typeof client.source.documents.get !== 'function' || typeof client.stream.programs.deploy !== 'function') throw new Error('Missing domain entrypoints');
 `], consumer);
 for (const ext of ['mts', 'cts']) writeFileSync(resolve(consumer, `consumer.${ext}`), `
 import { createClient, type Tier0Client, type CloudSourceDocument } from '@tier0/sdk-v2';
+${[...retiredControlSchemas, 'ControlJSON', 'PublicControl', 'ControlDiscoverOptions', 'ControlDiscoverResponse',
+  'ControlTransportConfig', 'CloudClientConfig', 'ControlInvokeOptions', 'ControlInvokeResponse', 'ControlErrorInfo',
+  'ControlError', 'ControlResultUnknownError', 'ControlHandle', 'ControlsClient', 'controls', 'DEFAULT_CONTROL_TRANSPORT_TIMEOUT_MS'].map(name =>
+  `// @ts-expect-error Retired public declaration must not be exported.\nimport type { ${name} } from '@tier0/sdk-v2';`).join('\n')}
 import { Tier0MQClient } from '@tier0/sdk-v2/mq';
 import { createSourceClient } from '@tier0/sdk-v2/source';
 import { createStreamClient } from '@tier0/sdk-v2/stream';
@@ -97,6 +106,8 @@ nestedHandle.insertOne(input, { returnDocument: 'after', projection: { 'customer
   void [revision, id, code];
 });
 const client: Tier0Client = createClient({ apiHost: 'https://fixture.invalid' });
+// @ts-expect-error Retired facade has no alias.
+client.controls;
 client.uns.recordFind({ collectionId: 'orders' });
 client.uns.recordInsertOne({ collectionId: 'orders', data: { code: 'A' }, returnDocument: 'after' });
 client.uns.metadataFind({ kind: 'collection', filter: { _id: 'orders' } });
@@ -137,5 +148,6 @@ for (const subpath of ['', '/source', '/stream', '/mq', '/react', '/vue', '/data
 // The data layer is server-only: a browser bundle must fail on its Node built-ins instead of shipping it.
 const dataBundle = await build({ absWorkingDir: consumer, stdin: { contents: `export * from '@tier0/sdk-v2/data';`, resolveDir: consumer }, bundle: true, platform: 'browser', format: 'esm', write: false, logLevel: 'silent' }).then(() => 'bundled', () => 'rejected');
 if (dataBundle !== 'rejected') throw new Error('@tier0/sdk-v2/data must not bundle for the browser');
+execFileSync(process.execPath, ['scripts/check-capability-package.mjs', consumer], { cwd: root, stdio: 'inherit' });
 execFileSync(process.execPath, ['scripts/check-installed-tests.mjs', consumer], { cwd: root, stdio: 'inherit' });
 console.log(`Verified packed ${pkg.name}@${pkg.version}: ESM/CJS runtime + declarations, browser bundles, server-only data entry, exports, bundled Skills and installed behavioral suite. Tarball: ${resolve(consumer, archive.filename)}`);
