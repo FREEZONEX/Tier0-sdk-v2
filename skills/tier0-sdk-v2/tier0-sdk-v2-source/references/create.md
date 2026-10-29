@@ -41,7 +41,9 @@ HTTP Server 同样使用 `protocol: http-api`，角色为 `config.role: server`�
 
 ## HTTP Client Bearer 凭据
 
-token 从服务端密钥提供者取得，不写入脚本、文档、日志或仓库。
+Source 保存 API 基址和认证；实际请求的 method/path/query 由 Stream 设置。例如 endpoint 使用 `https://inventory.example.com/api/v1`，再由 [Stream 示例](../../tier0-sdk-v2-stream/references/create.md)请求 `GET inventory`。token 从服务端密钥提供者取得，不写入脚本、文档、日志或仓库。
+
+普通创建省略 `credentials.method`，服务端按 `REQUEST` 绑定 Source 基址。REQUEST 是凭据适用范围标记，不是发送给上游的 HTTP 方法；实际 GET 请求仍由执行宿主逐次授权。
 
 ```ts
 import { createClient, type Tier0Client } from '@tier0/sdk-v2';
@@ -53,7 +55,7 @@ export async function createAuthenticatedHttpSource(
   const saved = await client.source.documents.create({
     dryRun: false, idempotencyKey: intentKey,
     document: { name, protocol: 'http-api', config: { role: 'client', endpoint, options: {} } },
-    credentials: { method: 'GET', kind: 'bearer', material: { token } },
+    credentials: { kind: 'bearer', material: { token } },
   });
   if (!('id' in saved.data)) throw new Error('未返回 Source ID');
   return { receipt: saved, current: saved.data };
@@ -92,12 +94,14 @@ Server 的固定前缀 `/ingest/v1/{workspaceId}/{sourceId}` 和 Bearer 要求�
 
 | kind | material | method |
 | --- | --- | --- |
-| basic | username、password | 省略时 REQUEST；可显式绑定受限 HTTP 方法 |
-| bearer | token | 省略时 REQUEST；上方 GET 示例保持明确的方法限制 |
+| basic | username、password | 省略时 REQUEST；显式方法绑定精确 URL 和该方法 |
+| bearer | token | 省略时 REQUEST；显式方法绑定精确 URL 和该方法 |
 | apiKey | headerName、value | 省略或 REQUEST |
-| oauth2ClientCredentials | tokenUrl、clientId、clientSecret；可选 scope、clientAuthentication | 省略、REQUEST 或 GET |
+| oauth2ClientCredentials | tokenUrl、clientId、clientSecret；可选 scope、clientAuthentication | 普通创建省略；旧 GET 保留既有兼容语义 |
 
-OAuth 的 `clientAuthentication` 支持 `client_secret_post`（默认）和 `client_secret_basic`。REQUEST 表示绑定 Source 基址，实际路径和方法仍由执行宿主逐次授权；显式方法的已有绑定不能解释成 REQUEST 的基址范围。vendor SESSION 合同独立保留，不是此 inline 创建的 method，也不新增独立公开凭据 API。
+Basic/Bearer 显式 `credentials.method: 'GET'` 表示凭据只用于所绑定精确 URL 的 GET，不表示该基址下所有 GET 都可使用：绑定 `/api/v1` 不授权 `/api/v1/inventory?limit=5000`。仅在任务明确需要该限制时传入；已有绑定保持原限制，不自动迁移或在拒绝后回退 REQUEST。
+
+OAuth 的 `clientAuthentication` 支持 `client_secret_post`（默认）和 `client_secret_basic`；method 接受省略、REQUEST 或旧 GET，旧 GET 保留现有兼容语义，不能把 Basic/Bearer 的精确 URL 规则跨认证类型套用。普通创建仍省略 method。vendor SESSION 合同独立保留，不是此 inline 创建的 method，也不新增独立公开凭据 API。
 
 ```ts
 import { createClient, type Tier0Client, type CloudSourceCreateCredentials } from '@tier0/sdk-v2';

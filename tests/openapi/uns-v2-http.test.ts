@@ -342,6 +342,31 @@ describe('UNS v2 localhost HTTP fixture', () => {
     expect(received.slice(start).every(row => row.headers['x-api-key'] === 'workspace-bound-key')).toBe(true);
   });
 
+  it('preserves per-run failure diagnostics, unknown results and legacy records in a successful runs query', async () => {
+    const start = received.length;
+    const base = { kind: 'delivery', release: '7', entryId: 'tick', trigger: 'timer',
+      createdAt: 1, finishedAt: 2, durationMs: 1 };
+    const items = [
+      { ...base, id: 'scope', status: 'failed', error: {
+        code: 'SOURCE_TARGET_SCOPE_MISMATCH', stage: 'validate_binding',
+        message: 'The Source request is outside its credential scope.',
+        repair: 'Check the Source binding and requested method/path/query.', sourceRequest: 'notDispatched',
+      } },
+      { ...base, id: 'unknown', status: 'unknown', error: {
+        code: 'RESULT_UNKNOWN', stage: 'unknown', message: 'The execution result is unknown.',
+        repair: 'Check the run outcome before deciding whether to retry.',
+      } },
+      { ...base, id: 'legacy', status: 'failed' },
+    ];
+    respond = (_req, res) => send(res, { code: 200, msg: '', requestId: 'run-diagnostics',
+      data: { items, nextCursor: '', checkedAt: 3 } });
+    const result = await client().stream.runs.list({ id: '202', size: 10 });
+    expect(result.data.items).toEqual(items);
+    expect(result.data.items[1]).not.toHaveProperty('error.sourceRequest');
+    expect(result.data.items[2]).not.toHaveProperty('error');
+    expect(received.slice(start)).toHaveLength(1);
+  });
+
   it('never retries isolated sample execution or exposes Core-only credentials and ingress routes', async () => {
     const start = received.length;
     respond = (_req, res) => send(res, { code: 503, msg: 'sample runtime unavailable', requestId: 'sample-unavailable' }, 503);
@@ -362,9 +387,9 @@ describe('UNS v2 localhost HTTP fixture', () => {
       'cloud-source-impact/2', 'app-create-capability/1', 'data/3', 'collection-namespace/1', 'http-acquisition/2',
       'app-collection/2', 'metadata/1', 'app-data/2', 'hosted-control/1', 'source-bindings/1',
       'record-notifications/1', 'record-delete-samples/1', 'stream-history/1',
-      'record-reads/1', 'app-context/3', 'collection-ttl/1', 'error-model/1', 'record-insert-return/1',
+      'record-reads/1', 'app-context/3', 'collection-ttl/1', 'error-model/1', 'record-insert-return/1', 'stream-run-error/1',
     ]));
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('12c7310b71538ed81add95d7d2935c8cf12792bd');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('da656ec46935d4349548812c1ef458cf53c7e67a');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(UNS_V2_CONTRACT_PROVENANCE.sourceDerivedContractSHA256).toBe(UNS_V2_CONTRACT_PROVENANCE.hashes.contract);
     expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(85);
