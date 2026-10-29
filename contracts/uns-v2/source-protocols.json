@@ -636,11 +636,201 @@
           "namespaceUris",
           "samplingIntervalMs"
         ],
-        "type": "object"
+        "type": "object",
+        "x-tier0-server": {
+          "additionalProperties": false,
+          "properties": {
+            "nodeIds": {
+              "items": {
+                "pattern": "^[a-zA-Z][a-zA-Z0-9_-]{0,62}$",
+                "type": "string"
+              },
+              "maxItems": 64,
+              "minItems": 1,
+              "type": "array",
+              "uniqueItems": true
+            },
+            "samplingIntervalMs": {
+              "maximum": 60000,
+              "minimum": 100,
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        }
       },
       "configSchema": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false,
+        "allOf": [
+          {
+            "else": {
+              "properties": {
+                "options": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "clientApplicationUri": {
+                      "maxLength": 512,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "securityMode": {
+                      "const": "SignAndEncrypt",
+                      "type": "string"
+                    },
+                    "securityPolicy": {
+                      "const": "Basic256Sha256",
+                      "type": "string"
+                    },
+                    "serverApplicationUri": {
+                      "maxLength": 512,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "serverName": {
+                      "maxLength": 253,
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "serverSha256": {
+                      "pattern": "^[0-9a-fA-F]{64}$",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "securityMode",
+                    "securityPolicy",
+                    "serverApplicationUri",
+                    "clientApplicationUri",
+                    "serverName",
+                    "serverSha256"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "tls"
+              ]
+            },
+            "if": {
+              "properties": {
+                "role": {
+                  "const": "server"
+                }
+              },
+              "required": [
+                "role"
+              ]
+            },
+            "then": {
+              "properties": {
+                "auth": false,
+                "endpoint": {
+                  "const": "opc.tcp://managed"
+                },
+                "options": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "samplingIntervalMs": {
+                      "maximum": 60000,
+                      "minimum": 100,
+                      "type": "integer"
+                    },
+                    "securityMode": {
+                      "const": "SignAndEncrypt",
+                      "type": "string"
+                    },
+                    "securityPolicy": {
+                      "const": "Basic256Sha256",
+                      "type": "string"
+                    },
+                    "serverNodes": {
+                      "items": {
+                        "additionalProperties": false,
+                        "allOf": [
+                          {
+                            "if": {
+                              "properties": {
+                                "nodeClass": {
+                                  "const": "Method"
+                                }
+                              }
+                            },
+                            "then": {
+                              "properties": {
+                                "dataType": {
+                                  "const": "String"
+                                },
+                                "direction": {
+                                  "const": "ingress"
+                                }
+                              }
+                            }
+                          }
+                        ],
+                        "properties": {
+                          "dataType": {
+                            "enum": [
+                              "Double",
+                              "Int32",
+                              "Boolean",
+                              "String"
+                            ],
+                            "type": "string"
+                          },
+                          "direction": {
+                            "enum": [
+                              "ingress",
+                              "egress",
+                              "bidirectional"
+                            ],
+                            "type": "string"
+                          },
+                          "id": {
+                            "pattern": "^[a-zA-Z][a-zA-Z0-9_-]{0,62}$",
+                            "type": "string"
+                          },
+                          "name": {
+                            "maxLength": 63,
+                            "minLength": 1,
+                            "pattern": "^[^\\x00-\\x1f\\x7f]*[^\\s\\x00-\\x1f\\x7f][^\\x00-\\x1f\\x7f]*$",
+                            "type": "string"
+                          },
+                          "nodeClass": {
+                            "enum": [
+                              "Variable",
+                              "Method"
+                            ],
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "nodeClass",
+                          "dataType",
+                          "direction"
+                        ],
+                        "type": "object"
+                      },
+                      "maxItems": 64,
+                      "minItems": 1,
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "securityMode",
+                    "securityPolicy",
+                    "samplingIntervalMs",
+                    "serverNodes"
+                  ],
+                  "type": "object"
+                },
+                "tls": false
+              }
+            }
+          }
+        ],
         "properties": {
           "auth": {
             "additionalProperties": false,
@@ -679,6 +869,11 @@
                 "minLength": 1,
                 "type": "string"
               },
+              "samplingIntervalMs": {
+                "maximum": 60000,
+                "minimum": 100,
+                "type": "integer"
+              },
               "securityMode": {
                 "const": "SignAndEncrypt",
                 "type": "string"
@@ -697,20 +892,93 @@
                 "minLength": 1,
                 "type": "string"
               },
+              "serverNodes": {
+                "items": {
+                  "additionalProperties": false,
+                  "allOf": [
+                    {
+                      "if": {
+                        "properties": {
+                          "nodeClass": {
+                            "const": "Method"
+                          }
+                        }
+                      },
+                      "then": {
+                        "properties": {
+                          "dataType": {
+                            "const": "String"
+                          },
+                          "direction": {
+                            "const": "ingress"
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "properties": {
+                    "dataType": {
+                      "enum": [
+                        "Double",
+                        "Int32",
+                        "Boolean",
+                        "String"
+                      ],
+                      "type": "string"
+                    },
+                    "direction": {
+                      "enum": [
+                        "ingress",
+                        "egress",
+                        "bidirectional"
+                      ],
+                      "type": "string"
+                    },
+                    "id": {
+                      "pattern": "^[a-zA-Z][a-zA-Z0-9_-]{0,62}$",
+                      "type": "string"
+                    },
+                    "name": {
+                      "maxLength": 63,
+                      "minLength": 1,
+                      "pattern": "^[^\\x00-\\x1f\\x7f]*[^\\s\\x00-\\x1f\\x7f][^\\x00-\\x1f\\x7f]*$",
+                      "type": "string"
+                    },
+                    "nodeClass": {
+                      "enum": [
+                        "Variable",
+                        "Method"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "nodeClass",
+                    "dataType",
+                    "direction"
+                  ],
+                  "type": "object"
+                },
+                "maxItems": 64,
+                "minItems": 1,
+                "type": "array"
+              },
               "serverSha256": {
                 "pattern": "^[0-9a-fA-F]{64}$",
                 "type": "string"
               }
             },
-            "required": [
-              "securityMode",
-              "securityPolicy",
-              "serverApplicationUri",
-              "clientApplicationUri",
-              "serverName",
-              "serverSha256"
-            ],
             "type": "object"
+          },
+          "role": {
+            "default": "client",
+            "enum": [
+              "client",
+              "server"
+            ],
+            "type": "string"
           },
           "tls": {
             "additionalProperties": false,
@@ -737,10 +1005,20 @@
         },
         "required": [
           "endpoint",
-          "options",
-          "tls"
+          "options"
         ],
-        "type": "object"
+        "type": "object",
+        "x-tier0-opcua-server": {
+          "available": false,
+          "publicEndpoint": null,
+          "roles": [
+            "server"
+          ]
+        },
+        "x-tier0-roles": [
+          "client",
+          "server"
+        ]
       },
       "credentialKinds": [
         "anonymous",

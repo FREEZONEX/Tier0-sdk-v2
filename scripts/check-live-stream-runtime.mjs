@@ -34,7 +34,7 @@ async function step(name, fn) {
   }
 }
 const document = { name, timeoutMs: 5000,
-  script: 'module.exports = api => { api.stream.onTimer({ id: "sdk_tick", intervalMs: 1000 }, async () => ({ sdkAcceptance: true, value: 1 })); };' };
+  script: 'module.exports = api => { api.stream.every({ id: "sdk_tick", intervalMs: 1000 }, async () => ({ sdkAcceptance: true, value: 1 })); };' };
 try {
   await step('create', async () => {
     const created = await client.stream.documents.create({ dryRun: false, program: document, idempotencyKey: `${name}-create` });

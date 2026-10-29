@@ -53,4 +53,4 @@ export async function* scanMembers(
 
 增量时间包含边界，按 userId/updatedAt 去重，成功完成后再保存水位；跨页没有固定快照保证。只向界面返回实际需要字段。
 
-v1 project-members 不迁移：v2 没有 getCurrentProjectId 或项目成员接口。Workspace 列表只用于 Workspace 级选择，不能冒充某 App 的可访问用户；需要 App 可用成员时用 `members.listApp`（见 [App 可用成员](app-members.md)）。无权限时报告配置问题，不以用户手填 ID 绕过。
+Workspace 列表只用于 Workspace 级选择，不能冒充某 App 的可访问用户；需要 App 可用成员时用 `members.listApp`（见 [App 可用成员](app-members.md)）。无权限时报告配置问题，不以用户手填 ID 绕过。

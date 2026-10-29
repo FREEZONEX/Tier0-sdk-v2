@@ -6,7 +6,7 @@
 
 ## 保存原生程序草稿
 
-使用完整原生 `document`：script 是 `{code,timeoutMs}`，sources 使用 alias。这与 `program` 的 script 字符串形态不同；不能把旧 Flow 脚本直接改名为新字段。
+使用完整原生 `document`：script 是 `{code,timeoutMs}`，sources 使用 alias。这与 `program` 的 script 字符串形态不同。
 
 ```ts
 import { createClient, type Tier0Client, type CloudStreamDocument } from '@tier0/sdk-v2';

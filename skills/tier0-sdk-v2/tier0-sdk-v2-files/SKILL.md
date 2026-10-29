@@ -15,7 +15,7 @@ description: 使用 @tier0/sdk-v2 实现 Tier0 应用附件、头像、导入导
 | 服务端转发、浏览器保存附件 | [下载](references/download.md) |
 | 删除对象及核验回执 | [删除](references/delete.md) |
 
-沿用 v1 的业务流程，调用已适配 v2；不提供旧版自动续传/并发助手。
+文件传输使用 v2 接口；分片顺序上传，中断后由调用方核对会话状态。
 
 业务文件使用平台对象存储，数据库保存返回的 filePath。App 本地目录可用于临时处理和构建，但不能替代持久化上传。使用服务端 client.files，API Key 不下发给浏览器或对象存储。
 

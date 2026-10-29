@@ -70,7 +70,7 @@ const collectionUpdate = example('uns', 'update');
 const recordDelete = example('uns', 'delete');
 const collectionDelete = example('uns', 'delete', 1);
 const restore = example('uns', 'restore');
-let sourceId, sourceRevision, streamId, collectionId, filePath;
+let sourceId, sourceRevision, sourceCurrent, streamId, streamCurrent, collectionId, filePath;
 save();
 
 try {
@@ -79,6 +79,7 @@ try {
       const result = await sourceCreate.createHttpSource(`${apiHost}/__sdk_acceptance/inert`, prefix, intent('source-create'), client);
       sourceId = result.current.id;
       sourceRevision = result.current.revision;
+      sourceCurrent = result.current;
       report.fixtures.source = { id: sourceId, state: 'created' };
       assert.equal(result.current.document.name, prefix);
       assert.notEqual(result.current.desiredState, 'enabled');
@@ -86,18 +87,21 @@ try {
     await step('Skill Source direct patch with canonical receipt', async () => {
       const result = await sourceUpdate.renameSource(sourceId, sourceRevision, prefix + '-edited', intent('source-update'), client);
       sourceRevision = result.current.revision;
+      sourceCurrent = result.current;
       assert.equal(result.current.document.name, prefix + '-edited');
     });
     await step('Skill Source observations', () => example('source', 'read').readSource(sourceId, client));
     if (domains.has('stream')) {
-    await step('Skill Stream validate + create + read', async () => {
-      const result = await streamCreate.createHttpStream(sourceId, prefix, intent('stream-create'), client);
+    await step('Skill Stream create with receipt', async () => {
+      const result = await streamCreate.createHttpStream(sourceCurrent, prefix, intent('stream-create'), client);
       streamId = result.current.id;
+      streamCurrent = result.current;
       report.fixtures.stream = { id: streamId, state: 'draft' };
       assert.equal(result.current.document.name, prefix);
     });
-    await step('Skill Stream update + read', async () => {
-      const result = await streamUpdate.updateStreamDescription(streamId, 'SDK acceptance draft', intent('stream-update'), client);
+    await step('Skill Stream update with receipt', async () => {
+      const result = await streamUpdate.updateStreamDescription(streamCurrent, 'SDK acceptance draft', intent('stream-update'), client);
+      streamCurrent = result.current;
       assert.equal(result.current.document.description, 'SDK acceptance draft');
     });
     await step('Skill Stream draft + summary + observations', () => example('stream', 'read').readStream(streamId, client));
@@ -105,9 +109,9 @@ try {
   } catch { /* Preserve failures and continue independent domains; cleanup below. */ }
   finally {
     if (streamId) {
-      try { await step('Skill Stream delete + archived readback', async () => {
-        const result = await streamDelete.deleteStream(streamId, intent('stream-delete'), client);
-        assert.equal(result.archived?.id, streamId);
+      try { await step('Skill Stream delete with receipt', async () => {
+        const result = await streamDelete.deleteStream(streamCurrent, intent('stream-delete'), client);
+        assert.equal(result.current.id, streamId);
         report.fixtures.stream.state = 'archived';
       }); } catch { /* Report retains cleanup failure. */ }
     }
@@ -122,24 +126,26 @@ try {
   }
 
   if (domains.has('stream') && !streamId) try {
-    await step('Stream standalone draft create + read', async () => {
+    await step('Stream standalone draft create with receipt', async () => {
       const document = { name: prefix, timeoutMs: 5000,
-        script: 'module.exports = api => { api.stream.onTimer({ id: "tick", intervalMs: 60000 }, async () => ({ value: 1 })); };' };
-      const validation = await client.stream.documents.validate({ program: document });
-      assert.equal(validation.data.valid, true);
+        script: 'module.exports = api => { api.stream.every({ id: "tick", intervalMs: 60000 }, async () => ({ value: 1 })); };' };
       const saved = await client.stream.documents.create({ dryRun: false, program: document, idempotencyKey: intent('standalone-stream') });
       assert.equal(typeof saved.data.id, 'string');
       streamId = saved.data.id;
+      streamCurrent = saved.data;
       report.fixtures.stream = { id: streamId, state: 'draft' };
-      assert.equal((await client.stream.documents.get({ id: streamId })).data.document.name, prefix);
+      assert.equal(saved.data.document.name, prefix);
     });
-    await step('Skill Stream standalone update + read', () => streamUpdate.updateStreamDescription(streamId, 'SDK acceptance draft', intent('standalone-update'), client));
+    await step('Skill Stream standalone update with receipt', async () => {
+      const result = await streamUpdate.updateStreamDescription(streamCurrent, 'SDK acceptance draft', intent('standalone-update'), client);
+      streamCurrent = result.current;
+    });
   } catch { /* No deployment; record the backend failure. */ }
   finally {
     if (streamId && report.fixtures.stream.state !== 'archived') try {
       await step('Skill Stream standalone cleanup', async () => {
-        const result = await streamDelete.deleteStream(streamId, intent('standalone-delete'), client);
-        assert.equal(result.archived?.id, streamId);
+        const result = await streamDelete.deleteStream(streamCurrent, intent('standalone-delete'), client);
+        assert.equal(result.current.id, streamId);
         report.fixtures.stream.state = 'archived';
       });
     } catch { /* Report retains cleanup failure. */ }

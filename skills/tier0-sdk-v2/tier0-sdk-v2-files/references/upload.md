@@ -1,6 +1,6 @@
 # 上传并保存文件引用
 
-从 v1 的 uploadFile 流程迁移，v2 使用 `client.files.upload(file, options)`；独立入口为 `createFilesClient`（@tier0/sdk-v2/files）。Node.js 20.19+。浏览器只调用应用自己的上传接口，平台 Key 留在服务端。
+使用 `client.files.upload(file, options)`；独立入口为 `createFilesClient`（@tier0/sdk-v2/files）。Node.js 20.19+。浏览器只调用应用自己的上传接口，平台 Key 留在服务端。
 
 | 参数 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
@@ -24,4 +24,4 @@ export async function uploadAttachment(file: File, client: Tier0Client = createC
 
 业务表持久化 filePath；临时签名 URL 不作为长期引用。文件写入和业务记录写入不是原子事务，业务保存失败时记录待清理对象，只在任务授权范围内清理。
 
-文件大于 100 MiB 时自动分片；阈值不是单文件产品上限，套餐配额/文件类型限制由后端决定。需要进度时显式用 [uploadMultipart](multipart.md)。v2 没有 v1 的 options.multipart/concurrency/retry/resume 控件，不照抄旧参数。
+文件大于 100 MiB 时自动分片；阈值不是单文件产品上限，套餐配额/文件类型限制由后端决定。需要进度时显式用 [uploadMultipart](multipart.md)。

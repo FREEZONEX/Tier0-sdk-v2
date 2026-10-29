@@ -2058,6 +2058,42 @@
       }
     },
     {
+      "name": "sourceIngressRevoke",
+      "suffix": "/uns/sources/ingress/revoke",
+      "handler": "UnsV2SourceIngressRevoke",
+      "request": "CloudSourceIngressRevokeReq",
+      "response": "CloudSourceIngressRevokeResponse",
+      "permission": "uns.source.manage",
+      "scope": "source:manage",
+      "minPermission": 3,
+      "resource": "source",
+      "mutation": "runtime",
+      "runtime": true,
+      "coreOnly": true,
+      "resourceId": 3301,
+      "summary": "撤销受管 OPC UA 设备身份",
+      "description": "撤销指定 Source 版本的设备身份并撤下旧会话授权，不返回令牌。",
+      "cloudExtension": true,
+      "appAllowed": false,
+      "audience": "builder",
+      "starter": false,
+      "method": "POST",
+      "permissionAnyOf": [],
+      "readOnly": false,
+      "tags": [
+        "数据源"
+      ],
+      "operation": "sourceIngressRevoke",
+      "path": "/uns/sources/ingress/revoke",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/CloudSourceIngressRevokeReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/CloudSourceIngressRevokeResponse"
+      }
+    },
+    {
       "name": "sourceObservationsGet",
       "suffix": "/uns/sources/observations/get",
       "handler": "UnsV2SourceObservationsGet",
@@ -18553,6 +18589,32 @@
                   }
                 }
               }
+            },
+            "username": {
+              "type": "string"
+            },
+            "namespaceUri": {
+              "type": "string"
+            },
+            "nodes": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "resourceRef",
+                  "nodeId"
+                ],
+                "properties": {
+                  "resourceRef": {
+                    "type": "string"
+                  },
+                  "nodeId": {
+                    "type": "string"
+                  }
+                }
+              }
             }
           }
         }
@@ -18743,6 +18805,32 @@
                         "pattern": "^/ingest/v1/[1-9][0-9]*/[1-9][0-9]*/"
                       }
                     }
+                  }
+                }
+              }
+            },
+            "username": {
+              "type": "string"
+            },
+            "namespaceUri": {
+              "type": "string"
+            },
+            "nodes": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "resourceRef",
+                  "nodeId"
+                ],
+                "properties": {
+                  "resourceRef": {
+                    "type": "string"
+                  },
+                  "nodeId": {
+                    "type": "string"
                   }
                 }
               }
@@ -21964,6 +22052,261 @@
         "data"
       ],
       "additionalProperties": false
+    },
+    "CloudSourceIngressRevokeReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "expectedRevision"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "CloudSourceIngressRevokeResponse": {
+      "type": "object",
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ],
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "available",
+            "active",
+            "endpoint",
+            "topic"
+          ],
+          "properties": {
+            "available": {
+              "type": "integer",
+              "enum": [
+                1,
+                2
+              ],
+              "description": "1 = yes, 2 = no."
+            },
+            "active": {
+              "type": "integer",
+              "enum": [
+                1,
+                2
+              ],
+              "description": "1 = yes, 2 = no."
+            },
+            "endpoint": {
+              "type": "string"
+            },
+            "topic": {
+              "type": "string"
+            },
+            "expiresAt": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Unix epoch milliseconds; omitted when no event has occurred."
+            },
+            "lastReceivedAt": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Unix epoch milliseconds; omitted when no event has occurred."
+            },
+            "auth": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "name",
+                "clientId",
+                "username",
+                "clientIdRandomSuffixEnabled",
+                "authStatus"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "clientId": {
+                  "type": "string"
+                },
+                "username": {
+                  "type": "string"
+                },
+                "clientIdRandomSuffixEnabled": {
+                  "type": "integer",
+                  "enum": [
+                    1,
+                    2
+                  ]
+                },
+                "authStatus": {
+                  "type": "integer",
+                  "enum": [
+                    1,
+                    2
+                  ]
+                }
+              }
+            },
+            "httpIn": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "available",
+                "prefix",
+                "endpoint",
+                "mode",
+                "maxBodyBytes",
+                "maxResponseBytes",
+                "maxTimeoutMs",
+                "routes"
+              ],
+              "properties": {
+                "available": {
+                  "type": "integer",
+                  "enum": [
+                    1,
+                    2
+                  ],
+                  "description": "Independent synchronous HTTP In capability; 1 enabled, 2 disabled. Does not enable legacy asynchronous reception."
+                },
+                "prefix": {
+                  "type": "string",
+                  "pattern": "^/ingest/v1/[1-9][0-9]*/[1-9][0-9]*$"
+                },
+                "endpoint": {
+                  "type": "string",
+                  "description": "Server-configured public origin plus fixed prefix; empty while unavailable. Never inferred from the browser origin."
+                },
+                "mode": {
+                  "type": "string",
+                  "enum": [
+                    "synchronous"
+                  ]
+                },
+                "maxBodyBytes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1048576
+                },
+                "maxResponseBytes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1048576
+                },
+                "maxTimeoutMs": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 30000
+                },
+                "routes": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "streamId",
+                      "versionId",
+                      "entryId",
+                      "method",
+                      "path",
+                      "urlPath"
+                    ],
+                    "properties": {
+                      "streamId": {
+                        "type": "string",
+                        "pattern": "^[1-9][0-9]*$"
+                      },
+                      "versionId": {
+                        "type": "string",
+                        "pattern": "^[1-9][0-9]*$"
+                      },
+                      "entryId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      },
+                      "method": {
+                        "type": "string",
+                        "enum": [
+                          "GET",
+                          "POST",
+                          "PUT",
+                          "PATCH",
+                          "DELETE",
+                          "HEAD",
+                          "OPTIONS"
+                        ]
+                      },
+                      "path": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2048,
+                        "pattern": "^/"
+                      },
+                      "urlPath": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^/ingest/v1/[1-9][0-9]*/[1-9][0-9]*/"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "username": {
+              "type": "string"
+            },
+            "namespaceUri": {
+              "type": "string"
+            },
+            "nodes": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "resourceRef",
+                  "nodeId"
+                ],
+                "properties": {
+                  "resourceRef": {
+                    "type": "string"
+                  },
+                  "nodeId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     },
     "UnsV2SampleFindReq": {
       "type": "object",

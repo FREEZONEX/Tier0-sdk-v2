@@ -94,7 +94,7 @@ Server 的固定前缀 `/ingest/v1/{workspaceId}/{sourceId}` 和 Bearer 要求�
 | --- | --- | --- |
 | basic | username、password | 省略时 REQUEST；可显式绑定受限 HTTP 方法 |
 | bearer | token | 省略时 REQUEST；上方 GET 示例保持明确的方法限制 |
-| apiKey | headerName、value | 省略或 REQUEST；不接受旧 name/key 形态 |
+| apiKey | headerName、value | 省略或 REQUEST |
 | oauth2ClientCredentials | tokenUrl、clientId、clientSecret；可选 scope、clientAuthentication | 省略、REQUEST 或 GET |
 
 OAuth 的 `clientAuthentication` 支持 `client_secret_post`（默认）和 `client_secret_basic`。REQUEST 表示绑定 Source 基址，实际路径和方法仍由执行宿主逐次授权；显式方法的已有绑定不能解释成 REQUEST 的基址范围。vendor SESSION 合同独立保留，不是此 inline 创建的 method，也不新增独立公开凭据 API。
