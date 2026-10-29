@@ -58,7 +58,7 @@ export function toResponse(error: unknown): Response {
 
 | code | 含义与处理 |
 | --- | --- |
-| `SCHEMA_CONFLICT` (409) | 声明无法与存储合并，没有任何改动。`data.conflicts` 列出 `{ alias, path, reason, current?, declared? }`：`TYPE_CONFLICT` → 换新字段名；`LIMIT_EXCEEDED` → 拆分结构；`JOIN_UNSUPPORTED` → 存储中有声明无法放宽的节点，用 `schema:replace` 修复；`DATA_RULE_FIELD` → 员工数据规则（owner/state 字段）在用该路径，保持必填且类型不变，或请管理员修改规则；`OPEN_OBJECT` → 用 `z.object`；`ALIAS_IN_USE` / `NAME_IN_USE` → 换 alias；`INVALID_INDEX` → 修正索引 |
+| `SCHEMA_CONFLICT` (409) | 声明无法与存储合并，没有任何改动。`data.conflicts` 列出 `{ alias, path, reason, current?, declared? }`：`TYPE_CONFLICT` → 换新字段名；`LIMIT_EXCEEDED` → 拆分结构；`JOIN_UNSUPPORTED` → 存储中有声明无法放宽的节点，用 `schema:replace` 修复；`DATA_RULE_FIELD` → 员工数据规则（owner/state 字段）在用该路径，保持必填且类型不变，或请管理员修改规则；`OPEN_OBJECT` → 用 `z.object`；`ALIAS_IN_USE` → 选择未占用的 alias；`NAME_IN_USE` → 选择同目录下不同且有业务含义的 name，保留 alias，不拼随机后缀；`INVALID_INDEX` → 修正索引 |
 | `ANNOTATION_NOT_APPLIED`（`ignored` 提示） | 不是错误：ensure 保留已存储的描述，用 `schema:replace` 应用修改 |
 | `REQUIRED_NOT_ENFORCED`（警告） | 声明要求的字段在存储中仍是可选；改回可选，或回填后用 `schema:replace` 收窄 |
 | `INDEX_BUILD_FAILED`（警告） | 已有记录违反新唯一索引；修正重复数据，下次 ensure 会重试建索引 |

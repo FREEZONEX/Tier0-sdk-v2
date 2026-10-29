@@ -1,6 +1,8 @@
 # 声明集合与建模
 
-`defineCollection({ alias, schema, indexes?, description?, seed? })` 返回冻结的声明；全部声明放进一个数组传给 `createDataClient({ collections })`。声明文件从 `@tier0/sdk-v2/data/define` 导入：它不含数据运行时，组件和 route 也能引用这些声明与 `Doc` 类型。alias 在 App 内唯一、不区分大小写，匹配 `^[A-Za-z][A-Za-z0-9_-]{0,62}$`。
+`defineCollection({ alias, name, schema, indexes?, description?, seed? })` 返回冻结的声明；全部声明放进一个数组传给 `createDataClient({ collections })`。声明文件从 `@tier0/sdk-v2/data/define` 导入：它不含数据运行时，组件和 route 也能引用这些声明与 `Doc` 类型。alias 在 App 内唯一、不区分大小写，匹配 `^[A-Za-z][A-Za-z0-9_-]{0,62}$`。
+
+`name` 是必填的业务名称，界面直接展示，例如“生产工单”；1–63 个 Unicode 字符，无首尾空白，不含 `/` 或空字符。`alias` 是独立、稳定的程序标识，例如 `production_orders`，改业务名称不改 alias 或集合 ID。名称应表达实际用途，语言遵循用户偏好和已有业务术语，不附加无业务含义的随机串、时间戳或 ID。没有 displayName，也不从 alias 回退生成名称。ensure 只在首次创建时写入 name；命中已有 alias 时保留用户当前名称，显式改名走 MCP 元数据更新。
 
 ```ts
 import { z } from 'zod';
@@ -8,6 +10,7 @@ import { defineCollection, type Doc } from '@tier0/sdk-v2/data/define';
 
 export const customers = defineCollection({
   alias: 'customers',
+  name: '客户',
   schema: z.object({ name: z.string(), tier: z.enum(['A', 'B', 'C']) }),
   indexes: [{ path: 'name' }],
   seed: [
@@ -18,6 +21,7 @@ export const customers = defineCollection({
 
 export const salesOrders = defineCollection({
   alias: 'sales_orders',
+  name: '销售订单',
   description: 'Customer sales orders',
   schema: z.object({
     code: z.string(),
@@ -90,6 +94,7 @@ import { defineCollection } from '@tier0/sdk-v2/data/define';
 
 export const loginCodes = defineCollection({
   alias: 'login_codes',
+  name: '登录验证码',
   schema: z.object({ phone: z.string(), code: z.string(), issuedAt: z.number().int().meta({ format: 'int32' }) }),
   // issuedAt 存 Date.now()；签发 5 分钟后删除。
   indexes: [{ path: 'phone' }, { path: 'issuedAt', expireAfterSeconds: 300 }],

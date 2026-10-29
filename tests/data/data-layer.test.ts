@@ -15,6 +15,7 @@ import { UnsV2Error } from '../../src/uns-v2/client.js';
 
 const orders = defineCollection({
   alias: 'orders',
+  name: '生产工单',
   schema: z.object({ code: z.string(), status: z.enum(['OPEN', 'DONE']), qty: z.number().int().optional() }),
   indexes: [{ path: 'code', unique: true }],
   seed: [
@@ -24,6 +25,7 @@ const orders = defineCollection({
 });
 const lines = defineCollection({
   alias: 'lines',
+  name: '工单明细',
   schema: z.object({ orderId: z.string(), sku: z.string() }),
   seed: [{ _id: 'l-1', orderId: 'o-1', sku: 'S' }],
 });
@@ -133,6 +135,7 @@ describe('transport', () => {
   it('sends explicit numeric formats for new collection fields, including nested arrays', async () => {
     const measurements = defineCollection({
       alias: 'measurements',
+      name: '设备测量',
       schema: z.object({
         amount: z.number().min(0).optional(),
         count: z.number().int(),
@@ -463,6 +466,7 @@ describe('bootstrap', () => {
   it('writes large seeds in 200-document chunks and retries a chunk with the same key', async () => {
     const big = defineCollection({
       alias: 'big',
+      name: '批量记录',
       schema: z.object({ n: z.number().int() }),
       seed: Array.from({ length: 450 }, (_, n) => ({ _id: `b-${n}`, n })),
     });
@@ -581,7 +585,7 @@ describe('bootstrap', () => {
     expect(state.conflicts.map(entry => entry.reason)).toEqual(['JOIN_UNSUPPORTED', 'DATA_RULE_FIELD']);
   });
 
-  it('logs ANNOTATION_NOT_APPLIED as a schema:replace hint without failing Preview', async () => {
+  it('logs name and schema annotation hints without failing Preview or renaming an existing collection', async () => {
     const logged = { info: [] as string[], warn: [] as string[] };
     const logger = { ...silent, info: (message: string) => logged.info.push(message), warn: (message: string) => logged.warn.push(message) };
     const mock = mockUns({
@@ -590,6 +594,7 @@ describe('bootstrap', () => {
           alias: 'orders',
           collectionId: 'c-orders',
           ignored: [
+            { path: 'name', reason: 'ANNOTATION_NOT_APPLIED', message: 'Collection name is only set at creation' },
             { path: '', reason: 'ANNOTATION_NOT_APPLIED', message: 'Collection description is only set at creation' },
             { path: 'status', reason: 'ANNOTATION_NOT_APPLIED' },
             { path: 'legacy', reason: 'UNDECLARED_PROPERTY' },
@@ -601,7 +606,10 @@ describe('bootstrap', () => {
     const state = await client(mock, { logger }).ensure();
     expect(state.collectionIds.get('orders')).toBe('c-orders');
     expect(logged.warn).toHaveLength(1);
-    expect(logged.warn[0]).toMatch(/not applied: orders, orders\.status\. Apply them with schema:replace .*compileCollection/);
+    expect(logged.warn[0]).toMatch(/not applied: orders\.name, orders, orders\.status\. Rename with metadata:updateOne/);
+    expect(logged.warn[0]).toMatch(/schema:replace, selecting alias, recordSchema, indexes and description from compileCollection/);
+    expect(mock.calls(ENSURE)[0].body).toMatchObject({ collections: [{ alias: 'orders', name: '生产工单' }, { alias: 'lines', name: '工单明细' }] });
+    expect(mock.sent).toHaveLength(1);
     expect(logged.info).toHaveLength(1);
     expect(logged.info[0]).toMatch(/legacy UNDECLARED_PROPERTY/);
     expect(logged.info[0]).not.toMatch(/status/);
@@ -611,6 +619,7 @@ describe('bootstrap', () => {
     const declare = () =>
       defineCollection({
         alias: 'tickets',
+        name: '支持工单',
         description: 'Support tickets',
         schema: z
           .object({
@@ -628,7 +637,7 @@ describe('bootstrap', () => {
     expect(first.recordSchema.properties?.severity.description).toBe('Triage level');
     expect(first.recordSchema.properties?.steps.items?.properties?.note.description).toBe('步骤说明');
     // No description declared → none sent; ensure only flags a non-empty declared description that differs.
-    expect('description' in compileCollection(defineCollection({ alias: 'bare', schema: z.object({ a: z.string() }) }))).toBe(false);
+    expect('description' in compileCollection(defineCollection({ alias: 'bare', name: '基础记录', schema: z.object({ a: z.string() }) }))).toBe(false);
   });
 
   it('throws ensure warnings in preview after seeding, and only logs them when deployed', async () => {
@@ -655,14 +664,14 @@ describe('bootstrap', () => {
   });
 
   it('rejects more than 64 declarations', () => {
-    const many = Array.from({ length: 65 }, (_, n) => defineCollection({ alias: `c${n}`, schema: z.object({ a: z.string() }) }));
+    const many = Array.from({ length: 65 }, (_, n) => defineCollection({ alias: `c${n}`, name: `测试集合 ${n}`, schema: z.object({ a: z.string() }) }));
     expect(() => client(mockUns({}), { collections: many })).toThrow(/at most 64 collections/);
   });
 
   it('rejects undeclared collections', () => {
     const data = client(mockUns({}));
     expect(() => data.collection('ghost')).toThrow(/not declared/);
-    const stray = defineCollection({ alias: 'stray', schema: z.object({ a: z.string() }) });
+    const stray = defineCollection({ alias: 'stray', name: '未声明记录', schema: z.object({ a: z.string() }) });
     expect(() => data.collection(stray)).toThrow(/missing from the `collections`/);
   });
 });

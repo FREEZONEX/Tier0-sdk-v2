@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { createDataClient, defineCollection } from '../../src/data/index.js';
 
 // Real HTTP boundary only: these receipts test adapters, not database atomicity.
-const declaration = defineCollection({ alias: 'orders', schema: z.object({ code: z.string(), qty: z.number().int() }) });
+const declaration = defineCollection({ alias: 'orders', name: '生产工单', schema: z.object({ code: z.string(), qty: z.number().int() }) });
 const requests: { path: string; body: Record<string, any> }[] = [];
 let respond: (res: ServerResponse, body: Record<string, any>) => void;
 const send = (res: ServerResponse, data: unknown, status = 200, error?: object) => {

@@ -14,9 +14,9 @@
 import { z } from 'zod';
 import { createDataClient, defineCollection } from '@tier0/sdk-v2/data';
 
-const stock = defineCollection({ alias: 'stock', schema: z.object({ sku: z.string(), available: z.number().int().min(0).meta({ format: 'int32' }) }) });
-const reservations = defineCollection({ alias: 'reservations', schema: z.object({ sku: z.string(), qty: z.number().int().min(1).meta({ format: 'int32' }), orderId: z.string() }) });
-const counters = defineCollection({ alias: 'counters', schema: z.object({ value: z.number().int().meta({ format: 'int32' }) }) });
+const stock = defineCollection({ alias: 'stock', name: '库存', schema: z.object({ sku: z.string(), available: z.number().int().min(0).meta({ format: 'int32' }) }) });
+const reservations = defineCollection({ alias: 'reservations', name: '库存预留', schema: z.object({ sku: z.string(), qty: z.number().int().min(1).meta({ format: 'int32' }), orderId: z.string() }) });
+const counters = defineCollection({ alias: 'counters', name: '业务计数器', schema: z.object({ value: z.number().int().meta({ format: 'int32' }) }) });
 const data = createDataClient({ collections: [stock, reservations, counters] });
 
 /** 扣减库存并写预留：库存不足时整体不提交。 */

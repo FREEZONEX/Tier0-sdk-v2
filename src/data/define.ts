@@ -17,6 +17,8 @@ export const ALIAS_PATTERN = /^[A-Za-z][A-Za-z0-9_-]{0,62}$/;
 export const MAX_COLLECTIONS = 64;
 /** UNS: collection description length in characters. */
 export const MAX_DESCRIPTION_LENGTH = 512;
+/** UNS: business-facing collection name length in Unicode characters. */
+export const MAX_NAME_LENGTH = 63;
 /** Seeds are inserted in atomic chunks of 200 during the first request; keep them a baseline, not a data import. */
 export const MAX_SEED_DOCUMENTS = 1000;
 
@@ -53,6 +55,8 @@ export type SeedDoc<S extends CollectionSchema> = z.input<S> & { _id: string };
 
 export interface CollectionDefinition<S extends CollectionSchema = CollectionSchema> {
   readonly alias: string;
+  /** Business-facing name, independent of the stable App alias. */
+  readonly name: string;
   /** Zod 4 object schema of the record body (no `_id` / `_meta`). */
   readonly schema: S;
   readonly indexes: readonly IndexSpec[];
@@ -77,6 +81,7 @@ export type NewDoc<C extends CollectionDefinition> = z.input<C['schema']> & {
 
 export function defineCollection<S extends CollectionSchema>(definition: {
   alias: string;
+  name: string;
   schema: S;
   indexes?: IndexSpec[];
   description?: string;
@@ -87,6 +92,7 @@ export function defineCollection<S extends CollectionSchema>(definition: {
       `Collection alias "${definition.alias}" must match ${ALIAS_PATTERN} (letters, digits, "_" or "-", starting with a letter).`,
     );
   }
+  assertCollectionName(definition.name);
   if (definition.description && [...definition.description].length > MAX_DESCRIPTION_LENGTH) {
     throw new Error(`Collection "${definition.alias}": description is longer than ${MAX_DESCRIPTION_LENGTH} characters.`);
   }
@@ -97,9 +103,16 @@ export function defineCollection<S extends CollectionSchema>(definition: {
   }
   return Object.freeze({
     alias: definition.alias,
+    name: definition.name,
     schema: definition.schema,
     indexes: Object.freeze([...(definition.indexes ?? [])]),
     ...(definition.description ? { description: definition.description } : {}),
     ...(definition.seed ? { seed: Object.freeze([...definition.seed]) } : {}),
   });
+}
+
+export function assertCollectionName(name: unknown): asserts name is string {
+  if (typeof name !== 'string' || name.length === 0 || name.trim() !== name || [...name].length > MAX_NAME_LENGTH || /[\/\0]/.test(name)) {
+    throw new Error(`Collection name must be nonempty, at most ${MAX_NAME_LENGTH} Unicode characters, without surrounding whitespace, "/" or NUL.`);
+  }
 }

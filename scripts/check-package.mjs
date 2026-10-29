@@ -70,7 +70,7 @@ import { createStreamClient } from '@tier0/sdk-v2/stream';
 import { createDataClient, type Doc } from '@tier0/sdk-v2/data';
 import { compileCollection, defineCollection, type Doc as DeclaredDoc } from '@tier0/sdk-v2/data/define';
 import { z } from 'zod';
-const orders = defineCollection({ alias: 'orders', schema: z.object({ code: z.string() }) });
+const orders = defineCollection({ alias: 'orders', name: '生产工单', schema: z.object({ code: z.string() }) });
 const declared: DeclaredDoc<typeof orders> | undefined = undefined;
 void declared;
 void compileCollection(orders);
@@ -80,7 +80,7 @@ const handle = createDataClient({ collections: [orders] }).collection(orders);
 const plainInsert: Promise<{ insertedId: string }> = handle.insertOne({ code: 'A' });
 const insertSnapshot: Promise<{ insertedId: string; value: Doc<typeof orders> }> = handle.insertOne({ code: 'A' }, { returnDocument: 'after' });
 void [plainInsert, insertSnapshot];
-const nested = defineCollection({ alias: 'nested', schema: z.object({
+const nested = defineCollection({ alias: 'nested', name: '嵌套记录', schema: z.object({
   code: z.string(), customer: z.object({ name: z.string(), email: z.string() }),
   lines: z.array(z.object({ sku: z.string(), quantity: z.number() })),
 }) });
