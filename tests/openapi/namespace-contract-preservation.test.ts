@@ -21,7 +21,7 @@ function canonical(value: unknown): unknown {
     .map(([key, item]) => [key, canonical(item)]));
 }
 
-it('preserves the released Namespace contract except explicit App context and Stream view changes', () => {
+it('preserves the business-name Namespace contract with explicit App context and Stream view changes', () => {
   const manifest = JSON.parse(readFileSync(new URL('../../contracts/uns-v2/manifest.json', import.meta.url), 'utf8'));
   const operations = Object.fromEntries(names.map(name => {
     const operation = manifest.operations.find((item: { name: string }) => item.name === name);
@@ -49,7 +49,7 @@ it('preserves the released Namespace contract except explicit App context and St
   expect(Object.keys(operations)).toHaveLength(53);
   expect(Object.keys(schemas)).toHaveLength(202);
   // Verify the approved context and neutral view deltas before comparing all
-  // other operations and reachable schemas to the original release digest.
+  // other operations and reachable schemas to the reviewed business-name release digest.
   const appContext = schemas.AppContext as {
     properties: Record<string, { type?: string; enum?: string[]; description?: string }>;
     required: string[];
@@ -75,5 +75,5 @@ it('preserves the released Namespace contract except explicit App context and St
   access.properties.blockedReasons.items.enum = reasons.map(reason =>
     reason === 'app_stream_ceiling' ? 'app_control_ceiling' : reason);
   const digest = createHash('sha256').update(JSON.stringify(canonical({ operations: baselineOperations, schemas: baselineSchemas }))).digest('hex');
-  expect(digest).toBe('c11a131d8a49f573cf7e3eb3bf7bef25994192f81cf37db76d615e99042a1f63');
+  expect(digest).toBe('551a703407c20dfc155bde25d9fda6780830a2a2d5fb8fa4b44567b09f4ac4ad');
 });

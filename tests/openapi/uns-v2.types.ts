@@ -12,6 +12,14 @@ import {
 } from '../../src/index.js';
 
 const client = createClient({ apiHost: 'https://example.invalid', apiKey: 'workspace-bound' });
+const namedCollection: UnsV2Request<'appCollectionsEnsure'> = {
+  collections: [{ alias: 'production_orders', name: '生产工单', recordSchema: { type: 'object' } }],
+};
+const unnamedCollection: UnsV2Request<'appCollectionsEnsure'> = {
+  // @ts-expect-error Low-level ensure requires the business name independently of alias.
+  collections: [{ alias: 'production_orders', recordSchema: { type: 'object' } }],
+};
+void [namedCollection, unnamedCollection];
 // Native runtime DTO from the pinned source; hosted Cloud documents retain their own shape.
 const nativeDefinition: RuntimeStreamDefinition = {
   name: 'native-http', script: '',

@@ -59,7 +59,11 @@ run(['--input-type=module', '-e', `
   if (typeof client.source.documents.get !== 'function' || typeof client.stream.programs.deploy !== 'function') throw new Error('Missing domain entrypoints');
 `], consumer);
 for (const ext of ['mts', 'cts']) writeFileSync(resolve(consumer, `consumer.${ext}`), `
-import { createClient, type Tier0Client, type CloudSourceDocument } from '@tier0/sdk-v2';
+import { createClient, type Tier0Client, type CloudSourceDocument, type UnsV2Request } from '@tier0/sdk-v2';
+const namedCollection: UnsV2Request<'appCollectionsEnsure'> = { collections: [{ alias: 'orders', name: '生产工单', recordSchema: { type: 'object' } }] };
+// @ts-expect-error The installed low-level declaration requires name as well as alias.
+const unnamedCollection: UnsV2Request<'appCollectionsEnsure'> = { collections: [{ alias: 'orders', recordSchema: { type: 'object' } }] };
+void [namedCollection, unnamedCollection];
 ${[...retiredControlSchemas, 'ControlJSON', 'PublicControl', 'ControlDiscoverOptions', 'ControlDiscoverResponse',
   'ControlTransportConfig', 'CloudClientConfig', 'ControlInvokeOptions', 'ControlInvokeResponse', 'ControlErrorInfo',
   'ControlError', 'ControlResultUnknownError', 'ControlHandle', 'ControlsClient', 'controls', 'DEFAULT_CONTROL_TRANSPORT_TIMEOUT_MS'].map(name =>

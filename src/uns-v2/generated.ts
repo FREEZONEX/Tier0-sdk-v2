@@ -2176,6 +2176,7 @@ export type CloudAppDataRule = {
 
 export type CloudAppCollectionDeclaration = {
   "alias": string;
+  "name": string;
   "recordSchema": Schema;
   "indexes"?: Array<IndexSpec>;
   "description"?: string;
@@ -3738,11 +3739,11 @@ export const UNS_V2_CODEC_SCHEMAS = {"UnsV2CatalogReq":{"k":"o"},"UnsV2Transacti
 
 export const UNS_V2_CONTRACT_PROVENANCE = {
   "repository": "FREEZONEX/Tier0-Backend",
-  "revision": "397ac88a89593872cf76ad579a3c59753d832668",
+  "revision": "7af1912802294d2f4cbe8c92fb0a303a8abda2cf",
   "version": "5.0.0",
   "source": "service/unssvr/internal/domain/unsv2/contract_generated.go#ContractJSON",
-  "cloudRevision": "397ac88a89593872cf76ad579a3c59753d832668",
-  "cloudContractRevision": "cloud-source-impact/2+source-vendor/2+app-create-capability/1+data/3+record-reads/1+stream-receipt/1+stream-run-error/1+collection-namespace/1+http-acquisition/2+http-source-role/1+http-source-request/1+app-collection/2+collection-ownership/1+metadata/1+app-context/3+collection-ttl/1+error-model/1+crud-consolidation/1+record-insert-return/1+lifecycle-consolidation/1+api-surface/2+source-stream-single-model+app-data/2+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/1+http-in/1+app-resource-access/2+stream-control-probe-retirement/1+http-push-retirement/1",
+  "cloudRevision": "7af1912802294d2f4cbe8c92fb0a303a8abda2cf",
+  "cloudContractRevision": "cloud-source-impact/2+source-vendor/2+app-create-capability/1+data/3+record-reads/1+stream-receipt/1+stream-run-error/1+collection-namespace/1+business-name/1+http-acquisition/2+http-source-role/1+http-source-request/1+app-collection/2+collection-ownership/1+metadata/1+app-context/3+collection-ttl/1+error-model/1+crud-consolidation/1+record-insert-return/1+lifecycle-consolidation/1+api-surface/2+source-stream-single-model+app-data/2+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/1+http-in/1+app-resource-access/2+stream-control-probe-retirement/1+http-push-retirement/1",
   "resolvedCloudContract": true,
   "enterpriseBase": {
     "repository": "FREEZONEX/Tier0-Enterprise-New",
@@ -3758,12 +3759,12 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
       "capability": "x-tier0-opcua-server: static available=false; online availability is workspace/registry authoritative"
     }
   },
-  "sourceDerivedContractSHA256": "79ff4d98f2239e3b2a3fbdea7afe4683171ff2dac0e0a917aaab3492d806910d",
+  "sourceDerivedContractSHA256": "71fd08f483a46d0673389552418a6ca23983ff2a6957803ddba6b71fa9385064",
   "hashes": {
-    "contract": "79ff4d98f2239e3b2a3fbdea7afe4683171ff2dac0e0a917aaab3492d806910d",
+    "contract": "71fd08f483a46d0673389552418a6ca23983ff2a6957803ddba6b71fa9385064",
     "cloudSupport": "4ff9d5ff69e35e38459287cf15df45ab627684e2e2294dfd1e076ebc4fc34b46",
-    "manifest": "99ec4e32de02c631281631a9601b9d1596ecc4197b55de14dbdd68082b984086",
-    "provenance": "2ab9d24b0953242259acf240609b4fbc6142071d6fd462852d2ed71f8674cae4",
+    "manifest": "f44de4fc45bb0868be9e6cedf5e68dfeca8c708146203830812f419ffc513fde",
+    "provenance": "2694eaa5c48671f5ca66abc790792094e363e9a765aace0b5aa312aef54f126f",
     "registry": "c74313c217742d50391a94c09e60d5c5bd1a89c305fa4145cbf23b35ba7dbcdb"
   },
   "publicOperationCount": 82,
