@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/FREEZONEX/Tier0-sdk",
+  "revision": "047d600a49ab9203b5f0e937384d86e86626c3fc",
+  "mergedRevision": "eaf6f7d080a7ed67fb5a3bb57fcdd0fadd034384",
+  "vectorCount": 208,
+  "inputs": {
+    "src/capabilities.ts": "3a4e0c21953c91c7468031acefc2cb08afdd0e0ce691132576b33a943a6b1f49",
+    "contracts/capability-discovery/response.schema.json": "7cf1839b9e19fe6129c5245e4c6eb60e3a35484af8cad86aa1264ba9f98c4723",
+    "contracts/capability-discovery/vectors.json": "99436d782e5ef78bbec07636dc7dec2dab25e4c7f367988a930d2ed62dd7692d"
+  }
+}

@@ -48,8 +48,13 @@ info 返回 name/version/mqttBroker/capabilities，字段可能省略。MQTT bro
 | availability=available | 能力可用性，不是设备在线、业务执行或 ACK |
 | disabled / not_supported / unavailable | 展示具体不可用原因，不强制调用 |
 | readiness_unknown | 保留未知状态，不能按成功处理 |
+| operations | Source / Stream 各操作独立判断；整体不可用不等于读取或安全停用不可用 |
+| reasonCode / checkedAt / validUntil | 保留服务端原因及证明时间，过期后重新发现，不把旧证明当成持续就绪 |
+| requiresResourceCheck | 实际调用仍要检查具体资源的权限、配置和依赖 |
 
 能力目录当前识别 namespace.v2、source、stream、control.v1、control.invoke.v1。Source/Stream 的 contractVersions 使用 openapi/v2，不要求或返回解释器版本。contractVersions、apiContractVersions、sdkContractVersions 是契约标签，不是 npm 包版本；productVersion 未配置时可缺省。
+
+发现统一使用 `POST /openapi/v2/capabilities/discover`，请求为 `{}`，不接受 Workspace 参数。Cloud / Enterprise 返回同一合同；没有全局 `control/v1` 标签也可发现 Namespace、Source 和 Stream。SDK 只投影已知操作与公开诊断字段；未知扩展不被解释为就绪，不自动重试。
 
 ## 定位问题
 
