@@ -57,6 +57,8 @@ const user = await tier0.system.whoami();
 | `@tier0/sdk-v2/data` | App 数据层：`defineCollection()` 声明集合（含 TTL）、`createDataClient()` 首次访问时 ensure，Mongo 风格读写、带总数分页与封顶计数、原子批量与 `transact`、`subscribe` 变更订阅、员工数据主体透传；自动幂等键、并发上限与按 `retry.safe` 重试；仅服务端，需要 `zod` 4 |
 | `@tier0/sdk-v2/data/define` | 集合声明与类型：`defineCollection()`、`Doc` / `NewDoc` 等、`compileCollection()`、`validateDocument()`；可进浏览器包，组件和 route 的客户端代码只从这里取声明和类型 |
 
+集合声明必须分别提供稳定程序标识 `alias` 和业务名称 `name`，例如 `alias: 'production_orders'`、`name: '生产工单'`。目录、数据和引用直接用 name 展示，不提供 displayName 或名称回退；name 为 1–63 个 Unicode 字符，无首尾空白，不含 `/` 或空字符。ensure 按 alias 关联集合，仅首次创建设置 name，不覆盖用户改名。名称冲突时选择有区分度的业务名称，不拼随机后缀。
+
 不保留 UNS v1、旧 Flow、`getCurrentProjectId()`、project 成员查询或 `/gw/reload`。Workspace 成员不等于能使用某个 App 的成员，不可用前者在客户端猜测 App 权限。
 
 ## 本次接口退役

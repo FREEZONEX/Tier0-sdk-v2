@@ -251,6 +251,7 @@ describe('compileCollection', () => {
     const compiled = compileCollection(
       defineCollection({
         alias: 'orders',
+        name: '生产工单',
         schema: workOrderSchema,
         indexes: [{ path: 'code', unique: true }, { paths: ['status', 'line.id'] }, { path: 'tags', kind: 'gin' }, { path: 'code', unique: true }],
       }),
@@ -260,7 +261,7 @@ describe('compileCollection', () => {
 
   it('rejects invalid indexes', () => {
     const bad = (indexes: Parameters<typeof defineCollection>[0]['indexes']) =>
-      expect(() => compileCollection(defineCollection({ alias: 'orders', schema: workOrderSchema, indexes }))).toThrow(CollectionSchemaError);
+      expect(() => compileCollection(defineCollection({ alias: 'orders', name: '生产工单', schema: workOrderSchema, indexes }))).toThrow(CollectionSchemaError);
     bad([{ path: 'missing' }]);
     bad([{ path: 'tags', kind: 'gin', unique: true }]);
     bad([{ path: 'line' }]);
@@ -273,11 +274,11 @@ describe('compileCollection', () => {
   it('compiles one TTL index on an integer millisecond field', () => {
     const sessions = z.object({ user: z.string(), expiresAt: z.number().int(), note: z.string(), at: z.object({ ms: z.number().int() }) });
     const compiled = compileCollection(
-      defineCollection({ alias: 'sessions', schema: sessions, indexes: [{ path: 'user' }, { path: 'expiresAt', expireAfterSeconds: 3600 }] }),
+      defineCollection({ alias: 'sessions', name: '用户会话', schema: sessions, indexes: [{ path: 'user' }, { path: 'expiresAt', expireAfterSeconds: 3600 }] }),
     );
     expect(compiled.indexes).toEqual([{ path: 'user' }, { path: 'expiresAt', expireAfterSeconds: 3600 }]);
     const ttl = (indexes: Parameters<typeof defineCollection>[0]['indexes']) => () =>
-      compileCollection(defineCollection({ alias: 'sessions', schema: sessions, indexes }));
+      compileCollection(defineCollection({ alias: 'sessions', name: '用户会话', schema: sessions, indexes }));
     expect(ttl([{ path: 'expiresAt', expireAfterSeconds: 59 }])).toThrow(/60 to 31536000/);
     expect(ttl([{ path: 'expiresAt', expireAfterSeconds: 31_536_001 }])).toThrow(/60 to 31536000/);
     expect(ttl([{ path: 'expiresAt', expireAfterSeconds: 90.5 }])).toThrow(/integer/);
@@ -294,23 +295,35 @@ describe('compileCollection', () => {
   });
 
   it('explains index paths that reach into array items', () => {
-    expect(() => compileCollection(defineCollection({ alias: 'orders', schema: workOrderSchema, indexes: [{ path: 'lines.sku' }] }))).toThrow(
+    expect(() => compileCollection(defineCollection({ alias: 'orders', name: '生产工单', schema: workOrderSchema, indexes: [{ path: 'lines.sku' }] }))).toThrow(
       /reaches into the items of array "lines"/,
     );
-    expect(() => compileCollection(defineCollection({ alias: 'orders', schema: workOrderSchema, indexes: [{ path: 'lines.0.sku' }] }))).toThrow(CollectionSchemaError);
+    expect(() => compileCollection(defineCollection({ alias: 'orders', name: '生产工单', schema: workOrderSchema, indexes: [{ path: 'lines.0.sku' }] }))).toThrow(CollectionSchemaError);
+  });
+
+  it('requires a business name separately from the stable alias and counts Unicode characters', () => {
+    const declaration = defineCollection({ alias: 'production_orders', name: '生产工单', schema: workOrderSchema });
+    expect(compileCollection(declaration)).toMatchObject({ alias: 'production_orders', name: '生产工单' });
+    const unicodeName = '𠮷'.repeat(63);
+    expect(defineCollection({ alias: 'orders', name: unicodeName, schema: workOrderSchema }).name).toBe(unicodeName);
+    expect(() => Reflect.apply(defineCollection, undefined, [{ alias: 'orders', schema: workOrderSchema }])).toThrow(/Collection name/);
+    for (const name of ['', ' 工单', '工单 ', '工单/明细', '工单\0明细', '𠮷'.repeat(64)]) {
+      expect(() => defineCollection({ alias: 'orders', name, schema: workOrderSchema })).toThrow(/Collection name/);
+    }
+    expect(() => compileCollection({ ...declaration, name: '' })).toThrow(CollectionSchemaError);
   });
 
   it('validates aliases, description length and seed size', () => {
-    expect(() => defineCollection({ alias: '9orders', schema: workOrderSchema })).toThrow(/must match/);
-    defineCollection({ alias: 'ok', schema: z.object({ a: z.string() }), description: '中'.repeat(512) });
-    expect(() => defineCollection({ alias: 'long', schema: z.object({ a: z.string() }), description: 'a'.repeat(513) })).toThrow(/512 characters/);
+    expect(() => defineCollection({ alias: '9orders', name: '非法标识测试', schema: workOrderSchema })).toThrow(/must match/);
+    defineCollection({ alias: 'ok', name: '有效记录', schema: z.object({ a: z.string() }), description: '中'.repeat(512) });
+    expect(() => defineCollection({ alias: 'long', name: '长度校验', schema: z.object({ a: z.string() }), description: 'a'.repeat(513) })).toThrow(/512 characters/);
     const seed = Array.from({ length: 1001 }, (_, n) => ({ _id: `s${n}`, a: 'x' }));
-    expect(() => defineCollection({ alias: 'seeded', schema: z.object({ a: z.string() }), seed })).toThrow(/at most 1000 seed documents/);
+    expect(() => defineCollection({ alias: 'seeded', name: '种子记录', schema: z.object({ a: z.string() }), seed })).toThrow(/at most 1000 seed documents/);
   });
 });
 
 describe('write validation', () => {
-  const orders = defineCollection({ alias: 'orders', schema: workOrderSchema });
+  const orders = defineCollection({ alias: 'orders', name: '生产工单', schema: workOrderSchema });
   const doc = {
     code: 'WO-1',
     qty: 2,
@@ -323,6 +336,7 @@ describe('write validation', () => {
   it('treats datetime as a string annotation without parsing, normalizing or checking dates', () => {
     const events = defineCollection({
       alias: 'events',
+      name: '业务事件',
       schema: z.object({ happenedAt: z.string().meta({ format: 'date-time' }) }),
     });
     for (const happenedAt of ['', 'not a date', '2026-02-30T10:00:00Z', '2026-10-26T10:00:00+08:00']) {
@@ -336,6 +350,7 @@ describe('write validation', () => {
   it('treats numeric formats as annotations without new range limits or rounding', () => {
     const measurements = defineCollection({
       alias: 'measurements',
+      name: '设备测量',
       schema: z.object({
         count: z.int().meta({ format: 'int32' }),
         reading: z.number().meta({ format: 'float' }),

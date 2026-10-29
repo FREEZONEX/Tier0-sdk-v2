@@ -10,7 +10,7 @@
  * time) instead of on the first request.
  */
 import { z } from 'zod';
-import { ALIAS_PATTERN, type CollectionDefinition, type IndexSpec } from './define.js';
+import { ALIAS_PATTERN, assertCollectionName, type CollectionDefinition, type IndexSpec } from './define.js';
 
 export type RecordSchemaType = 'object' | 'array' | 'string' | 'number' | 'integer' | 'boolean';
 export type EnumValue = string | number | boolean;
@@ -41,6 +41,7 @@ export interface NormalizedIndex {
 /** One ensure item, exactly as it is sent to `/uns/app/collections/ensure`. */
 export interface CompiledCollection {
   alias: string;
+  name: string;
   recordSchema: RecordSchema;
   indexes: NormalizedIndex[];
   description?: string;
@@ -502,12 +503,18 @@ export function compileCollection(definition: CollectionDefinition): CompiledCol
   if (!ALIAS_PATTERN.test(definition.alias)) {
     throw new CollectionSchemaError(definition.alias, [{ path: 'alias', message: `Alias must match ${ALIAS_PATTERN}.` }]);
   }
+  try {
+    assertCollectionName(definition.name);
+  } catch (error) {
+    throw new CollectionSchemaError(definition.alias, [{ path: 'name', message: error instanceof Error ? error.message : String(error) }]);
+  }
   const recordSchema = toRecordSchema(definition.alias, definition.schema);
   const issues: SchemaIssue[] = [];
   const indexes = normalizeIndexes(definition.alias, definition.indexes, recordSchema, issues);
   if (issues.length > 0) throw new CollectionSchemaError(definition.alias, issues);
   const result: CompiledCollection = {
     alias: definition.alias,
+    name: definition.name,
     recordSchema,
     indexes,
     ...(definition.description ? { description: definition.description } : {}),

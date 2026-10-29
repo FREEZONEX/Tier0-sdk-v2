@@ -8,6 +8,7 @@ import { createDataClient, defineCollection } from '@tier0/sdk-v2/data';
 
 const workOrders = defineCollection({
   alias: 'work_orders',
+  name: '生产工单',
   schema: z.object({
     code: z.string(),
     status: z.enum(['DRAFT', 'RELEASED', 'DONE']),
@@ -63,6 +64,7 @@ import { createDataClient, defineCollection } from '@tier0/sdk-v2/data';
 
 const workOrders = defineCollection({
   alias: 'work_orders',
+  name: '生产工单',
   schema: z.object({ code: z.string(), status: z.enum(['DRAFT', 'RELEASED', 'DONE']) }),
   indexes: [{ path: 'code', unique: true }, { path: 'status' }],
 });
@@ -161,7 +163,7 @@ export async function bumpAll(items: Collection<{ status: string; views: number 
 import { z } from 'zod';
 import { createDataClient, defineCollection, runAsApp, type SubscriptionEvent } from '@tier0/sdk-v2/data';
 
-const tickets = defineCollection({ alias: 'tickets', schema: z.object({ title: z.string(), status: z.enum(['OPEN', 'DONE']) }) });
+const tickets = defineCollection({ alias: 'tickets', name: '问题工单', schema: z.object({ title: z.string(), status: z.enum(['OPEN', 'DONE']) }) });
 const data = createDataClient({ collections: [tickets] });
 
 /** 一个进程一条 App 级订阅，在进程内扇出给浏览器。 */

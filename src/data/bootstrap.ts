@@ -22,9 +22,9 @@
  *   changed. Rebuilds are limited to one per REBUILD_INTERVAL_MS per client;
  *   APP_GRANT_REVOKED is never retried (ensure itself reports it).
  * - `ignored` notes never fail a request. ensure never writes annotations, so
- *   an edited `.describe()` or collection description comes back as
+ *   an edited name, `.describe()` or collection description comes back as
  *   ANNOTATION_NOT_APPLIED; it is logged as a warning pointing at
- *   schema:replace, which is the only way to change stored annotations.
+ *   metadata:updateOne for names, or schema:replace for schema annotations.
  */
 import { createHash } from 'node:crypto';
 import type { DataCall } from './call.js';
@@ -128,7 +128,7 @@ const CONFLICT_HINTS: Record<string, string> = {
   LIMIT_EXCEEDED: 'the joined schema exceeds a UNS limit (depth, properties, enum values or indexes); split the structure',
   OPEN_OBJECT: 'every object must be closed; declare it with z.object',
   ALIAS_IN_USE: 'the alias belongs to another collection; pick another alias',
-  NAME_IN_USE: 'the name belongs to another collection; pick another alias',
+  NAME_IN_USE: 'the business name belongs to another collection in this folder; pick another name and keep the stable alias',
   INVALID_INDEX: 'fix the index declaration',
   JOIN_UNSUPPORTED:
     'the stored schema holds a node the declaration cannot widen (e.g. enum values outside its range); repair it with schema:replace via the tier0 MCP',
@@ -270,8 +270,8 @@ export function createBootstrap(config: BootstrapConfig) {
       if (annotations.length > 0) {
         // A hint, not an error: storage keeps its annotations and serves as before.
         logger.warn(
-          `[data] ensure does not change stored titles/descriptions; not applied: ${annotations.map((note) => notePath(result.alias, note)).join(', ')}. ` +
-            `Apply them with schema:replace via the tier0 MCP, using compileCollection(...) of the declaration as the body.`,
+          `[data] ensure does not change stored names/titles/descriptions; not applied: ${annotations.map((note) => notePath(result.alias, note)).join(', ')}. ` +
+            `Rename with metadata:updateOne via the tier0 MCP; apply schema annotations with schema:replace, selecting alias, recordSchema, indexes and description from compileCollection(...).`,
         );
       }
     }

@@ -9,8 +9,8 @@ import {
   type SubscriptionEvent,
 } from '../../src/data/index.js';
 
-const orders = defineCollection({ alias: 'orders', schema: z.object({ code: z.string() }) });
-const lines = defineCollection({ alias: 'lines', schema: z.object({ sku: z.string() }) });
+const orders = defineCollection({ alias: 'orders', name: '生产工单', schema: z.object({ code: z.string() }) });
+const lines = defineCollection({ alias: 'lines', name: '工单明细', schema: z.object({ sku: z.string() }) });
 const silent = { info() {}, warn() {}, error() {} };
 const SUBSCRIBE = '/openapi/v2/uns/records:subscribe';
 

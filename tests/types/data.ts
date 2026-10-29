@@ -3,14 +3,17 @@ import { createDataClient, DataError, defineCollection, runAsApp, type DeepParti
 
 const workOrders = defineCollection({
   alias: 'work_orders',
+  name: '生产工单',
   schema: z.object({ code: z.string(), status: z.enum(['DRAFT', 'DONE']), qty: z.number().int().optional() }),
   indexes: [{ path: 'code', unique: true }],
   seed: [{ _id: 'wo-1', code: 'WO-1', status: 'DRAFT' }],
 });
 // @ts-expect-error a seed document carries a fixed _id
-defineCollection({ alias: 'unseeded', schema: z.object({ a: z.string() }), seed: [{ a: 'x' }] });
+defineCollection({ alias: 'unseeded', name: '种子校验', schema: z.object({ a: z.string() }), seed: [{ a: 'x' }] });
 
 const data = createDataClient({ collections: [workOrders] });
+// @ts-expect-error a business name is required separately from the alias
+defineCollection({ alias: 'missing_name', schema: z.object({ code: z.string() }) });
 const orders = data.collection(workOrders);
 orders.find({ status: 'DRAFT' }, { sort: { '_meta.createdAt': -1 }, limit: 50 }).toArray().then(rows => {
   const order: Doc<typeof workOrders> = rows[0];
@@ -46,7 +49,7 @@ orders.insertOne(draft, dynamicOptions).then(result => {
   void optional;
 });
 
-const nestedOrders = defineCollection({ alias: 'nested_orders', schema: z.object({
+const nestedOrders = defineCollection({ alias: 'nested_orders', name: '客户工单', schema: z.object({
   code: z.string(), customer: z.object({ name: z.string(), email: z.string() }),
   lines: z.array(z.object({ sku: z.string(), quantity: z.number() })), tags: z.array(z.string()),
 }) });
