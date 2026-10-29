@@ -14,7 +14,7 @@ const runItem = schema => schema.properties.data.properties.items.items;
 export function patchRunSchema(current, upstream) {
   const result = structuredClone(current);
   const before = runItem(current), after = runItem(upstream);
-  assert.deepEqual(after.properties.kind.enum, ['delivery', 'control', 'http']);
+  assert.deepEqual(after.properties.kind.enum, ['delivery', 'request', 'http']);
   assert.deepEqual(after.properties.responseSentAt, { type: 'integer', format: 'int64', nullable: true, minimum: 0 });
   assert.equal(after.required.includes('responseSentAt'), false);
   const withoutHTTP = schema => {

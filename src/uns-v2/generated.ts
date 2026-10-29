@@ -2005,7 +2005,7 @@ export type CloudStreamRunsListResponse = {
   "data": ({
   "items": (Array<({
   "id": string;
-  "kind": "delivery" | "control" | "http";
+  "kind": "delivery" | "request" | "http";
   "release": string;
   "entryId": string;
   "trigger": string;
@@ -2128,7 +2128,7 @@ export type CloudAppStreamPolicyUpdateReq = {
 export type CloudAppStreamPolicy = {
   "appId": string;
   "revision": UnsV2Integer;
-  "version": "cloud-hosted-app-control/v1";
+  "version": "cloud-hosted-app-stream/v1";
   "status": "active" | "disabled";
   "authorityStatus": "available" | "notReady" | "notFound" | "unavailable";
   "appName": string;
@@ -2436,7 +2436,7 @@ export type CloudAppStreamAccessItem = {
   "actions": Array<"stream.requests.read" | "stream.requests.invoke" | "stream.requests.write">;
   "configuredActive": 1 | 2;
   "state": "available" | "blocked";
-  "blockedReasons": Array<"grant_revoked" | "grant_invalid" | "recipient_unavailable" | "stream_inactive" | "binding_unavailable" | "deployer_unavailable" | "state_changed" | "grant_insufficient" | "app_control_ceiling" | "target_not_granted" | "collection_not_granted">;
+  "blockedReasons": Array<"grant_revoked" | "grant_invalid" | "recipient_unavailable" | "stream_inactive" | "binding_unavailable" | "deployer_unavailable" | "state_changed" | "grant_insufficient" | "app_stream_ceiling" | "target_not_granted" | "collection_not_granted">;
   "revision": UnsV2Integer;
 };
 
@@ -3729,10 +3729,10 @@ export const UNS_V2_CODEC_SCHEMAS = {"UnsV2CatalogReq":{"k":"o"},"UnsV2Transacti
 
 export const UNS_V2_CONTRACT_PROVENANCE = {
   "repository": "FREEZONEX/Tier0-Backend",
-  "revision": "c90d0e2c7514e8c454f13578cb6a0487d7e15710",
+  "revision": "0b6fc2375cdc322318235da75effd982dd62b3e5",
   "version": "5.0.0",
   "source": "service/unssvr/internal/domain/unsv2/contract_generated.go#ContractJSON",
-  "cloudRevision": "c90d0e2c7514e8c454f13578cb6a0487d7e15710",
+  "cloudRevision": "0b6fc2375cdc322318235da75effd982dd62b3e5",
   "cloudContractRevision": "cloud-source-impact/2+source-vendor/2+app-create-capability/1+data/3+record-reads/1+stream-receipt/1+collection-namespace/1+http-acquisition/2+http-source-role/1+http-source-request/1+app-collection/2+collection-ownership/1+metadata/1+app-context/3+collection-ttl/1+error-model/1+crud-consolidation/1+record-insert-return/1+lifecycle-consolidation/1+api-surface/2+source-stream-single-model+app-data/2+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/1+http-in/1+app-resource-access/2+stream-control-probe-retirement/1+http-push-retirement/1",
   "resolvedCloudContract": true,
   "enterpriseBase": {
@@ -3749,12 +3749,12 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
       "capability": "x-tier0-opcua-server: static available=false; online availability is workspace/registry authoritative"
     }
   },
-  "sourceDerivedContractSHA256": "66aa80769a9668745ed4d41bc1580e4e3f6b0ff0fca95c16a03ac693328f6534",
+  "sourceDerivedContractSHA256": "c208deacadaad7aa95f6d91ba87ac9c143daf6dac8c37f431813e64ca626c447",
   "hashes": {
-    "contract": "66aa80769a9668745ed4d41bc1580e4e3f6b0ff0fca95c16a03ac693328f6534",
+    "contract": "c208deacadaad7aa95f6d91ba87ac9c143daf6dac8c37f431813e64ca626c447",
     "cloudSupport": "4ff9d5ff69e35e38459287cf15df45ab627684e2e2294dfd1e076ebc4fc34b46",
-    "manifest": "02cdcea5991d858a94091c8a7c84e3d6f99d11c63488ba23d0e989f41f23db2e",
-    "provenance": "c7d3c3cb3e36ed79433e389949245969c4a42ce24cf2fb9ade36cd78a5ab091d",
+    "manifest": "72248f4ab201f7f907fccb1907957c12ec62d6df7b6ef77657695207222f403e",
+    "provenance": "8418e0cf055bd510255e9f3a12f6896151bae83a9aa301806c05208f6f6c6977",
     "registry": "c74313c217742d50391a94c09e60d5c5bd1a89c305fa4145cbf23b35ba7dbcdb"
   },
   "publicOperationCount": 82,

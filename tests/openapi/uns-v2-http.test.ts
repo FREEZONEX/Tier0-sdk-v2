@@ -319,7 +319,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
       'record-notifications/1', 'record-delete-samples/1', 'stream-history/1',
       'record-reads/1', 'app-context/3', 'collection-ttl/1', 'error-model/1', 'record-insert-return/1',
     ]));
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('c90d0e2c7514e8c454f13578cb6a0487d7e15710');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('0b6fc2375cdc322318235da75effd982dd62b3e5');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(UNS_V2_CONTRACT_PROVENANCE.sourceDerivedContractSHA256).toBe(UNS_V2_CONTRACT_PROVENANCE.hashes.contract);
     expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(82);

@@ -21,7 +21,7 @@ function canonical(value: unknown): unknown {
     .map(([key, item]) => [key, canonical(item)]));
 }
 
-it('preserves the released Namespace contract except the explicit AppContext dataState addition', () => {
+it('preserves the released Namespace contract except explicit App context and Stream view changes', () => {
   const manifest = JSON.parse(readFileSync(new URL('../../contracts/uns-v2/manifest.json', import.meta.url), 'utf8'));
   const operations = Object.fromEntries(names.map(name => {
     const operation = manifest.operations.find((item: { name: string }) => item.name === name);
@@ -48,8 +48,8 @@ it('preserves the released Namespace contract except the explicit AppContext dat
   }
   expect(Object.keys(operations)).toHaveLength(53);
   expect(Object.keys(schemas)).toHaveLength(202);
-  // The current producer adds app-context/3 state. Verify this exact delta,
-  // then compare every other operation and reachable schema to the old digest.
+  // Verify the approved context and neutral view deltas before comparing all
+  // other operations and reachable schemas to the original release digest.
   const appContext = schemas.AppContext as {
     properties: Record<string, { type?: string; enum?: string[]; description?: string }>;
     required: string[];
@@ -63,6 +63,17 @@ it('preserves the released Namespace contract except the explicit AppContext dat
   const baselineAppContext = baselineSchemas.AppContext as typeof appContext;
   delete baselineAppContext.properties.dataState;
   baselineAppContext.required = baselineAppContext.required.filter(name => name !== 'dataState');
-  const digest = createHash('sha256').update(JSON.stringify(canonical({ operations, schemas: baselineSchemas }))).digest('hex');
+  const baselineOperations = structuredClone(operations);
+  expect(baselineOperations.appStreamAccessList.resource).toBe('stream');
+  baselineOperations.appStreamAccessList.resource = 'control';
+  const access = baselineSchemas.CloudAppStreamAccessItem as {
+    properties: {blockedReasons: {items: {enum: string[]}}};
+  };
+  const reasons = access.properties.blockedReasons.items.enum;
+  expect(reasons.filter(reason => reason === 'app_stream_ceiling')).toHaveLength(1);
+  expect(reasons).not.toContain('app_control_ceiling');
+  access.properties.blockedReasons.items.enum = reasons.map(reason =>
+    reason === 'app_stream_ceiling' ? 'app_control_ceiling' : reason);
+  const digest = createHash('sha256').update(JSON.stringify(canonical({ operations: baselineOperations, schemas: baselineSchemas }))).digest('hex');
   expect(digest).toBe('c11a131d8a49f573cf7e3eb3bf7bef25994192f81cf37db76d615e99042a1f63');
 });

@@ -7238,6 +7238,7 @@
         "description": "读取同一真实 App 的Stream 请求与消息权限上限，需当前 Builder 会话或 full_access 个人/Agent Key，且有 uns.write 与 stream.requests.manage。此上限与具体 Stream 入口授权共同生效。",
         "x-tier0-audience": "governance",
         "x-tier0-starter": false,
+        "x-tier0-mcp": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -7386,6 +7387,7 @@
         "description": "复用现有 App 策略，保留 Collection 授权和员工规则；需 expectedRevision、idempotencyKey 和 dryRun。仅当前 Builder 会话或 full_access 个人/Agent Key 可用，并需 uns.write 与 stream.requests.manage。不会自动授予任何 Stream 入口，也不会升级 App Key。",
         "x-tier0-audience": "governance",
         "x-tier0-starter": false,
+        "x-tier0-mcp": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -7994,6 +7996,7 @@
         "description": "按 code 和接收方（仅 app/user）读取授权、当前发布绑定和权限上限，返回用于并发校验的 snapshotToken。当前管理会话或 full_access 个人/Agent Key 可用，需 stream.requests.manage（授权配置）和 uns.source.manage；App 与服务 Key 不可配置授权。不返回 Source 配置或凭据。",
         "x-tier0-audience": "governance",
         "x-tier0-starter": false,
+        "x-tier0-mcp": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -8175,6 +8178,7 @@
         "description": "使用 get 返回的 expectedSnapshotToken 原子修改授权，无需回传全部目标版本。active=1 新增或更新，actions 仅允许 stream.requests.read、stream.requests.invoke、stream.requests.write，write 需要 invoke。资源“管理”包含查看、调用和写操作；stream.requests.manage 是调用方的授权配置能力。active=2 撤销全部历史目标，actions 必须为空，不依赖接收方或当前发布在线。保留旧版本字段兼容，两种校验方式互斥。版本冲突或响应丢失后先重新读取、核对当前状态，再确认是否修改，不能盲目覆盖。",
         "x-tier0-audience": "governance",
         "x-tier0-starter": false,
+        "x-tier0-mcp": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -8285,6 +8289,7 @@
         "description": "服务端汇总已配置入口、Stream 名称、授权动作及当前受阻原因。默认仅返回尚未撤销的授权，includeInactive=1 包含撤销项。结果是当前授权状态快照，执行仍会复核；不会因此扩大 App 的全局权限上限。",
         "x-tier0-audience": "governance",
         "x-tier0-starter": false,
+        "x-tier0-mcp": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -21117,7 +21122,7 @@
           "version": {
             "type": "string",
             "enum": [
-              "cloud-hosted-app-control/v1"
+              "cloud-hosted-app-stream/v1"
             ]
           },
           "status": {
@@ -22145,7 +22150,7 @@
                 "deployer_unavailable",
                 "state_changed",
                 "grant_insufficient",
-                "app_control_ceiling",
+                "app_stream_ceiling",
                 "target_not_granted",
                 "collection_not_granted"
               ]
@@ -28639,7 +28644,7 @@
                       "type": "string",
                       "enum": [
                         "delivery",
-                        "control",
+                        "request",
                         "http"
                       ]
                     },

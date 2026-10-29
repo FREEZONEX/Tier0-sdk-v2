@@ -5,11 +5,11 @@ import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
-import { assertNoRetiredControls, retiredControlOperations, retiredControlSchemas } from './retired-controls.mjs';
+import { assertNoRetiredControls, retiredControlOperations, retiredControlSchemas, retiredControlLabels } from './retired-controls.mjs';
 const root = fileURLToPath(new URL('../', import.meta.url));
 
 test('rejects every retired operation, DTO, route and compatibility label', () => {
-  for (const name of [...retiredControlOperations, ...retiredControlSchemas, '/uns/controls/invoke', '/openapi/v1/controls/invoke', 'control/v1']) {
+  for (const name of [...retiredControlOperations, ...retiredControlSchemas, ...retiredControlLabels, '/uns/controls/invoke', '/openapi/v1/controls/invoke', 'control/v1']) {
     assert.throws(() => assertNoRetiredControls({ name }, 'fixture'), /Retired Controls contract/);
     assert.throws(() => assertNoRetiredControls(JSON.stringify({ name }), 'fixture'), /Retired Controls contract/);
   }
@@ -20,7 +20,7 @@ test('does not reject Namespace, Stream management or neutral interaction contra
     sdkContractVersions: ['stream-requests/v1'],
     operations: ['recordFind', 'streamDocumentUpdate', 'streamRequestGrantSet', 'appStreamPolicyGet'],
     schemas: ['CloudStreamRequestGrantSetReq', 'CloudStreamRunsListResponse'],
-    policyVersion: 'cloud-hosted-app-control/v1',
+    policyVersion: 'cloud-hosted-app-stream/v1',
     paths: ['/openapi/v1/stream-requests/invoke', '/openapi/v1/stream-messages/connect'],
   }, 'fixture'));
 });

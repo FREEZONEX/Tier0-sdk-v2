@@ -2829,7 +2829,7 @@
       "permission": "stream.requests.manage",
       "scope": "stream.requests:manage",
       "minPermission": 3,
-      "resource": "control",
+      "resource": "stream",
       "mutation": "",
       "runtime": true,
       "resourceId": 3320,
@@ -2870,7 +2870,7 @@
       "permission": "stream.requests.manage",
       "scope": "stream.requests:manage",
       "minPermission": 3,
-      "resource": "control",
+      "resource": "stream",
       "mutation": "runtime",
       "runtime": true,
       "resourceId": 3320,
@@ -2913,7 +2913,7 @@
       "permission": "stream.requests.manage",
       "scope": "stream.requests:manage",
       "minPermission": 3,
-      "resource": "control",
+      "resource": "stream",
       "mutation": "",
       "runtime": true,
       "resourceId": 3320,
@@ -18895,7 +18895,7 @@
                     "type": "string",
                     "enum": [
                       "delivery",
-                      "control",
+                      "request",
                       "http"
                     ]
                   },
@@ -19100,7 +19100,7 @@
         "version": {
           "type": "string",
           "enum": [
-            "cloud-control-app/v1"
+            "cloud-stream-app/v1"
           ]
         },
         "name": {
@@ -19167,7 +19167,7 @@
         "version": {
           "type": "string",
           "enum": [
-            "cloud-control-app/v1"
+            "cloud-stream-app/v1"
           ]
         }
       },
@@ -19994,7 +19994,7 @@
         "version": {
           "type": "string",
           "enum": [
-            "cloud-hosted-app-control/v1"
+            "cloud-hosted-app-stream/v1"
           ]
         },
         "status": {
@@ -21642,7 +21642,7 @@
               "deployer_unavailable",
               "state_changed",
               "grant_insufficient",
-              "app_control_ceiling",
+              "app_stream_ceiling",
               "target_not_granted",
               "collection_not_granted"
             ]
