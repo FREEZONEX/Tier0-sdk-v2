@@ -7410,7 +7410,7 @@
         "tags": [
           "App 与授权"
         ],
-        "description": "仅当前受管理 App 凭证可用；返回真实 App 名称和当前授权集合与 Key 权限的交集。collections[] 含集合定义版本 revision、recordSchema、indexes、indexStatus（索引就绪状态）与 ttl；App 读取集合结构只用此接口。collections[].createCapability 按当前员工的真实新增规则给出 allowed、独立可写输入 schema 和版本绑定；不能用通用 record:write 或 read schema 猜测新增。limits 给出 count、总数、queryBatch、get、订阅、TTL、并发名额与幂等窗口等边界，供客户端自适应。提示不是授权凭证，写入与 replay 仍实时校验。身份只取自服务端认证，不接受 App ID 或发行人用户参数，不返回凭据。",
+        "description": "仅当前受管理 App 凭证可用；返回真实 App 名称和当前授权集合与 Key 权限的交集。新 App 尚无数据策略时正常返回 dataState=uninitialized、revision=0 和空集合，不创建策略或授予数据权限；按实际集合声明调用 appCollectionsEnsure 后为 ready。已有策略被管理员停用时返回 403，reason=APP_DATA_POLICY_DISABLED，不自动恢复。collections[] 含集合定义版本 revision、recordSchema、indexes、indexStatus（索引就绪状态）与 ttl；App 读取集合结构只用此接口。collections[].createCapability 按当前员工的真实新增规则给出 allowed、独立可写输入 schema 和版本绑定；不能用通用 record:write 或 read schema 猜测新增。limits 给出 count、总数、queryBatch、get、订阅、TTL、并发名额与幂等窗口等边界，供客户端自适应。提示不是授权凭证，写入与 replay 仍实时校验。身份只取自服务端认证，不接受 App ID 或发行人用户参数，不返回凭据。",
         "x-tier0-audience": "app",
         "x-tier0-starter": true,
         "x-tier0-readonly": true,
@@ -15087,6 +15087,14 @@
           "revision": {
             "type": "integer"
           },
+          "dataState": {
+            "type": "string",
+            "enum": [
+              "uninitialized",
+              "ready"
+            ],
+            "description": "uninitialized 表示尚无数据策略，返回空集合且不写入任何初始化状态；按实际集合声明调用 ensure 后为 ready。管理员停用策略仍返回 403 APP_DATA_POLICY_DISABLED，不自动恢复。"
+          },
           "limits": {
             "$ref": "#/components/schemas/CloudAppDataLimits"
           }
@@ -15097,6 +15105,7 @@
           "revision",
           "collections",
           "platformPermissions",
+          "dataState",
           "limits"
         ],
         "type": "object"
