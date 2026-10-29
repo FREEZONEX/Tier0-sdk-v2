@@ -34,7 +34,7 @@ export async function sendCompletedOrder(
 }
 ```
 
-sender.id 来自真实 APP_ID UUID。v2 不注入 project 上下文，也没有 getCurrentProjectId；不要把 Folder/Workspace ID 填进 meta.projectId。旧 UI 的 App 名称解析/打开 App 按钮依赖 appId+projectId，不能将旧导航规则原样承诺到新架构。需带链接时传已验证可访问的业务 https 地址，或确认目标前端支持的相对路由；缺少旧上下文时不猜拼地址。
+sender.id 来自真实 APP_ID UUID。需带链接时传已验证可访问的业务 https 地址，或确认目标前端支持的相对路由。
 
 other 发送者应给人读名称，如 `{type:'other',name:'库存同步服务'}`。app 不重复硬编码名称。sender/meta/link 都是展示导航提示，不是授权证明。meta 值为字符串，序列化最多 500 字节；sender.name 最多100字符。source 是废弃别名，不用于新代码。
 
@@ -56,7 +56,7 @@ other 发送者应给人读名称，如 `{type:'other',name:'库存同步服务'
 
 成功为直接 {messageId,status,createdAt}，没有 data。accepted 是异步受理，sent 不是已读，详见[查询](get.md)。
 
-v2 的 ApiError 已提供 status/errorCode/msg，不再 JSON.parse(error.msg) 提取旧版原始错误。
+错误通过 ApiError 的 status/errorCode/msg 判断。
 
 | HTTP / errorCode | 处理 |
 | --- | --- |

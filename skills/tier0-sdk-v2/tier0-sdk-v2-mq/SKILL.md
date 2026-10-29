@@ -5,7 +5,7 @@ description: 使用 @tier0/sdk-v2/mq 连接 Tier0 MQTT WebSocket Broker，管理
 
 # MQTT 实时消息
 
-连接配置、完整订阅生命周期、通配符、发布及鉴权排查见 [Quickstart](references/quickstart.md)。v1 的旧 UNS 路径/字段规则不适用于新架构；实际 MQTT 映射需按目标环境确认。
+连接配置、完整订阅生命周期、通配符、发布及鉴权排查见 [Quickstart](references/quickstart.md)。实际 MQTT 主题和消息格式按目标环境确认。
 
 `Tier0MQClient` 从独立子入口导入。它面向消息客户端；配置平台采集连接用 Source，运行处理逻辑用 Stream。HTTP SDK 的“不自动重试”不等于 MQTT 禁用重连或 QoS 重投递。
 

@@ -13,24 +13,23 @@
 
 ## HTTP Client Source 绑定示例
 
-先按[Source 查询](../../tier0-sdk-v2-source/references/read.md)选定真实 HTTP Client Source。脚本的 api.sources 属于平台执行器，与应用中的 client.source 不同。sourceId 保持字符串，configRevision 从完整源读取。省略 `config.role` 时按正式协议目录默认为 client；Server 走入站语义，不能创建为主动请求程序。
+先按[Source 查询](../../tier0-sdk-v2-source/references/read.md)选定真实 HTTP Client Source。脚本的 api.sources 属于平台执行器，与应用中的 client.source 不同。sourceId 保持字符串，configRevision 使用 Source 创建、更新回执或完整查询得到的修订。已有回执时直接传入 source；没有快照时再调用 source.documents.get({id,view:"full"}) 并检查 data.document。省略 `config.role` 时按正式协议目录默认为 client；Server 走入站语义，不能创建为主动请求程序。
 
 ```ts
-import { createClient, type Tier0Client, type RuntimeStreamDefinition } from '@tier0/sdk-v2';
+import { createClient, type Tier0Client, type RuntimeStreamDefinition, type CloudSourceDocumentView } from '@tier0/sdk-v2';
 
 export async function createHttpStream(
-  sourceId: string, name: string, intentKey: string, client: Tier0Client = createClient(),
+  source: CloudSourceDocumentView, name: string, intentKey: string, client: Tier0Client = createClient(),
 ) {
+  const sourceId = source.id;
   if (!/^[1-9][0-9]*$/.test(sourceId)) throw new Error('Source ID 必须是正十进制字符串');
-  const source = await client.source.documents.get({ id: sourceId, view: 'full' });
-  if (!('document' in source.data)) throw new Error('需要完整 Source 文档');
-  if (source.data.document.protocol !== 'http-api' || 'sourceType' in source.data.document.config ||
-      (source.data.document.config.role ?? 'client') !== 'client') {
+  if (source.document.protocol !== 'http-api' || 'sourceType' in source.document.config ||
+      (source.document.config.role ?? 'client') !== 'client') {
     throw new Error('此主动请求示例需要 HTTP API Client Source');
   }
   const document: RuntimeStreamDefinition = {
     name, timeoutMs: 5000,
-    sourceBindings: [{ sourceId, configRevision: source.data.revision, acquisition: {} }],
+    sourceBindings: [{ sourceId, configRevision: source.revision, acquisition: {} }],
     script: [
       'module.exports = api => {',
       '  const upstream = api.sources.use({ id: ' + JSON.stringify(sourceId) + ', resources: [] });',
@@ -51,8 +50,8 @@ export async function createHttpStream(
 
 将 path="orders"、60 秒周期改为业务实际值。示例保存草稿，不部署，也不将返回值自动写入 UNS；需要写入集合时按执行器能力定义 api.uns 操作。resources=[] 是空冻结资源集，不是通配授权。源地址和凭据留在 Source，不能拷进 acquisition 或脚本。
 
-创建 data 为 CloudStreamDocumentView 或预检结果，实际保存返回 id、revision 和完整 document；预检不生成 ID。需要展示预检时单独调用 documents.validate({program})；普通保存无需先校验再保存。当前后端创建/校验需要注册 Worker 可用。TEMPORARILY_UNAVAILABLE 不代表脚本一定错误；不要自动改用旧 Flow。
+创建 data 为 CloudStreamDocumentView 或预检结果，实际保存返回 id、revision 和完整 document；预检不生成 ID。需要展示预检时单独调用 documents.validate({program})；普通保存无需先校验再保存。当前后端创建/校验需要注册 Worker 可用。TEMPORARILY_UNAVAILABLE 不代表脚本一定错误。
 
-programs.create 已退役，创建统一使用 documents.create。历史创建结局未知时先按已知 ID 或业务标识核对状态，不能将旧请求或幂等键改投 documents.create 重做。
+创建结局未知时先按已知 ID 或业务标识核对状态；允许重试时保留原请求与幂等键。
 
 原生编辑器形态 `documents.create({dryRun, document})` 的 document 为 name/model/script对象/sources/entries，script 为 `{code,timeoutMs}`，sources 用 alias/sourceId/configRevision/resources/acquisition。不要把上面的 script 字符串直接塞入原生文档。

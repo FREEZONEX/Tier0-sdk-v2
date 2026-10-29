@@ -14,12 +14,12 @@
 | --- | --- |
 | revision | 草稿修订；传给下次写入的 expectedRevision，冲突时显式处理 |
 | activeVersion | 不可变发布版本 ID；回滚的 versionId 使用这个 ID，不使用发布序号 |
-| activeRelease | 本次事务记录的正整数发布序号；与 runs.list 中的 release 对照；无活跃发布或旧回执未记录时省略 |
+| activeRelease | 本次事务记录的正整数发布序号；与 runs.list 中的 release 对照；无活跃发布或回执未记录时省略 |
 
-programs 回执的 activeVersion:'0' 表示无活跃版本；新增 activeRelease 不用 0 表示未发布。原生 documents 回执的既有 activeRelease 约定不变。
+programs 回执的 activeVersion:'0' 表示无活跃版本；programs 的 activeRelease 此时省略；documents 的 activeRelease 此时为 0。
 
 ```ts
-import { createClient, type Tier0Client, type CloudStreamDocumentView } from '@tier0/sdk-v2';
+import { createClient, type Tier0Client, type CloudStreamDocumentView, type CloudStreamStopView } from '@tier0/sdk-v2';
 
 export async function deployStream(current: CloudStreamDocumentView, intentKey: string, client: Tier0Client = createClient()) {
   const sources = current.document.sources ?? [];
@@ -35,40 +35,42 @@ export async function deployStream(current: CloudStreamDocumentView, intentKey: 
   }
   const release = receipt.data.activeRelease;
   if (release === undefined || BigInt(String(release)) <= 0n) {
-    throw new Error('历史回执缺少发布编号；保留原请求，不用当前发布编号替代');
+    throw new Error('回执缺少发布编号；保留原请求，不用当前发布编号替代');
   }
   return { receipt, release };
 }
 
-export async function disableStream(id: string, intentKey: string, client: Tier0Client = createClient()) {
-  const { data: current } = await client.stream.documents.get({ id });
-  if (String(current.activeRelease) === '0') throw new Error('没有活跃发布可停用');
+export async function disableStream(
+  current: Pick<CloudStreamStopView, 'id' | 'revision' | 'activeRelease'>,
+  intentKey: string, client: Tier0Client = createClient(),
+) {
+  if (BigInt(String(current.activeRelease)) <= 0n) throw new Error('没有活跃发布可停用');
   const receipt = await client.stream.documents.disable({
-    id, expectedRevision: current.revision, expectedActiveRelease: current.activeRelease,
+    id: current.id, expectedRevision: current.revision, expectedActiveRelease: current.activeRelease,
     dryRun: false, idempotencyKey: intentKey,
   });
-  const after = await client.stream.documents.get({ id });
-  if (String(after.data.activeRelease) !== '0') throw new Error('停用读回未确认');
-  return { receipt, current: after.data };
+  if (!('id' in receipt.data) || String(receipt.data.activeRelease) !== '0') {
+    throw new Error('未返回停用回执');
+  }
+  return { receipt, current: receipt.data };
 }
 ```
 
-将创建或更新回执的 current 传给 deployStream，只发一次发布请求。只有手上没有草稿快照时才先 documents.get。使用 [按发布号查询运行记录](read.md#观察本次发布) 才能观察这次发布，观察窗口汇总不能证明该版本运行。发布成功不表示外部连接健康或执行成功。停用保留草稿。仅修改草稿的任务不额外发布/停用。
+将创建或更新回执的 current 传给 deployStream，只发一次发布请求。只有手上没有草稿快照时才先 documents.get。使用 [按发布号查询运行记录](read.md#观察本次发布) 才能观察这次发布，观察窗口汇总不能证明该版本运行。发布成功不表示外部连接健康或执行成功。停用使用已确认的 id/revision/activeRelease（可来自发布回执），返回的 current 可直接用于删除；不需要前后各 get。停用保留草稿。仅修改草稿的任务不额外发布/停用。
 
 ## 回滚到明确版本
 
 ```ts
-import { createClient, type Tier0Client } from '@tier0/sdk-v2';
+import { createClient, type Tier0Client, type CloudStreamStopView } from '@tier0/sdk-v2';
 
 export async function rollbackStream(
-  id: string, versionId: string, intentKey: string, client: Tier0Client = createClient(),
+  current: Pick<CloudStreamStopView, 'id' | 'revision'>, versionId: string, intentKey: string, client: Tier0Client = createClient(),
 ) {
-  // versionId 必须先从 programs.versions.list({id,page,size}) 查询并选定。
-  const { data: current } = await client.stream.documents.get({ id });
+  // versionId 使用已知发布回执的 activeVersion，或从 programs.versions.list 选定。
   return client.stream.programs.rollback({
-    id, versionId, expectedRevision: current.revision, dryRun: false, idempotencyKey: intentKey,
+    id: current.id, versionId, expectedRevision: current.revision, dryRun: false, idempotencyKey: intentKey,
   });
 }
 ```
 
-检查回执 activeVersion 与 activeRelease。超时或 UnsV2OutcomeUnknownError 时保留原路由、载荷和幂等键；允许恢复时原样重发以取得原回执，不用新键再次发布。旧回执可能没有 activeRelease，不能读取当前 head 后冒充旧请求的发布编号。相同草稿使用不同键仍会创建新发布，expectedRevision 仅保护草稿修订。预览用 dryRun=true，返回 validated/sideEffects，不保证稍后的实际发布一定成功。
+检查回执 activeVersion 与 activeRelease。超时或 UnsV2OutcomeUnknownError 时保留原路由、载荷和幂等键；允许恢复时原样重发以取得原回执，不用新键再次发布。回执缺少 activeRelease 时不能用当前 head 替代本次请求的发布编号。相同草稿使用不同键仍会创建新发布，expectedRevision 仅保护草稿修订。预览用 dryRun=true，返回 validated/sideEffects，不保证稍后的实际发布一定成功。

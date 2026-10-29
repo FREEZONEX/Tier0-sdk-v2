@@ -7,7 +7,7 @@ description: 使用 @tier0/sdk-v2 查询 Tier0 Workspace 成员、搜索用户�
 
 参数表、成员选择和有界增量分页见 [Workspace 成员](references/platform-members.md)。v1 的项目成员接口未迁入 v2，不能用 Workspace 列表代替 App 授权名单。
 
-公开入口有两个：`client.members.listWorkspace` 只用于 Workspace 级的成员选择；需要能使用某个 App 的成员时用 `client.members.listApp`。没有 project 成员迁移别名，也不在客户端推断 App 成员。使用服务端 API Key；平台授权决定可查询范围。
+公开入口有两个：`client.members.listWorkspace` 只用于 Workspace 级的成员选择；需要能使用某个 App 的成员时用 `client.members.listApp`。App 成员由服务端授权决定。使用服务端 API Key；平台授权决定可查询范围。
 
 ## 搜索与展示候选人
 

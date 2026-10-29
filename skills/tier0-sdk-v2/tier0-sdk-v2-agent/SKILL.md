@@ -69,5 +69,3 @@ result.create 的 operationId 由调用方持有；保存超时后可用 `result
 cards.update 要带读取时的完整 expectedCardSpec；library.update 要带完整 expectedItem 快照。409 表示内容已变化，应重新读取并合并用户意图，不能自动覆盖。具体示例见 [结果与卡片编辑](references/results.md)。
 
 结果附件/图片使用 [文件 Skill](../tier0-sdk-v2-files/SKILL.md) 的持久化 filePath，不保存签名 URL 作为长期资源。失败保留 ApiError.status/code/errorCode；写入 outcomeUnknown 时先查询对应资源，不自动重发。
-
-旧 Namespace 节点的语义索引和 path 关系接口未纳入 v2，不再提供 nodes/relations 方法。

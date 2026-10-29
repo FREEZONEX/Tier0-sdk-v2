@@ -22,7 +22,7 @@ function example(domain: string, file: string, index = 0): Record<string, (...ar
   return exports;
 }
 
-type Step = { path: string; check?: (body: any) => void; data?: any; raw?: string };
+type Step = { path: string; check?: (body: any) => void; data?: any; raw?: string; status?: number };
 let steps: Step[] = [];
 let failures: unknown[] = [];
 let calls: { path: string; body: any }[] = [];
@@ -39,7 +39,7 @@ const server = createServer(async (req, res) => {
     expect(step, 'Unexpected request: ' + path).toBeDefined();
     expect(path).toBe(step!.path);
     step!.check?.(body);
-    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.writeHead(step!.status ?? 200, { 'Content-Type': 'application/json' });
     res.end(step!.raw ?? JSON.stringify({ code: 200, msg: '', requestId: 'skill-fixture', data: step!.data }));
   } catch (error) {
     failures.push(error);
@@ -219,14 +219,13 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     const current = source();
     const { role: _role, ...config } = current.document.config;
     steps = [
-      { path: 'sources/documents/get', data: { ...current, document: { ...current.document, config } } },
       { path: 'streams/documents/create', check: body => {
         expect(body.program.sourceBindings[0].sourceId).toBe(current.id);
         expect(body.program.script).toContain('upstream.request');
       }, data: stream() },
     ];
-    await example('stream', 'create').createHttpStream(current.id, 'orders-stream', 'create-stream', client);
-    expect(calls).toHaveLength(2);
+    await example('stream', 'create').createHttpStream({ ...current, document: { ...current.document, config } }, 'orders-stream', 'create-stream', client);
+    expect(calls).toHaveLength(1);
     finished();
   });
 
@@ -333,47 +332,55 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     ['http-api', 'server'], ['http_push', undefined], ['http', undefined],
   ])('rejects %s/%s before creating an active-request Stream', async (protocol, role) => {
     const current = source();
-    steps = [{ path: 'sources/documents/get', data: { ...current,
-      document: { ...current.document, protocol, config: { ...current.document.config, role } } } }];
+    steps = [];
     await expect(example('stream', 'create').createHttpStream(
-      current.id, 'orders-stream', 'create-stream', client,
+      { ...current, document: { ...current.document, protocol, config: { ...current.document.config, role } } },
+      'orders-stream', 'create-stream', client,
     )).rejects.toThrow('此主动请求示例需要 HTTP API Client Source');
-    expect(calls).toHaveLength(1);
+    expect(calls).toHaveLength(0);
     finished();
   });
 
   it('executes Stream Source binding, full-document update, deploy, guarded disable and deletion', async () => {
     steps = [
-      { path: 'sources/documents/get', data: source() },
       { path: 'streams/documents/create', check: b => {
         expect(b.program.sourceBindings).toEqual([{ sourceId: source().id, configRevision: 1, acquisition: {} }]);
         expect(b.program.script).toContain('api.sources.use');
         expect(b.program.script).toContain('api.stream.every');
         expect(b.program.script).not.toMatch(/\.onTimer\(|\.onEvent\(|\.secrets\(|\bcontrol\s*:/);
       }, data: stream() },
-      { path: 'streams/documents/get', data: stream() },
       { path: 'streams/documents/update', check: b => expect(b).toMatchObject({
         expectedRevision: 1, document: { ...stream().document, description: 'updated' } }), data: stream(2, 'updated') },
       { path: 'streams/program/deploy', check: b => expect(b).toMatchObject({
         expectedRevision: 2, expectedSourceRevision: 1, dryRun: false }),
         data: { id: stream().id, revision: 2, activeVersion: '9007199254740997', activeRelease: 1 } },
-      { path: 'streams/documents/get', data: stream(2, 'updated', 1) },
       { path: 'streams/documents/disable', check: b => expect(b).toMatchObject({
         expectedRevision: 2, expectedActiveRelease: 1 }), data: { id: stream().id, revision: 3, status: 'disabled', activeRelease: 0 } },
-      { path: 'streams/documents/get', data: stream(3, 'updated') },
-      { path: 'streams/documents/get', data: stream(3, 'updated') },
       { path: 'streams/program/delete', check: b => expect(b.expectedRevision).toBe(3),
         data: { id: stream().id, revision: 3, deleted: true } },
-      { path: 'streams/program/list', data: page([stream(3, 'updated')]) },
     ];
-    const created = await example('stream', 'create').createHttpStream(source().id, 'orders-stream', 'create-stream', client);
+    const created = await example('stream', 'create').createHttpStream(source(), 'orders-stream', 'create-stream', client);
     const id = created.current.id;
-    const updated = await example('stream', 'update').updateStreamDescription(id, 'updated', 'update-stream', client);
+    const updated = await example('stream', 'update').updateStreamDescription(created.current, 'updated', 'update-stream', client);
     const deployed = await example('stream', 'deploy').deployStream(updated.current, 'deploy-stream', client);
     expect(deployed.release).toBe(1);
-    await example('stream', 'deploy').disableStream(id, 'disable-stream', client);
-    const deleted = await example('stream', 'delete').deleteStream(id, 'delete-stream', client);
-    expect(deleted.archived.id).toBe(id);
+    const disabled = await example('stream', 'deploy').disableStream(deployed.receipt.data, 'disable-stream', client);
+    const deleted = await example('stream', 'delete').deleteStream(disabled.current, 'delete-stream', client);
+    expect(deleted.current.id).toBe(id);
+    expect(calls).toHaveLength(5);
+    finished();
+  });
+
+  it('preserves the caller revision when updating a Stream', async () => {
+    steps = [{ path: 'streams/documents/update', check: body => {
+      expect(body.expectedRevision).toBe(1);
+      expect(body.document).toEqual({ ...stream().document, description: 'change' });
+    }, status: 409, raw: JSON.stringify({ code: 409, msg: 'changed', requestId: 'conflict-fixture', data: null,
+      error: { code: 'VERSION_CONFLICT', details: [], execution: 'notStarted', retry: { safe: false } } }) }];
+    await expect(example('stream', 'update').updateStreamDescription(
+      stream(), 'change', 'stale-update', client,
+    )).rejects.toMatchObject({ code: 'VERSION_CONFLICT', requestId: 'conflict-fixture' });
+    expect(calls).toHaveLength(1);
     finished();
   });
 

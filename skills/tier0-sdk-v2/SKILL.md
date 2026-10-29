@@ -1,11 +1,11 @@
 ---
 name: tier0-sdk-v2
-description: 使用 @tier0/sdk-v2 开发或迁移 Tier0 云端 TypeScript/JavaScript 应用：Source 数据源、Stream 处理程序、UNS 集合与记录、App 自有数据（@tier0/sdk-v2/data）、通知、文件存储、MQTT、成员、系统身份与能力、Controls 和 Agent，按任务进入对应子 Skill，并处理配置、身份和框架集成。
+description: 使用 @tier0/sdk-v2 开发 Tier0 云端 TypeScript/JavaScript 应用：Source 数据源、Stream 处理程序、UNS 集合与记录、App 自有数据（@tier0/sdk-v2/data）、通知、文件存储、MQTT、成员、系统身份与能力、Controls 和 Agent，按任务进入对应子 Skill，并处理配置、身份和框架集成。
 ---
 
 # Tier0 SDK v2 应用集成
 
-面向应用代码编写；运行时为 Node.js 20.19+。独立包 `@tier0/sdk-v2` 的版本以 package.json 为准（UNS v2 契约 5.0.0），是否可从 npm 安装须检查实际发布状态；未发布时安装仓库构建的 tarball。新参数还需要目标环境部署对应后端，不能只凭 SDK 方法存在判断可用。不要改回旧包或旧 Flow API。
+面向应用代码编写；运行时为 Node.js 20.19+。独立包 `@tier0/sdk-v2` 的版本以 package.json 为准（UNS v2 契约 5.0.0），是否可从 npm 安装须检查实际发布状态；未发布时安装仓库构建的 tarball。新参数还需要目标环境部署对应后端，不能只凭 SDK 方法存在判断可用。
 
 ## 选择业务入口
 
@@ -54,15 +54,6 @@ export async function inspectConnection() {
 
 `createClient()` 的 HTTP 不自动重试。UNS 错误的 `execution` 说明执行到哪一步、`retry.safe` 说明能否用同一请求重发；带 `outcomeUnknown` 的失败应先对账，保留原意图键；取消请求不代表服务端撤销。App 数据层（`@tier0/sdk-v2/data`）会按 `retry.safe` 自动重试，见 App 数据 Skill。Source/Stream 仍使用底层 UNS v2 契约，所以错误类名保留 UNS，不代表它们仍属于数据入口。
 
-## 从首版入口迁移
-
-- `client.uns.sourceList(body)` → `client.source.documents.list(body)`。
-- `client.uns.sourceDocumentGet(body)` → `client.source.documents.get(body)`。
-- `client.uns.streamProgramDeploy(body)` → `client.stream.programs.deploy(body)`。
-- `client.uns.streamDocumentValidate(body)` → `client.stream.documents.validate(body)`。
-- `client.uns.recordFind(body)` 保持不变；Control 使用 `client.controls.use({ code })`。
-- 低层 `createUnsV2Client` 保留完整生成契约，供契约工具使用；业务主入口不再把 Source/Stream/Control 混入 `client.uns`。
-
 React/Vue 示例与验签见 [集成参考](references/integration.md)。完成接入时验证目标入口、真实身份、响应解包和错误分支；SDK 本地测试通过不代表环境联调完成。
 
-公开 HTTP 入口统一为 `/openapi/v2`。旧的重复操作已退役，不生成兼容调用或回退。Source 配置用 documents.*，Stream 草稿用 documents.*、发布用 programs.deploy；App 数据层仍提供 insertMany/findOneAnd*/distinct 等便捷方法。历史旧写结果未知时先核对业务状态，不能转换路由后盲目重放。
+公开 HTTP 入口统一为 `/openapi/v2`。Source 配置用 documents.*，Stream 草稿用 documents.*、发布用 programs.deploy；App 数据层提供 insertMany/findOneAnd*/distinct 等便捷方法。业务代码优先使用领域入口，底层 createUnsV2Client 供契约工具使用。
