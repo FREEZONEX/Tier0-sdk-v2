@@ -21,11 +21,11 @@ describe('Source, Stream and UNS domain clients', () => {
     });
     expect(calls).toBe(1);
   });
-  it.each(['source', 'stream', 'uns'] as const)('exposes every public %s operation exactly once in its domain', domain => {
+  it.each(['source', 'stream', 'uns'] as const)('exposes the %s facade operations exactly once in its domain', domain => {
     const raw = createUnsV2Client();
     const client = { source: bindSourceClient(raw), stream: bindStreamClient(raw), uns: bindUnsDataClient(raw) }[domain];
     const expected = Object.keys(UNS_V2_OPERATIONS).filter(name => domain === 'uns'
-      ? !/^(source|stream|control)/.test(name) : name.startsWith(domain));
+      ? !/^(source|stream|control)/.test(name) : name.startsWith(domain) && !name.startsWith('streamRequest'));
     const actual = functions(client);
     expect(actual).toHaveLength(expected.length);
     expect(new Set(actual)).toEqual(new Set(expected.map(name => raw[name as UnsV2OperationName])));
@@ -80,5 +80,10 @@ describe('Source, Stream and UNS domain clients', () => {
     expect('controlInvoke' in client.uns).toBe(false);
     expect('call' in client.uns).toBe(false);
     expect('transport' in client.uns).toBe(false);
+    // Neutral grant-management operations remain raw contracts, not a second
+    // Stream interaction API on the data SDK's management facade.
+    expect('requests' in client.stream).toBe(false);
+    expect('messages' in client.stream).toBe(false);
+    expect('streamRequestGrantGet' in client.uns).toBe(false);
   });
 });

@@ -1,4 +1,5 @@
 import { getClient, type HttpClient, type RequestOptions } from './openapi/client.js';
+import { UNS_V2_OPERATIONS, UNS_V2_STREAM_OPERATIONS, type UnsV2OperationName, type UnsV2StreamOperationName } from './uns-v2/generated.js';
 
 export interface CloudTransportConfig {
   /** Whole HTTP exchange including the response body, in milliseconds; default 60,000. */
@@ -58,16 +59,15 @@ export class CloudTransport {
   }
 
   /** `retryAfter`: the raw `Retry-After` header, for answers without a UNS error body. */
-  async postText(path: string, body: string, options: RequestOptions = {}): Promise<{ text: string; status: number; ok: boolean; retryAfter?: string }> {
+  async postText(path: string, body: string, options: RequestOptions = {}, operation?: UnsV2OperationName): Promise<{ text: string; status: number; ok: boolean; retryAfter?: string }> {
     options.signal?.throwIfAborted();
     const client = this.resolveClient();
     const url = `${client.getBaseURL()}${path}`;
     const key = client.getApiKey();
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    // Control routes also live under UNS v2, but must never receive data delegation.
-    // Keep this per-client proof out of shared HTTP headers and Control requests.
-    if (path.startsWith('/openapi/v2/uns/') &&
-        !path.startsWith('/openapi/v2/uns/controls/') &&
+    // The registered operation determines data delegation, never a route blacklist.
+    if (operation !== undefined && Object.hasOwn(UNS_V2_OPERATIONS, operation) &&
+        UNS_V2_OPERATIONS[operation].scope.startsWith('uns:') &&
         this.#unsV2AppDataSubject !== undefined) {
       headers[UNS_V2_APP_DATA_SUBJECT_HEADER] = this.#unsV2AppDataSubject;
     }
@@ -153,14 +153,15 @@ export class CloudTransport {
    * An open stream belongs to the caller: `close()` ends it and drops the
    * link to `signal`, which also ends it.
    */
-  async getEventStream(path: string, options: { lastEventId?: string; signal?: AbortSignal } = {}):
+  async getEventStream(path: string, options: { lastEventId?: string; signal?: AbortSignal } = {}, operation?: UnsV2StreamOperationName):
     Promise<{ status: number; stream: ReadableStream<Uint8Array>; close(): void } | { status: number; text: string }> {
     options.signal?.throwIfAborted();
     const client = this.resolveClient();
     const url = `${client.getBaseURL()}${path}`;
     const key = client.getApiKey();
     const headers: Record<string, string> = { Accept: 'text/event-stream' };
-    if (path.startsWith('/openapi/v2/uns/') && this.#unsV2AppDataSubject !== undefined) {
+    if (operation !== undefined && Object.hasOwn(UNS_V2_STREAM_OPERATIONS, operation) &&
+        UNS_V2_STREAM_OPERATIONS[operation].scope.startsWith('uns:') && this.#unsV2AppDataSubject !== undefined) {
       headers[UNS_V2_APP_DATA_SUBJECT_HEADER] = this.#unsV2AppDataSubject;
     }
     if (options.lastEventId !== undefined) headers['Last-Event-ID'] = options.lastEventId;

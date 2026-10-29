@@ -3,7 +3,7 @@
   "info": {
     "title": "Tier0 Cloud OpenAPI v2",
     "version": "5.0.0",
-    "description": "云端集合、业务数据、时序数据及数据源、处理流、控制接口。使用绑定工作空间的 API Key。\n\n### UNS 接口错误\n各接口只展开成功结果；失败统一使用 default 响应。HTTP 状态码：401 未认证、403 无权限或未开通、404 对象不存在、409 状态、版本、唯一键冲突或凭据已变化、413 内容超限、422 参数或业务校验失败、429 过载、500 服务端错误、503 暂不可用、504 查询超时。具体原因以 error.code 为准。error.execution 说明执行到哪一步：notStarted、rolledBack 可证明没有副作用，committed 表示已提交，unknown 只出现在写操作上、表示无法证明是否提交。error.retry.safe=true 时可原样重发（写入复用原幂等键），retry.afterMs 与 Retry-After 给出最短等待时间；safe=false 时先修正请求或恢复授权。\n\n### 平台接口\n通知、文件、成员、身份、MQTT 凭证和 Agent 接口复用已有业务规则。平台接口保留各自响应格式：文件下载返回 302，通知与能力发现直接返回业务 JSON，其他平台接口使用 code/msg/data。上面的 UNS 错误格式仅适用于 /uns/ 路径。"
+    "description": "云端集合、业务数据、时序数据及数据源、处理流与 App 策略管理接口。使用绑定工作空间的 API Key。\n\n### UNS 接口错误\n各接口只展开成功结果；失败统一使用 default 响应。HTTP 状态码：401 未认证、403 无权限或未开通、404 对象不存在、409 状态、版本、唯一键冲突或凭据已变化、413 内容超限、422 参数或业务校验失败、429 过载、500 服务端错误、503 暂不可用、504 查询超时。具体原因以 error.code 为准。error.execution 说明执行到哪一步：notStarted、rolledBack 可证明没有副作用，committed 表示已提交，unknown 只出现在写操作上、表示无法证明是否提交。error.retry.safe=true 时可原样重发（写入复用原幂等键），retry.afterMs 与 Retry-After 给出最短等待时间；safe=false 时先修正请求或恢复授权。\n\n### 平台接口\n通知、文件、成员、身份、MQTT 凭证和 Agent 接口复用已有业务规则。平台接口保留各自响应格式：文件下载返回 302，通知与能力发现直接返回业务 JSON，其他平台接口使用 code/msg/data。上面的 UNS 错误格式仅适用于 /uns/ 路径。"
   },
   "tags": [
     {
@@ -43,16 +43,8 @@
       "description": "采样追加、多记录查询、聚合、最新值与显式时间范围删除。最新值仅指真实 Sample。"
     },
     {
-      "name": "控制",
-      "description": "控制接口"
-    },
-    {
       "name": "App 与授权",
       "description": "App 与授权接口"
-    },
-    {
-      "name": "元数据",
-      "description": "元数据接口"
     }
   ],
   "servers": [
@@ -946,7 +938,7 @@
     },
     "/openapi/v2/capabilities/discover": {
       "post": {
-        "description": "需要有效 Workspace API Key，Body 仅接受空 JSON 对象，最大 4KiB UTF-8 字节，不接受查询参数或 Workspace 覆盖。成功响应直接为 CapabilityDiscoverResp，不包裹 code/msg/data。能力由默认关闭的公开发布开关、Workspace FeatureGate、Key 显式授权共同裁决；Control 能力仅报告当前发布与授权，运行可用性保持 readiness_unknown，不触发运行时探针。实际操作由后端执行安全检查，失败返回真实错误。响应允许客户端忽略未知扩展字段；版本标签不表示设备 ACK 或 npm 包版本。错误直接返回 CapabilityErrorResp 和真实 HTTP 状态，不泄漏内部异常。",
+        "description": "需要有效 Workspace API Key，Body 仅接受空 JSON 对象，最大 4KiB UTF-8 字节，不接受查询参数或 Workspace 覆盖。成功响应直接为 CapabilityDiscoverResp，不包裹 code/msg/data。能力由默认关闭的公开发布开关、Workspace FeatureGate、Key 显式授权共同裁决；Stream request 能力仅报告当前发布与授权，运行可用性保持 readiness_unknown，不触发运行时探针。实际操作由后端执行安全检查，失败返回真实错误。响应允许客户端忽略未知扩展字段；版本标签不表示设备 ACK 或 npm 包版本。错误直接返回 CapabilityErrorResp 和真实 HTTP 状态，不泄漏内部异常。",
         "operationId": "PlatformV2CapabilityDiscover",
         "responses": {
           "200": {
@@ -3905,7 +3897,7 @@
             "type": "array"
           },
           "contractVersion": {
-            "description": "本发现响应合同版本，与单个 Control 的冻结合同版本独立",
+            "description": "本发现响应合同版本，与单个 Stream request 的冻结合同版本独立",
             "type": "string"
           },
           "deprecations": {
@@ -3922,7 +3914,7 @@
             "type": "string"
           },
           "sdkContractVersions": {
-            "description": "control/v1 公共 SDK 合同，不是 npm 版本",
+            "description": "stream-requests/v1 公共 SDK 合同，不是 npm 版本",
             "items": {
               "type": "string"
             },
@@ -4246,7 +4238,7 @@
       "PublicCapability": {
         "properties": {
           "allowed": {
-            "description": "当前 Key 的能力授权摘要，不替代具体 Control code 与读写权限检查",
+            "description": "当前 Key 的能力授权摘要，不替代具体 Stream request code 与读写权限检查",
             "type": "boolean"
           },
           "availability": {

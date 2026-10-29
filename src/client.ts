@@ -4,7 +4,6 @@ import { createUnsV2Client } from './uns-v2/client.js';
 import { bindUnsDataClient } from './uns-v2/data-client.js';
 import { bindSourceClient } from './source.js';
 import { bindStreamClient } from './stream.js';
-import { ControlsClient } from './controls.js';
 import { CapabilitiesClient } from './capabilities.js';
 import { FilesClient } from './files.js';
 import type { CloudTransportConfig } from './cloud-transport.js';
@@ -25,7 +24,6 @@ export function createClient(config: Tier0ClientConfig = {}) {
     agent: api.agent,
     files: new FilesClient(http),
     capabilities: new CapabilitiesClient(resolve, snapshot),
-    controls: new ControlsClient(resolve, snapshot),
     source: bindSourceClient(raw),
     stream: bindStreamClient(raw),
     uns: bindUnsDataClient(raw),

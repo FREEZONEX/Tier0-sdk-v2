@@ -3,7 +3,7 @@
   "info": {
     "title": "Tier0 Cloud OpenAPI v2",
     "version": "5.0.0",
-    "description": "云端集合、业务数据、时序数据及数据源、处理流、控制接口。使用绑定工作空间的 API Key。\n\n### UNS 接口错误\n各接口只展开成功结果；失败统一使用 default 响应。HTTP 状态码：401 未认证、403 无权限或未开通、404 对象不存在、409 状态、版本、唯一键冲突或凭据已变化、413 内容超限、422 参数或业务校验失败、429 过载、500 服务端错误、503 暂不可用、504 查询超时。具体原因以 error.code 为准。error.execution 说明执行到哪一步：notStarted、rolledBack 可证明没有副作用，committed 表示已提交，unknown 只出现在写操作上、表示无法证明是否提交。error.retry.safe=true 时可原样重发（写入复用原幂等键），retry.afterMs 与 Retry-After 给出最短等待时间；safe=false 时先修正请求或恢复授权。\n\n### 平台接口\n通知、文件、成员、身份、MQTT 凭证和 Agent 接口复用已有业务规则。平台接口保留各自响应格式：文件下载返回 302，通知与能力发现直接返回业务 JSON，其他平台接口使用 code/msg/data。上面的 UNS 错误格式仅适用于 /uns/ 路径。"
+    "description": "云端集合、业务数据、时序数据及数据源、处理流与 App 策略管理接口。使用绑定工作空间的 API Key。\n\n### UNS 接口错误\n各接口只展开成功结果；失败统一使用 default 响应。HTTP 状态码：401 未认证、403 无权限或未开通、404 对象不存在、409 状态、版本、唯一键冲突或凭据已变化、413 内容超限、422 参数或业务校验失败、429 过载、500 服务端错误、503 暂不可用、504 查询超时。具体原因以 error.code 为准。error.execution 说明执行到哪一步：notStarted、rolledBack 可证明没有副作用，committed 表示已提交，unknown 只出现在写操作上、表示无法证明是否提交。error.retry.safe=true 时可原样重发（写入复用原幂等键），retry.afterMs 与 Retry-After 给出最短等待时间；safe=false 时先修正请求或恢复授权。\n\n### 平台接口\n通知、文件、成员、身份、MQTT 凭证和 Agent 接口复用已有业务规则。平台接口保留各自响应格式：文件下载返回 302，通知与能力发现直接返回业务 JSON，其他平台接口使用 code/msg/data。上面的 UNS 错误格式仅适用于 /uns/ 路径。"
   },
   "tags": [
     {
@@ -43,16 +43,8 @@
       "description": "采样追加、多记录查询、聚合、最新值与显式时间范围删除。最新值仅指真实 Sample。"
     },
     {
-      "name": "控制",
-      "description": "控制接口"
-    },
-    {
       "name": "App 与授权",
       "description": "App 与授权接口"
-    },
-    {
-      "name": "元数据",
-      "description": "元数据接口"
     }
   ],
   "servers": [
@@ -4980,253 +4972,6 @@
         "x-tier0-destructive": false
       }
     },
-    "/uns/controls/discover": {
-      "post": {
-        "operationId": "UnsV2ControlDiscover",
-        "summary": "发现控制能力",
-        "deprecated": false,
-        "security": [
-          {
-            "ApiKey": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "page": {
-                    "type": "integer",
-                    "minimum": 1
-                  },
-                  "size": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 200
-                  },
-                  "search": {
-                    "type": "string"
-                  }
-                },
-                "required": []
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "查询结果。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocUnsV2ControlDiscoverResponse"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocCommonError"
-                },
-                "example": {
-                  "code": 422,
-                  "msg": "请求参数不合法",
-                  "requestId": "request-id",
-                  "data": null,
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "reason": "filter.status must be a string",
-                    "details": [],
-                    "execution": "notStarted",
-                    "retry": {
-                      "safe": false
-                    },
-                    "path": "filter.status"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "控制"
-        ],
-        "description": "按关键词分页查询当前凭证可见的控制能力。",
-        "x-tier0-audience": "operations",
-        "x-tier0-starter": false,
-        "x-tier0-readonly": true,
-        "x-tier0-destructive": false
-      }
-    },
-    "/uns/controls/describe": {
-      "post": {
-        "operationId": "UnsV2ControlDescribe",
-        "summary": "读取控制定义",
-        "deprecated": false,
-        "security": [
-          {
-            "ApiKey": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "code": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "code"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "查询结果。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocUnsV2ControlDescribeResponse"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocCommonError"
-                },
-                "example": {
-                  "code": 422,
-                  "msg": "请求参数不合法",
-                  "requestId": "request-id",
-                  "data": null,
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "reason": "filter.status must be a string",
-                    "details": [],
-                    "execution": "notStarted",
-                    "retry": {
-                      "safe": false
-                    },
-                    "path": "filter.status"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "控制"
-        ],
-        "description": "按 code 返回控制定义及输入要求。",
-        "x-tier0-audience": "operations",
-        "x-tier0-starter": false,
-        "x-tier0-readonly": true,
-        "x-tier0-destructive": false
-      }
-    },
-    "/uns/controls/invoke": {
-      "post": {
-        "operationId": "UnsV2ControlInvoke",
-        "summary": "执行控制",
-        "deprecated": false,
-        "security": [
-          {
-            "ApiKey": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "code": {
-                    "type": "string"
-                  },
-                  "input": {
-                    "nullable": true
-                  },
-                  "idempotencyKey": {
-                    "type": "string",
-                    "maxLength": 128,
-                    "description": "可选幂等键；重试同一请求时复用，相同键不得用于不同请求。"
-                  }
-                },
-                "required": [
-                  "code",
-                  "input"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "操作结果。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocUnsV2ControlInvokeResponse"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocCommonError"
-                },
-                "example": {
-                  "code": 422,
-                  "msg": "请求参数不合法",
-                  "requestId": "request-id",
-                  "data": null,
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "reason": "filter.status must be a string",
-                    "details": [],
-                    "execution": "notStarted",
-                    "retry": {
-                      "safe": false
-                    },
-                    "path": "filter.status"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "控制"
-        ],
-        "description": "按 code 和 input 调用控制能力。相同业务意图重试时复用 idempotencyKey；失败时按 error.execution 与 error.retry 判断，execution=unknown 时只能复用原幂等键重试，避免重复执行。",
-        "x-tier0-audience": "operations",
-        "x-tier0-starter": false,
-        "x-tier0-readonly": false,
-        "x-tier0-destructive": false
-      }
-    },
     "/uns/sources/documents/get": {
       "post": {
         "operationId": "UnsV2SourceDocumentGet",
@@ -7339,7 +7084,7 @@
         "tags": [
           "App 与授权"
         ],
-        "description": "使用 changes 按集合原子新增、修改或移除授权；省略字段保留原值，不需回传其他集合或员工规则。collections 仍用于显式完整替换，两种模式互斥。permissionLevel 的 read/readwrite/manage 对应业务记录只读、读写、管理（含删除），与底层 permissions 互斥。新增权限不能超出当前管理者能力；保留 Control 边界，必须提供 expectedRevision 和 idempotencyKey。同键原样重试重放结果，不重新扩大授权。",
+        "description": "使用 changes 按集合原子新增、修改或移除授权；省略字段保留原值，不需回传其他集合或员工规则。collections 仍用于显式完整替换，两种模式互斥。permissionLevel 的 read/readwrite/manage 对应业务记录只读、读写、管理（含删除），与底层 permissions 互斥。新增权限不能超出当前管理者能力；保留 Stream 策略边界，必须提供 expectedRevision 和 idempotencyKey。同键原样重试重放结果，不重新扩大授权。",
         "x-tier0-audience": "governance",
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
@@ -7417,9 +7162,9 @@
         "x-tier0-destructive": false
       }
     },
-    "/uns/hosted-app-control-policy/get": {
+    "/uns/app-stream-policy/get": {
       "post": {
-        "operationId": "CloudHostedAppControlPolicyGet",
+        "operationId": "CloudAppStreamPolicyGet",
         "summary": "查看 App 的 Stream 权限上限",
         "deprecated": false,
         "security": [
@@ -7455,7 +7200,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DocCloudHostedAppControlPolicyGetResponse"
+                  "$ref": "#/components/schemas/DocCloudAppStreamPolicyGetResponse"
                 }
               }
             }
@@ -7488,18 +7233,18 @@
           }
         },
         "tags": [
-          "元数据"
+          "App 与授权"
         ],
-        "description": "读取同一真实 App 的控制权限上限，需当前 Builder 会话或 full_access 个人/Agent Key，且有 uns.write 与 stream.requests.manage。此上限与具体 Stream 入口授权共同生效。",
+        "description": "读取同一真实 App 的Stream 请求与消息权限上限，需当前 Builder 会话或 full_access 个人/Agent Key，且有 uns.write 与 stream.requests.manage。此上限与具体 Stream 入口授权共同生效。",
         "x-tier0-audience": "governance",
         "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
     },
-    "/uns/hosted-app-control-policy/update": {
+    "/uns/app-stream-policy/update": {
       "post": {
-        "operationId": "CloudHostedAppControlPolicyUpdate",
+        "operationId": "CloudAppStreamPolicyUpdate",
         "summary": "更新 App 的 Stream 权限上限",
         "deprecated": false,
         "security": [
@@ -7524,7 +7269,7 @@
                   "expectedRevision": {
                     "type": "integer",
                     "minimum": 0,
-                    "description": "Shared hosted policy metadata revision. 0 attaches to a real App; either data or Control updates increment this revision."
+                    "description": "Shared hosted policy metadata revision. 0 attaches to a real App; either data or Stream policy updates increment this revision."
                   },
                   "status": {
                     "type": "string",
@@ -7545,15 +7290,24 @@
                   },
                   "platformPermissions": {
                     "type": "array",
-                    "maxItems": 3,
+                    "maxItems": 5,
                     "uniqueItems": true,
                     "items": {
                       "type": "string",
                       "enum": [
                         "stream.requests.read",
                         "stream.requests.invoke",
-                        "stream.requests.write"
+                        "stream.requests.write",
+                        "stream.messages.publish",
+                        "stream.messages.subscribe"
                       ]
+                    }
+                  },
+                  "messageTopics": {
+                    "type": "array",
+                    "maxItems": 32,
+                    "items": {
+                      "$ref": "#/components/schemas/CloudStreamMessageTopicPermission"
                     }
                   }
                 },
@@ -7575,7 +7329,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DocCloudHostedAppControlPolicyUpdateResponse"
+                  "$ref": "#/components/schemas/DocCloudAppStreamPolicyUpdateResponse"
                 },
                 "example": {
                   "code": 200,
@@ -7627,7 +7381,7 @@
           }
         },
         "tags": [
-          "元数据"
+          "App 与授权"
         ],
         "description": "复用现有 App 策略，保留 Collection 授权和员工规则；需 expectedRevision、idempotencyKey 和 dryRun。仅当前 Builder 会话或 full_access 个人/Agent Key 可用，并需 uns.write 与 stream.requests.manage。不会自动授予任何 Stream 入口，也不会升级 App Key。",
         "x-tier0-audience": "governance",
@@ -8146,9 +7900,9 @@
         "x-tier0-destructive": false
       }
     },
-    "/uns/controls/grants/get": {
+    "/uns/stream-requests/grants/get": {
       "post": {
-        "operationId": "UnsV2ControlGrantGet",
+        "operationId": "UnsV2StreamRequestGrantGet",
         "summary": "读取 Stream 入口授权",
         "deprecated": false,
         "security": [
@@ -8202,7 +7956,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DocUnsV2ControlGrantGetResponse"
+                  "$ref": "#/components/schemas/DocUnsV2StreamRequestGrantGetResponse"
                 }
               }
             }
@@ -8235,7 +7989,7 @@
           }
         },
         "tags": [
-          "控制"
+          "处理流"
         ],
         "description": "按 code 和接收方（仅 app/user）读取授权、当前发布绑定和权限上限，返回用于并发校验的 snapshotToken。当前管理会话或 full_access 个人/Agent Key 可用，需 stream.requests.manage（授权配置）和 uns.source.manage；App 与服务 Key 不可配置授权。不返回 Source 配置或凭据。",
         "x-tier0-audience": "governance",
@@ -8244,9 +7998,9 @@
         "x-tier0-destructive": false
       }
     },
-    "/uns/controls/grants/set": {
+    "/uns/stream-requests/grants/set": {
       "post": {
-        "operationId": "UnsV2ControlGrantSet",
+        "operationId": "UnsV2StreamRequestGrantSet",
         "summary": "设置或撤销 Stream 入口授权",
         "deprecated": false,
         "security": [
@@ -8311,7 +8065,7 @@
                   "targetRevisions": {
                     "type": "array",
                     "items": {
-                      "$ref": "#/components/schemas/CloudControlGrantTargetRevision"
+                      "$ref": "#/components/schemas/CloudStreamRequestGrantTargetRevision"
                     },
                     "maxItems": 128,
                     "description": "兼容旧调用的目标版本列表；历史目标较多时请使用 expectedSnapshotToken 撤销。"
@@ -8383,7 +8137,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DocUnsV2ControlGrantSetResponse"
+                  "$ref": "#/components/schemas/DocUnsV2StreamRequestGrantSetResponse"
                 }
               }
             }
@@ -8416,7 +8170,7 @@
           }
         },
         "tags": [
-          "控制"
+          "处理流"
         ],
         "description": "使用 get 返回的 expectedSnapshotToken 原子修改授权，无需回传全部目标版本。active=1 新增或更新，actions 仅允许 stream.requests.read、stream.requests.invoke、stream.requests.write，write 需要 invoke。资源“管理”包含查看、调用和写操作；stream.requests.manage 是调用方的授权配置能力。active=2 撤销全部历史目标，actions 必须为空，不依赖接收方或当前发布在线。保留旧版本字段兼容，两种校验方式互斥。版本冲突或响应丢失后先重新读取、核对当前状态，再确认是否修改，不能盲目覆盖。",
         "x-tier0-audience": "governance",
@@ -13090,7 +12844,7 @@
     },
     "/capabilities/discover": {
       "post": {
-        "description": "需要有效 Workspace API Key，Body 仅接受空 JSON 对象，最大 4KiB UTF-8 字节，不接受查询参数或 Workspace 覆盖。成功响应直接为 CapabilityDiscoverResp，不包裹 code/msg/data。能力由默认关闭的公开发布开关、Workspace FeatureGate、Key 显式授权共同裁决；Control 能力仅报告当前发布与授权，运行可用性保持 readiness_unknown，不触发运行时探针。实际操作由后端执行安全检查，失败返回真实错误。响应允许客户端忽略未知扩展字段；版本标签不表示设备 ACK 或 npm 包版本。错误直接返回 CapabilityErrorResp 和真实 HTTP 状态，不泄漏内部异常。",
+        "description": "需要有效 Workspace API Key，Body 仅接受空 JSON 对象，最大 4KiB UTF-8 字节，不接受查询参数或 Workspace 覆盖。成功响应直接为 CapabilityDiscoverResp，不包裹 code/msg/data。能力由默认关闭的公开发布开关、Workspace FeatureGate、Key 显式授权共同裁决；Stream request 能力仅报告当前发布与授权，运行可用性保持 readiness_unknown，不触发运行时探针。实际操作由后端执行安全检查，失败返回真实错误。响应允许客户端忽略未知扩展字段；版本标签不表示设备 ACK 或 npm 包版本。错误直接返回 CapabilityErrorResp 和真实 HTTP 状态，不泄漏内部异常。",
         "operationId": "PlatformV2CapabilityDiscover",
         "responses": {
           "200": {
@@ -20738,7 +20492,7 @@
           }
         ]
       },
-      "CloudControlDefinition": {
+      "CloudStreamRequestDefinition": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -20869,8 +20623,13 @@
             "type": "object",
             "additionalProperties": true
           },
-          "control": {
-            "$ref": "#/components/schemas/CloudControlDefinition"
+          "topic": {
+            "type": "string",
+            "maxLength": 128,
+            "readOnly": true
+          },
+          "request": {
+            "$ref": "#/components/schemas/CloudStreamRequestDefinition"
           }
         },
         "required": [
@@ -20909,6 +20668,14 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CloudStreamEntry"
+            }
+          },
+          "messages": {
+            "type": "array",
+            "maxItems": 32,
+            "readOnly": true,
+            "items": {
+              "$ref": "#/components/schemas/CloudStreamMessageDeclaration"
             }
           }
         },
@@ -21308,7 +21075,7 @@
           "appName"
         ]
       },
-      "CloudHostedAppControlPolicy": {
+      "CloudAppStreamPolicy": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -21350,15 +21117,24 @@
           },
           "platformPermissions": {
             "type": "array",
-            "maxItems": 3,
+            "maxItems": 5,
             "uniqueItems": true,
             "items": {
               "type": "string",
               "enum": [
                 "stream.requests.read",
                 "stream.requests.invoke",
-                "stream.requests.write"
+                "stream.requests.write",
+                "stream.messages.publish",
+                "stream.messages.subscribe"
               ]
+            }
+          },
+          "messageTopics": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "$ref": "#/components/schemas/CloudStreamMessageTopicPermission"
             }
           }
         },
@@ -21921,7 +21697,7 @@
         ],
         "description": "SSE 帧：event 为帧类型，id 为续传位置，data 为 JSON。连接建立后立即发送一次 heartbeat（id 为当前位置），之后每 15 秒一次；change 按写入事务的顺序投递（同一记录的 revision 不保证单调，见 CloudRecordChangeEvent.occurredAt）；reset 后连接关闭。"
       },
-      "CloudControlGrantTargetRevision": {
+      "CloudStreamRequestGrantTargetRevision": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -21939,7 +21715,7 @@
           "revision"
         ]
       },
-      "CloudControlGrantTargetInfo": {
+      "CloudStreamRequestGrantTargetInfo": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -21985,7 +21761,7 @@
           "reference"
         ]
       },
-      "CloudControlGrantInfo": {
+      "CloudStreamRequestGrantInfo": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -22066,7 +21842,7 @@
           "targets": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/CloudControlGrantTargetInfo"
+              "$ref": "#/components/schemas/CloudStreamRequestGrantTargetInfo"
             }
           },
           "createdPrincipal": {
@@ -22119,7 +21895,7 @@
           "snapshotToken"
         ]
       },
-      "CloudControlGrantMutation": {
+      "CloudStreamRequestGrantMutation": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -22398,6 +22174,50 @@
           "page",
           "size",
           "total"
+        ]
+      },
+      "CloudStreamMessageTopicPermission": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "topic": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._/-]{0,127}$"
+          },
+          "publish": {
+            "type": "boolean"
+          },
+          "subscribe": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "topic",
+          "publish",
+          "subscribe"
+        ]
+      },
+      "CloudStreamMessageDeclaration": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "topic": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "access": {
+            "type": "string",
+            "enum": [
+              "publish"
+            ]
+          }
+        },
+        "required": [
+          "topic",
+          "access"
         ]
       },
       "CloudRecordTotalOption": {
@@ -27853,160 +27673,6 @@
           "data"
         ]
       },
-      "DocUnsV2ControlDiscoverResponse": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "code": {
-            "type": "integer"
-          },
-          "msg": {
-            "type": "string"
-          },
-          "requestId": {
-            "type": "string"
-          },
-          "data": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "list": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/CloudControlDefinition"
-                }
-              },
-              "total": {
-                "type": "integer"
-              },
-              "page": {
-                "type": "integer"
-              },
-              "size": {
-                "type": "integer"
-              },
-              "hasMore": {
-                "type": "boolean"
-              },
-              "complete": {
-                "type": "boolean"
-              },
-              "truncated": {
-                "type": "boolean"
-              },
-              "snapshotScope": {
-                "type": "string",
-                "enum": [
-                  "thisRequestOnly"
-                ]
-              },
-              "nextPage": {
-                "type": "integer"
-              }
-            },
-            "required": [
-              "list",
-              "total",
-              "page",
-              "size",
-              "hasMore",
-              "complete",
-              "truncated",
-              "snapshotScope"
-            ]
-          }
-        },
-        "required": [
-          "code",
-          "msg",
-          "requestId",
-          "data"
-        ]
-      },
-      "DocUnsV2ControlDescribeResponse": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "code": {
-            "type": "integer"
-          },
-          "msg": {
-            "type": "string"
-          },
-          "requestId": {
-            "type": "string"
-          },
-          "data": {
-            "$ref": "#/components/schemas/CloudControlDefinition"
-          }
-        },
-        "required": [
-          "code",
-          "msg",
-          "requestId",
-          "data"
-        ]
-      },
-      "DocUnsV2ControlInvokeResponse": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "code": {
-            "type": "integer"
-          },
-          "msg": {
-            "type": "string"
-          },
-          "requestId": {
-            "type": "string"
-          },
-          "data": {
-            "oneOf": [
-              {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "code": {
-                    "type": "string"
-                  },
-                  "contractVersion": {
-                    "type": "string"
-                  },
-                  "result": {
-                    "nullable": true
-                  },
-                  "runId": {
-                    "type": "string"
-                  },
-                  "status": {
-                    "type": "string"
-                  },
-                  "replayed": {
-                    "type": "boolean"
-                  }
-                },
-                "required": [
-                  "code",
-                  "contractVersion",
-                  "result",
-                  "runId",
-                  "status",
-                  "replayed"
-                ]
-              },
-              {
-                "$ref": "#/components/schemas/CloudPreviewResult"
-              }
-            ]
-          }
-        },
-        "required": [
-          "code",
-          "msg",
-          "requestId",
-          "data"
-        ]
-      },
       "DocUnsV2SourceDocumentGetResponse": {
         "type": "object",
         "additionalProperties": false,
@@ -29226,7 +28892,7 @@
           "data"
         ]
       },
-      "DocCloudHostedAppControlPolicyGetResponse": {
+      "DocCloudAppStreamPolicyGetResponse": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -29240,7 +28906,7 @@
             "type": "string"
           },
           "data": {
-            "$ref": "#/components/schemas/CloudHostedAppControlPolicy"
+            "$ref": "#/components/schemas/CloudAppStreamPolicy"
           }
         },
         "required": [
@@ -29250,7 +28916,7 @@
           "data"
         ]
       },
-      "DocCloudHostedAppControlPolicyUpdateResult": {
+      "DocCloudAppStreamPolicyUpdateResult": {
         "additionalProperties": false,
         "properties": {
           "opId": {
@@ -29289,7 +28955,7 @@
         ],
         "type": "object"
       },
-      "DocCloudHostedAppControlPolicyUpdateOutcome": {
+      "DocCloudAppStreamPolicyUpdateOutcome": {
         "additionalProperties": false,
         "properties": {
           "jobId": {
@@ -29301,7 +28967,7 @@
           "results": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/DocCloudHostedAppControlPolicyUpdateResult"
+              "$ref": "#/components/schemas/DocCloudAppStreamPolicyUpdateResult"
             }
           },
           "status": {
@@ -29328,7 +28994,7 @@
         ],
         "type": "object"
       },
-      "DocCloudHostedAppControlPolicyUpdateResponse": {
+      "DocCloudAppStreamPolicyUpdateResponse": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -29342,7 +29008,7 @@
             "type": "string"
           },
           "data": {
-            "$ref": "#/components/schemas/DocCloudHostedAppControlPolicyUpdateOutcome"
+            "$ref": "#/components/schemas/DocCloudAppStreamPolicyUpdateOutcome"
           }
         },
         "required": [
@@ -29610,7 +29276,7 @@
           "data"
         ]
       },
-      "DocUnsV2ControlGrantGetResponse": {
+      "DocUnsV2StreamRequestGrantGetResponse": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -29624,7 +29290,7 @@
             "type": "string"
           },
           "data": {
-            "$ref": "#/components/schemas/CloudControlGrantInfo"
+            "$ref": "#/components/schemas/CloudStreamRequestGrantInfo"
           }
         },
         "required": [
@@ -29634,7 +29300,7 @@
           "data"
         ]
       },
-      "DocUnsV2ControlGrantSetResponse": {
+      "DocUnsV2StreamRequestGrantSetResponse": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
@@ -29648,7 +29314,7 @@
             "type": "string"
           },
           "data": {
-            "$ref": "#/components/schemas/CloudControlGrantMutation"
+            "$ref": "#/components/schemas/CloudStreamRequestGrantMutation"
           }
         },
         "required": [
@@ -32649,7 +32315,7 @@
             "type": "array"
           },
           "contractVersion": {
-            "description": "本发现响应合同版本，与单个 Control 的冻结合同版本独立",
+            "description": "本发现响应合同版本，与单个 Stream request 的冻结合同版本独立",
             "type": "string"
           },
           "deprecations": {
@@ -32666,7 +32332,7 @@
             "type": "string"
           },
           "sdkContractVersions": {
-            "description": "control/v1 公共 SDK 合同，不是 npm 版本",
+            "description": "stream-requests/v1 公共 SDK 合同，不是 npm 版本",
             "items": {
               "type": "string"
             },
@@ -32990,7 +32656,7 @@
       "PlatformPublicCapability": {
         "properties": {
           "allowed": {
-            "description": "当前 Key 的能力授权摘要，不替代具体 Control code 与读写权限检查",
+            "description": "当前 Key 的能力授权摘要，不替代具体 Stream request code 与读写权限检查",
             "type": "boolean"
           },
           "availability": {

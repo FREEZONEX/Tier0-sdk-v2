@@ -84,6 +84,6 @@ export async function createHttpServerEarlyReplyStream(
 }
 ```
 
-`ctx.reply` 只用于 HTTP `api.stream.onRequest`，一次执行只回复一次；不要在 `every`、Control 或普通事件 handler 中调用，也不增加 npm App API 或公开 HTTP endpoint。示例先发 202 再写 Record，202 表示已回复接受，不能报告写入或提交成功；失败通过 Stream 运行记录检查，不能再发送第二份响应。
+`ctx.reply` 只用于 HTTP `api.stream.onRequest`，一次执行只回复一次；不要在 `every`或普通事件 handler 中调用，也不增加 npm App API 或公开 HTTP endpoint。示例先发 202 再写 Record，202 表示已回复接受，不能报告写入或提交成功；失败通过 Stream 运行记录检查，不能再发送第二份响应。
 
 回复后的处理仍受 Stream timeout（本例 5000 ms）、并发上限和实时权限约束。客户端断线不会取消已回复后的执行，服务 shutdown 仍可取消。进程崩溃不保证重放；业务若需持久投递、去重或恢复，必须另行设计，不能把 `ctx.reply` 当作持久队列。凭据和权限均沿用现有 Source/Stream 合同。

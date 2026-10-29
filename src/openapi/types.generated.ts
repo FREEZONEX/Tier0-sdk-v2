@@ -337,7 +337,7 @@ export interface paths {
         put?: never;
         /**
          * 发现当前 Workspace 的公开能力与版本合同
-         * @description 需要有效 Workspace API Key，Body 仅接受空 JSON 对象，最大 4KiB UTF-8 字节，不接受查询参数或 Workspace 覆盖。成功响应直接为 CapabilityDiscoverResp，不包裹 code/msg/data。能力由默认关闭的公开发布开关、Workspace FeatureGate、Key 显式授权共同裁决；Control 能力仅报告当前发布与授权，运行可用性保持 readiness_unknown，不触发运行时探针。实际操作由后端执行安全检查，失败返回真实错误。响应允许客户端忽略未知扩展字段；版本标签不表示设备 ACK 或 npm 包版本。错误直接返回 CapabilityErrorResp 和真实 HTTP 状态，不泄漏内部异常。
+         * @description 需要有效 Workspace API Key，Body 仅接受空 JSON 对象，最大 4KiB UTF-8 字节，不接受查询参数或 Workspace 覆盖。成功响应直接为 CapabilityDiscoverResp，不包裹 code/msg/data。能力由默认关闭的公开发布开关、Workspace FeatureGate、Key 显式授权共同裁决；Stream request 能力仅报告当前发布与授权，运行可用性保持 readiness_unknown，不触发运行时探针。实际操作由后端执行安全检查，失败返回真实错误。响应允许客户端忽略未知扩展字段；版本标签不表示设备 ACK 或 npm 包版本。错误直接返回 CapabilityErrorResp 和真实 HTTP 状态，不泄漏内部异常。
          */
         post: operations["PlatformV2CapabilityDiscover"];
         delete?: never;
@@ -1370,13 +1370,13 @@ export interface components {
             apiContractVersions: string[];
             /** @description 只返回当前 Key 有授权摘要的已知能力，关闭的能力仍返回状态 */
             capabilities: components["schemas"]["PublicCapability"][];
-            /** @description 本发现响应合同版本，与单个 Control 的冻结合同版本独立 */
+            /** @description 本发现响应合同版本，与单个 Stream request 的冻结合同版本独立 */
             contractVersion: string;
             deprecations: components["schemas"]["CapabilityDeprecation"][];
             product: string;
             /** @description 仅返回显式配置的可信产品发布版本，未配置时省略 */
             productVersion?: string;
-            /** @description control/v1 公共 SDK 合同，不是 npm 版本 */
+            /** @description stream-requests/v1 公共 SDK 合同，不是 npm 版本 */
             sdkContractVersions: string[];
         };
         CapabilityErrorResp: {
@@ -1471,7 +1471,7 @@ export interface components {
             total: number | bigint;
         };
         PublicCapability: {
-            /** @description 当前 Key 的能力授权摘要，不替代具体 Control code 与读写权限检查 */
+            /** @description 当前 Key 的能力授权摘要，不替代具体 Stream request code 与读写权限检查 */
             allowed: boolean;
             /** @description unavailable / unknown / available；不是设备在线或执行成功证明 */
             availability: string;

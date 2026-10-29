@@ -1,6 +1,6 @@
 ---
 name: tier0-sdk-v2
-description: 使用 @tier0/sdk-v2 开发或迁移 Tier0 云端 TypeScript/JavaScript 应用：Source 数据源、Stream 处理程序、UNS 集合与记录、App 自有数据（@tier0/sdk-v2/data）、通知、文件存储、MQTT、成员、系统身份与能力、Controls 和 Agent，按任务进入对应子 Skill，并处理配置、身份和框架集成。
+description: 使用 @tier0/sdk-v2 开发或迁移 Tier0 云端 TypeScript/JavaScript 应用：Source 数据源、Stream 处理程序、UNS 集合与记录、App 自有数据（@tier0/sdk-v2/data）、通知、文件存储、MQTT、成员、系统身份与能力和 Agent，按任务进入对应子 Skill，并处理配置、身份和框架集成。
 ---
 
 # Tier0 SDK v2 应用集成
@@ -20,7 +20,6 @@ description: 使用 @tier0/sdk-v2 开发或迁移 Tier0 云端 TypeScript/JavaSc
 | 附件、头像、导入导出、生成报告 | `client.files` | [文件](tier0-sdk-v2-files/SKILL.md) |
 | 实时主题订阅/发布 | `@tier0/sdk-v2/mq`、`client.mqttAuth` | [MQTT](tier0-sdk-v2-mq/SKILL.md) |
 | Workspace 收件人/成员检索、App 可用成员 | `client.members` | [成员](tier0-sdk-v2-members/SKILL.md) |
-| 调用已发布的 Control | `client.controls` | [Controls](tier0-sdk-v2-controls/SKILL.md) |
 | Agent 作业、运行、分析结果和卡片 | `client.agent` | [Agent](tier0-sdk-v2-agent/SKILL.md) |
 
 每个领域 Skill 可单独使用，无需先加载本文件。Source → Stream → UNS 是接入、处理与数据存储三个领域；不是要求每个数据读取场景都创建一套流水线。通知和系统能力独立于这条链路。
@@ -48,7 +47,7 @@ export async function inspectConnection() {
 | Source、Stream、UNS | 完整 `{ code, msg, requestId, data }` | `UnsV2Error` / `UnsV2OutcomeUnknownError` |
 | 平台 v2，如 system、members、agent、mqttAuth | 解包后的 `data` | `ApiError` / `TransportError` |
 | notifications | 直接对象，如 `messageId`、`status` | `ApiError` |
-| controls、capabilities | 专属响应对象 | `ControlError` / `CapabilityError` |
+| capabilities | 专属响应对象 | `CapabilityError` |
 
 方法存在不等于目标环境已部署或当前 Key 有权限。整数可能为 `bigint`；UNS 任意 JSON 中还可能含 `UnsV2RawNumber`。不要将标识符强制转为 Number；给浏览器返回数据时显式定义精确数字的序列化格式。
 
@@ -60,9 +59,11 @@ export async function inspectConnection() {
 - `client.uns.sourceDocumentGet(body)` → `client.source.documents.get(body)`。
 - `client.uns.streamProgramDeploy(body)` → `client.stream.programs.deploy(body)`。
 - `client.uns.streamDocumentValidate(body)` → `client.stream.documents.validate(body)`。
-- `client.uns.recordFind(body)` 保持不变；Control 使用 `client.controls.use({ code })`。
-- 低层 `createUnsV2Client` 保留完整生成契约，供契约工具使用；业务主入口不再把 Source/Stream/Control 混入 `client.uns`。
+- `client.uns.recordFind(body)` 保持不变。
+- 低层 `createUnsV2Client` 保留完整生成契约，供契约工具使用；业务主入口不再把 Source/Stream 管理混入 `client.uns`。
 
 React/Vue 示例与验签见 [集成参考](references/integration.md)。完成接入时验证目标入口、真实身份、响应解包和错误分支；SDK 本地测试通过不代表环境联调完成。
 
-公开 HTTP 入口统一为 `/openapi/v2`。旧的重复操作已退役，不生成兼容调用或回退。Source 配置用 documents.*，Stream 草稿用 documents.*、发布用 programs.deploy；App 数据层仍提供 insertMany/findOneAnd*/distinct 等便捷方法。历史旧写结果未知时先核对业务状态，不能转换路由后盲目重放。
+Stream 请求与消息交互由独立包 `@tier0/sdk` 的 `client.streams.requests` / `client.streams.messages` 提供；本包负责数据访问和 Source/Stream 管理，不重复实现交互 API。Scaffold 分别接入这两个包，不能将本包的 `client.stream` 管理接口当作运行时请求入口。
+
+本包公开 HTTP 入口统一为 `/openapi/v2`。旧的重复操作已退役，不生成兼容调用或回退。Source 配置用 documents.*，Stream 草稿用 documents.*、发布用 programs.deploy；App 数据层仍提供 insertMany/findOneAnd*/distinct 等便捷方法。历史旧写结果未知时先核对业务状态，不能转换路由后盲目重放。

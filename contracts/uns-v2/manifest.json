@@ -1451,117 +1451,6 @@
       }
     },
     {
-      "name": "controlDiscover",
-      "suffix": "/uns/controls/discover",
-      "handler": "UnsV2ControlDiscover",
-      "request": "CloudControlDiscoverReq",
-      "response": "CloudControlDiscoverResponse",
-      "permission": "stream.requests.read",
-      "scope": "stream.requests:read",
-      "minPermission": 1,
-      "resource": "control",
-      "mutation": "",
-      "runtime": true,
-      "resourceId": 3320,
-      "summary": "发现控制能力",
-      "description": "Cloud extension reusing existing SourceStream logic and storage; internal and external requests share this schema. No shared transform or acquisition runtime is implied.",
-      "cloudExtension": true,
-      "appAllowed": true,
-      "audience": "operations",
-      "starter": false,
-      "method": "POST",
-      "permissionAnyOf": [
-        "stream.requests.read",
-        "stream.requests.manage"
-      ],
-      "readOnly": true,
-      "tags": [
-        "控制"
-      ],
-      "operation": "controlDiscover",
-      "path": "/uns/controls/discover",
-      "supported": true,
-      "requestSchema": {
-        "$ref": "#/components/schemas/CloudControlDiscoverReq"
-      },
-      "responseSchema": {
-        "$ref": "#/components/schemas/CloudControlDiscoverResponse"
-      }
-    },
-    {
-      "name": "controlDescribe",
-      "suffix": "/uns/controls/describe",
-      "handler": "UnsV2ControlDescribe",
-      "request": "CloudControlDescribeReq",
-      "response": "CloudControlDescribeResponse",
-      "permission": "stream.requests.read",
-      "scope": "stream.requests:read",
-      "minPermission": 1,
-      "resource": "control",
-      "mutation": "",
-      "runtime": true,
-      "resourceId": 3320,
-      "summary": "读取控制定义",
-      "description": "Cloud extension reusing existing SourceStream logic and storage; internal and external requests share this schema. No shared transform or acquisition runtime is implied.",
-      "cloudExtension": true,
-      "appAllowed": true,
-      "audience": "operations",
-      "starter": false,
-      "method": "POST",
-      "permissionAnyOf": [
-        "stream.requests.read",
-        "stream.requests.manage"
-      ],
-      "readOnly": true,
-      "tags": [
-        "控制"
-      ],
-      "operation": "controlDescribe",
-      "path": "/uns/controls/describe",
-      "supported": true,
-      "requestSchema": {
-        "$ref": "#/components/schemas/CloudControlDescribeReq"
-      },
-      "responseSchema": {
-        "$ref": "#/components/schemas/CloudControlDescribeResponse"
-      }
-    },
-    {
-      "name": "controlInvoke",
-      "suffix": "/uns/controls/invoke",
-      "handler": "UnsV2ControlInvoke",
-      "request": "CloudControlInvokeReq",
-      "response": "CloudControlInvokeResponse",
-      "permission": "stream.requests.invoke",
-      "scope": "stream.requests:invoke",
-      "minPermission": 1,
-      "resource": "control",
-      "mutation": "runtime",
-      "runtime": true,
-      "resourceId": 3320,
-      "summary": "执行控制",
-      "description": "Cloud extension reusing existing SourceStream logic and storage; internal and external requests share this schema. No shared transform or acquisition runtime is implied. Uses the original frozen Control contract and durable invocation receipt. Outcome unknown is never treated as a safe new write.",
-      "cloudExtension": true,
-      "appAllowed": true,
-      "audience": "operations",
-      "starter": false,
-      "method": "POST",
-      "permissionAnyOf": [],
-      "readOnly": false,
-      "tags": [
-        "控制"
-      ],
-      "operation": "controlInvoke",
-      "path": "/uns/controls/invoke",
-      "supported": true,
-      "requestSchema": {
-        "$ref": "#/components/schemas/CloudControlInvokeReq"
-      },
-      "responseSchema": {
-        "$ref": "#/components/schemas/CloudControlInvokeResponse"
-      }
-    },
-    {
       "name": "sourceDocumentGet",
       "suffix": "/uns/sources/documents/get",
       "handler": "UnsV2SourceDocumentGet",
@@ -2058,6 +1947,42 @@
       }
     },
     {
+      "name": "sourceIngressRevoke",
+      "suffix": "/uns/sources/ingress/revoke",
+      "handler": "UnsV2SourceIngressRevoke",
+      "request": "CloudSourceIngressRevokeReq",
+      "response": "CloudSourceIngressRevokeResponse",
+      "permission": "uns.source.manage",
+      "scope": "source:manage",
+      "minPermission": 3,
+      "resource": "source",
+      "mutation": "runtime",
+      "runtime": true,
+      "coreOnly": true,
+      "resourceId": 3301,
+      "summary": "撤销受管 OPC UA 设备身份",
+      "description": "撤销指定 Source 版本的设备身份并撤下旧会话授权，不返回令牌。",
+      "cloudExtension": true,
+      "appAllowed": false,
+      "audience": "builder",
+      "starter": false,
+      "method": "POST",
+      "permissionAnyOf": [],
+      "readOnly": false,
+      "tags": [
+        "数据源"
+      ],
+      "operation": "sourceIngressRevoke",
+      "path": "/uns/sources/ingress/revoke",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/CloudSourceIngressRevokeReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/CloudSourceIngressRevokeResponse"
+      }
+    },
+    {
       "name": "sourceObservationsGet",
       "suffix": "/uns/sources/observations/get",
       "handler": "UnsV2SourceObservationsGet",
@@ -2198,19 +2123,19 @@
       }
     },
     {
-      "name": "controlAppCapabilities",
-      "suffix": "/uns/control-apps/capabilities",
-      "handler": "CloudControlAppCapabilities",
-      "request": "CloudControlAppCapabilitiesReq",
-      "response": "CloudControlAppCapabilitiesResponse",
+      "name": "appRegistrationCapabilities",
+      "suffix": "/uns/app-registrations/capabilities",
+      "handler": "CloudStreamRequestAppCapabilities",
+      "request": "CloudStreamRequestAppCapabilitiesReq",
+      "response": "CloudStreamRequestAppCapabilitiesResponse",
       "permission": "workspace.api.manage",
       "resource": "app",
       "mutation": "",
       "coreOnly": true,
       "appAllowed": false,
       "resourceId": 3333,
-      "summary": "Cloud control App registration: Capabilities",
-      "description": "Internal authenticated governance; registration does not issue credentials or Control/Source grants.",
+      "summary": "External App registration: Capabilities",
+      "description": "Internal authenticated governance; registration does not issue credentials or Stream request/Source grants.",
       "cloudExtension": true,
       "audience": "governance",
       "starter": false,
@@ -2220,32 +2145,32 @@
       "scope": "app:manage",
       "readOnly": true,
       "tags": [
-        "控制"
+        "App 与授权"
       ],
-      "operation": "controlAppCapabilities",
-      "path": "/uns/control-apps/capabilities",
+      "operation": "appRegistrationCapabilities",
+      "path": "/uns/app-registrations/capabilities",
       "supported": true,
       "requestSchema": {
-        "$ref": "#/components/schemas/CloudControlAppCapabilitiesReq"
+        "$ref": "#/components/schemas/CloudStreamRequestAppCapabilitiesReq"
       },
       "responseSchema": {
-        "$ref": "#/components/schemas/CloudControlAppCapabilitiesResponse"
+        "$ref": "#/components/schemas/CloudStreamRequestAppCapabilitiesResponse"
       }
     },
     {
-      "name": "controlAppList",
-      "suffix": "/uns/control-apps/list",
-      "handler": "CloudControlAppList",
-      "request": "CloudControlAppListReq",
-      "response": "CloudControlAppListResponse",
+      "name": "appRegistrationList",
+      "suffix": "/uns/app-registrations/list",
+      "handler": "CloudStreamRequestAppList",
+      "request": "CloudStreamRequestAppListReq",
+      "response": "CloudStreamRequestAppListResponse",
       "permission": "workspace.api.manage",
       "resource": "app",
       "mutation": "",
       "coreOnly": true,
       "appAllowed": false,
       "resourceId": 3334,
-      "summary": "Cloud control App registration: List",
-      "description": "Internal authenticated governance; registration does not issue credentials or Control/Source grants.",
+      "summary": "External App registration: List",
+      "description": "Internal authenticated governance; registration does not issue credentials or Stream request/Source grants.",
       "cloudExtension": true,
       "audience": "governance",
       "starter": false,
@@ -2255,32 +2180,32 @@
       "scope": "app:manage",
       "readOnly": true,
       "tags": [
-        "控制"
+        "App 与授权"
       ],
-      "operation": "controlAppList",
-      "path": "/uns/control-apps/list",
+      "operation": "appRegistrationList",
+      "path": "/uns/app-registrations/list",
       "supported": true,
       "requestSchema": {
-        "$ref": "#/components/schemas/CloudControlAppListReq"
+        "$ref": "#/components/schemas/CloudStreamRequestAppListReq"
       },
       "responseSchema": {
-        "$ref": "#/components/schemas/CloudControlAppListResponse"
+        "$ref": "#/components/schemas/CloudStreamRequestAppListResponse"
       }
     },
     {
-      "name": "controlAppGet",
-      "suffix": "/uns/control-apps/get",
-      "handler": "CloudControlAppGet",
-      "request": "CloudControlAppGetReq",
-      "response": "CloudControlAppGetResponse",
+      "name": "appRegistrationGet",
+      "suffix": "/uns/app-registrations/get",
+      "handler": "CloudStreamRequestAppGet",
+      "request": "CloudStreamRequestAppGetReq",
+      "response": "CloudStreamRequestAppGetResponse",
       "permission": "workspace.api.manage",
       "resource": "app",
       "mutation": "",
       "coreOnly": true,
       "appAllowed": false,
       "resourceId": 3335,
-      "summary": "Cloud control App registration: Get",
-      "description": "Internal authenticated governance; registration does not issue credentials or Control/Source grants.",
+      "summary": "External App registration: Get",
+      "description": "Internal authenticated governance; registration does not issue credentials or Stream request/Source grants.",
       "cloudExtension": true,
       "audience": "governance",
       "starter": false,
@@ -2290,32 +2215,32 @@
       "scope": "app:manage",
       "readOnly": true,
       "tags": [
-        "控制"
+        "App 与授权"
       ],
-      "operation": "controlAppGet",
-      "path": "/uns/control-apps/get",
+      "operation": "appRegistrationGet",
+      "path": "/uns/app-registrations/get",
       "supported": true,
       "requestSchema": {
-        "$ref": "#/components/schemas/CloudControlAppGetReq"
+        "$ref": "#/components/schemas/CloudStreamRequestAppGetReq"
       },
       "responseSchema": {
-        "$ref": "#/components/schemas/CloudControlAppGetResponse"
+        "$ref": "#/components/schemas/CloudStreamRequestAppGetResponse"
       }
     },
     {
-      "name": "controlAppCreate",
-      "suffix": "/uns/control-apps/create",
-      "handler": "CloudControlAppCreate",
-      "request": "CloudControlAppCreateReq",
-      "response": "CloudControlAppMutationResponse",
+      "name": "appRegistrationCreate",
+      "suffix": "/uns/app-registrations/create",
+      "handler": "CloudStreamRequestAppCreate",
+      "request": "CloudStreamRequestAppCreateReq",
+      "response": "CloudStreamRequestAppMutationResponse",
       "permission": "workspace.api.manage",
       "resource": "app",
       "mutation": "meta.create",
       "coreOnly": true,
       "appAllowed": false,
       "resourceId": 3336,
-      "summary": "Cloud control App registration: Create",
-      "description": "Internal authenticated governance; registration does not issue credentials or Control/Source grants.",
+      "summary": "External App registration: Create",
+      "description": "Internal authenticated governance; registration does not issue credentials or Stream request/Source grants.",
       "cloudExtension": true,
       "audience": "governance",
       "starter": false,
@@ -2325,32 +2250,32 @@
       "scope": "app:manage",
       "readOnly": false,
       "tags": [
-        "控制"
+        "App 与授权"
       ],
-      "operation": "controlAppCreate",
-      "path": "/uns/control-apps/create",
+      "operation": "appRegistrationCreate",
+      "path": "/uns/app-registrations/create",
       "supported": true,
       "requestSchema": {
-        "$ref": "#/components/schemas/CloudControlAppCreateReq"
+        "$ref": "#/components/schemas/CloudStreamRequestAppCreateReq"
       },
       "responseSchema": {
-        "$ref": "#/components/schemas/CloudControlAppMutationResponse"
+        "$ref": "#/components/schemas/CloudStreamRequestAppMutationResponse"
       }
     },
     {
-      "name": "controlAppUpdate",
-      "suffix": "/uns/control-apps/update",
-      "handler": "CloudControlAppUpdate",
-      "request": "CloudControlAppUpdateReq",
-      "response": "CloudControlAppMutationResponse",
+      "name": "appRegistrationUpdate",
+      "suffix": "/uns/app-registrations/update",
+      "handler": "CloudStreamRequestAppUpdate",
+      "request": "CloudStreamRequestAppUpdateReq",
+      "response": "CloudStreamRequestAppMutationResponse",
       "permission": "workspace.api.manage",
       "resource": "app",
       "mutation": "meta.resourcePatch",
       "coreOnly": true,
       "appAllowed": false,
       "resourceId": 3337,
-      "summary": "Cloud control App registration: Update",
-      "description": "Internal authenticated governance; registration does not issue credentials or Control/Source grants.",
+      "summary": "External App registration: Update",
+      "description": "Internal authenticated governance; registration does not issue credentials or Stream request/Source grants.",
       "cloudExtension": true,
       "audience": "governance",
       "starter": false,
@@ -2360,32 +2285,32 @@
       "scope": "app:manage",
       "readOnly": false,
       "tags": [
-        "控制"
+        "App 与授权"
       ],
-      "operation": "controlAppUpdate",
-      "path": "/uns/control-apps/update",
+      "operation": "appRegistrationUpdate",
+      "path": "/uns/app-registrations/update",
       "supported": true,
       "requestSchema": {
-        "$ref": "#/components/schemas/CloudControlAppUpdateReq"
+        "$ref": "#/components/schemas/CloudStreamRequestAppUpdateReq"
       },
       "responseSchema": {
-        "$ref": "#/components/schemas/CloudControlAppMutationResponse"
+        "$ref": "#/components/schemas/CloudStreamRequestAppMutationResponse"
       }
     },
     {
-      "name": "controlAppPermissionsUpdate",
-      "suffix": "/uns/control-apps/permissions/update",
-      "handler": "CloudControlAppPermissionsUpdate",
-      "request": "CloudControlAppPermissionsUpdateReq",
-      "response": "CloudControlAppMutationResponse",
+      "name": "appRegistrationPermissionsUpdate",
+      "suffix": "/uns/app-registrations/permissions/update",
+      "handler": "CloudStreamRequestAppPermissionsUpdate",
+      "request": "CloudStreamRequestAppPermissionsUpdateReq",
+      "response": "CloudStreamRequestAppMutationResponse",
       "permission": "workspace.api.manage",
       "resource": "app",
       "mutation": "meta.resourcePatch",
       "coreOnly": true,
       "appAllowed": false,
       "resourceId": 3338,
-      "summary": "Cloud control App registration: PermissionsUpdate",
-      "description": "Internal authenticated governance; registration does not issue credentials or Control/Source grants.",
+      "summary": "External App registration: PermissionsUpdate",
+      "description": "Internal authenticated governance; registration does not issue credentials or Stream request/Source grants.",
       "cloudExtension": true,
       "audience": "governance",
       "starter": false,
@@ -2395,16 +2320,16 @@
       "scope": "app:manage",
       "readOnly": false,
       "tags": [
-        "控制"
+        "App 与授权"
       ],
-      "operation": "controlAppPermissionsUpdate",
-      "path": "/uns/control-apps/permissions/update",
+      "operation": "appRegistrationPermissionsUpdate",
+      "path": "/uns/app-registrations/permissions/update",
       "supported": true,
       "requestSchema": {
-        "$ref": "#/components/schemas/CloudControlAppPermissionsUpdateReq"
+        "$ref": "#/components/schemas/CloudStreamRequestAppPermissionsUpdateReq"
       },
       "responseSchema": {
-        "$ref": "#/components/schemas/CloudControlAppMutationResponse"
+        "$ref": "#/components/schemas/CloudStreamRequestAppMutationResponse"
       }
     },
     {
@@ -2555,17 +2480,17 @@
       }
     },
     {
-      "name": "hostedAppControlPolicyGet",
-      "suffix": "/uns/hosted-app-control-policy/get",
-      "handler": "CloudHostedAppControlPolicyGet",
-      "request": "CloudHostedAppControlPolicyGetReq",
-      "response": "CloudHostedAppControlPolicyGetResponse",
+      "name": "appStreamPolicyGet",
+      "suffix": "/uns/app-stream-policy/get",
+      "handler": "CloudAppStreamPolicyGet",
+      "request": "CloudAppStreamPolicyGetReq",
+      "response": "CloudAppStreamPolicyGetResponse",
       "permission": "stream.requests.manage",
       "resource": "app",
       "mutation": "",
       "appAllowed": false,
       "resourceId": 3341,
-      "summary": "Hosted App independent Control policy: Get",
+      "summary": "Read App Stream policy",
       "description": "Current manager session or full_access personal/Agent key with uns.write and stream.requests.manage. Updates the existing hosted App platform ceiling while preserving Collection grants. Does not grant a Stream entry or upgrade App credentials.",
       "mcp": false,
       "cloudExtension": true,
@@ -2577,30 +2502,30 @@
       "scope": "stream.requests:manage",
       "readOnly": true,
       "tags": [
-        "元数据"
+        "App 与授权"
       ],
-      "operation": "hostedAppControlPolicyGet",
-      "path": "/uns/hosted-app-control-policy/get",
+      "operation": "appStreamPolicyGet",
+      "path": "/uns/app-stream-policy/get",
       "supported": true,
       "requestSchema": {
-        "$ref": "#/components/schemas/CloudHostedAppControlPolicyGetReq"
+        "$ref": "#/components/schemas/CloudAppStreamPolicyGetReq"
       },
       "responseSchema": {
-        "$ref": "#/components/schemas/CloudHostedAppControlPolicyGetResponse"
+        "$ref": "#/components/schemas/CloudAppStreamPolicyGetResponse"
       }
     },
     {
-      "name": "hostedAppControlPolicyUpdate",
-      "suffix": "/uns/hosted-app-control-policy/update",
-      "handler": "CloudHostedAppControlPolicyUpdate",
-      "request": "CloudHostedAppControlPolicyUpdateReq",
-      "response": "CloudHostedAppControlPolicyMutationResponse",
+      "name": "appStreamPolicyUpdate",
+      "suffix": "/uns/app-stream-policy/update",
+      "handler": "CloudAppStreamPolicyUpdate",
+      "request": "CloudAppStreamPolicyUpdateReq",
+      "response": "CloudAppStreamPolicyMutationResponse",
       "permission": "stream.requests.manage",
       "resource": "app",
       "mutation": "meta.replace",
       "appAllowed": false,
       "resourceId": 3342,
-      "summary": "Hosted App independent Control policy: Update",
+      "summary": "Update App Stream policy",
       "description": "Current manager session or full_access personal/Agent key with uns.write and stream.requests.manage. Updates the existing hosted App platform ceiling while preserving Collection grants. Does not grant a Stream entry or upgrade App credentials.",
       "mcp": false,
       "cloudExtension": true,
@@ -2612,16 +2537,16 @@
       "scope": "stream.requests:manage",
       "readOnly": false,
       "tags": [
-        "元数据"
+        "App 与授权"
       ],
-      "operation": "hostedAppControlPolicyUpdate",
-      "path": "/uns/hosted-app-control-policy/update",
+      "operation": "appStreamPolicyUpdate",
+      "path": "/uns/app-stream-policy/update",
       "supported": true,
       "requestSchema": {
-        "$ref": "#/components/schemas/CloudHostedAppControlPolicyUpdateReq"
+        "$ref": "#/components/schemas/CloudAppStreamPolicyUpdateReq"
       },
       "responseSchema": {
-        "$ref": "#/components/schemas/CloudHostedAppControlPolicyMutationResponse"
+        "$ref": "#/components/schemas/CloudAppStreamPolicyMutationResponse"
       }
     },
     {
@@ -2896,11 +2821,11 @@
       }
     },
     {
-      "name": "controlGrantGet",
-      "suffix": "/uns/controls/grants/get",
-      "handler": "UnsV2ControlGrantGet",
-      "request": "CloudControlGrantGetReq",
-      "response": "CloudControlGrantGetResponse",
+      "name": "streamRequestGrantGet",
+      "suffix": "/uns/stream-requests/grants/get",
+      "handler": "UnsV2StreamRequestGrantGet",
+      "request": "CloudStreamRequestGrantGetReq",
+      "response": "CloudStreamRequestGrantGetResponse",
       "permission": "stream.requests.manage",
       "scope": "stream.requests:manage",
       "minPermission": 3,
@@ -2924,24 +2849,24 @@
       "permissionAnyOf": [],
       "readOnly": true,
       "tags": [
-        "控制"
+        "处理流"
       ],
-      "operation": "controlGrantGet",
-      "path": "/uns/controls/grants/get",
+      "operation": "streamRequestGrantGet",
+      "path": "/uns/stream-requests/grants/get",
       "supported": true,
       "requestSchema": {
-        "$ref": "#/components/schemas/CloudControlGrantGetReq"
+        "$ref": "#/components/schemas/CloudStreamRequestGrantGetReq"
       },
       "responseSchema": {
-        "$ref": "#/components/schemas/CloudControlGrantGetResponse"
+        "$ref": "#/components/schemas/CloudStreamRequestGrantGetResponse"
       }
     },
     {
-      "name": "controlGrantSet",
-      "suffix": "/uns/controls/grants/set",
-      "handler": "UnsV2ControlGrantSet",
-      "request": "CloudControlGrantSetReq",
-      "response": "CloudControlGrantSetResponse",
+      "name": "streamRequestGrantSet",
+      "suffix": "/uns/stream-requests/grants/set",
+      "handler": "UnsV2StreamRequestGrantSet",
+      "request": "CloudStreamRequestGrantSetReq",
+      "response": "CloudStreamRequestGrantSetResponse",
       "permission": "stream.requests.manage",
       "scope": "stream.requests:manage",
       "minPermission": 3,
@@ -2967,16 +2892,16 @@
       "permissionAnyOf": [],
       "readOnly": false,
       "tags": [
-        "控制"
+        "处理流"
       ],
-      "operation": "controlGrantSet",
-      "path": "/uns/controls/grants/set",
+      "operation": "streamRequestGrantSet",
+      "path": "/uns/stream-requests/grants/set",
       "supported": true,
       "requestSchema": {
-        "$ref": "#/components/schemas/CloudControlGrantSetReq"
+        "$ref": "#/components/schemas/CloudStreamRequestGrantSetReq"
       },
       "responseSchema": {
-        "$ref": "#/components/schemas/CloudControlGrantSetResponse"
+        "$ref": "#/components/schemas/CloudStreamRequestGrantSetResponse"
       }
     },
     {
@@ -14301,7 +14226,7 @@
         }
       ]
     },
-    "CloudControlDefinition": {
+    "CloudStreamRequestDefinition": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -14432,8 +14357,13 @@
           "type": "object",
           "additionalProperties": true
         },
-        "control": {
-          "$ref": "#/components/schemas/CloudControlDefinition"
+        "topic": {
+          "type": "string",
+          "maxLength": 128,
+          "readOnly": true
+        },
+        "request": {
+          "$ref": "#/components/schemas/CloudStreamRequestDefinition"
         }
       },
       "required": [
@@ -14472,6 +14402,14 @@
           "type": "array",
           "items": {
             "$ref": "#/components/schemas/CloudStreamEntry"
+          }
+        },
+        "messages": {
+          "type": "array",
+          "maxItems": 32,
+          "readOnly": true,
+          "items": {
+            "$ref": "#/components/schemas/CloudStreamMessageDeclaration"
           }
         }
       },
@@ -14826,211 +14764,6 @@
                 "id",
                 "revision",
                 "deleted"
-              ]
-            },
-            {
-              "$ref": "#/components/schemas/CloudPreviewResult"
-            }
-          ]
-        }
-      },
-      "required": [
-        "code",
-        "msg",
-        "requestId",
-        "data"
-      ]
-    },
-    "CloudControlDiscoverReq": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "page": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "size": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 200
-        },
-        "search": {
-          "type": "string"
-        }
-      },
-      "required": []
-    },
-    "CloudControlDiscoverResponse": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "code": {
-          "type": "integer"
-        },
-        "msg": {
-          "type": "string"
-        },
-        "requestId": {
-          "type": "string"
-        },
-        "data": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "list": {
-              "type": "array",
-              "items": {
-                "$ref": "#/components/schemas/CloudControlDefinition"
-              }
-            },
-            "total": {
-              "type": "integer"
-            },
-            "page": {
-              "type": "integer"
-            },
-            "size": {
-              "type": "integer"
-            },
-            "hasMore": {
-              "type": "boolean"
-            },
-            "complete": {
-              "type": "boolean"
-            },
-            "truncated": {
-              "type": "boolean"
-            },
-            "snapshotScope": {
-              "type": "string",
-              "enum": [
-                "thisRequestOnly"
-              ]
-            },
-            "nextPage": {
-              "type": "integer"
-            }
-          },
-          "required": [
-            "list",
-            "total",
-            "page",
-            "size",
-            "hasMore",
-            "complete",
-            "truncated",
-            "snapshotScope"
-          ]
-        }
-      },
-      "required": [
-        "code",
-        "msg",
-        "requestId",
-        "data"
-      ]
-    },
-    "CloudControlDescribeReq": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "code": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "code"
-      ]
-    },
-    "CloudControlDescribeResponse": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "code": {
-          "type": "integer"
-        },
-        "msg": {
-          "type": "string"
-        },
-        "requestId": {
-          "type": "string"
-        },
-        "data": {
-          "$ref": "#/components/schemas/CloudControlDefinition"
-        }
-      },
-      "required": [
-        "code",
-        "msg",
-        "requestId",
-        "data"
-      ]
-    },
-    "CloudControlInvokeReq": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "code": {
-          "type": "string"
-        },
-        "input": {
-          "nullable": true
-        },
-        "idempotencyKey": {
-          "type": "string",
-          "maxLength": 128
-        }
-      },
-      "required": [
-        "code",
-        "input"
-      ]
-    },
-    "CloudControlInvokeResponse": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "code": {
-          "type": "integer"
-        },
-        "msg": {
-          "type": "string"
-        },
-        "requestId": {
-          "type": "string"
-        },
-        "data": {
-          "oneOf": [
-            {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "code": {
-                  "type": "string"
-                },
-                "contractVersion": {
-                  "type": "string"
-                },
-                "result": {
-                  "nullable": true
-                },
-                "runId": {
-                  "type": "string"
-                },
-                "status": {
-                  "type": "string"
-                },
-                "replayed": {
-                  "type": "boolean"
-                }
-              },
-              "required": [
-                "code",
-                "contractVersion",
-                "result",
-                "runId",
-                "status",
-                "replayed"
               ]
             },
             {
@@ -18553,6 +18286,32 @@
                   }
                 }
               }
+            },
+            "username": {
+              "type": "string"
+            },
+            "namespaceUri": {
+              "type": "string"
+            },
+            "nodes": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "resourceRef",
+                  "nodeId"
+                ],
+                "properties": {
+                  "resourceRef": {
+                    "type": "string"
+                  },
+                  "nodeId": {
+                    "type": "string"
+                  }
+                }
+              }
             }
           }
         }
@@ -18743,6 +18502,32 @@
                         "pattern": "^/ingest/v1/[1-9][0-9]*/[1-9][0-9]*/"
                       }
                     }
+                  }
+                }
+              }
+            },
+            "username": {
+              "type": "string"
+            },
+            "namespaceUri": {
+              "type": "string"
+            },
+            "nodes": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "resourceRef",
+                  "nodeId"
+                ],
+                "properties": {
+                  "resourceRef": {
+                    "type": "string"
+                  },
+                  "nodeId": {
+                    "type": "string"
                   }
                 }
               }
@@ -19273,7 +19058,7 @@
         "data"
       ]
     },
-    "CloudControlAppProfile": {
+    "CloudStreamRequestAppProfile": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -19312,7 +19097,7 @@
         },
         "platformPermissions": {
           "type": "array",
-          "maxItems": 4,
+          "maxItems": 6,
           "uniqueItems": true,
           "items": {
             "type": "string",
@@ -19320,8 +19105,17 @@
               "openapi.base",
               "stream.requests.read",
               "stream.requests.invoke",
-              "stream.requests.write"
+              "stream.requests.write",
+              "stream.messages.publish",
+              "stream.messages.subscribe"
             ]
+          }
+        },
+        "messageTopics": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/components/schemas/CloudStreamMessageTopicPermission"
           }
         }
       },
@@ -19335,13 +19129,13 @@
         "platformPermissions"
       ]
     },
-    "CloudControlAppCapabilitiesReq": {
+    "CloudStreamRequestAppCapabilitiesReq": {
       "type": "object",
       "additionalProperties": false,
       "properties": {},
       "required": []
     },
-    "CloudControlAppCapabilities": {
+    "CloudStreamRequestAppCapabilities": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -19356,7 +19150,7 @@
         "version"
       ]
     },
-    "CloudControlAppListReq": {
+    "CloudStreamRequestAppListReq": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -19378,7 +19172,7 @@
       },
       "required": []
     },
-    "CloudControlAppGetReq": {
+    "CloudStreamRequestAppGetReq": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -19393,7 +19187,7 @@
         "id"
       ]
     },
-    "CloudControlAppCreateReq": {
+    "CloudStreamRequestAppCreateReq": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -19417,7 +19211,7 @@
         },
         "platformPermissions": {
           "type": "array",
-          "maxItems": 4,
+          "maxItems": 6,
           "uniqueItems": true,
           "items": {
             "type": "string",
@@ -19425,8 +19219,17 @@
               "openapi.base",
               "stream.requests.read",
               "stream.requests.invoke",
-              "stream.requests.write"
+              "stream.requests.write",
+              "stream.messages.publish",
+              "stream.messages.subscribe"
             ]
+          }
+        },
+        "messageTopics": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/components/schemas/CloudStreamMessageTopicPermission"
           }
         }
       },
@@ -19436,7 +19239,7 @@
         "name"
       ]
     },
-    "CloudControlAppUpdateReq": {
+    "CloudStreamRequestAppUpdateReq": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -19483,7 +19286,7 @@
         "expectedRevision"
       ]
     },
-    "CloudControlAppPermissionsUpdateReq": {
+    "CloudStreamRequestAppPermissionsUpdateReq": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -19507,7 +19310,7 @@
         },
         "platformPermissions": {
           "type": "array",
-          "maxItems": 4,
+          "maxItems": 6,
           "uniqueItems": true,
           "items": {
             "type": "string",
@@ -19515,8 +19318,17 @@
               "openapi.base",
               "stream.requests.read",
               "stream.requests.invoke",
-              "stream.requests.write"
+              "stream.requests.write",
+              "stream.messages.publish",
+              "stream.messages.subscribe"
             ]
+          }
+        },
+        "messageTopics": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/components/schemas/CloudStreamMessageTopicPermission"
           }
         }
       },
@@ -19528,14 +19340,14 @@
         "platformPermissions"
       ]
     },
-    "CloudControlAppPage": {
+    "CloudStreamRequestAppPage": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "list": {
           "type": "array",
           "items": {
-            "$ref": "#/components/schemas/CloudControlAppProfile"
+            "$ref": "#/components/schemas/CloudStreamRequestAppProfile"
           }
         },
         "total": {
@@ -19584,7 +19396,7 @@
         "snapshotScope"
       ]
     },
-    "CloudControlAppCapabilitiesResponse": {
+    "CloudStreamRequestAppCapabilitiesResponse": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -19598,7 +19410,7 @@
           "type": "string"
         },
         "data": {
-          "$ref": "#/components/schemas/CloudControlAppCapabilities"
+          "$ref": "#/components/schemas/CloudStreamRequestAppCapabilities"
         }
       },
       "required": [
@@ -19608,7 +19420,7 @@
         "data"
       ]
     },
-    "CloudControlAppGetResponse": {
+    "CloudStreamRequestAppGetResponse": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -19622,7 +19434,7 @@
           "type": "string"
         },
         "data": {
-          "$ref": "#/components/schemas/CloudControlAppProfile"
+          "$ref": "#/components/schemas/CloudStreamRequestAppProfile"
         }
       },
       "required": [
@@ -19632,7 +19444,7 @@
         "data"
       ]
     },
-    "CloudControlAppListResponse": {
+    "CloudStreamRequestAppListResponse": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -19646,7 +19458,7 @@
           "type": "string"
         },
         "data": {
-          "$ref": "#/components/schemas/CloudControlAppPage"
+          "$ref": "#/components/schemas/CloudStreamRequestAppPage"
         }
       },
       "required": [
@@ -19656,7 +19468,7 @@
         "data"
       ]
     },
-    "CloudControlAppMutationResponse": {
+    "CloudStreamRequestAppMutationResponse": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -20063,7 +19875,7 @@
         "data"
       ]
     },
-    "CloudHostedAppControlPolicyGetReq": {
+    "CloudAppStreamPolicyGetReq": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -20078,7 +19890,7 @@
         "appId"
       ]
     },
-    "CloudHostedAppControlPolicyUpdateReq": {
+    "CloudAppStreamPolicyUpdateReq": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -20091,7 +19903,7 @@
         "expectedRevision": {
           "type": "integer",
           "minimum": 0,
-          "description": "Shared hosted policy metadata revision. 0 attaches to a real App; either data or Control updates increment this revision."
+          "description": "Shared hosted policy metadata revision. 0 attaches to a real App; either data or Stream policy updates increment this revision."
         },
         "status": {
           "type": "string",
@@ -20110,15 +19922,24 @@
         },
         "platformPermissions": {
           "type": "array",
-          "maxItems": 3,
+          "maxItems": 5,
           "uniqueItems": true,
           "items": {
             "type": "string",
             "enum": [
               "stream.requests.read",
               "stream.requests.invoke",
-              "stream.requests.write"
+              "stream.requests.write",
+              "stream.messages.publish",
+              "stream.messages.subscribe"
             ]
+          }
+        },
+        "messageTopics": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/components/schemas/CloudStreamMessageTopicPermission"
           }
         }
       },
@@ -20131,7 +19952,7 @@
         "platformPermissions"
       ]
     },
-    "CloudHostedAppControlPolicy": {
+    "CloudAppStreamPolicy": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -20173,15 +19994,24 @@
         },
         "platformPermissions": {
           "type": "array",
-          "maxItems": 3,
+          "maxItems": 5,
           "uniqueItems": true,
           "items": {
             "type": "string",
             "enum": [
               "stream.requests.read",
               "stream.requests.invoke",
-              "stream.requests.write"
+              "stream.requests.write",
+              "stream.messages.publish",
+              "stream.messages.subscribe"
             ]
+          }
+        },
+        "messageTopics": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/components/schemas/CloudStreamMessageTopicPermission"
           }
         }
       },
@@ -20195,7 +20025,7 @@
         "platformPermissions"
       ]
     },
-    "CloudHostedAppControlPolicyGetResponse": {
+    "CloudAppStreamPolicyGetResponse": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -20209,7 +20039,7 @@
           "type": "string"
         },
         "data": {
-          "$ref": "#/components/schemas/CloudHostedAppControlPolicy"
+          "$ref": "#/components/schemas/CloudAppStreamPolicy"
         }
       },
       "required": [
@@ -20219,7 +20049,7 @@
         "data"
       ]
     },
-    "CloudHostedAppControlPolicyMutationResponse": {
+    "CloudAppStreamPolicyMutationResponse": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -21139,7 +20969,7 @@
       ],
       "description": "网关内部长轮询的结果；公开接口以 SSE 帧投递（见 CloudRecordSubscribeFrame）。"
     },
-    "CloudControlGrantGetReq": {
+    "CloudStreamRequestGrantGetReq": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -21167,7 +20997,7 @@
         "principalID"
       ]
     },
-    "CloudControlGrantTargetRevision": {
+    "CloudStreamRequestGrantTargetRevision": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -21185,7 +21015,7 @@
         "revision"
       ]
     },
-    "CloudControlGrantSetReq": {
+    "CloudStreamRequestGrantSetReq": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -21238,7 +21068,7 @@
         "targetRevisions": {
           "type": "array",
           "items": {
-            "$ref": "#/components/schemas/CloudControlGrantTargetRevision"
+            "$ref": "#/components/schemas/CloudStreamRequestGrantTargetRevision"
           },
           "maxItems": 128,
           "description": "兼容旧调用的目标版本列表；历史目标较多时请使用 expectedSnapshotToken 撤销。"
@@ -21294,7 +21124,7 @@
         }
       ]
     },
-    "CloudControlGrantTargetInfo": {
+    "CloudStreamRequestGrantTargetInfo": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -21340,7 +21170,7 @@
         "reference"
       ]
     },
-    "CloudControlGrantInfo": {
+    "CloudStreamRequestGrantInfo": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -21421,7 +21251,7 @@
         "targets": {
           "type": "array",
           "items": {
-            "$ref": "#/components/schemas/CloudControlGrantTargetInfo"
+            "$ref": "#/components/schemas/CloudStreamRequestGrantTargetInfo"
           }
         },
         "createdPrincipal": {
@@ -21474,7 +21304,7 @@
         "snapshotToken"
       ]
     },
-    "CloudControlGrantMutation": {
+    "CloudStreamRequestGrantMutation": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -21522,7 +21352,7 @@
         "active"
       ]
     },
-    "CloudControlGrantGetResponse": {
+    "CloudStreamRequestGrantGetResponse": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -21536,7 +21366,7 @@
           "type": "string"
         },
         "data": {
-          "$ref": "#/components/schemas/CloudControlGrantInfo"
+          "$ref": "#/components/schemas/CloudStreamRequestGrantInfo"
         }
       },
       "required": [
@@ -21546,7 +21376,7 @@
         "data"
       ]
     },
-    "CloudControlGrantSetResponse": {
+    "CloudStreamRequestGrantSetResponse": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -21560,7 +21390,7 @@
           "type": "string"
         },
         "data": {
-          "$ref": "#/components/schemas/CloudControlGrantMutation"
+          "$ref": "#/components/schemas/CloudStreamRequestGrantMutation"
         }
       },
       "required": [
@@ -21964,6 +21794,305 @@
         "data"
       ],
       "additionalProperties": false
+    },
+    "CloudSourceIngressRevokeReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "expectedRevision"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "CloudSourceIngressRevokeResponse": {
+      "type": "object",
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ],
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "available",
+            "active",
+            "endpoint",
+            "topic"
+          ],
+          "properties": {
+            "available": {
+              "type": "integer",
+              "enum": [
+                1,
+                2
+              ],
+              "description": "1 = yes, 2 = no."
+            },
+            "active": {
+              "type": "integer",
+              "enum": [
+                1,
+                2
+              ],
+              "description": "1 = yes, 2 = no."
+            },
+            "endpoint": {
+              "type": "string"
+            },
+            "topic": {
+              "type": "string"
+            },
+            "expiresAt": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Unix epoch milliseconds; omitted when no event has occurred."
+            },
+            "lastReceivedAt": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Unix epoch milliseconds; omitted when no event has occurred."
+            },
+            "auth": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "name",
+                "clientId",
+                "username",
+                "clientIdRandomSuffixEnabled",
+                "authStatus"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "clientId": {
+                  "type": "string"
+                },
+                "username": {
+                  "type": "string"
+                },
+                "clientIdRandomSuffixEnabled": {
+                  "type": "integer",
+                  "enum": [
+                    1,
+                    2
+                  ]
+                },
+                "authStatus": {
+                  "type": "integer",
+                  "enum": [
+                    1,
+                    2
+                  ]
+                }
+              }
+            },
+            "httpIn": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "available",
+                "prefix",
+                "endpoint",
+                "mode",
+                "maxBodyBytes",
+                "maxResponseBytes",
+                "maxTimeoutMs",
+                "routes"
+              ],
+              "properties": {
+                "available": {
+                  "type": "integer",
+                  "enum": [
+                    1,
+                    2
+                  ],
+                  "description": "Independent synchronous HTTP In capability; 1 enabled, 2 disabled. Does not enable legacy asynchronous reception."
+                },
+                "prefix": {
+                  "type": "string",
+                  "pattern": "^/ingest/v1/[1-9][0-9]*/[1-9][0-9]*$"
+                },
+                "endpoint": {
+                  "type": "string",
+                  "description": "Server-configured public origin plus fixed prefix; empty while unavailable. Never inferred from the browser origin."
+                },
+                "mode": {
+                  "type": "string",
+                  "enum": [
+                    "synchronous"
+                  ]
+                },
+                "maxBodyBytes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1048576
+                },
+                "maxResponseBytes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1048576
+                },
+                "maxTimeoutMs": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 30000
+                },
+                "routes": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "streamId",
+                      "versionId",
+                      "entryId",
+                      "method",
+                      "path",
+                      "urlPath"
+                    ],
+                    "properties": {
+                      "streamId": {
+                        "type": "string",
+                        "pattern": "^[1-9][0-9]*$"
+                      },
+                      "versionId": {
+                        "type": "string",
+                        "pattern": "^[1-9][0-9]*$"
+                      },
+                      "entryId": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                      },
+                      "method": {
+                        "type": "string",
+                        "enum": [
+                          "GET",
+                          "POST",
+                          "PUT",
+                          "PATCH",
+                          "DELETE",
+                          "HEAD",
+                          "OPTIONS"
+                        ]
+                      },
+                      "path": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2048,
+                        "pattern": "^/"
+                      },
+                      "urlPath": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^/ingest/v1/[1-9][0-9]*/[1-9][0-9]*/"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "username": {
+              "type": "string"
+            },
+            "namespaceUri": {
+              "type": "string"
+            },
+            "nodes": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "resourceRef",
+                  "nodeId"
+                ],
+                "properties": {
+                  "resourceRef": {
+                    "type": "string"
+                  },
+                  "nodeId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "CloudStreamMessageTopicPermission": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "topic": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._/-]{0,127}$"
+        },
+        "publish": {
+          "type": "boolean"
+        },
+        "subscribe": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "topic",
+        "publish",
+        "subscribe"
+      ]
+    },
+    "CloudStreamMessageDeclaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "topic": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "access": {
+          "type": "string",
+          "enum": [
+            "publish"
+          ]
+        }
+      },
+      "required": [
+        "topic",
+        "access"
+      ]
     },
     "UnsV2SampleFindReq": {
       "type": "object",

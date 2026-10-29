@@ -1,7 +1,7 @@
 import { CloudTransport, CloudTransportError, type CloudTransportConfig } from './cloud-transport.js';
 import { getClient, type HttpClient } from './openapi/client.js';
 
-export type CapabilityCode = 'namespace.v2' | 'source' | 'stream' | 'control.v1' | 'control.invoke.v1';
+export type CapabilityCode = 'namespace.v2' | 'source' | 'stream';
 export type CapabilityState = 'disabled' | 'not_supported' | 'unavailable' | 'readiness_unknown' | 'ready';
 export type CapabilityAvailability = 'unavailable' | 'unknown' | 'available';
 
@@ -11,7 +11,7 @@ export interface PublicCapability {
   releaseEnabled: boolean;
   /** Server-assessed implementation/readiness, never inferred from releaseEnabled. */
   enabled: boolean;
-  /** Authorization summary, not a grant for every individual Control code. */
+  /** Authorization summary, not authorization for an individual operation. */
   allowed: boolean;
   state: CapabilityState;
   /** Not device online status or execution/ACK confirmation. */
@@ -60,8 +60,6 @@ const contracts: Record<CapabilityCode, string[]> = {
   'namespace.v2': ['openapi/v2'],
   'source': ['openapi/v2'],
   'stream': ['openapi/v2'],
-  'control.v1': ['openapi/v1', 'control/v1'],
-  'control.invoke.v1': ['openapi/v1', 'control/v1'],
 };
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -87,13 +85,14 @@ function discovery(value: unknown, status: number): CapabilityDiscoverResponse {
       !Array.isArray(value.capabilities) || !Array.isArray(value.deprecations) ||
       (value.productVersion !== undefined && !text(value.productVersion))) return fail();
   if (value.product !== 'cloud' || value.contractVersion !== '1.0' ||
-      !value.apiContractVersions.includes('openapi/v2') ||
-      !value.sdkContractVersions.includes('control/v1')) return fail(true);
+      !value.apiContractVersions.includes('openapi/v2')) return fail(true);
 
   const capabilities: PublicCapability[] = [];
   const seen = new Set<string>();
   for (const item of value.capabilities) {
     if (!record(item) || !text(item.code)) return fail();
+    // Other SDKs own optional interaction contracts. Their versions cannot gate
+    // this SDK's Namespace/Source/Stream-management discovery.
     if (!Object.prototype.hasOwnProperty.call(contracts, item.code)) continue;
     const code = item.code as CapabilityCode;
     if (seen.has(code)) return fail();
