@@ -123,22 +123,47 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     finished();
   });
 
-  it('creates an authenticated Source in one request and returns the canonical document', async () => {
-    steps = [{ path: 'sources/documents/create', check: b => expect(b).toMatchObject({
-      dryRun: false, idempotencyKey: 'create-authenticated',
-      credentials: { method: 'GET', kind: 'bearer', material: { token: 'fixture-only' } },
-    }), data: source() }];
+  it('composes the authenticated Source and HTTP Stream examples without turning request GET into a credential restriction', async () => {
+    const endpoint = 'https://fixture.invalid/api/v1';
+    const current = { ...source(), document: { ...source().document,
+      config: { ...source().document.config, endpoint, auth: { kind: 'bearer', credentialRef: 'fixture-ref' } } } };
+    let script = '';
+    steps = [
+      { path: 'sources/documents/create', check: b => {
+        expect(b).toMatchObject({ dryRun: false, idempotencyKey: 'create-authenticated',
+          document: { config: { endpoint } } });
+        expect(b.credentials).toEqual({ kind: 'bearer', material: { token: 'fixture-only' } });
+      }, data: current },
+      { path: 'streams/documents/create', check: b => {
+        expect(b.program.sourceBindings).toEqual([{ sourceId: current.id, configRevision: current.revision, acquisition: {} }]);
+        script = b.program.script;
+        expect(script).not.toContain('fixture-only');
+        expect(script).not.toContain('fixture-ref');
+      }, data: stream() },
+    ];
     const created = await example('source', 'create', 1).createAuthenticatedHttpSource(
-      'https://fixture.invalid', 'orders', 'fixture-only', 'create-authenticated', client);
-    expect(created.current).toEqual(source());
-    expect(created.receipt.data).toEqual(source());
-    expect(calls).toHaveLength(1);
+      endpoint, 'inventory', 'fixture-only', 'create-authenticated', client);
+    expect(created.current).toEqual(current);
+    await example('stream', 'create').createHttpStream(created.current, 'inventory-stream', 'create-stream', client);
+    const module = { exports: undefined as unknown as (api: unknown) => void };
+    runInNewContext(script, { module });
+    const request = vi.fn().mockResolvedValue({ data: [{ sku: 'fixture-sku' }] });
+    const use = vi.fn().mockReturnValue({ request });
+    const every = vi.fn();
+    module.exports({ sources: { use }, stream: { every } });
+    expect(use).toHaveBeenCalledWith({ id: current.id, resources: [] });
+    expect(request).not.toHaveBeenCalled();
+    expect(every.mock.calls[0][0]).toEqual({ id: 'tick', intervalMs: 60000 });
+    await expect(every.mock.calls[0][1]()).resolves.toEqual([{ sku: 'fixture-sku' }]);
+    expect(request).toHaveBeenCalledWith({ method: 'GET', path: 'inventory', query: { limit: '5000' } });
+    expect(calls).toHaveLength(2);
     finished();
   });
 
   it.each([
     { kind: 'basic', material: { username: 'fixture-user', password: 'fixture-only' } },
     { kind: 'bearer', material: { token: 'fixture-only' } },
+    { kind: 'bearer', method: 'GET', material: { token: 'fixture-only' } },
     { kind: 'apiKey', method: 'REQUEST', material: { headerName: 'X-API-Key', value: 'fixture-only' } },
     { kind: 'oauth2ClientCredentials', material: { tokenUrl: 'https://fixture.invalid/token',
       clientId: 'fixture-client', clientSecret: 'fixture-only', clientAuthentication: 'client_secret_basic' } },

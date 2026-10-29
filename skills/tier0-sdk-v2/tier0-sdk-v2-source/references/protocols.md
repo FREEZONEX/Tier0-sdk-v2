@@ -39,4 +39,4 @@ HTTP Client 示例不能用于 Server。HTTPServer 通过 `source.documents.*` �
 
 Cloud 的角色位于 `config.role`；Enterprise 投影的顶层 `role` 不能直接抄入 Cloud 管理文档。Server 配置见[创建](create.md)，以 `http://managed` 和空 options 保存，不从 Client 模板推导。
 
-HTTP Client 的单条 inline 认证支持 basic / bearer / apiKey / oauth2ClientCredentials，method 省略时由服务端按 REQUEST 绑定 Source 基址；显式方法限制保持不变。APIKey 材料为 headerName/value，OAuth 可提供 clientAuthentication。见[创建](create.md)。
+HTTP Client 的单条 inline 认证支持 basic / bearer / apiKey / oauth2ClientCredentials。普通创建省略 credentials.method，由服务端按 REQUEST 绑定 Source 基址；实际 method/path/query 在 Stream 设置。Basic/Bearer 显式凭据方法同时限制精确 URL，不覆盖基址下的子路径；存量绑定保持限制，不自动扩大权限。APIKey 材料为 headerName/value，OAuth 可提供 clientAuthentication，旧 OAuth GET 保留既有兼容语义。见[创建](create.md)。
