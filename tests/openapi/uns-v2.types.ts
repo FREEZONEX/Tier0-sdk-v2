@@ -64,7 +64,7 @@ const jobs = client.uns.jobs({ queries: [{ queryId: 'job', jobIds: ['job-1'] }] 
 const transaction = client.uns.recordTransactionExecute({ items: [] });
 const sources = client.source.documents.list({ page: 1, size: 20, archived: false });
 const deployment = client.stream.programs.deploy({
-  id: 'stream-1', dryRun: false, expectedRevision: 3, expectedSourceRevision: 7, idempotencyKey: 'deploy-1',
+  id: 'stream-1', dryRun: false, expectedRevision: 3, expectedSourceRevision: 7, expectedActiveRelease: 0, idempotencyKey: 'deploy-1',
 });
 const scopedSamples = client.uns.sampleFind({ collectionId: 'measurements', recordIds: ['machine-1'], from: 0, to: 1000, page: { mode: 'cursor', size: 20 } });
 const sourceState = client.source.state.update({

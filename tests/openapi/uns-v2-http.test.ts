@@ -350,7 +350,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
       'record-notifications/1', 'record-delete-samples/1', 'stream-history/1',
       'record-reads/1', 'app-context/3', 'collection-ttl/1', 'error-model/1', 'record-insert-return/1', 'stream-run-error/1',
     ]));
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('5ba6c3af432d5200674f7cb1a3edd31b255ef64b');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('daceefefb2124f8aa4e3d6d87aab4db3801d622b');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(UNS_V2_CONTRACT_PROVENANCE.sourceDerivedContractSHA256).toBe(UNS_V2_CONTRACT_PROVENANCE.hashes.contract);
     expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(82);
@@ -658,7 +658,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
     if (!('id' in created.data)) throw new Error('Expected committed create receipt');
     expect(created.data).not.toHaveProperty('activeRelease');
     const deployed = await api.stream.programs.deploy({ id: created.data.id, expectedRevision: created.data.revision,
-      dryRun: false, idempotencyKey: 'deploy-receipt' });
+      expectedActiveRelease: 0, dryRun: false, idempotencyKey: 'deploy-receipt' });
     if (!('id' in deployed.data)) throw new Error('Expected committed deployment receipt');
     const runs = await api.stream.runs.list({ id: deployed.data.id, size: 10 });
     expect(runs.data.items.filter(run => String(run.release) === String(deployed.data.activeRelease)).map(run => run.id)).toEqual(['this']);
@@ -666,6 +666,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
       '/openapi/v2/uns/streams/documents/create', '/openapi/v2/uns/streams/program/deploy', '/openapi/v2/uns/streams/runs/list',
     ]);
     expect(JSON.parse(received[start + 1].body).expectedRevision).toBe(3);
+    expect(JSON.parse(received[start + 1].body).expectedActiveRelease).toBe(0);
   });
 
   it('preserves inactive program receipts without an active release number', async () => {
