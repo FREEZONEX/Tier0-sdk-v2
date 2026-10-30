@@ -6709,6 +6709,26 @@
     }
   },
   {
+    "name": "cloud-request-invoke-resource-check",
+    "valid": true,
+    "response": {
+      "product": "cloud",
+      "contractVersion": "2.0",
+      "apiContractVersions": ["openapi/v2"],
+      "sdkContractVersions": ["stream-requests/v1"],
+      "capabilities": [{
+        "code": "stream.requests.invoke.v1",
+        "state": "ready",
+        "reasonCode": "READY",
+        "checkedAt": "2026-10-30T14:00:00Z",
+        "validUntil": "2026-10-30T14:00:05Z",
+        "contractVersions": ["openapi/v2", "stream-requests/v1"],
+        "operations": [{"operation": "invoke", "state": "ready", "reasonCode": "READY", "requiresResourceCheck": true}]
+      }],
+      "deprecations": []
+    }
+  },
+  {
     "name": "old-discovery-contract-rejected",
     "valid": false,
     "response": {
