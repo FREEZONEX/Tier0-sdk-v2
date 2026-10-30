@@ -2,6 +2,8 @@
 
 Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交互均使用 `@tier0/sdk-v2`。旧 SDK 不再作为依赖。
 
+`0.9.0` 同步最新已合入的 OpenAPI v2 能力发现与 SQL 采集合同，提供统一 App Runtime、Stream 请求与消息客户端，以及文件分片上传恢复能力。相对 0.7.x / 0.8.0 存在接口合同变更；升级时需核对下方使用方式，并确认目标后端已部署对应合同。Control 不作为公开 SDK 入口。
+
 `0.7.x` 包含不兼容变更：移除旧 Controls 入口、生成操作、DTO 和错误类，不保留别名。Stream 请求与消息交互统一到本包的 `client.streams`；`client.stream` 保留 Stream 管理。能力发现不再以可选交互合同阻断 Namespace，未知核心合同仍严格拒绝。V2 的 `execution` / `retry` 和结果未知语义保持不变。
 
 `0.6.0` 的 HTTP Source 只保留 `protocol: http-api`，通过 `config.role: client | server` 区分主动请求与入站服务。旧 `http` / `http_push` 配置需要迁移；响应时机属于 Stream，不再建立独立异步 Source。同步 singlemodel 合同后，Source 配置不再带 configVersion，Stream 输入不再带 sdkVersion；保留完整 module.exports 程序与原生 script 对象/Runtime program 字符串两种既有形态，不能将旧 transform 函数体直接改名迁入。
