@@ -568,6 +568,7 @@ export type UnsV2StreamProgramDeployReq = {
   "expectedRevision"?: UnsV2Integer;
   "expectedSourceRevision"?: UnsV2Integer;
   "expectedActiveRelease"?: UnsV2Integer;
+  "expectedReleaseState"?: "inactive";
 };
 
 export type UnsV2StreamProgramDeployResponse = {
@@ -585,6 +586,7 @@ export type UnsV2StreamProgramRollbackReq = {
   "expectedSourceRevision"?: UnsV2Integer;
   "versionId": string;
   "expectedActiveRelease"?: UnsV2Integer;
+  "expectedReleaseState"?: "inactive";
 };
 
 export type UnsV2StreamProgramRollbackResponse = {
@@ -3747,10 +3749,10 @@ export const UNS_V2_CODEC_SCHEMAS = {"UnsV2CatalogReq":{"k":"o"},"UnsV2Transacti
 
 export const UNS_V2_CONTRACT_PROVENANCE = {
   "repository": "FREEZONEX/Tier0-Backend",
-  "revision": "daceefefb2124f8aa4e3d6d87aab4db3801d622b",
+  "revision": "8c3967611cb7f28bfb8e6dc7063affef3d0b5210",
   "version": "5.0.0",
   "source": "service/unssvr/internal/domain/unsv2/contract_generated.go#ContractJSON",
-  "cloudRevision": "daceefefb2124f8aa4e3d6d87aab4db3801d622b",
+  "cloudRevision": "8c3967611cb7f28bfb8e6dc7063affef3d0b5210",
   "cloudContractRevision": "cloud-source-impact/2+source-vendor/2+app-create-capability/1+data/3+record-reads/1+stream-receipt/1+stream-run-error/1+stream-deploy-guard/1+collection-namespace/1+business-name/1+http-acquisition/2+http-source-role/1+http-source-request/1+sql-inline-credentials/1+app-collection/2+collection-ownership/1+metadata/1+app-context/3+collection-ttl/1+error-model/1+crud-consolidation/1+record-insert-return/1+lifecycle-consolidation/1+mutation-defaults/1+api-surface/2+source-stream-single-model+app-data/2+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/1+http-in/1+app-resource-access/2+stream-control-probe-retirement/1+http-push-retirement/1",
   "resolvedCloudContract": true,
   "enterpriseBase": {
@@ -3767,15 +3769,15 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
       "capability": "x-tier0-opcua-server: static available=false; online availability is workspace/registry authoritative"
     }
   },
-  "sourceDerivedContractSHA256": "8436df452571b0395e98984682b1a68829b07fb00387551db25e337ddcfca3ce",
+  "sourceDerivedContractSHA256": "5970027acf0b13b0db628aa0faf42bb1dba9934f4ac81220262e577956b49577",
   "schemaUpdates": [
     {
       "scope": "source-stream-acquisition",
       "repository": "FREEZONEX/Tier0-Backend",
-      "revision": "daceefefb2124f8aa4e3d6d87aab4db3801d622b",
+      "revision": "8c3967611cb7f28bfb8e6dc7063affef3d0b5210",
       "sourceKind": "committed",
       "source": "share/unscontract/manifest.json",
-      "sourceSHA256": "1b105ff4bf92ecdfc11f9c93e13ec05fbbc401cd10cdf098b4c426bc236c667b",
+      "sourceSHA256": "a945c4eaf4d01052859fa050643d61285a49a12897cc84e7c39fa0127a3193eb",
       "sourceContractRevision": "cloud-source-impact/2+source-vendor/2+app-create-capability/1+data/3+record-reads/1+stream-receipt/1+stream-run-error/1+stream-deploy-guard/1+collection-namespace/1+business-name/1+http-acquisition/2+http-source-role/1+http-source-request/1+sql-inline-credentials/1+app-collection/2+collection-ownership/1+metadata/1+app-context/3+collection-ttl/1+error-model/1+crud-consolidation/1+record-insert-return/1+lifecycle-consolidation/1+mutation-defaults/1+api-surface/2+source-stream-single-model+app-data/2+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/1+http-in/1+app-resource-access/2+stream-control-probe-retirement/1+http-push-retirement/1",
       "schemas": [
         "CloudSourceCreateCredentials",
@@ -3789,25 +3791,25 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
       "inputs": {
         "contracts/uns-v2/manifest.json": {
           "path": "share/unscontract/manifest.json",
-          "sourceSHA256": "1b105ff4bf92ecdfc11f9c93e13ec05fbbc401cd10cdf098b4c426bc236c667b",
-          "baseSHA256": "1b105ff4bf92ecdfc11f9c93e13ec05fbbc401cd10cdf098b4c426bc236c667b",
-          "resultSHA256": "1b105ff4bf92ecdfc11f9c93e13ec05fbbc401cd10cdf098b4c426bc236c667b"
+          "sourceSHA256": "a945c4eaf4d01052859fa050643d61285a49a12897cc84e7c39fa0127a3193eb",
+          "baseSHA256": "a945c4eaf4d01052859fa050643d61285a49a12897cc84e7c39fa0127a3193eb",
+          "resultSHA256": "a945c4eaf4d01052859fa050643d61285a49a12897cc84e7c39fa0127a3193eb"
         },
         "contracts/uns-v2/contract.json": {
           "path": "share/unscontract/manifest.json",
-          "sourceSHA256": "1b105ff4bf92ecdfc11f9c93e13ec05fbbc401cd10cdf098b4c426bc236c667b",
-          "baseSHA256": "8436df452571b0395e98984682b1a68829b07fb00387551db25e337ddcfca3ce",
-          "resultSHA256": "8436df452571b0395e98984682b1a68829b07fb00387551db25e337ddcfca3ce"
+          "sourceSHA256": "a945c4eaf4d01052859fa050643d61285a49a12897cc84e7c39fa0127a3193eb",
+          "baseSHA256": "5970027acf0b13b0db628aa0faf42bb1dba9934f4ac81220262e577956b49577",
+          "resultSHA256": "5970027acf0b13b0db628aa0faf42bb1dba9934f4ac81220262e577956b49577"
         }
       }
     }
   ],
   "note": "Pinned base with reviewed acquisition schema updates; schemaUpdates records the exact source revision and hashes. Other data-model inputs remain pinned.",
   "hashes": {
-    "contract": "8436df452571b0395e98984682b1a68829b07fb00387551db25e337ddcfca3ce",
+    "contract": "5970027acf0b13b0db628aa0faf42bb1dba9934f4ac81220262e577956b49577",
     "cloudSupport": "4ff9d5ff69e35e38459287cf15df45ab627684e2e2294dfd1e076ebc4fc34b46",
-    "manifest": "1b105ff4bf92ecdfc11f9c93e13ec05fbbc401cd10cdf098b4c426bc236c667b",
-    "provenance": "66993c3ea6096d66d9d60ab2d7ad2ca97a72fae6e2566d2fd7451d9831dde230",
+    "manifest": "a945c4eaf4d01052859fa050643d61285a49a12897cc84e7c39fa0127a3193eb",
+    "provenance": "b5ea7feb17b5ae8eec66eb80a35c477218cb8bbe199a9de5aaf5880fd7e076ff",
     "registry": "c74313c217742d50391a94c09e60d5c5bd1a89c305fa4145cbf23b35ba7dbcdb"
   },
   "publicOperationCount": 82,

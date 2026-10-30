@@ -1517,13 +1517,26 @@
                   },
                   "expectedActiveRelease": {
                     "type": "integer",
-                    "minimum": 0,
-                    "description": "可选的生效发布序号并发守卫；0 表示当前无生效发布，变化时拒绝操作。"
+                    "minimum": 1,
+                    "description": "可选的生效发布序号并发守卫；变化时拒绝操作，不能与 expectedReleaseState 同时使用。"
+                  },
+                  "expectedReleaseState": {
+                    "type": "string",
+                    "enum": [
+                      "inactive"
+                    ],
+                    "description": "可选的无生效发布状态守卫；不能与 expectedActiveRelease 同时使用。"
                   }
                 },
                 "required": [
                   "id"
-                ]
+                ],
+                "not": {
+                  "required": [
+                    "expectedActiveRelease",
+                    "expectedReleaseState"
+                  ]
+                }
               },
               "example": {
                 "dryRun": true,
@@ -1623,15 +1636,28 @@
                   },
                   "expectedActiveRelease": {
                     "type": "integer",
-                    "minimum": 0,
-                    "description": "可选的生效发布序号并发守卫；0 表示当前无生效发布，变化时拒绝操作。"
+                    "minimum": 1,
+                    "description": "可选的生效发布序号并发守卫；变化时拒绝操作，不能与 expectedReleaseState 同时使用。"
+                  },
+                  "expectedReleaseState": {
+                    "type": "string",
+                    "enum": [
+                      "inactive"
+                    ],
+                    "description": "可选的无生效发布状态守卫；不能与 expectedActiveRelease 同时使用。"
                   }
                 },
                 "required": [
                   "dryRun",
                   "id",
                   "versionId"
-                ]
+                ],
+                "not": {
+                  "required": [
+                    "expectedActiveRelease",
+                    "expectedReleaseState"
+                  ]
+                }
               },
               "example": {
                 "dryRun": true,

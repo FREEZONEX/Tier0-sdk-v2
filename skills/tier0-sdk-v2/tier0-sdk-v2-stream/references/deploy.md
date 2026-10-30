@@ -2,13 +2,13 @@
 
 | 方法 | POST 路径 | 必要参数 |
 | --- | --- | --- |
-| programs.deploy | /openapi/v2/uns/streams/program/deploy | id；dryRun 默认 false，建议 expectedRevision 和 expectedActiveRelease |
-| programs.rollback | /openapi/v2/uns/streams/program/rollback | id、versionId、dryRun；建议 expectedRevision 和 expectedActiveRelease |
+| programs.deploy | /openapi/v2/uns/streams/program/deploy | id；dryRun 默认 false，建议 expectedRevision 和发布状态守卫 |
+| programs.rollback | /openapi/v2/uns/streams/program/rollback | id、versionId、dryRun；建议 expectedRevision 和发布状态守卫 |
 | documents.disable | /openapi/v2/uns/streams/documents/disable | id、expectedRevision、expectedActiveRelease、dryRun |
 
 全部写操作使用各自的 idempotencyKey。expectedSourceRevision 只适用于恰好一个 Source 依赖，且同时保护草稿冻结修订与当前 Source head；多源不能塞入单个修订值。原生文档没有 documents.deploy，当前云端 program 模型发布走 programs.deploy。
 
-发布和回滚的 `expectedActiveRelease` 是可选并发守卫：传入已确认的当前生效发布序号；没有生效发布时传 0。服务端在事务内比较当前值，变化时返回版本冲突；重新读取并决策后才能使用新的业务意图。该字段比较当前值，不记录中间发生的全部切换。
+发布和回滚有可选并发守卫：有生效发布时传入正整数 `expectedActiveRelease`；没有生效发布时传入 `expectedReleaseState: 'inactive'`，两者不能同时使用。服务端在事务内比较当前状态，变化时返回版本冲突；重新读取并决策后才能使用新的业务意图。守卫比较当前值，不记录中间发生的全部切换。
 
 发布、停用和回滚需要 uns.stream.manage；相关 Source 访问还受各自授权约束。保存回执中的 revision、发布回执中的 activeVersion 与 activeRelease 分别用于不同目的：
 
@@ -26,7 +26,8 @@ import { createClient, type Tier0Client, type CloudStreamDocumentView, type Clou
 export async function deployStream(current: CloudStreamDocumentView, intentKey: string, client: Tier0Client = createClient()) {
   const sources = current.document.sources ?? [];
   const request = {
-    id: current.id, expectedRevision: current.revision, expectedActiveRelease: current.activeRelease,
+    id: current.id, expectedRevision: current.revision,
+    ...(String(current.activeRelease) === '0' ? { expectedReleaseState: 'inactive' as const } : { expectedActiveRelease: current.activeRelease }),
     ...(sources.length === 1 ? { expectedSourceRevision: sources[0]!.configRevision } : {}),
   };
   const receipt = await client.stream.programs.deploy({
@@ -70,7 +71,9 @@ export async function rollbackStream(
 ) {
   // versionId 使用已知发布回执的 activeVersion，或从 programs.versions.list 选定。
   return client.stream.programs.rollback({
-    id: current.id, versionId, expectedRevision: current.revision, expectedActiveRelease: current.activeRelease, dryRun: false, idempotencyKey: intentKey,
+    id: current.id, versionId, expectedRevision: current.revision,
+    ...(String(current.activeRelease) === '0' ? { expectedReleaseState: 'inactive' as const } : { expectedActiveRelease: current.activeRelease }),
+    dryRun: false, idempotencyKey: intentKey,
   });
 }
 ```
