@@ -144,17 +144,21 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     const created = await example('source', 'create', 1).createAuthenticatedHttpSource(
       endpoint, 'inventory', 'fixture-only', 'create-authenticated', client);
     expect(created.current).toEqual(current);
-    await example('stream', 'create').createHttpStream(created.current, 'inventory-stream', 'create-stream', client);
+    await example('stream', 'create').createHttpStream(created.current, 'inventory', 'inventory-stream', 'create-stream', client);
     const module = { exports: undefined as unknown as (api: unknown) => void };
     runInNewContext(script, { module });
-    const request = vi.fn().mockResolvedValue({ status: 200, data: [{ sku: 'fixture-sku' }] });
+    const request = vi.fn().mockResolvedValue({ status: 200, data: [{ sku: 'fixture-sku', quantity: 12 }] });
+    const write = vi.fn();
+    const output = vi.fn().mockReturnValue({ write });
     const use = vi.fn().mockReturnValue({ request });
     const every = vi.fn();
-    module.exports({ sources: { use }, stream: { every } });
+    module.exports({ sources: { use }, uns: { use: output }, stream: { every } });
     expect(use).toHaveBeenCalledWith({ id: current.id, resources: [] });
     expect(request).not.toHaveBeenCalled();
     expect(every.mock.calls[0][0]).toEqual({ id: 'tick', intervalMs: 60000 });
-    await expect(every.mock.calls[0][1]()).resolves.toEqual([{ sku: 'fixture-sku' }]);
+    await expect(every.mock.calls[0][1]()).resolves.toEqual({ acceptedRows: 1 });
+    expect(output).toHaveBeenCalledWith({ collectionId: 'inventory', access: 'write' });
+    expect(write).toHaveBeenCalledExactlyOnceWith({ recordId: 'fixture-sku', record: { sku: 'fixture-sku', quantity: 12 } });
     expect(request).toHaveBeenCalledWith({ method: 'GET', path: 'inventory', query: { limit: '5000' } });
     expect(calls).toHaveLength(2);
     finished();
@@ -249,7 +253,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
         expect(body.program.script).toContain('upstream.request');
       }, data: stream() },
     ];
-    await example('stream', 'create').createHttpStream({ ...current, document: { ...current.document, config } }, 'orders-stream', 'create-stream', client);
+    await example('stream', 'create').createHttpStream({ ...current, document: { ...current.document, config } }, 'inventory', 'orders-stream', 'create-stream', client);
     expect(calls).toHaveLength(1);
     finished();
   });
@@ -257,23 +261,29 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
   it.each([200, 401, 403, 429, 502])('HTTP collection example checks upstream status %s before accepting data', async status => {
     let script = '';
     steps = [{ path: 'streams/documents/create', check: body => { script = body.program.script; }, data: stream() }];
-    await example('stream', 'create').createHttpStream(source(), 'inventory-stream', 'create-stream', client);
+    await example('stream', 'create').createHttpStream(source(), 'inventory', 'inventory-stream', 'create-stream', client);
     const module = { exports: (_api: unknown) => {} };
     runInNewContext(script, { module });
     let handler: () => Promise<unknown> = async () => { throw new Error('Missing handler'); };
-    const request = vi.fn().mockResolvedValue({ status, data: [{ matnr: 'fixture' }], headers: { secret: 'secret-marker' } });
-    module.exports({ sources: { use: () => ({ request }) }, stream: { every: (entry: { intervalMs: number }, run: typeof handler) => {
+    const request = vi.fn().mockResolvedValue({ status, data: [{ sku: 'fixture', quantity: 3 }], headers: { secret: 'secret-marker' } });
+    const write = vi.fn();
+    module.exports({ sources: { use: () => ({ request }) }, uns: { use: () => ({ write }) }, stream: { every: (entry: { intervalMs: number }, run: typeof handler) => {
       expect(entry.intervalMs).toBe(60000);
       handler = run;
     } } });
     if (status === 200) {
-      await expect(handler()).resolves.toEqual([{ matnr: 'fixture' }]);
+      await expect(handler()).resolves.toEqual({ acceptedRows: 1 });
+      expect(write).toHaveBeenCalledExactlyOnceWith({ recordId: 'fixture', record: { sku: 'fixture', quantity: 3 } });
+      write.mockClear();
       request.mockResolvedValueOnce({ status: 200, data: { error: 'secret-marker' } });
       await expect(handler()).rejects.toThrow('Unexpected upstream inventory response format');
+      request.mockResolvedValueOnce({ status: 200, data: [{ sku: 'valid', quantity: 1 }, { sku: 'bad', quantity: 'not-a-number' }] });
+      await expect(handler()).rejects.toThrow('Invalid inventory row');
     } else {
       await expect(handler()).rejects.toThrow('Upstream inventory HTTP request failed');
     }
-    expect(request).toHaveBeenCalledTimes(status === 200 ? 2 : 1);
+    expect(write).not.toHaveBeenCalled();
+    expect(request).toHaveBeenCalledTimes(status === 200 ? 3 : 1);
     finished();
   });
 
@@ -383,7 +393,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     steps = [];
     await expect(example('stream', 'create').createHttpStream(
       { ...current, document: { ...current.document, protocol, config: { ...current.document.config, role } } },
-      'orders-stream', 'create-stream', client,
+      'inventory', 'orders-stream', 'create-stream', client,
     )).rejects.toThrow('此主动请求示例需要 HTTP API Client Source');
     expect(calls).toHaveLength(0);
     finished();
@@ -407,7 +417,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
       { path: 'streams/program/delete', check: b => expect(b.expectedRevision).toBe(3),
         data: { id: stream().id, revision: 3, deleted: true } },
     ];
-    const created = await example('stream', 'create').createHttpStream(source(), 'orders-stream', 'create-stream', client);
+    const created = await example('stream', 'create').createHttpStream(source(), 'inventory', 'orders-stream', 'create-stream', client);
     const id = created.current.id;
     const updated = await example('stream', 'update').updateStreamDescription(created.current, 'updated', 'update-stream', client);
     const deployed = await example('stream', 'deploy').deployStream(updated.current, 'deploy-stream', client);

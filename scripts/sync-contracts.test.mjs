@@ -50,5 +50,19 @@ test('sync extracts Unicode contract strings and pins committed inputs instead o
     const provenance = JSON.parse(readFileSync(resolve(sdk, 'contracts/uns-v2/provenance.json'), 'utf8'));
     assert.equal(provenance.revision, revision);
     assert.equal(provenance.cloudRevision, revision);
+    // An explicit preview imports only platform changes and keeps the committed
+    // data model intact, even when unrelated UNS files in the checkout are dirty.
+    const platformPath = 'service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json';
+    put(platformPath, '{"info":{"version":"preview"}}\n');
+    const preview = spawnSync(process.execPath, [resolve(sdk, 'scripts/sync-contracts.mjs'), backend, '--worktree', '--platform-only'], { encoding: 'utf8' });
+    assert.equal(preview.status, 0, preview.stderr);
+    const previewLock = JSON.parse(readFileSync(resolve(sdk, 'contracts/upstream.json'), 'utf8'));
+    assert.equal(previewLock.platformSource.sourceKind, 'working-tree-preview');
+    assert.equal(previewLock.platformSource.baseRevision, revision);
+    assert.deepEqual(previewLock.inputs['contracts/uns-v2/contract.json'], lock.inputs['contracts/uns-v2/contract.json']);
+    assert.deepEqual(JSON.parse(readFileSync(resolve(sdk, 'contracts/uns-v2/contract.json'), 'utf8')), contract);
+    const publish = spawnSync(process.execPath, [resolve(sdk, 'scripts/check-contracts.mjs'), '--committed'], { encoding: 'utf8' });
+    assert.notEqual(publish.status, 0);
+    assert.match(publish.stderr, /working-tree preview/);
   } finally { rmSync(scratch, { recursive: true, force: true }); }
 });

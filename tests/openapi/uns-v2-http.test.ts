@@ -91,7 +91,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
     const api = createClient(config);
     respond = (req, res) => {
       if (req.url === '/openapi/v2/capabilities/discover') send(res, {
-        product: 'cloud', contractVersion: '1.0', apiContractVersions: ['openapi/v2'],
+        product: 'cloud', contractVersion: '2.0', apiContractVersions: ['openapi/v2'],
         sdkContractVersions: ['stream-requests/v1'], capabilities: [], deprecations: [],
       });
       else send(res, { code: 200, msg: '', requestId: 'fixture', data: {} });

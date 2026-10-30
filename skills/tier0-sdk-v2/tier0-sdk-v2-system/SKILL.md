@@ -27,8 +27,7 @@ export async function diagnose() {
     keyType: identity.keyType,
     platformVersion: info.version,
     capabilities: discovery.capabilities.map(item => ({
-      code: item.code, state: item.state, allowed: item.allowed,
-      availability: item.availability,
+      code: item.code, state: item.state, reasonCode: item.reasonCode,
     })),
   };
 }
@@ -42,24 +41,21 @@ info 返回 name/version/mqttBroker/capabilities，字段可能省略。MQTT bro
 
 | 字段/状态 | 判断 |
 | --- | --- |
-| releaseEnabled | 平台/Workspace 发布开关，不代表运行时已准备好 |
-| allowed | 当前身份的授权摘要，不是某个具体操作的执行许可 |
-| enabled、state=ready | 服务端评估就绪 |
-| availability=available | 能力可用性，不是设备在线、业务执行或 ACK |
+| state / reasonCode | 唯一状态及原因；就绪不代表具体资源已获授权、设备在线或数据已经落库 |
 | disabled / not_supported / unavailable | 展示具体不可用原因，不强制调用 |
 | readiness_unknown | 保留未知状态，不能按成功处理 |
 | operations | Source / Stream 各操作独立判断；整体不可用不等于读取或安全停用不可用 |
 | reasonCode / checkedAt / validUntil | 保留服务端原因及证明时间，过期后重新发现，不把旧证明当成持续就绪 |
 | requiresResourceCheck | 实际调用仍要检查具体资源的权限、配置和依赖 |
 
-本数据 SDK 的能力目录识别 namespace.v2、source、stream；其他 SDK 的可选交互能力按各自合同处理，不阻断 Namespace 发现。Source/Stream 的 contractVersions 使用 openapi/v2，不要求或返回解释器版本。contractVersions、apiContractVersions、sdkContractVersions 是契约标签，不是 npm 包版本；productVersion 未配置时可缺省。顶层要求受支持的核心 OpenAPI v2 合同，已识别能力也必须满足其合同；不要求全局交互 SDK 标签，不把未知能力投影为已支持。
+`client.capabilities` 的能力目录识别 namespace.v2、source、stream；同包 `client.streams.capabilities` 独立处理 App 请求/invoke 能力，不阻断 Namespace 发现。Source/Stream 的 contractVersions 使用 openapi/v2，不要求或返回解释器版本。contractVersions、apiContractVersions、sdkContractVersions 是契约标签，不是 npm 包版本；productVersion 未配置时可缺省。顶层要求受支持的核心 OpenAPI v2 合同，已识别能力也必须满足其合同；不要求全局交互 SDK 标签，不把未知能力投影为已支持。
 
-发现统一使用 `POST /openapi/v2/capabilities/discover`，请求为 `{}`，不接受 Workspace 参数。Cloud / Enterprise 返回同一合同；此 SDK 只消费 Namespace、Source、Stream 管理能力；App 交互域由 App SDK 提供，其版本不作为管理接口的前置条件。SDK 只投影已知操作与公开诊断字段；未知扩展不被解释为就绪，不自动重试。
+发现统一使用 `POST /openapi/v2/capabilities/discover`，请求为 `{}`，不接受 Workspace 参数。当前合同版本为 2.0；服务端必须部署相同版本，不能回退旧布尔合同。App 交互能力见 [Stream 交互](../tier0-sdk-v2-streams/SKILL.md)，其版本不作为管理接口的前置条件。SDK 只投影当前作用域的已知操作与公开诊断字段；未知扩展不被解释为就绪，不自动重试。
 
 ## 定位问题
 
 - 401/403：核对目标 Host、Key 对应 Workspace 和所需权限；不输出完整 Key。
-- 方法存在但能力关闭：记录 code/state/availability，检查该环境的部署与配置，不能凭本地生成文件推断线上已支持。
+- 方法存在但能力关闭：记录 code/state/reasonCode，检查该环境的部署与配置，不能凭本地生成文件推断线上已支持。
 - `CapabilityError`：保留 status/errorCode；不支持的契约版本与错误响应格式需要排查服务端/SDK 配套版本。
 - 系统普通 API 使用 `ApiError`，HTTP 200 的业务失败仍会抛错。
 - 仅上报排查需要的字段；whoami 中的邮箱、角色和 Key 前缀不应无差别返回给浏览器。

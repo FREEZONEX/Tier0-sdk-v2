@@ -2,7 +2,7 @@
 
 | 方法 | POST 路径 | 必要参数 |
 | --- | --- | --- |
-| programs.deploy | /openapi/v2/uns/streams/program/deploy | id、dryRun；建议 expectedRevision |
+| programs.deploy | /openapi/v2/uns/streams/program/deploy | id；dryRun 默认 false，建议 expectedRevision |
 | programs.rollback | /openapi/v2/uns/streams/program/rollback | id、versionId、dryRun；建议 expectedRevision |
 | documents.disable | /openapi/v2/uns/streams/documents/disable | id、expectedRevision、expectedActiveRelease、dryRun |
 

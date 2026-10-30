@@ -20,7 +20,7 @@ const retiredControlSchemas = [
 ];
 
 describe('data SDK interaction boundary', () => {
-  it('does not export the retired convenience API or duplicate the canonical Stream SDK', () => {
+  it('combines Stream interactions with data management without restoring retired Controls', () => {
     const fetch = vi.fn();
     const client = sdk.createClient({ apiHost: 'https://fixture.invalid', fetch });
     for (const name of ['controls', 'ControlsClient', 'ControlHandle', 'ControlError',
@@ -28,7 +28,8 @@ describe('data SDK interaction boundary', () => {
       expect(sdk, name).not.toHaveProperty(name);
     }
     expect(client).not.toHaveProperty('controls');
-    expect(client).not.toHaveProperty('streams');
+    expect(client.streams.requests.use).toBeTypeOf('function');
+    expect(client.streams.messages.use).toBeTypeOf('function');
     expect(client.stream).not.toHaveProperty('requests');
     expect(client.stream).not.toHaveProperty('messages');
     expect(fetch).not.toHaveBeenCalled();

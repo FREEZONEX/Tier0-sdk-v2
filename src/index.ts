@@ -1,4 +1,4 @@
-export { createClient } from './client.js';
+export { createClient, client } from './client.js';
 export type { Tier0Client, Tier0ClientConfig } from './client.js';
 export { createSourceClient } from './source.js';
 export type { SourceClient, SourceClientConfig } from './source.js';
@@ -11,3 +11,5 @@ export * from './uns-v2/index.js';
 export * from './capabilities.js';
 export * from './files.js';
 export * from './runtime-context.js';
+
+export * from './streams/index.js';

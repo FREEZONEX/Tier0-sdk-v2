@@ -15,12 +15,12 @@ test('uses the exact neutral shared contract and the recorded consumer implement
   assert.deepEqual(provenance.consumerScope, ['namespace.v2', 'source', 'stream']);
 });
 
-test('preserves all shared verdicts and isolates the 28 request-only consumer differences', () => {
+test('preserves all shared verdicts and isolates the 24 request-only consumer differences', () => {
   const original = JSON.stringify(vectors);
   const projections = vectors.map(dataCapabilityVector);
-  assert.equal(vectors.length, 208);
-  assert.equal(projections.filter(item => item.unconsumedRequestSemantics).length, 28);
-  assert.equal(projections.filter(item => !item.consumerValid).length, 108);
+  assert.equal(vectors.length, 210);
+  assert.equal(projections.filter(item => item.unconsumedRequestSemantics).length, 24);
+  assert.equal(projections.filter(item => !item.consumerValid).length, vectors.filter(item => !item.valid).length - 24);
   for (let i = 0; i < vectors.length; i++) {
     if (!projections[i].unconsumedRequestSemantics) assert.equal(projections[i].consumerValid, vectors[i].valid);
     assert.ok(projections[i].expected.capabilities.every(item => ['namespace.v2', 'source', 'stream'].includes(item.code)));

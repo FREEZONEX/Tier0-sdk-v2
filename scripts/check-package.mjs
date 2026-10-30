@@ -18,7 +18,7 @@ for (const path of ['dist/esm/index.js', 'dist/cjs/index.js', 'dist/esm/index.d.
 }
 for (const path of files) if (/(^|\/)(node_modules|\.env|contracts|\.git|\.tmp)(\/|$)/.test(path)) throw new Error(`Unexpected package file: ${path}`);
 writeFileSync(resolve(consumer, 'package.json'), JSON.stringify({ name: 'sdk-package-consumer', private: true, type: 'module' }));
-run([npm, 'install', '--prefer-offline', '--ignore-scripts', '--no-audit', '--no-fund', '--legacy-peer-deps', resolve(consumer, archive.filename)], consumer);
+run([npm, 'install', '--engine-strict', '--prefer-offline', '--ignore-scripts', '--no-audit', '--no-fund', '--legacy-peer-deps', resolve(consumer, archive.filename)], consumer);
 const installed = resolve(consumer, 'node_modules/@tier0/sdk-v2');
 for (const path of files) {
   if (path.startsWith('dist/') && /\.(?:js|d\.ts)$/.test(path)) {
@@ -33,6 +33,7 @@ for (const path of files) {
 run(['scripts/check-skills.mjs', installed]);
 run(['scripts/check-skill-examples.mjs', installed]);
 const pkg = JSON.parse(readFileSync(resolve(installed, 'package.json'), 'utf8'));
+if (Object.keys({ ...pkg.dependencies, ...pkg.peerDependencies }).includes('@tier0/sdk')) throw new Error('Retired SDK dependency leaked');
 for (const [path, entry] of Object.entries(pkg.exports)) {
   if (typeof entry === 'string') continue;
   for (const mode of ['import', 'require']) {
@@ -60,6 +61,13 @@ run(['--input-type=module', '-e', `
 `], consumer);
 for (const ext of ['mts', 'cts']) writeFileSync(resolve(consumer, `consumer.${ext}`), `
 import { createClient, type Tier0Client, type CloudSourceDocument } from '@tier0/sdk-v2';
+import { client as appClient, StreamRequestResultUnknownError, type StreamMessage } from '@tier0/sdk-v2';
+import { StreamRequestsClient, StreamMessagesClient } from '@tier0/sdk-v2/streams';
+import { installAppRuntime } from '@tier0/sdk-v2/runtime';
+const request = appClient.streams.requests.use<{ code: string }, { accepted: boolean }>({ code: 'orders.approve' });
+const invocation: Promise<boolean> = request.invoke({ code: 'A' }, { idempotencyKey: 'intent-1' }).then(result => result.result.accepted);
+const subscription = appClient.streams.messages.use<{ code: string }>({ topic: 'orders/accepted' }).subscribe((message: StreamMessage<{ code: string }>) => { void message.payload.code; });
+void [invocation, subscription, StreamRequestsClient, StreamMessagesClient, StreamRequestResultUnknownError, installAppRuntime];
 ${[...retiredControlSchemas, 'ControlJSON', 'PublicControl', 'ControlDiscoverOptions', 'ControlDiscoverResponse',
   'ControlTransportConfig', 'CloudClientConfig', 'ControlInvokeOptions', 'ControlInvokeResponse', 'ControlErrorInfo',
   'ControlError', 'ControlResultUnknownError', 'ControlHandle', 'ControlsClient', 'controls', 'DEFAULT_CONTROL_TRANSPORT_TIMEOUT_MS'].map(name =>
@@ -139,7 +147,7 @@ handle.distinct('code');
 void Tier0MQClient;
 `);
 run([resolve(root, 'node_modules/typescript/bin/tsc'), '--noEmit', '--strict', '--skipLibCheck', '--module', 'NodeNext', '--target', 'ES2022', 'consumer.mts', 'consumer.cts'], consumer);
-for (const subpath of ['', '/source', '/stream', '/mq', '/react', '/vue', '/data/define']) {
+for (const subpath of ['', '/source', '/stream', '/streams', '/runtime', '/mq', '/react', '/vue', '/data/define']) {
   const result = await build({ absWorkingDir: consumer, stdin: { contents: `export * from '@tier0/sdk-v2${subpath}';`, resolveDir: consumer }, bundle: true, platform: 'browser', format: 'esm', write: false, metafile: true, logLevel: 'silent' });
   if (!subpath && Object.keys(result.metafile.inputs).some(path => /node_modules[\\/](mqtt|react|vue|zod)[\\/]|cloud-server|[\\/]data[\\/]/.test(path))) throw new Error('Root entry loads an optional browser/server dependency');
   if (subpath === '/data/define' && (Object.keys(result.metafile.inputs).some(path => /^node:|[\\/]data[\\/](context|bootstrap|call|client|collection|error)\.js$/.test(path)) ||

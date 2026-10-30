@@ -18,4 +18,4 @@ export async function inspectService(client: Tier0Client = createClient()) {
 
 返回已解包对象，name/version/capabilities/mqttBroker 均可能省略。mqttBroker 是连接串，可能裸 host、host:port、tcp://host:1883 或完整 ws/wss，不能直接拼 wss:// 前缀。toWebSocketUrl 保留已有 WebSocket URL；TCP 端口不直接复用为 WebSocket 端口。实际端口/路径由环境决定。
 
-info.capabilities 的简略字符串列表不是就绪证明。进一步读取 client.capabilities.discover 的 releaseEnabled、allowed、state、availability，区分开关、授权与运行能力；详见[系统 Skill](../SKILL.md)。
+info.capabilities 的简略字符串列表不是就绪证明。进一步读取 client.capabilities.discover 的 state、reasonCode、operations，区分开关、授权与运行能力；详见[系统 Skill](../SKILL.md)。

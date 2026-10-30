@@ -172,6 +172,11 @@ const shaping = (parts, kind) => kind === 'allOf'
 
 function typeFor(schema, nested = false) {
   if (!schema || typeof schema !== 'object' || Object.keys(schema).length === 0) return 'UnsV2JSONValue';
+  // 单字段排除可以准确表达，避免 SQL 凭据误带 HTTP method。
+  if (schema.properties && schema.not && Object.keys(schema.not).length === 1 && schema.not.required?.length === 1) {
+    const { not, ...shape } = schema;
+    return `(${typeFor(shape, nested)} & { ${JSON.stringify(not.required[0])}?: never })`;
+  }
   // Required-only object alternatives inherit the parent's field definitions.
   // IndexSpec uses this to require exactly one of path/paths.
   if (schema.type === 'object' && schema.properties && Array.isArray(schema.oneOf) &&

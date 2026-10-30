@@ -337,9 +337,9 @@ export interface paths {
         put?: never;
         /**
          * 发现当前 Workspace 的公开能力与版本合同
-         * @description 需要有效 Workspace API Key，Body 仅接受空 JSON 对象，最大 4KiB UTF-8 字节，不接受查询参数或 Workspace 覆盖。成功响应直接为 CapabilityDiscoverResp，不包裹 code/msg/data。能力由默认关闭的公开发布开关、Workspace FeatureGate、Key 显式授权共同裁决；Stream request 能力仅报告当前发布与授权，运行可用性保持 readiness_unknown，不触发运行时探针。实际操作由后端执行安全检查，失败返回真实错误。响应允许客户端忽略未知扩展字段；版本标签不表示设备 ACK 或 npm 包版本。错误直接返回 CapabilityErrorResp 和真实 HTTP 状态，不泄漏内部异常。
+         * @description 需要有效 Workspace API Key，Body 仅接受空 JSON 对象，最大 4KiB UTF-8 字节，不接受查询参数或 Workspace 覆盖。成功响应直接为 CapabilityDiscoverV2Resp，不包裹 code/msg/data。能力由默认关闭的公开发布开关、Workspace FeatureGate、Key 显式授权共同裁决；Namespace 与 Stream request 能力仅报告当前发布与授权，运行可用性保持 readiness_unknown，不触发运行时探针。Source/Stream 保留独立操作前提的证据。state=ready 不替代具体资源授权或实际运行回执。合同版本 2.0 使用 state、reasonCode、operations，不再返回重复布尔状态。实际操作由后端执行安全检查，失败返回真实错误。响应允许客户端忽略未知扩展字段；版本标签不表示设备 ACK 或 npm 包版本。错误直接返回 CapabilityErrorResp 和真实 HTTP 状态，不泄漏内部异常。
          */
-        post: operations["PlatformV2CapabilityDiscover"];
+        post: operations["PlatformV2CapabilityDiscoverV2"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1151,7 +1151,7 @@ export interface components {
             success: boolean;
         };
         /**
-         * Tier0 capability discovery
+         * Tier0 capability discovery 2.0
          * @description OpenAPI 3.0 wire schema. Array contains/cardinality annotations and cross-field proof ordering require the shared JSON Schema plus SDK semantic checks; this projection alone is not full contract acceptance.
          */
         CapabilityDiscoverV2Resp: {
@@ -1159,7 +1159,7 @@ export interface components {
             product: "cloud" | "enterprise";
             productVersion?: string;
             /** @enum {unknown} */
-            contractVersion: "1.0";
+            contractVersion: "2.0";
             apiContractVersions: string[];
             sdkContractVersions: string[];
             capabilities: components["schemas"]["CapabilityDiscoverycapability"][] & (unknown & unknown & unknown & unknown & unknown);
@@ -1168,22 +1168,16 @@ export interface components {
                 replacement?: string;
                 sunsetAt?: string;
             }[];
-        } & (unknown | {
-            apiContractVersions?: unknown[];
-        });
+        };
         /** @description Unknown capability codes are ignored; only recognized codes use the frozen assessment contract. */
         CapabilityDiscoverycapability: {
             code: string;
         } & (unknown | components["schemas"]["CapabilityDiscoveryknownCapability"]);
+        /** @description State reports publication and assessed prerequisites only; ready never grants resource access or confirms an actual execution. */
         CapabilityDiscoveryknownCapability: {
-            releaseEnabled: boolean;
-            enabled: boolean;
-            allowed: boolean;
             /** @enum {unknown} */
             state: "disabled" | "not_supported" | "unavailable" | "readiness_unknown" | "ready";
-            /** @enum {unknown} */
-            availability: "unavailable" | "unknown" | "available";
-            reasonCode?: string;
+            reasonCode: string;
             /** Format: date-time */
             checkedAt?: string;
             /**
@@ -1195,37 +1189,7 @@ export interface components {
             code: string;
             contractVersions: string[];
             operations?: components["schemas"]["CapabilityDiscoveryoperation"][];
-        } & (((unknown | {
-            /** @enum {unknown} */
-            enabled?: true;
-            /** @enum {unknown} */
-            releaseEnabled?: true;
-            /** @enum {unknown} */
-            allowed?: true;
-            /** @enum {unknown} */
-            availability?: "available";
-        }) & ({
-            /** @enum {unknown} */
-            state?: "ready";
-        } | {
-            /** @enum {unknown} */
-            enabled?: false;
-        })) & ((unknown | {
-            /** @enum {unknown} */
-            releaseEnabled?: false;
-        }) & ({
-            /** @enum {unknown} */
-            state?: "disabled";
-        } | {
-            /** @enum {unknown} */
-            releaseEnabled?: true;
-        })) & (unknown | {
-            /** @enum {unknown} */
-            availability?: "unknown";
-        }) & (unknown | {
-            /** @enum {unknown} */
-            availability?: "unavailable";
-        }) & (unknown | {
+        } & ((unknown | {
             /** @enum {unknown} */
             state?: "ready";
             checkedAt: unknown;
@@ -1237,7 +1201,7 @@ export interface components {
         } & (unknown | {
             operations?: (unknown | {
                 /** @enum {unknown} */
-                releaseEnabled?: false;
+                state?: "disabled";
             })[];
         }))) & (unknown | ({
             operations?: ((unknown | components["schemas"]["CapabilityDiscoveryknownOperation"]) & (unknown | {
@@ -1247,7 +1211,7 @@ export interface components {
         } & (unknown | {
             operations?: (unknown | {
                 /** @enum {unknown} */
-                releaseEnabled?: false;
+                state?: "disabled";
             })[];
         }))) & (unknown | {
             contractVersions?: unknown[];
@@ -1258,15 +1222,11 @@ export interface components {
         CapabilityDiscoveryoperation: {
             operation: string;
         };
+        /** @description State reports publication and assessed prerequisites only; ready never grants resource access or confirms an actual execution. */
         CapabilityDiscoveryknownOperation: {
-            releaseEnabled: boolean;
-            enabled: boolean;
-            allowed: boolean;
             /** @enum {unknown} */
             state: "disabled" | "not_supported" | "unavailable" | "readiness_unknown" | "ready";
-            /** @enum {unknown} */
-            availability: "unavailable" | "unknown" | "available";
-            reasonCode?: string;
+            reasonCode: string;
             /** Format: date-time */
             checkedAt?: string;
             /**
@@ -1277,41 +1237,11 @@ export interface components {
             retryAfterMs?: number | bigint;
             operation: string;
             requiresResourceCheck: boolean;
-        } & (((unknown | {
-            /** @enum {unknown} */
-            enabled?: true;
-            /** @enum {unknown} */
-            releaseEnabled?: true;
-            /** @enum {unknown} */
-            allowed?: true;
-            /** @enum {unknown} */
-            availability?: "available";
-        }) & ({
-            /** @enum {unknown} */
-            state?: "ready";
-        } | {
-            /** @enum {unknown} */
-            enabled?: false;
-        })) & ((unknown | {
-            /** @enum {unknown} */
-            releaseEnabled?: false;
-        }) & ({
-            /** @enum {unknown} */
-            state?: "disabled";
-        } | {
-            /** @enum {unknown} */
-            releaseEnabled?: true;
-        })) & (unknown | {
-            /** @enum {unknown} */
-            availability?: "unknown";
-        }) & (unknown | {
-            /** @enum {unknown} */
-            availability?: "unavailable";
-        }) & (unknown | {
+        } & (unknown | {
             /** @enum {unknown} */
             state?: "ready";
             checkedAt: unknown;
-        }));
+        });
         CapabilityErrorResp: {
             /** @description INVALID_CREDENTIAL / CAPABILITY_INVALID_REQUEST / CAPABILITY_FORBIDDEN / CAPABILITY_UNAVAILABLE / CAPABILITY_INTERNAL_ERROR */
             errorCode: string;
@@ -2285,6 +2215,15 @@ export interface operations {
                     "application/json": components["schemas"]["NotificationError"];
                 };
             };
+            /** @description Platform operation failed. */
+            504: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationError"];
+                };
+            };
         };
     };
     PlatformV2GetNotification: {
@@ -2389,6 +2328,15 @@ export interface operations {
                     "application/json": components["schemas"]["NotificationError"];
                 };
             };
+            /** @description Platform operation failed. */
+            504: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationError"];
+                };
+            };
         };
     };
     PlatformV2GetMembers: {
@@ -2483,7 +2431,7 @@ export interface operations {
             };
         };
     };
-    PlatformV2CapabilityDiscover: {
+    PlatformV2CapabilityDiscoverV2: {
         parameters: {
             query?: never;
             header?: never;
