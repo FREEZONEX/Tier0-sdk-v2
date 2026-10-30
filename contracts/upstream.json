@@ -1,6 +1,6 @@
 {
   "repository": "FREEZONEX/Tier0-Backend",
-  "revision": "2828a0b9f9d16ebfbf2bf25c750a0a931c80354e",
+  "revision": "5ba6c3af432d5200674f7cb1a3edd31b255ef64b",
   "inputs": {
     "contracts/openapi-v2.source.json": {
       "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
@@ -31,7 +31,7 @@
     {
       "scope": "source-stream-acquisition",
       "repository": "FREEZONEX/Tier0-Backend",
-      "revision": "2828a0b9f9d16ebfbf2bf25c750a0a931c80354e",
+      "revision": "5ba6c3af432d5200674f7cb1a3edd31b255ef64b",
       "sourceKind": "committed",
       "source": "share/unscontract/manifest.json",
       "sourceSHA256": "c92e134799190fda29360a2983692ed47fb421a85fa7d92267ce091ac263dac8",

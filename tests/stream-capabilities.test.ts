@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { createClient } from '../src/client.js';
 import { installAppRuntime } from '../src/runtime.js';
 
@@ -8,6 +9,25 @@ let remove: (() => void) | undefined;
 afterEach(() => { remove?.(); remove = undefined; vi.unstubAllGlobals(); });
 
 describe('App capability scope', () => {
+  it('preserves request invocation readiness and its resource authorization boundary', async () => {
+    const invoke = { ...item, code: 'stream.requests.invoke.v1', operations: [{ operation: 'invoke', state: 'ready', reasonCode: 'READY', requiresResourceCheck: true }] };
+    const fetch = vi.fn(async () => Response.json(fixture([invoke])));
+    const sdk = createClient({ apiHost: 'https://fixture.invalid', fetch });
+    expect((await sdk.streams.capabilities.discover()).capabilities[0].operations).toEqual(invoke.operations);
+    const denied = { ...invoke, operations: [{ ...invoke.operations[0], requiresResourceCheck: false }] };
+    fetch.mockImplementation(async () => Response.json(fixture([denied])));
+    await expect(sdk.streams.capabilities.discover()).rejects.toMatchObject({ errorCode: 'CAPABILITY_PROTOCOL_ERROR' });
+  });
+
+  it('consumes the pinned shared request invocation vector', async () => {
+    const vectors = JSON.parse(readFileSync(new URL('../contracts/capability-discovery/vectors.json', import.meta.url), 'utf8')) as { name: string; response: unknown }[];
+    const vector = vectors.find((value) => value.name === 'cloud-request-invoke-resource-check');
+    expect(vector).toBeDefined();
+    const fetch = vi.fn(async () => Response.json(vector!.response));
+    const sdk = createClient({ apiHost: 'https://fixture.invalid', fetch });
+    expect((await sdk.streams.capabilities.discover()).capabilities[0].operations?.[0]).toMatchObject({ operation: 'invoke', requiresResourceCheck: true });
+  });
+
   it('discovers request and invoke through the trusted browser bridge', async () => {
     vi.stubGlobal('window', {});
     const fetch = vi.fn(); vi.stubGlobal('fetch', fetch);

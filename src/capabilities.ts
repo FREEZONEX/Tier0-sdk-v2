@@ -104,13 +104,15 @@ const streamOperations = ['read', 'configure', 'validate', 'deploy', 'execute', 
 const resourceOperations: Partial<Record<CapabilityCode, readonly string[]>> = {
   source: ['test', 'discover', 'enable'],
   stream: ['deploy', 'execute'],
+  'stream.requests.invoke.v1': ['invoke'],
 };
 
 function operationFields(value: Record<string, unknown>, code: CapabilityCode, fail: () => never): { operations?: CapabilityOperation[] } {
   if (value.operations === undefined) return {};
   if (!Array.isArray(value.operations)) return fail();
   const operations: CapabilityOperation[] = [];
-  const supported = code === 'source' ? sourceOperations : code === 'stream' ? streamOperations : [];
+  const supported = code === 'source' ? sourceOperations : code === 'stream' ? streamOperations :
+    code === 'stream.requests.invoke.v1' ? ['invoke'] : [];
   const seen = new Set<string>();
   for (const item of value.operations) {
     if (!record(item) || !text(item.operation)) return fail();

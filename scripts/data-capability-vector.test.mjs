@@ -18,7 +18,8 @@ test('uses the exact neutral shared contract and the recorded consumer implement
 test('preserves all shared verdicts and isolates the 24 request-only consumer differences', () => {
   const original = JSON.stringify(vectors);
   const projections = vectors.map(dataCapabilityVector);
-  assert.equal(vectors.length, 210);
+  assert.equal(vectors.length, 211);
+  assert.ok(vectors.some(item => item.name === 'cloud-request-invoke-resource-check' && item.valid));
   assert.equal(projections.filter(item => item.unconsumedRequestSemantics).length, 24);
   assert.equal(projections.filter(item => !item.consumerValid).length, vectors.filter(item => !item.valid).length - 24);
   for (let i = 0; i < vectors.length; i++) {
