@@ -1,3 +1,4 @@
+import type { AppRuntime } from './runtime.js';
 import { getClient, type HttpClient, type RequestOptions } from './openapi/client.js';
 import { UNS_V2_OPERATIONS, UNS_V2_STREAM_OPERATIONS, type UnsV2OperationName, type UnsV2StreamOperationName } from './uns-v2/generated.js';
 
@@ -34,7 +35,8 @@ export class CloudTransportError extends Error {
 
 /** Single fetch, no redirects/retries; one deadline covers both headers and body. */
 export class CloudTransport {
-  private readonly timeoutMs: number;
+  private readonly configuredTimeoutMs: number | undefined;
+  private get timeoutMs(): number { return this.configuredTimeoutMs ?? this.resolveClient().timeoutMs; }
   private readonly unsV2MaxResponseBytes: number;
   readonly #unsV2AppDataSubject: string | undefined;
 
@@ -43,7 +45,7 @@ export class CloudTransport {
     if (!Number.isInteger(timeout) || timeout < 1 || timeout > 2_147_483_647) {
       throw new TypeError('Tier0 SDK: transportTimeoutMs must be an integer between 1 and 2147483647.');
     }
-    this.timeoutMs = timeout;
+    this.configuredTimeoutMs = config.transportTimeoutMs;
     const maxResponseBytes = config.unsV2MaxResponseBytes ?? UNS_V2_MAX_RESPONSE_BYTES;
     if (!Number.isInteger(maxResponseBytes) || maxResponseBytes < 1 || maxResponseBytes > UNS_V2_MAX_RESPONSE_BYTES) {
       throw new TypeError('Tier0 SDK: unsV2MaxResponseBytes must be an integer between 1 and 20971520.');
@@ -220,22 +222,28 @@ export class CloudTransport {
     }
   }
 
-  async post(path: string, body: unknown): Promise<{ value: unknown; status: number; ok: boolean }> {
-    const client = this.resolveClient();
-    const url = `${client.getBaseURL()}${path}`;
-    const key = client.getApiKey();
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (key) {
-      headers.Authorization = `Bearer ${key}`;
-      headers['X-API-Key'] = key;
-    }
+  async post(path: string, body: unknown, signal?: AbortSignal, runtime?: AppRuntime): Promise<{ value: unknown; status: number; ok: boolean }> {
     const serialized = JSON.stringify(body);
     const controller = new AbortController();
+    const abort = () => controller.abort();
+    signal?.addEventListener('abort', abort, { once: true });
+    if (signal?.aborted) controller.abort();
     let response: Response | undefined;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const exchange = async () => {
       try {
-        response = await client.getFetch()(url, { method: 'POST', headers, body: serialized, redirect: 'manual', signal: controller.signal });
+        if (runtime) response = await runtime.request(path, body, { signal: controller.signal });
+        else {
+          const client = this.resolveClient();
+          const url = `${client.getBaseURL()}${path}`;
+          const key = client.getApiKey();
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          if (key) {
+            headers.Authorization = `Bearer ${key}`;
+            headers['X-API-Key'] = key;
+          }
+          response = await client.getFetch()(url, { method: 'POST', headers, body: serialized, redirect: 'manual', signal: controller.signal });
+        }
       } catch {
         throw new CloudTransportError('TRANSPORT_ERROR');
       }
@@ -249,18 +257,19 @@ export class CloudTransport {
     };
     try {
       const deadline = new Promise<never>((_resolve, reject) => {
+        const stopped = () => reject(new CloudTransportError('TRANSPORT_ERROR', response?.status));
+        controller.signal.addEventListener('abort', stopped, { once: true });
+        if (controller.signal.aborted) stopped();
         timer = setTimeout(() => {
-          controller.abort();
           reject(new CloudTransportError('TRANSPORT_TIMEOUT', response?.status));
+          controller.abort();
         }, this.timeoutMs);
       });
       // Also bounds custom transports which ignore AbortSignal.
       return await Promise.race([exchange(), deadline]);
-    } catch (error) {
-      if (controller.signal.aborted) throw new CloudTransportError('TRANSPORT_TIMEOUT', response?.status);
-      throw error;
     } finally {
       clearTimeout(timer);
+      signal?.removeEventListener('abort', abort);
     }
   }
 }

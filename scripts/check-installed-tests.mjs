@@ -14,12 +14,13 @@ cpSync(resolve(root, 'examples'), resolve(consumer, 'examples'), { recursive: tr
 cpSync(resolve(root, 'contracts'), resolve(consumer, 'contracts'), { recursive: true });
 cpSync(resolve(installed, 'skills'), resolve(consumer, 'skills'), { recursive: true });
 let testFiles = 0;
+const excludes = process.env.TIER0_STREAM_MESSAGES_FIXTURE_URL ? [] : ['tests/stream-messages.integration.test.ts'];
 function rewrite(directory) {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const file = resolve(directory, entry.name);
     if (entry.isDirectory()) { rewrite(file); continue; }
     if (!entry.name.endsWith('.test.ts')) continue;
-    testFiles++;
+    if (!excludes.includes(relative(consumer, file).replaceAll('\\', '/'))) testFiles++;
     let imports = 0;
     const source = readFileSync(file, 'utf8').replace(/(['"])((?:\.\.\/)+)src\/([^'"\n]+)\1/g, (_, quote, _parents, subpath) => {
       const target = resolve(installed, 'dist/esm', subpath);
@@ -36,6 +37,7 @@ const config = {
   root: consumer,
   test: {
     include: ['tests/**/*.test.ts'],
+    exclude: excludes,
     server: { deps: { inline: ['@tier0/sdk-v2'] } },
     reporters: ['default', 'json'],
     outputFile: { json: resolve(consumer, 'installed-tests.json') },

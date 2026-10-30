@@ -42,7 +42,7 @@ const currentSource: PublicCapability['code'] = 'source';
 const currentStream: PublicCapability['code'] = 'stream';
 // @ts-expect-error retired standalone control capability is not exported
 const retiredControl: PublicCapability['code'] = 'control.v1';
-// @ts-expect-error App request capabilities belong to the App interaction SDK
+// App request capability types share this package; discovery has a separate scope.
 const appRequest: PublicCapability['code'] = 'stream.requests.v1';
 // @ts-expect-error Source capability does not select an internal generation
 const legacySource: PublicCapability['code'] = 'source.v1';

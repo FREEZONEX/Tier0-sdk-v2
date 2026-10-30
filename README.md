@@ -1,8 +1,8 @@
 # @tier0/sdk-v2
 
-Tier0 云端新架构的独立 TypeScript / JavaScript SDK。新仓库、新 npm 包，不覆盖 `@tier0/sdk`。
+Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交互均使用 `@tier0/sdk-v2`。旧 SDK 不再作为依赖。
 
-`0.7.x` 包含不兼容变更：移除旧 Controls 入口、生成操作、DTO 和错误类，不保留别名。Stream 请求与消息交互使用独立 `@tier0/sdk`；本包继续负责数据和 Source/Stream 管理。能力发现不再以可选交互合同阻断 Namespace，未知核心合同仍严格拒绝。V2 的 `execution` / `retry` 和结果未知语义保持不变。
+`0.7.x` 包含不兼容变更：移除旧 Controls 入口、生成操作、DTO 和错误类，不保留别名。Stream 请求与消息交互统一到本包的 `client.streams`；`client.stream` 保留 Stream 管理。能力发现不再以可选交互合同阻断 Namespace，未知核心合同仍严格拒绝。V2 的 `execution` / `retry` 和结果未知语义保持不变。
 
 `0.6.0` 的 HTTP Source 只保留 `protocol: http-api`，通过 `config.role: client | server` 区分主动请求与入站服务。旧 `http` / `http_push` 配置需要迁移；响应时机属于 Stream，不再建立独立异步 Source。同步 singlemodel 合同后，Source 配置不再带 configVersion，Stream 输入不再带 sdkVersion；保留完整 module.exports 程序与原生 script 对象/Runtime program 字符串两种既有形态，不能将旧 transform 函数体直接改名迁入。
 
@@ -39,11 +39,12 @@ const user = await tier0.system.whoami();
 | --- | --- |
 | `tier0.source` | 数据源、连接文档、影响分析、版本历史与运行观测 |
 | `tier0.stream` | Runtime programs、原生文档、校验、部署、回滚与运行记录 |
+| `tier0.streams` | App 请求、实时业务消息与独立交互能力发现 |
 | `tier0.uns` | 目录、Topic、Collection、Record、Sample、事务与 App 数据上下文 |
 | `tier0.system` | `whoami()`、`info()` |
 | `tier0.members` | `listWorkspace()` 用于 Workspace 级成员选择；`listApp({ appId })` 查询能使用指定 App 的成员 |
 | `tier0.notifications` | `send()`、`get()` |
-| `tier0.files` | `upload()`、`uploadMultipart()`、`url()`、`download()`、`delete()`、`multipart` 原子接口 |
+| `tier0.files` | `upload()`、`uploadMultipart()`、`resumeMultipart()`、`url()`、`download()`、`delete()`、`multipart` 原子接口 |
 | `tier0.mqttAuth` | 创建、删除 MQTT 凭证 |
 | `tier0.agent` | `analyses`、`canvases`、`cards`、`jobs`、`jobRuns`、`library`、`results` |
 | `tier0.capabilities` | 当前凭证可见的能力发现；就绪状态由服务端判断 |
@@ -51,6 +52,8 @@ const user = await tier0.system.whoami();
 | `@tier0/sdk-v2/mq` | MQTT WebSocket 客户端与 broker 地址工具；不进入根入口依赖图 |
 | `@tier0/sdk-v2/source` | `createSourceClient()`，独立 Source 客户端 |
 | `@tier0/sdk-v2/stream` | `createStreamClient()`，独立 Stream 客户端 |
+| `@tier0/sdk-v2/streams` | Stream 交互客户端、错误类与消息类型 |
+| `@tier0/sdk-v2/runtime` | 受信 App 宿主 provider 安装与生命周期；业务页面无需调用 |
 | `@tier0/sdk-v2/react` | `useTier0Query()`、`useTier0Mutation()`，需要 React 和 TanStack Query |
 | `@tier0/sdk-v2/vue` | `useTier0Request()`，需要 Vue 3 |
 | `@tier0/sdk-v2/server` | `createCloudAppRequestVerifier()`，仅服务端加载 `node:crypto` |
@@ -76,7 +79,7 @@ HTTP 调用统一使用 `/openapi/v2`。21 个重复 UNS 公共入口及生成�
 
 ## Source、Stream 与 UNS 分域
 
-Source 负责连接外部系统，Stream 负责处理与运行，UNS 负责命名空间与业务数据。公开操作由固定的上游契约生成，业务入口按领域组织。Stream 请求与消息交互使用独立包 `@tier0/sdk` 的 `client.streams.requests` / `client.streams.messages`；Scaffold 分别接入交互 SDK 和本数据 SDK。本包不重复提供 Stream 交互 API。目录、Topic、集合基础 CRUD 统一使用 `metadata*`，查询、批量操作、软删除及恢复见 UNS Skill。
+Source 负责连接外部系统，Stream 负责处理与运行，UNS 负责命名空间与业务数据。公开操作由固定的上游契约生成，业务入口按领域组织。Stream 请求与消息交互使用本包 `client.streams.requests` / `client.streams.messages`，App 只安装一个 SDK。目录、Topic、集合基础 CRUD 统一使用 `metadata*`，查询、批量操作、软删除及恢复见 UNS Skill。
 
 ```ts
 const sources = await tier0.source.documents.list({ page: 1, size: 20 });
@@ -93,7 +96,7 @@ Source/Stream 仍保留 `{ code, msg, requestId, data }` 响应以及 `UnsV2Erro
 
 从最初提交迁移：`uns.sourceList` → `source.documents.list`；`uns.sourceDocumentGet` → `source.documents.get`；`uns.streamProgramDeploy` → `stream.programs.deploy`；`uns.streamDocumentValidate` → `stream.documents.validate`。这些管理方法已移出主入口的 `uns`。底层 `createUnsV2Client()` 仍提供完整生成契约供契约工具使用；数据专用客户端可用 `createUnsDataClient()`。
 
-随包提供 Skill：总入口 [tier0-sdk-v2](skills/tier0-sdk-v2/SKILL.md) 下嵌套 10 个领域子 Skill（`skills/tier0-sdk-v2/tier0-sdk-v2-<领域>/`），每个仍可独立发现，包含完整流程、参数边界、错误处理与可类型检查的示例：[Source](skills/tier0-sdk-v2/tier0-sdk-v2-source/SKILL.md)、[Stream](skills/tier0-sdk-v2/tier0-sdk-v2-stream/SKILL.md)、[UNS](skills/tier0-sdk-v2/tier0-sdk-v2-uns/SKILL.md)、[通知](skills/tier0-sdk-v2/tier0-sdk-v2-notifications/SKILL.md)、[系统](skills/tier0-sdk-v2/tier0-sdk-v2-system/SKILL.md)、[文件](skills/tier0-sdk-v2/tier0-sdk-v2-files/SKILL.md)、[MQTT](skills/tier0-sdk-v2/tier0-sdk-v2-mq/SKILL.md)、[成员](skills/tier0-sdk-v2/tier0-sdk-v2-members/SKILL.md)、[Agent](skills/tier0-sdk-v2/tier0-sdk-v2-agent/SKILL.md)、[App 数据](skills/tier0-sdk-v2/tier0-sdk-v2-data/SKILL.md)。复杂流程的参考文档随 Skill 一起打包。在 Tier0 Console 上传时，把整个 `skills/tier0-sdk-v2/` 目录打成一个 zip。
+随包提供 Skill：总入口 [tier0-sdk-v2](skills/tier0-sdk-v2/SKILL.md) 下嵌套 11 个领域子 Skill（`skills/tier0-sdk-v2/tier0-sdk-v2-<领域>/`），每个仍可独立发现，包含完整流程、参数边界、错误处理与可类型检查的示例：[Source](skills/tier0-sdk-v2/tier0-sdk-v2-source/SKILL.md)、[Stream](skills/tier0-sdk-v2/tier0-sdk-v2-stream/SKILL.md)、[UNS](skills/tier0-sdk-v2/tier0-sdk-v2-uns/SKILL.md)、[通知](skills/tier0-sdk-v2/tier0-sdk-v2-notifications/SKILL.md)、[系统](skills/tier0-sdk-v2/tier0-sdk-v2-system/SKILL.md)、[文件](skills/tier0-sdk-v2/tier0-sdk-v2-files/SKILL.md)、[MQTT](skills/tier0-sdk-v2/tier0-sdk-v2-mq/SKILL.md)、[成员](skills/tier0-sdk-v2/tier0-sdk-v2-members/SKILL.md)、[Agent](skills/tier0-sdk-v2/tier0-sdk-v2-agent/SKILL.md)、[App 数据](skills/tier0-sdk-v2/tier0-sdk-v2-data/SKILL.md)、[App Stream 交互](skills/tier0-sdk-v2/tier0-sdk-v2-streams/SKILL.md)。复杂流程的参考文档随 Skill 一起打包。在 Tier0 Console 上传时，把整个 `skills/tier0-sdk-v2/` 目录打成一个 zip。
 
 ## UNS 数据访问
 
@@ -111,7 +114,7 @@ await tier0.uns.recordFind(
 );
 ```
 
-能力发现只校验本包的 Namespace/Source/Stream 管理合同，不要求全局交互标签；其他 SDK 的可选交互能力不阻断 Namespace。核心合同未知仍拒绝，不将方法存在当作授权或运行就绪。
+`client.capabilities` 只校验 Namespace/Source/Stream 管理合同，不要求全局交互标签；同包 `client.streams.capabilities` 独立校验 App 请求合同，不阻断 Namespace。各自消费的核心合同未知仍拒绝，不将方法存在当作授权或运行就绪。
 
 实际集合 ID 和有效权限从平台配置/数据上下文取得。管理操作中，App 凭证只能调用本 App 集合的 `appCollectionsEnsure` / `appCollectionsSchemaReplace` / `appCollectionsArchive` / `appCollectionsRestore`；SDK 中存在 `metadataInsertOne` 等其他管理方法，不表示 App 凭证有对应权限。App 数据授权 `appDataPolicyGet` / `appDataPolicyUpdate` 的调用方必须是：持有 `uns.write` 的登录会话、持有 `uns.write` 且 full_access、不绑定 App 的 personal / agent Key，或治理会话；运行时 App 凭证不能管理授权。Core-only 后台接口不导出到公开 SDK。
 
@@ -151,7 +154,7 @@ const bytes = await response.arrayBuffer();
 
 保存 `filePath`，不把临时签名地址当作持久化引用。上传由平台签发地址后直传对象存储，平台 API Key 不传到存储域名；下载先获取签名地址，再匿名获取文件，避免认证重定向泄漏凭证。
 
-超过 100 MiB 自动使用分片上传，也可调用 `uploadMultipart(file, { partSize, signal, onProgress })`。顺序上传分片，不自动重试。中断后 `MultipartUploadError.session` 保留 uploadId、fileKey、已完成 parts 和 `completionAttempted`，可以通过 `files.multipart` 完成或终止；尝试过 complete 后必须先核对结果。未实现自动断点续传。
+超过 100 MiB 自动使用分片上传，也可用 `upload(file, { multipart: {} })` 或 `uploadMultipart(file, options)` 对小文件显式分片。分片默认并发 4；仅同一地址、同一内容的 PUT 瞬时失败安全重试，init/complete 不自动重放。中断后 `MultipartUploadError.session` 保留文件身份、切片参数和成功分片，可用 `resumeMultipart(file, session, options)` 续传。进度包含字节、分片数和百分比；尝试过 complete 后必须先核对结果，不能直接续传。
 
 返回的下载 `Response` 由调用方消费；文件传输配置超时约束取得响应头的阶段，后续流式读取由调用方管理。所有业务附件、头像、导入/导出文件使用平台文件存储，不以 App 本地目录作为持久化存储。
 
@@ -241,3 +244,26 @@ node scripts/check-live-stream-runtime.mjs <consumer> <workspaceId> .tmp/live-st
 平台接口与能力发现的本地联调可分别运行 `node scripts/sync-contracts.mjs <backend> --worktree --platform-only` 和 `node scripts/sync-capability-contract.mjs <backend> --worktree`。预览来源明确记录基线和内容摘要，不能直接发布。Backend 提交后，将两条命令的 `--worktree` 替换为正式提交 SHA，再运行 `npm run generate && npm run check`；UNS 数据模型仍使用其独立固定输入。
 
 采集流程的 Source 创建/更新/状态变更、Stream 文档创建/更新/部署均可省略 `dryRun`（默认 false 提交）。SQL 新连接可在 `source.documents.create` 中直接传 `credentials.kind: usernamePassword` 与只写用户名/密码，不传 `credentials.method`；连接地址不携带秘密。`contracts/uns-v2/provenance.json` 的 `schemaUpdates` 记录这次有限合同更新，共享数据模型继续使用固定基础版本。
+
+## App Stream 交互与旧包迁移
+
+浏览器使用 `import { client } from "@tier0/sdk-v2"`，调用 `client.streams.requests.use({code}).invoke(input, {idempotencyKey})` 或 `client.streams.messages.use({topic}).subscribe(handler)`；受信宿主自动提供连接，浏览器不配置 API Key。服务端使用根入口 `createClient()`，沿用环境注入。订阅不再使用时 dispose，客户端退出时 `await client.dispose()`；请求与消息不会自动重放业务写入。
+
+旧 `/cloud` 改用根入口，`/cloud/server` 改用 `/server`，`/openapi/react` 和 `/openapi/vue` 改用 `/react` 和 `/vue`。`/streams`、`/runtime` 的现役能力已原生迁入本包；宿主 runtime Symbol 保留原协议标识，避免破坏已有网关注入。Source/Stream 管理、文件、MQTT、通知、成员和集合继续使用本包现有入口；旧文件单例函数改为 `client.files` 对应方法。旧 `getCurrentProjectId`、Flow、Control 及项目接口已退役，不迁回。
+
+| 旧包现役能力 | 统一后的入口与迁移方式 |
+| --- | --- |
+| 根入口、`/cloud` 的 `client` / `createClient` | `@tier0/sdk-v2` 根入口；同一实例提供数据管理和 App 交互 |
+| Stream `describe` / `discover` / `invoke` | `client.streams.requests`；保留类型、幂等键和结果未知语义 |
+| 消息 `publish` / `subscribe` / `onError` / `dispose` | `client.streams.messages`；原生 NATS WSS，消息需要浏览器 WebSocket 或 Node.js 22+；HTTP 仍支持 Node.js 20.19+ |
+| 请求/invoke 能力发现 | `client.streams.capabilities.discover()`；`client.capabilities.discover()` 独立保留 Namespace/Source/Stream 作用域 |
+| Trusted runtime provider / App 请求验签 | `/runtime` / `/server`；原有宿主 Symbol 协议保持不变 |
+| `unsV2`、平台操作、MQTT | `client.uns` / `client.source` / `client.stream`、现有平台入口、`/mq`；旧包全部现役公开操作已有对应 v2 操作 |
+| `uploadFile` / `uploadFileMultipart` / `resumeMultipartUpload` | `client.files.upload` / `uploadMultipart` / `resumeMultipart`；上传选项与返回类型从 `/files` 导入 |
+| `getFileUrl` / `downloadFile` / `deleteFile` | `client.files.url` / `download` / `delete`；download 返回原生 `Response` |
+| 旧 React / Vue 每接口 hook | `/react` 的通用 query/mutation、`/vue` 的 `useTier0Request`；使用统一 client 和对应方法 |
+| Project、Control、Flow 及旧配置版本入口 | 已退役，不提供别名或重新导出 |
+
+真实消息本地验收用 `npm run test:streams:artifact`（Go、Node.js 22+、`nats-server`，通过 `TIER0_STREAM_MESSAGES_BACKEND_DIR` 指向 Backend checkout）。脚本验证生产 Go issuer、TLS NATS、已安装 tarball 的 ESM/CJS 及浏览器依赖闭包；固定夹具身份不代表线上 SYS/Gateway/App 权限链路或浏览器端到端验收。
+
+代码存在不代表已发布。先构建并安装这次统一实现的不可变制品，更新 App 模板、依赖锁与存量 App，再移除旧包；不能用旧 npm 0.7.2 替代本分支构建。完整交互说明见 [Stream 交互](skills/tier0-sdk-v2/tier0-sdk-v2-streams/SKILL.md)。

@@ -40,14 +40,13 @@ if (process.argv[2] === '--check') {
   const vectors = JSON.parse(contents['contracts/capability-discovery/vectors.json']);
   assert.ok(schema.$id.includes('/capability-discovery/2.0/'), 'Expected discovery contract 2.0');
   assert.ok(Array.isArray(vectors) && vectors.length > 0, 'Missing capability vectors');
-  const app = JSON.parse(readFileSync(resolve(root, 'package.json'))).name === '@tier0/sdk';
   const inputs = Object.fromEntries(Object.entries(contents).map(([path, data]) => [path, sha(data)]));
   inputs['src/capabilities.ts'] = sha(readFileSync(resolve(root, 'src/capabilities.ts')));
   const metadata = {
     repository: 'FREEZONEX/Tier0-Backend', revision,
     sourceKind: preview ? 'working-tree-preview' : 'committed',
     ...(preview ? { baseRevision: revision } : {}), sources, vectorCount: vectors.length,
-    consumerScope: ['namespace.v2', 'source', 'stream', ...(app ? ['stream.requests.v1', 'stream.requests.invoke.v1'] : [])], inputs,
+    consumerScope: ['namespace.v2', 'source', 'stream'], inputs,
   };
   for (const [path, data] of Object.entries(contents)) writeFileSync(resolve(root, path), data);
   writeFileSync(metadataPath, JSON.stringify(metadata, null, 2) + '\n');

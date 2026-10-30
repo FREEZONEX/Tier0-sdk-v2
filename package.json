@@ -150,26 +150,52 @@
         "default": "./dist/cjs/vue.js"
       }
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./runtime": {
+      "import": {
+        "types": "./dist/esm/runtime.d.ts",
+        "default": "./dist/esm/runtime.js"
+      },
+      "require": {
+        "types": "./dist/cjs/runtime.d.ts",
+        "default": "./dist/cjs/runtime.js"
+      }
+    },
+    "./streams": {
+      "import": {
+        "types": "./dist/esm/streams/index.d.ts",
+        "default": "./dist/esm/streams/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/streams/index.d.ts",
+        "default": "./dist/cjs/streams/index.js"
+      }
+    }
   },
   "scripts": {
     "sync:contracts": "node scripts/sync-contracts.mjs",
     "generate": "node scripts/generate-openapi.mjs && node scripts/generate-uns-v2.mjs",
-    "check:contracts": "node scripts/check-contracts.mjs && npm run check:acquisition-contract && node scripts/sync-capability-contract.mjs --check && node --test scripts/retired-stream-probe.test.mjs scripts/retired-http-push.test.mjs scripts/retired-controls.test.mjs scripts/retired-public-labels.test.mjs scripts/platform-schema-projection.test.mjs scripts/data-capability-vector.test.mjs scripts/sync-contracts.test.mjs scripts/sync-capability-contract.test.mjs scripts/live-program-contract.test.mjs scripts/sync-http-run-observations.test.mjs && node scripts/generate-openapi.mjs --check && node scripts/generate-uns-v2.mjs --check",
+    "check:contracts": "node scripts/check-contracts.mjs && npm run check:acquisition-contract && node scripts/sync-capability-contract.mjs --check && node --test scripts/retired-stream-probe.test.mjs scripts/retired-http-push.test.mjs scripts/retired-controls.test.mjs scripts/retired-public-labels.test.mjs scripts/platform-schema-projection.test.mjs scripts/data-capability-vector.test.mjs scripts/sync-contracts.test.mjs scripts/sync-capability-contract.test.mjs scripts/live-program-contract.test.mjs scripts/sync-http-run-observations.test.mjs && node scripts/generate-openapi.mjs --check && node scripts/generate-uns-v2.mjs --check && npm run check:stream-contract",
     "check:skills": "node scripts/check-skills.mjs && node scripts/check-skill-examples.mjs",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.tests.json",
     "build": "node scripts/build.mjs",
     "prepare": "npm run build",
     "test": "vitest run",
     "check": "npm run check:contracts && npm run check:skills && npm run typecheck && npm test && npm run build && node scripts/check-package.mjs",
-    "prepack": "node scripts/check-contracts.mjs --committed && npm run check:contracts && npm run check:skills && npm run build",
-    "prepublishOnly": "node scripts/check-contracts.mjs --committed && npm run check",
+    "prepack": "node scripts/sync-stream-contract.mjs --check --committed && node scripts/check-contracts.mjs --committed && npm run check:contracts && npm run check:skills && npm run build",
+    "prepublishOnly": "node scripts/sync-stream-contract.mjs --check --committed && node scripts/check-contracts.mjs --committed && npm run check",
     "sync:capability-contract": "node scripts/sync-capability-contract.mjs",
     "check:capability-contract": "node scripts/sync-capability-contract.mjs --check",
     "sync:acquisition-contract": "node scripts/sync-acquisition-contract.mjs",
-    "check:acquisition-contract": "node scripts/sync-acquisition-contract.mjs --check && node --test scripts/sync-acquisition-contract.node.mjs"
+    "check:acquisition-contract": "node scripts/sync-acquisition-contract.mjs --check && node --test scripts/sync-acquisition-contract.node.mjs",
+    "sync:stream-contract": "node scripts/sync-stream-contract.mjs",
+    "check:stream-contract": "node scripts/sync-stream-contract.mjs --check && openapi-typescript contracts/openapi/streams.swagger.json -o src/streams/contract.generated.ts --default-non-nullable=false --check",
+    "test:streams:nats": "node scripts/test-stream-messages-nats.mjs",
+    "test:streams:artifact": "npm run build && node scripts/test-stream-messages-nats.mjs --artifact"
   },
   "dependencies": {
+    "@nats-io/nats-core": "3.3.1",
+    "@nats-io/nkeys": "2.0.3",
     "mqtt": "^5.3.0"
   },
   "peerDependencies": {
@@ -193,19 +219,19 @@
     }
   },
   "devDependencies": {
+    "@tanstack/react-query": "^5.0.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
-    "@tanstack/react-query": "^5.0.0",
-    "react": "^19.0.0",
-    "vue": "^3.4.0",
-    "typescript": "~5.9.3",
-    "openapi-typescript": "^7.0.0",
-    "vitest": "^4.1.7",
-    "esbuild": "^0.25.0",
-    "yaml": "^2.8.0",
-    "zod": "^4.0.0",
     "ajv": "^8.20.0",
-    "ajv-formats": "^3.0.1"
+    "ajv-formats": "^3.0.1",
+    "esbuild": "^0.25.0",
+    "openapi-typescript": "^7.0.0",
+    "react": "^19.0.0",
+    "typescript": "~5.9.3",
+    "vitest": "^4.1.7",
+    "vue": "^3.4.0",
+    "yaml": "^2.8.0",
+    "zod": "^4.0.0"
   },
   "agents": {
     "skills": [
@@ -252,6 +278,10 @@
       {
         "name": "tier0-sdk-v2-data",
         "path": "./skills/tier0-sdk-v2/tier0-sdk-v2-data"
+      },
+      {
+        "name": "tier0-sdk-v2-streams",
+        "path": "./skills/tier0-sdk-v2/tier0-sdk-v2-streams"
       }
     ]
   }

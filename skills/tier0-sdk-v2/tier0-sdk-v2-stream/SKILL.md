@@ -26,7 +26,7 @@ description: 使用 @tier0/sdk-v2 的 client.stream 创建、查询、修改和�
 | Runtime program | name、script 字符串、sourceBindings、timeoutMs | documents.create/update/validate({program}) |
 | 云端原生文档 | name、model、script 对象、sources、entries | documents.create/get/update/validate |
 
-程序必须是完整 `module.exports = api => { ... }`，执行器 API 是 api.sources/api.uns/api.stream，与 npm 包的 client.source 不同。Runtime sourceBindings 为 sourceId/configRevision/acquisition；原生 sources 还使用 alias/resources。连接凭据不进脚本或 acquisition，秘密材料由 Source 执行宿主管理，不通过脚本读取、记录或返回。定时入口使用 api.stream.every，不传播旧注册别名；App 请求与消息交互由独立 @tier0/sdk 的 client.streams.requests/messages 提供，不作为 Goja 注册参数。
+程序必须是完整 `module.exports = api => { ... }`，执行器 API 是 api.sources/api.uns/api.stream，与 npm 包的 client.source 不同。Runtime sourceBindings 为 sourceId/configRevision/acquisition；原生 sources 还使用 alias/resources。连接凭据不进脚本或 acquisition，秘密材料由 Source 执行宿主管理，不通过脚本读取、记录或返回。定时入口使用 api.stream.every，不传播旧注册别名；App 请求与消息交互由本包 @tier0/sdk-v2 的 client.streams.requests/messages 提供，不作为 Goja 注册参数。
 
 ## 核心约束
 

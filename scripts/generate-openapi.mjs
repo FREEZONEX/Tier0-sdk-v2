@@ -18,7 +18,7 @@ if (!source.servers?.some(server => server.url === '/openapi/v2')) throw new Err
 const check = process.argv.includes('--check');
 const paths = {};
 for (const [path, item] of Object.entries(source.paths)) {
-  // App interaction APIs belong to @tier0/sdk; this package owns the data plane.
+  // App 交互由 streams 类型化客户端提供，避免重复生成无生命周期的接口。
   if (path.startsWith('/stream-requests/') || path.startsWith('/stream-messages/')) continue;
   for (const [method, operation] of Object.entries(item)) {
     if (!operation['x-tier0-platform']) continue;

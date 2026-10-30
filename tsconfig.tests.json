@@ -13,6 +13,7 @@
     "src/**/*.ts",
     "tests/types/**/*.ts",
     "tests/openapi/*.types.ts",
+    "tests/streams.types.ts",
     "examples/**/*.ts"
   ]
 }

@@ -1,7 +1,7 @@
 import { CloudTransport, CloudTransportError, type CloudTransportConfig } from './cloud-transport.js';
 import { getClient, type HttpClient } from './openapi/client.js';
 
-export type CapabilityCode = 'namespace.v2' | 'source' | 'stream';
+export type CapabilityCode = 'namespace.v2' | 'source' | 'stream' | 'stream.requests.v1' | 'stream.requests.invoke.v1';
 export type CapabilityState = 'disabled' | 'not_supported' | 'unavailable' | 'readiness_unknown' | 'ready';
 
 export interface CapabilityDiagnostics {
@@ -64,7 +64,7 @@ export class CapabilityError extends Error {
   }
 }
 
-const contracts: Record<CapabilityCode, string[]> = {
+const contracts: Partial<Record<CapabilityCode, string[]>> = {
   'namespace.v2': ['openapi/v2'],
   'source': ['openapi/v2'],
   'stream': ['openapi/v2'],
@@ -128,7 +128,7 @@ function operationFields(value: Record<string, unknown>, code: CapabilityCode, f
 }
 
 /** Validate and explicitly project the frozen contract; unknown capabilities/extension fields are ignored. */
-function discovery(value: unknown, status: number): CapabilityDiscoverResponse {
+function discovery(value: unknown, status: number, accepted: Partial<Record<CapabilityCode, string[]>>): CapabilityDiscoverResponse {
   const fail = (version = false): never => {
     throw new CapabilityError(version ? 'Unsupported capability contract version.' : 'Invalid capability discovery response.', {
       status, errorCode: version ? 'CAPABILITY_UNSUPPORTED_VERSION' : 'CAPABILITY_PROTOCOL_ERROR',
@@ -146,14 +146,14 @@ function discovery(value: unknown, status: number): CapabilityDiscoverResponse {
   const seen = new Set<string>();
   for (const item of value.capabilities) {
     if (!record(item) || !text(item.code)) return fail();
-    if (!Object.prototype.hasOwnProperty.call(contracts, item.code)) continue;
+    if (!Object.prototype.hasOwnProperty.call(accepted, item.code)) continue;
     const code = item.code as CapabilityCode;
     if (seen.has(code)) return fail();
     seen.add(code);
     if (!text(item.reasonCode) ||
         !['disabled', 'not_supported', 'unavailable', 'readiness_unknown', 'ready'].includes(item.state as string) ||
         !strings(item.contractVersions)) return fail();
-    if (contracts[code].some(version =>
+    if (accepted[code]!.some(version =>
       !(item.contractVersions as string[]).includes(version) ||
       (version.startsWith('openapi/') && !(value.apiContractVersions as string[]).includes(version)))) return fail(true);
     capabilities.push({
@@ -182,7 +182,8 @@ function discovery(value: unknown, status: number): CapabilityDiscoverResponse {
 }
 
 export class CapabilitiesClient {
-  private readonly transport: CloudTransport;
+  protected transport: CloudTransport;
+  protected readonly contracts: Partial<Record<CapabilityCode, string[]>> = contracts;
 
   constructor(resolveClient: () => HttpClient = getClient, config: CloudTransportConfig = {}) {
     this.transport = new CloudTransport(resolveClient, config);
@@ -207,7 +208,7 @@ export class CapabilitiesClient {
       }
       throw new CapabilityError(value.message, { status, errorCode: value.errorCode });
     }
-    return discovery(value, status);
+    return discovery(value, status, this.contracts);
   }
 }
 

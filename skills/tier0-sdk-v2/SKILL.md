@@ -13,6 +13,7 @@ description: 使用 @tier0/sdk-v2 开发或迁移 Tier0 云端 TypeScript/JavaSc
 | --- | --- | --- |
 | 连接外部系统、维护采集源、检查连接和影响范围 | `client.source` | [Source](tier0-sdk-v2-source/SKILL.md) |
 | 编写处理程序、配置源绑定、校验和发布、查运行记录 | `client.stream` | [Stream](tier0-sdk-v2-stream/SKILL.md) |
+| 调用业务请求、发布或订阅业务消息、查询 App 交互能力 | `client.streams` | [App Stream 交互](tier0-sdk-v2-streams/SKILL.md) |
 | 集合、目录、Topic、业务记录、历史采样与事务 | `client.uns` | [UNS](tier0-sdk-v2-uns/SKILL.md) |
 | App 自有业务数据：声明集合、Mongo 风格读写与事务 | `@tier0/sdk-v2/data` | [App 数据](tier0-sdk-v2-data/SKILL.md) |
 | 站内信、Web/Desktop 提醒、手机推送 | `client.notifications` | [通知](tier0-sdk-v2-notifications/SKILL.md) |
@@ -36,7 +37,7 @@ export async function inspectConnection() {
 }
 ```
 
-也可传 `apiHost`、`apiKey` 或 `getApiHost` / `getApiKey` 回调。API Key 留在服务端；不要生成 `VITE_*KEY` 或让页面携带 App Key。浏览器通过自己的服务端接口访问平台。
+也可传 `apiHost`、`apiKey` 或 `getApiHost` / `getApiKey` 回调。API Key 留在服务端；不要生成 `VITE_*KEY` 或让页面携带 App Key。浏览器通过自己的服务端接口访问平台；App Stream 交互使用根入口 `client` 和受信宿主注入，无需设置密钥。消息要求 WebSocket（Node.js 22+ 或浏览器）。
 
 不同身份使用独立实例。含员工数据委托时，每个入站请求新建实例，使用受信 App Gateway 提供的 `unsV2AppDataSubject`；它不是用户 ID，也不是 App 请求验签断言。不要从请求 JSON 拼造委托。身份验签流程见 [身份与框架集成](references/integration.md)。
 
@@ -64,6 +65,6 @@ export async function inspectConnection() {
 
 React/Vue 示例与验签见 [集成参考](references/integration.md)。完成接入时验证目标入口、真实身份、响应解包和错误分支；SDK 本地测试通过不代表环境联调完成。
 
-Stream 请求与消息交互由独立包 `@tier0/sdk` 的 `client.streams.requests` / `client.streams.messages` 提供；本包负责数据访问和 Source/Stream 管理，不重复实现交互 API。Scaffold 分别接入这两个包，不能将本包的 `client.stream` 管理接口当作运行时请求入口。
+Stream 请求与消息交互统一使用本包 `client.streams.requests` / `client.streams.messages`；[交互说明](tier0-sdk-v2-streams/SKILL.md)。Scaffold 只依赖本包；`client.stream` 管理接口与运行时交互用途不同。
 
 本包公开 HTTP 入口统一为 `/openapi/v2`。旧的重复操作已退役，不生成兼容调用或回退。Source 配置用 documents.*，Stream 草稿用 documents.*、发布用 programs.deploy；App 数据层仍提供 insertMany/findOneAnd*/distinct 等便捷方法。历史旧写结果未知时先核对业务状态，不能转换路由后盲目重放。
