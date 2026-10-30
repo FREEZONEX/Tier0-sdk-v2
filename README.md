@@ -2,7 +2,7 @@
 
 Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交互均使用 `@tier0/sdk-v2`。旧 SDK 不再作为依赖。
 
-当前分支准备 `0.9.0`，尚未发布。平台接口统一使用 OpenAPI v2，能力发现使用 `state + reasonCode + operations`。Stream 请求与消息交互统一到本包的 `client.streams`；`client.stream` 保留 Stream 管理。文件上传支持并发分片与断点续传。
+`0.9.0` 包含接口合同变更，升级时需核对下方使用方式并确认目标后端已部署对应合同。平台接口统一使用 OpenAPI v2，能力发现使用 `state + reasonCode + operations`。Stream 请求与消息交互统一到本包的 `client.streams`；`client.stream` 保留 Stream 管理。文件上传支持并发分片与断点续传。
 
 Collection 声明必须同时提供业务名称 `name`（例如「生产工单」）和稳定程序标识 `alias`（例如 `production_orders`），高层声明与底层请求类型一致。`name` 是唯一展示名称，不支持 `displayName`；ensure 仅在创建时写入名称，重复 ensure 保留用户改名，同目录重名明确报错。使用前需确认后端已包含 `business-name/1` 契约。
 
