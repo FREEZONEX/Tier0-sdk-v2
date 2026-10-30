@@ -18,7 +18,7 @@ type Operation = {
 const read = (file: string) => readFileSync(new URL(`../../contracts/uns-v2/${file}`, import.meta.url), 'utf8');
 const manifest = JSON.parse(read('manifest.json')) as {
   operations: Operation[];
-  schemas: Record<string, { properties?: Record<string, unknown> }>;
+  schemas: Record<string, { properties?: Record<string, unknown>; required?: string[] }>;
 };
 const contract = JSON.parse(read('contract.json')) as { operations: Operation[]; schemas: Record<string, unknown> };
 const registry = read('registry_generated.go');
@@ -26,7 +26,7 @@ const operation = (name: string) => manifest.operations.find(item => item.name =
 
 describe('Backend App UNS access contract without generic record audit', () => {
   it('pins the exact upstream commit and all generator inputs', () => {
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('397ac88a89593872cf76ad579a3c59753d832668');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('2828a0b9f9d16ebfbf2bf25c750a0a931c80354e');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     for (const [key, file] of Object.entries({ contract: 'contract.json', cloudSupport: 'cloud-support.json', manifest: 'manifest.json', provenance: 'provenance.json', registry: 'registry_generated.go' })) {
       expect(UNS_V2_CONTRACT_PROVENANCE.hashes[key as keyof typeof UNS_V2_CONTRACT_PROVENANCE.hashes]).toBe(
@@ -39,6 +39,28 @@ describe('Backend App UNS access contract without generic record audit', () => {
     // Error envelopes are decoded by every operation, although success DTOs do not reference them.
     expect(Object.hasOwn(UNS_V2_CODEC_SCHEMAS, 'UnsV2ErrorResponse')).toBe(true);
     expect(Object.hasOwn(manifest.schemas, 'UnsV2ErrorResponse')).toBe(true);
+  });
+
+  it('requires a business name independently of alias in every published request schema', () => {
+    const openapi = JSON.parse(readFileSync(new URL('../../contracts/openapi-v2.source.json', import.meta.url), 'utf8'));
+    for (const schema of [manifest.schemas.CloudAppCollectionDeclaration, contract.schemas.CloudAppCollectionDeclaration, openapi.components.schemas.CloudAppCollectionDeclaration]) {
+      expect(schema).toMatchObject({ required: ['alias', 'name', 'recordSchema'], properties: { name: { type: 'string', minLength: 1, maxLength: 63 } } });
+      expect(schema).not.toHaveProperty('properties.displayName');
+    }
+    expect(UNS_V2_CONTRACT_PROVENANCE.cloudContractRevision).toContain('+business-name/1+');
+  });
+
+  it('keeps acquisition and capability provenance on the same committed Cloud baseline', () => {
+    const upstream = JSON.parse(readFileSync(new URL('../../contracts/upstream.json', import.meta.url), 'utf8'));
+    const capability = JSON.parse(readFileSync(new URL('../../contracts/capability-discovery/provenance.json', import.meta.url), 'utf8'));
+    expect(upstream.revision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
+    expect(capability.revision).toBe(upstream.revision);
+    const acquisition = upstream.schemaUpdates.find((update: { scope: string }) => update.scope === 'source-stream-acquisition');
+    expect(acquisition.revision).toBe(upstream.revision);
+    expect(acquisition.sourceKind).toBe('committed');
+    for (const input of Object.values(acquisition.inputs) as { baseSHA256: string; resultSHA256: string }[]) {
+      expect(input.resultSHA256).toBe(input.baseSHA256);
+    }
   });
 
   it.each([
