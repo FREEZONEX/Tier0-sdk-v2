@@ -1,21 +1,20 @@
 {
-  "repository": "https://github.com/FREEZONEX/Tier0-sdk",
-  "revision": "6367d22ab481e117c30db9c17a0662b607b9a26f",
-  "vectorCount": 208,
-  "implementationBase": {
-    "repository": "https://github.com/FREEZONEX/Tier0-sdk-v2",
-    "revision": "18bdd287170e32a3d1e4176a63f80e59fec688c7"
+  "repository": "FREEZONEX/Tier0-Backend",
+  "revision": "de5cd3c6cdb2b571b72012b0a76f5812139b1c22",
+  "sourceKind": "committed",
+  "sources": {
+    "contracts/capability-discovery/response.schema.json": "share/domain/capability/discovery.schema.json",
+    "contracts/capability-discovery/vectors.json": "share/domain/capability/testdata/discovery.vectors.json"
   },
+  "vectorCount": 210,
   "consumerScope": [
     "namespace.v2",
     "source",
     "stream"
   ],
-  "unconsumedDomains": "App Stream requests and messages belong to the App interaction SDK; their versions do not gate core discovery. Shared schema validity remains unchanged.",
   "inputs": {
-    "contracts/capability-discovery/response.schema.json": "4a773e03d8b13571542290e8703792aa7d400d7d20702f532ccd5a8484da9379",
-    "contracts/capability-discovery/vectors.json": "7ab2e41ee4114c8883b32c5abe778a97132e26fefb6336565fda6a46f7116d74",
-    "src/capabilities.ts@18bdd287": "3a4e0c21953c91c7468031acefc2cb08afdd0e0ce691132576b33a943a6b1f49",
-    "src/capabilities.ts": "84868da8aedccff4e447a4cd17dbf90ca214c46171735c0e8ef4e38939038855"
+    "contracts/capability-discovery/response.schema.json": "25f490aaedd45fe5a452a57b5dec062cf25a8e29561a623c5e06bfc528ea6df4",
+    "contracts/capability-discovery/vectors.json": "40c1213f15897b3d8f9a4da6cf24f82c6ced1f65e46fc2a03f23733017bccfaa",
+    "src/capabilities.ts": "79833b639e72efd68f915d0199ef1fcbfb61c68c6d97a9400a5a5b52ce518f2a"
   }
 }

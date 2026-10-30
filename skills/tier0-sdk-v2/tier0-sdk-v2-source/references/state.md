@@ -4,7 +4,7 @@
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| dryRun | boolean | 是 | 提交 false |
+| dryRun | boolean | 否 | 默认 false 提交；true 仅预检 |
 | items[].id / expectedRevision | string / integer | 是 | 当前对象和已知修订 |
 | items[].desiredState | enabled/disabled | 是 | 目标状态 |
 | items[].confirmedImpactRevision | string | 有引用时 | enable/disable 对应的影响回执 |

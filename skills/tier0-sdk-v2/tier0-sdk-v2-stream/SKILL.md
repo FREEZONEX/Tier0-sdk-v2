@@ -37,6 +37,7 @@ description: 使用 @tier0/sdk-v2 的 client.stream 创建、查询、修改和�
 5. resources=[] 是空冻结资源集，不是通配符。写入本身由服务端校验，需要预览时单独 validate；当前云端程序 timeoutMs 上限 30000。
 6. HTTPServer 响应时机在 Stream：普通返回等处理/提交完成；HTTP onRequest 内 await ctx.reply 可先回复一次再继续，仍受超时/并发/权限约束，断线不取消但 shutdown 可取消，不保证崩溃重放。
 7. 仅执行用户要求的生命周期步骤；修改脚本不自动授予发布、停用或删除权限。
+8. 用户要求采集落库时，先创建或复用 Collection 并确定字段映射与稳定 recordId，再绑定已启用 Source 的最新修订；脚本显式 api.uns.use(...).write。部署后核对实际运行并读回记录，返回上游结果、保存草稿或样例预演均不代表已落库。
 
 ## 成功与异常
 

@@ -72,7 +72,7 @@ HTTP 调用统一使用 `/openapi/v2`。21 个重复 UNS 公共入口及生成�
 
 升级前应核对旧写请求的最终结果，包括集合初始化 seed。退役入口不再可调用，不能将未知结果的旧请求或幂等键直接改投新入口重做。当前入口的重试仍保留原路径、原键和原载荷。
 
-`client.capabilities.discover()` 使用 `POST /openapi/v2/capabilities/discover` 和空对象，返回直接 JSON。Cloud / Enterprise 使用同一发现合同，只消费 Namespace、Source、Stream 管理能力，不以 App 交互域的版本标签作为前置条件。Source / Stream 的 `operations` 分别描述读取、配置、运行等操作，保留 `reasonCode`、`checkedAt`、`validUntil` 和 `requiresResourceCheck`；领域整体不可用时，读取或安全停用仍可能可用。证明到期后重新发现，实际操作仍需服务端检查具体资源权限和依赖。发现不代表设备在线或操作已成功，不自动重试。
+`client.capabilities.discover()` 使用 `POST /openapi/v2/capabilities/discover` 和空对象，返回直接 JSON。能力发现使用合同 2.0，以 state、reasonCode 和 operations 表达结果，不再返回 enabled、allowed、releaseEnabled、availability；服务端必须同步部署该合同，只消费 Namespace、Source、Stream 管理能力，不以 App 交互域的版本标签作为前置条件。Source / Stream 的 `operations` 分别描述读取、配置、运行等操作，保留 `reasonCode`、`checkedAt`、`validUntil` 和 `requiresResourceCheck`；领域整体不可用时，读取或安全停用仍可能可用。证明到期后重新发现，实际操作仍需服务端检查具体资源权限和依赖。发现不代表设备在线或操作已成功，不自动重试。
 
 ## Source、Stream 与 UNS 分域
 
@@ -237,3 +237,7 @@ node scripts/check-live-stream-runtime.mjs <consumer> <workspaceId> .tmp/live-st
 ```
 
 业务项目锁定实际安装的版本并同步更新随包 Skills；本地检查不代表线上业务验收通过。
+
+平台接口与能力发现的本地联调可分别运行 `node scripts/sync-contracts.mjs <backend> --worktree --platform-only` 和 `node scripts/sync-capability-contract.mjs <backend> --worktree`。预览来源明确记录基线和内容摘要，不能直接发布。Backend 提交后，将两条命令的 `--worktree` 替换为正式提交 SHA，再运行 `npm run generate && npm run check`；UNS 数据模型仍使用其独立固定输入。
+
+采集流程的 Source 创建/更新/状态变更、Stream 文档创建/更新/部署均可省略 `dryRun`（默认 false 提交）。SQL 新连接可在 `source.documents.create` 中直接传 `credentials.kind: usernamePassword` 与只写用户名/密码，不传 `credentials.method`；连接地址不携带秘密。`contracts/uns-v2/provenance.json` 的 `schemaUpdates` 记录这次有限合同更新，共享数据模型继续使用固定基础版本。

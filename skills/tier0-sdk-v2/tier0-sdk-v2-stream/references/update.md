@@ -7,7 +7,7 @@
 | id | string | 是 | 十进制字符串 |
 | document | CloudStreamDocument | 是 | name、model、script、sources、entries 完整文档 |
 | expectedRevision | integer | 建议始终提供 | 当前回执或查询的修订，防止覆盖他人修改 |
-| dryRun | boolean | 是 | true 预检；false 保存 |
+| dryRun | boolean | 否 | 默认 false 提交；true 仅预检 |
 | idempotencyKey | string | 否 | 本次更新独立意图键 |
 
 ## 示例：更新描述，保持脚本和绑定

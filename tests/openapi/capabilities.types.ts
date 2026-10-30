@@ -1,6 +1,6 @@
 import {
   capabilities, createClient, CapabilityError, type CapabilitiesClient,
-  type CapabilityDiscoverResponse, type CapabilityState, type CapabilityAvailability, type PublicCapability,
+  type CapabilityDiscoverResponse, type CapabilityState, type PublicCapability,
 } from '../../src/index.js';
 
 const client = createClient({ getApiKey: () => 'runtime-key', transportTimeoutMs: 1000 });
@@ -10,16 +10,17 @@ const globalDiscovery: Promise<CapabilityDiscoverResponse> = capabilities.discov
 async function inspect() {
   const response = await discovery;
   const product: 'cloud' | 'enterprise' = response.product;
-  const version: '1.0' = response.contractVersion;
+  const version: '2.0' = response.contractVersion;
   const optionalProductVersion: string | undefined = response.productVersion;
   const capability: PublicCapability | undefined = response.capabilities[0];
   if (capability) {
-    const release: boolean = capability.releaseEnabled;
-    const allowed: boolean = capability.allowed;
-    const enabled: boolean = capability.enabled;
     const state: CapabilityState = capability.state;
-    const availability: CapabilityAvailability = capability.availability;
-    void [release, allowed, enabled, state, availability];
+    const reason: string = capability.reasonCode;
+    // @ts-expect-error duplicate enabled flag was removed in contract 2.0
+    capability.enabled;
+    // @ts-expect-error authorization is checked by the real operation
+    capability.allowed;
+    void [state, reason];
   }
   // @ts-expect-error success is direct public JSON, not an Axios envelope
   response.data;
@@ -35,8 +36,8 @@ api.discover({ retry: true });
 api.discover({ transportTimeoutMs: 10 });
 // @ts-expect-error readiness boolean is not a legacy numeric enum
 const enabled: PublicCapability['enabled'] = 1;
-// @ts-expect-error unknown availability cannot be treated as ready
-const availability: CapabilityAvailability = 'ready';
+// @ts-expect-error duplicate availability was removed
+const availability: PublicCapability['availability'] = 'ready';
 const currentSource: PublicCapability['code'] = 'source';
 const currentStream: PublicCapability['code'] = 'stream';
 // @ts-expect-error retired standalone control capability is not exported

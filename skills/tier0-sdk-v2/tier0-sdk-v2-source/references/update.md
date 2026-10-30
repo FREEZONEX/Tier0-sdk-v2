@@ -8,7 +8,7 @@
 | patch / document | object / CloudSourceDocument | 二选一 | patch 保留未提供的字段；document 完整替换 |
 | expectedRevision | integer | 是 | 已读取或上次提交返回的 revision，原样传回 |
 | confirmedImpactRevision | string | 有引用时 | 相同修改意图和修订的 impact 回执 |
-| dryRun | boolean | 是 | true 预检；false 提交 |
+| dryRun | boolean | 否 | 默认 false 提交；true 仅预检 |
 | idempotencyKey | string | 否 | 最多 128 字符 |
 
 ## 示例：一次请求修改名称

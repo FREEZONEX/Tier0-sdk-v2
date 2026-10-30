@@ -4,10 +4,10 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createClient, CapabilityError } from '../../src/index.js';
 
 const fixture = {
-  product: 'cloud', contractVersion: '1.0', apiContractVersions: ['openapi/v1', 'openapi/v2'],
+  product: 'cloud', contractVersion: '2.0', apiContractVersions: ['openapi/v2'],
   sdkContractVersions: ['stream-requests/v1'],
-  capabilities: [{ code: 'namespace.v2', releaseEnabled: true, allowed: true, enabled: false,
-    state: 'unavailable', availability: 'unavailable', contractVersions: ['openapi/v2'] }],
+  capabilities: [{ code: 'namespace.v2', reasonCode: 'DEPENDENCY_UNAVAILABLE',
+    state: 'unavailable', contractVersions: ['openapi/v2'] }],
   deprecations: [],
 };
 const received: { path?: string; method?: string; headers: IncomingMessage['headers']; body: string }[] = [];
@@ -53,7 +53,7 @@ describe('capability real HTTP fixture (no device execution or external credenti
     respond = (_req, res) => send(res, body);
     const result = await client().capabilities.discover();
     expect(result).toEqual({ ...body, capabilities: fixture.capabilities });
-    expect(result.capabilities[0]).toMatchObject({ enabled: false, state: 'unavailable' });
+    expect(result.capabilities[0]).toMatchObject({ reasonCode: 'DEPENDENCY_UNAVAILABLE', state: 'unavailable' });
     expect(received.length - start).toBe(1);
   });
 
@@ -61,9 +61,9 @@ describe('capability real HTTP fixture (no device execution or external credenti
     const api = client();
     const start = received.length;
     respond = (_req, res) => send(res, fixture);
-    expect((await api.capabilities.discover()).capabilities[0].enabled).toBe(false);
-    respond = (_req, res) => send(res, { ...fixture, capabilities: [{ ...fixture.capabilities[0], enabled: true, state: 'ready', availability: 'available' }] });
-    expect((await api.capabilities.discover()).capabilities[0].enabled).toBe(true);
+    expect((await api.capabilities.discover()).capabilities[0].state).toBe('unavailable');
+    respond = (_req, res) => send(res, { ...fixture, capabilities: [{ ...fixture.capabilities[0], state: 'ready', reasonCode: 'READY' }] });
+    expect((await api.capabilities.discover()).capabilities[0].state).toBe('ready');
     expect(received.length - start).toBe(2);
   });
 
@@ -89,7 +89,7 @@ describe('capability real HTTP fixture (no device execution or external credenti
     respond = (req, res) => {
       if (kind === 'socket') { req.socket.destroy(); return; }
       if (kind === 'envelope') { send(res, { code: 200, data: fixture }); return; }
-      if (kind === 'unsupported-version') { send(res, { ...fixture, contractVersion: '2.0' }); return; }
+      if (kind === 'unsupported-version') { send(res, { ...fixture, contractVersion: '1.0' }); return; }
       if (kind === 'invalid-json') { res.writeHead(200); res.end('not JSON'); return; }
       res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': 999 });
       res.write('{"product":');

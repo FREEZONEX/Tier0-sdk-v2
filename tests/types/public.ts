@@ -105,6 +105,12 @@ const vendorSessionInline: CloudSourceCreateCredentials = { kind: 'bearer', meth
 sdk.source.credentials.create({});
 void [oldApiKeyMaterial, invalidApiKeyMethod, vendorSessionInline];
 
+const sqlCredentials: CloudSourceCreateCredentials = { kind: 'usernamePassword', material: { username: 'fixture', password: 'fixture-only' } };
+sdk.source.documents.create({ document: { name: 'PG', protocol: 'sql', config: { endpoint: 'postgres://fixture.invalid/database', options: {} } }, credentials: sqlCredentials, idempotencyKey: 'sql-create' });
+// @ts-expect-error SQL 连接不接受 HTTP method。
+const sqlHTTPMethod: CloudSourceCreateCredentials = { kind: 'usernamePassword', method: 'GET', material: { username: 'fixture', password: 'fixture-only' } };
+void sqlHTTPMethod;
+
 // @ts-expect-error Single-model Source documents no longer select a config version.
 const retiredConfigSelector: CloudSourceConfig = { configVersion: 2, endpoint: 'https://fixture.invalid', options: {} };
 // @ts-expect-error Full Stream programs no longer select an interpreter generation.

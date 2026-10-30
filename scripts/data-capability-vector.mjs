@@ -8,7 +8,8 @@ const requestDuplicateCase = /^(cloud|enterprise)-duplicate-known-stream\.reques
 // The shared schema's validity is unchanged. This SDK consumes only the core
 // domains; request-domain validation belongs to the App interaction SDK.
 export function dataCapabilityVector(vector) {
-  const requestOnlyCase = requestVersionCase.test(vector.name) || requestDuplicateCase.test(vector.name);
+  const requestOnlyCase = (requestVersionCase.test(vector.name) || requestDuplicateCase.test(vector.name)) &&
+    vector.response.apiContractVersions.includes('openapi/v2');
   if (requestOnlyCase) {
     assert.equal(vector.valid, false, 'the original shared invalid vector must stay invalid');
     assert.ok(vector.response.capabilities.length > 0);

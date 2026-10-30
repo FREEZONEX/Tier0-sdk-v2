@@ -155,15 +155,19 @@
   "scripts": {
     "sync:contracts": "node scripts/sync-contracts.mjs",
     "generate": "node scripts/generate-openapi.mjs && node scripts/generate-uns-v2.mjs",
-    "check:contracts": "node scripts/check-contracts.mjs && node --test scripts/retired-stream-probe.test.mjs scripts/retired-http-push.test.mjs scripts/retired-controls.test.mjs scripts/retired-public-labels.test.mjs scripts/platform-schema-projection.test.mjs scripts/data-capability-vector.test.mjs scripts/sync-contracts.test.mjs scripts/live-program-contract.test.mjs scripts/sync-http-run-observations.test.mjs && node scripts/generate-openapi.mjs --check && node scripts/generate-uns-v2.mjs --check",
+    "check:contracts": "node scripts/check-contracts.mjs && npm run check:acquisition-contract && node scripts/sync-capability-contract.mjs --check && node --test scripts/retired-stream-probe.test.mjs scripts/retired-http-push.test.mjs scripts/retired-controls.test.mjs scripts/retired-public-labels.test.mjs scripts/platform-schema-projection.test.mjs scripts/data-capability-vector.test.mjs scripts/sync-contracts.test.mjs scripts/sync-capability-contract.test.mjs scripts/live-program-contract.test.mjs scripts/sync-http-run-observations.test.mjs && node scripts/generate-openapi.mjs --check && node scripts/generate-uns-v2.mjs --check",
     "check:skills": "node scripts/check-skills.mjs && node scripts/check-skill-examples.mjs",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.tests.json",
     "build": "node scripts/build.mjs",
     "prepare": "npm run build",
     "test": "vitest run",
     "check": "npm run check:contracts && npm run check:skills && npm run typecheck && npm test && npm run build && node scripts/check-package.mjs",
-    "prepack": "npm run check:contracts && npm run check:skills && npm run build",
-    "prepublishOnly": "npm run check"
+    "prepack": "node scripts/check-contracts.mjs --committed && npm run check:contracts && npm run check:skills && npm run build",
+    "prepublishOnly": "node scripts/check-contracts.mjs --committed && npm run check",
+    "sync:capability-contract": "node scripts/sync-capability-contract.mjs",
+    "check:capability-contract": "node scripts/sync-capability-contract.mjs --check",
+    "sync:acquisition-contract": "node scripts/sync-acquisition-contract.mjs",
+    "check:acquisition-contract": "node scripts/sync-acquisition-contract.mjs --check && node --test scripts/sync-acquisition-contract.node.mjs"
   },
   "dependencies": {
     "mqtt": "^5.3.0"

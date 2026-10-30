@@ -4,13 +4,13 @@
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| dryRun | boolean | 是 | true 校验；false 保存 |
+| dryRun | boolean | 否 | 默认 false 提交；true 仅预检 |
 | document.name | string | 是 | 1–128 字符 |
 | document.protocol | string | 是 | 原生协议，如 http-api、mqtt、modbus |
 | document.config.role | client / server | HTTP API 显式指定 | client 主动请求；server 接收入站请求 |
 | document.config | object | 是 | endpoint、options；见[协议配置](protocols.md) |
 | document.description | string | 否 | 最多 512 字符 |
-| credentials | object | 否 | 仅创建 HTTP Client 时提供新凭据，与已有 auth/TLS 引用互斥 |
+| credentials | object | 否 | HTTP Client 或 SQL 的只写新凭据；与已有 auth 引用互斥 |
 | idempotencyKey | string | 否 | 建议提供，最多 128 字符，同一业务意图保持不变 |
 
 ## 完整示例：HTTP Client 数据源
@@ -90,7 +90,7 @@ Server 的固定前缀 `/ingest/v1/{workspaceId}/{sourceId}` 和 Bearer 要求�
 
 ## 四类 inline 认证与 REQUEST 绑定
 
-单条创建可通过 `credentials` 提供以下只写材料；与已有 auth/TLS 引用互斥，并要求本次创建的 `idempotencyKey`。材料从调用方已授权的密钥提供者注入，不在示例中读取文件或环境中的秘密，不记录或返回材料。
+HTTP Client 单条创建可通过 `credentials` 提供以下只写材料；与已有 auth 引用互斥，HTTP/SQL 当前不支持 TLS 凭据引用，并要求本次创建的 `idempotencyKey`。材料从调用方已授权的密钥提供者注入，不在示例中读取文件或环境中的秘密，不记录或返回材料。
 
 | kind | material | method |
 | --- | --- | --- |
@@ -120,3 +120,9 @@ export async function createHttpSourceWithCredentials(
   return { receipt: saved, current: saved.data };
 }
 ```
+
+## SQL 用户名和密码
+
+SQL 单条创建可直接传入 `credentials: { kind: "usernamePassword", material: { username, password } }`，不再预先调用独立凭据接口。`document.protocol` 为 `sql`，`config.endpoint` 只包含数据库地址（不包含用户名或密码），`credentials.method` 必须省略。仍需 `idempotencyKey`。秘密由 Vault 保存，Source 文档仅含引用；预检不写入凭据。
+
+`dryRun` 省略时直接提交；需要预检才设为 true。后续启用 Source、部署 Stream，并通过运行记录和 Collection 读回确认采集成功。
