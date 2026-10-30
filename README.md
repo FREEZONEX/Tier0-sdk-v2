@@ -2,7 +2,11 @@
 
 Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交互均使用 `@tier0/sdk-v2`。旧 SDK 不再作为依赖。
 
-`0.7.x` 包含不兼容变更：移除旧 Controls 入口、生成操作、DTO 和错误类，不保留别名。Stream 请求与消息交互统一到本包的 `client.streams`；`client.stream` 保留 Stream 管理。能力发现不再以可选交互合同阻断 Namespace，未知核心合同仍严格拒绝。V2 的 `execution` / `retry` 和结果未知语义保持不变。
+当前分支准备 `0.9.0`，尚未发布。平台接口统一使用 OpenAPI v2，能力发现使用 `state + reasonCode + operations`。Stream 请求与消息交互统一到本包的 `client.streams`；`client.stream` 保留 Stream 管理。文件上传支持并发分片与断点续传。
+
+Collection 声明必须同时提供业务名称 `name`（例如「生产工单」）和稳定程序标识 `alias`（例如 `production_orders`），高层声明与底层请求类型一致。`name` 是唯一展示名称，不支持 `displayName`；ensure 仅在创建时写入名称，重复 ensure 保留用户改名，同目录重名明确报错。使用前需确认后端已包含 `business-name/1` 契约。
+
+`0.7.x` 已移除旧 Controls 入口、生成操作、DTO 和错误类，不保留别名。能力发现不再以可选交互合同阻断 Namespace，未知核心合同仍严格拒绝。V2 的 `execution` / `retry` 和结果未知语义保持不变。
 
 `0.6.0` 的 HTTP Source 只保留 `protocol: http-api`，通过 `config.role: client | server` 区分主动请求与入站服务。旧 `http` / `http_push` 配置需要迁移；响应时机属于 Stream，不再建立独立异步 Source。同步 singlemodel 合同后，Source 配置不再带 configVersion，Stream 输入不再带 sdkVersion；保留完整 module.exports 程序与原生 script 对象/Runtime program 字符串两种既有形态，不能将旧 transform 函数体直接改名迁入。
 
@@ -14,11 +18,13 @@ Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交�
 
 ## 安装与初始化
 
-维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。业务项目安装当前发布版本：
+维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。本分支的功能应使用检查通过的 `tier0-sdk-v2-0.9.0.tgz` 在业务项目中验证：
 
 ```sh
-npm install @tier0/sdk-v2
+npm install /path/to/tier0-sdk-v2-0.9.0.tgz
 ```
+
+`0.9.0` 正式发布后再使用 `npm install @tier0/sdk-v2@0.9.0`。发布前，npm 的既有版本和 `next` 标签不代表本分支的完整功能。
 
 ```ts
 import { createClient } from '@tier0/sdk-v2';

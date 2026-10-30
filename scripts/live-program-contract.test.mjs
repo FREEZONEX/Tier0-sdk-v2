@@ -67,9 +67,10 @@ for (const path of ['scripts/check-live-stream-runtime.mjs', 'scripts/check-live
   });
 }
 
-test('README installation selects the published package rather than an obsolete release', () => {
+test('README installation selects the current package or its release-candidate artifact', () => {
   const version = JSON.parse(read('package.json')).version;
-  const commands = [...read('README.md').matchAll(/^npm install(?: --save-exact)? @tier0\/sdk-v2(?:@([^\s]+))?\s*$/gm)];
+  const commands = [...read('README.md').matchAll(/^npm install(?: --save-exact)? (\S+)\s*$/gm)];
   assert.ok(commands.length > 0);
-  for (const command of commands) assert.ok(command[1] === undefined || command[1] === version, 'Installation example pins a different SDK release');
+  const supported = ['@tier0/sdk-v2', `@tier0/sdk-v2@${version}`, `/path/to/tier0-sdk-v2-${version}.tgz`];
+  for (const command of commands) assert.ok(supported.includes(command[1]), 'Installation example pins a different SDK release');
 });
