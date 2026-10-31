@@ -83,6 +83,26 @@ describe('App credential token file (design 21.7)', () => {
     expect(new Headers(fetch.mock.calls[1][1]?.headers).get('authorization')).toBe(`Bearer ${appToken('fresh')}`);
   });
 
+  it('waits for the file to change after a 401, then retries with the new token', async () => {
+    const fetch = vi.fn(async (..._args: Parameters<typeof globalThis.fetch>) => {
+      if (fetch.mock.calls.length === 1) {
+        setTimeout(() => replace(appToken('late')), 300);
+        return denied();
+      }
+      return envelope({ userId: 'u' });
+    });
+    await createClient({ apiHost: 'api.example', fetch }).api.system.whoami();
+    expect(new Headers(fetch.mock.calls[1][1]?.headers).get('authorization')).toBe(`Bearer ${appToken('late')}`);
+  });
+
+  it('retries with the same file when it does not change within 2 seconds', async () => {
+    const started = Date.now();
+    const fetch = vi.fn(async (..._args: Parameters<typeof globalThis.fetch>) => (fetch.mock.calls.length === 1 ? denied() : envelope({ userId: 'u' })));
+    await createClient({ apiHost: 'api.example', fetch }).api.system.whoami();
+    expect(Date.now() - started).toBeGreaterThanOrEqual(1900);
+    expect(new Headers(fetch.mock.calls[1][1]?.headers).get('authorization')).toBe(`Bearer ${appToken('first')}`);
+  });
+
   it('throws when the retry is refused too, after exactly two requests', async () => {
     const fetch = vi.fn(async (..._args: Parameters<typeof globalThis.fetch>) => denied());
     await expect(createClient({ apiHost: 'api.example', fetch }).api.system.whoami()).rejects.toMatchObject({ status: 401 });
@@ -124,6 +144,40 @@ describe('App credential token file (design 21.7)', () => {
     const delegation = token({ typ: 'delegation' });
     await runWithRequestContext(new Headers({ 'X-Tier0-Delegation': delegation }), () => data.collection(orders).countDocuments());
     expect(seen).toEqual({ ensure: null, count: delegation });
+  });
+
+  describe('seeds in a platform Preview', () => {
+    const seeded = defineCollection({ alias: 'orders', name: 'orders', schema: z.object({ title: z.string() }), seed: [{ _id: 's1', title: 'x' }] });
+    const delegation = token({ typ: 'delegation' });
+    function preview(status: string) {
+      writeFileSync(file, appToken('p').replace(/^[^.]+\.[^.]+/, (head) => `${head.split('.')[0]}.${segment({ typ: 'app-credential', ws: '1', app: 'a', runtime: 'preview', session: 's' })}`));
+      const writes: (string | null)[] = [];
+      const fetch = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+        if (String(url).includes('collections/ensure')) return envelope({ results: [{ alias: 'orders', collectionId: 'c1', revision: 1, status, ignored: [], warnings: [], indexStatus: [] }] });
+        if (String(url).includes('bulkWrite')) {
+          writes.push(new Headers(init?.headers).get('x-tier0-delegation'));
+          return envelope({ writeErrors: [] });
+        }
+        return envelope({ count: 1, capped: false });
+      });
+      const data = createDataClient({ apiHost: 'api.example', fetch: fetch as typeof globalThis.fetch, collections: [seeded], environment: 'deployed', logger: { info() {}, warn() {}, error() {} } as never });
+      return { data, writes };
+    }
+
+    it('wait for the first delegated request, and go once', async () => {
+      const { data, writes } = preview('created');
+      await runAsApp(() => data.ensure());
+      expect(writes).toEqual([]);
+      await runWithRequestContext(new Headers({ 'X-Tier0-Delegation': delegation }), () => data.collection(seeded).countDocuments());
+      await runWithRequestContext(new Headers({ 'X-Tier0-Delegation': delegation }), () => data.collection(seeded).countDocuments());
+      expect(writes).toEqual([delegation]);
+    });
+
+    it('are not written for an existing collection', async () => {
+      const { data, writes } = preview('unchanged');
+      await runWithRequestContext(new Headers({ 'X-Tier0-Delegation': delegation }), () => data.collection(seeded).countDocuments());
+      expect(writes).toEqual([]);
+    });
   });
 
   it('reads the workspace and App from the token, not the environment', () => {

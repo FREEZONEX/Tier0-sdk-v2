@@ -30,7 +30,10 @@ export interface Tier0PageRuntimeV1 {
   getState(): Tier0AppState;
   getSleepAt(): number | null;
   on(event: Tier0Event, listener: (detail: any) => void): () => void;
-  getMqttToken(): Promise<MqttTokenResponse>;
+  /** Cached until `refresh_at`; `fresh` skips the cache. Rejects with `Tier0RuntimeError`. */
+  getMqttToken(options?: { fresh?: boolean }): Promise<MqttTokenResponse>;
+  /** Added within v1: absent on older runtimes, so check before calling. */
+  reportMqttFailure?(): void;
   reportAuthError(code: Tier0AuthErrorCode): void;
   keepAwake(): void;
 }

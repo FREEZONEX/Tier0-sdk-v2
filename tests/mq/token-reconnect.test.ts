@@ -146,6 +146,7 @@ describe('Tier0MQClient across token expiry', () => {
           return { token: `t${serial}`, username: '42&g1&appbrowser', client_id: '42&b.g1.abcd', url: 'wss://emqx.example/mqtt', exp: 0, refresh_at: 0 };
         }),
         reportAuthError: vi.fn(),
+        reportMqttFailure: vi.fn() as (() => void) | undefined,
         keepAwake: vi.fn(),
       };
       (globalThis as Record<symbol, unknown>)[RUNTIME_KEY] = runtime;
@@ -206,7 +207,30 @@ describe('Tier0MQClient across token expiry', () => {
         await vi.advanceTimersByTimeAsync(60_000);
       }
       expect(client.reconnect).toHaveBeenCalledTimes(2);
-      expect(runtime.reportAuthError).toHaveBeenCalledTimes(1);
+      expect(runtime.reportMqttFailure).toHaveBeenCalledTimes(1);
+      expect(runtime.reportAuthError).not.toHaveBeenCalled();
+    });
+
+    it('takes a fresh token after a refusal', async () => {
+      const { emit, runtime } = await connected();
+      emit('close');
+      await vi.advanceTimersByTimeAsync(600);
+      expect(runtime.getMqttToken).toHaveBeenLastCalledWith(undefined);
+      emit('error', Object.assign(new Error('refused'), { code: 5 }));
+      emit('close');
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(runtime.getMqttToken).toHaveBeenLastCalledWith({ fresh: true });
+    });
+
+    it('falls back to grant_expired on a runtime without reportMqttFailure', async () => {
+      const { emit, runtime } = await connected();
+      runtime.reportMqttFailure = undefined;
+      for (let i = 0; i < 3; i += 1) {
+        emit('error', Object.assign(new Error('refused'), { code: 5 }));
+        emit('close');
+        await vi.advanceTimersByTimeAsync(60_000);
+      }
+      expect(runtime.reportAuthError).toHaveBeenCalledWith('grant_expired');
     });
 
     it('pauses on sleeping and reconnects on resumed', async () => {

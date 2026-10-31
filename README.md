@@ -47,7 +47,7 @@ const user = await tier0.system.whoami();
 
 平台 VM 里不再注入 `TIER0_API_KEY`。设置了 `TIER0_CREDENTIALS_FILE` 时：
 
-- SDK 同步读取令牌文件，按 inode、修改时间、大小缓存，用 `Authorization: Bearer` 发送，不发 `X-API-Key`；收到 401 重读文件再重试一次；
+- SDK 同步读取令牌文件，按 inode、修改时间、大小缓存，用 `Authorization: Bearer` 发送，不发 `X-API-Key`；收到 401 时等文件变化（最多 2 秒），再重试一次；
 - 工作区和 App ID 以令牌里的值为准，MQTT 的 username、clientId 由令牌推导；
 - `runWithRequestContext` 把收到的 `X-Tier0-Delegation` 原样转发到所有平台接口，`runAsApp` 不带；
 - SDK 不提供打印令牌的命令，不要读取、打印或复制令牌文件。
@@ -55,6 +55,7 @@ const user = await tier0.system.whoami();
 没有这个变量时，API Key 路径保持不变。
 
 - `@tier0/sdk-v2/server`：`createVisitorTokenVerifier()` 校验 `X-Tier0-Visitor`（契约 v2，公钥从 `TIER0_JWKS_DIR` 读最新集合）。
+- 预览里 App 凭证只能对自有集合做 `ensure`，种子写入等第一个带委托令牌的请求。
 - `@tier0/sdk-v2/page-runtime`：页面运行时 v1 和平台错误（`x-sbx-error`）。
 - `@tier0/sdk-v2/event-stream`：基于 fetch 的 SSE。App 休眠时停止，`resumed` 后重建，节点 agent 重启时透明重连。`EventSource` 遇到 503 不重试，手写时要订阅 `resumed` 后重建。
 

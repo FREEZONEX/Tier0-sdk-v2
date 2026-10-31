@@ -200,6 +200,8 @@ export function frontdoorKeysFromDir(dir: string | undefined = getEnvVar('TIER0_
         const next = `${stat.ino}:${stat.mtimeNs}:${stat.size}`;
         if (next !== stamp) {
           current = parseVisitorJwks(JSON.parse(readFileSync(path, 'utf8')));
+          // `dev-` kids belong to the development signer; the platform never trusts one.
+          for (const kid of current.keys()) if (kid.startsWith('dev-')) current.delete(kid);
           stamp = next;
         }
       } catch {

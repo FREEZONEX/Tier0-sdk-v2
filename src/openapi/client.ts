@@ -1,4 +1,4 @@
-import { credentialsFile, dropCachedCredential, readCredentialToken } from '../credentials.js';
+import { awaitCredentialChange, credentialsFile, readCredentialToken } from '../credentials.js';
 import { assertCompactToken, currentDelegation, DELEGATION_HEADER } from '../request-context.js';
 import { getEnvVar } from '../runtime-env.js';
 import { decodeUnsV2JSON, encodeUnsV2JSON } from '../uns-v2/codec.js';
@@ -99,8 +99,8 @@ export class HttpClient {
 
   /**
    * One platform request with the current credentials (design 21.7). A 401 on
-   * the App credential token rereads the file and sends once more: the token
-   * can be stale right after a memory restore. Backend refuses before running
+   * the App credential token rereads the file, once it changed or after 2
+   * seconds, and sends once more: the token can be stale right after a memory restore. Backend refuses before running
    * anything, so writes repeat safely.
    */
   async authorizedFetch(url: string, init: RequestInit & { headers: Headers | Record<string, string> }, delegation: string | undefined = currentDelegation()): Promise<Response> {
@@ -110,7 +110,7 @@ export class HttpClient {
     const path = this.credentialPath();
     if (response.status !== 401 || !path) return response;
     await response.body?.cancel().catch(() => undefined);
-    dropCachedCredential(path);
+    await awaitCredentialChange(path, init.signal);
     this.authorize(headers, delegation);
     return this.getFetch()(url, { ...init, headers });
   }

@@ -61,8 +61,29 @@ export function readCredentialToken(path: string): string | undefined {
   }
 }
 
-/** Forgets the cached token, so the next read goes to the file whatever its stat says. */
-export function dropCachedCredential(path: string): void {
+const CHANGE_POLL_MS = 200;
+const CHANGE_WAIT_MS = 2_000;
+
+/**
+ * After a refused token (design 21.7): right after a memory restore the guest
+ * agent may not have written the new one yet, so a reread straight away finds
+ * the old token. Waits until the file differs from what was last read, for at
+ * most 2 seconds, and forgets the cached token either way.
+ */
+export async function awaitCredentialChange(path: string, signal?: AbortSignal | null): Promise<void> {
+  const fs = nodeFs();
+  const cached = cache.get(path);
+  const changed = () => {
+    try {
+      const stat = fs?.statSync(path, { bigint: true });
+      return !stat || !cached || cached.ino !== stat.ino || cached.mtimeNs !== stat.mtimeNs || cached.size !== stat.size;
+    } catch {
+      return false;
+    }
+  };
+  for (let waited = 0; waited < CHANGE_WAIT_MS && !changed() && !signal?.aborted; waited += CHANGE_POLL_MS) {
+    await new Promise((resolve) => setTimeout(resolve, CHANGE_POLL_MS));
+  }
   cache.delete(path);
 }
 
@@ -92,4 +113,9 @@ export function currentAppCredential(): AppCredentialClaims | undefined {
   const path = credentialsFile();
   const token = path ? readCredentialToken(path) : undefined;
   return token ? appCredentialClaims(token) : undefined;
+}
+
+/** `preview` means the App credential alone may only ensure structure (access design 8). Undefined without a token. */
+export function appCredentialRuntime(): AppCredentialClaims['runtime'] {
+  return currentAppCredential()?.runtime;
 }
