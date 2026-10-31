@@ -5,6 +5,8 @@ description: 使用 @tier0/sdk-v2/data 在 App 服务端声明并读写本 App �
 
 # App 数据层
 
+工业场景创建数据前，先按[工业命名空间指导](../tier0-sdk-v2-uns/references/namespace.md)查找并复用已有 ISA-95 目录，只创建业务需要且缺失的层级。`defineCollection` / ensure 不接收 `parentId`，新集合默认放入 App 专属目录；需要指定工业目录时，由 Agent 在构建期用现有元数据接口创建并通过 `data.parentId` 放置，运行时按已有集合 ID 访问。
+
 `@tier0/sdk-v2/data` 是 App 业务数据的服务端入口：用 `defineCollection` 声明集合，`createDataClient` 在首次访问时一次性 ensure 全部声明，然后用 Mongo 驱动风格的集合句柄读写 UNS 记录。没有 SQL、ORM、连接串或迁移步骤；Preview 与部署后的 App 共用同一批集合和记录。
 
 这里创建的集合以 `ownerAppId` 标识唯一所属 App。使用已有或其他 App 共享的集合时，用 `data.collection({ collectionId })` 获取句柄；可选 `schema` 仅做本地写入校验，不创建或修改集合。已有 ID 引用同样用于 `queryBatch`、`transact` 和 `subscribe`，不放入 `createDataClient` 的 `collections` 声明数组，不执行 ensure 或写种子。无需服务端 alias，仍须当前 App 已有相应集合授权；SDK 不授予权限，复用不改变所属关系。底层 [UNS](../tier0-sdk-v2-uns/SKILL.md) 的记录接口仍可直接按 ID 使用。
@@ -56,7 +58,7 @@ export async function releasedOrders(): Promise<WorkOrder[]> {
 
 ## 核心约束
 
-1. 声明文件只从 `@tier0/sdk-v2/data/define` 导入，客户端代码可以安全引用它；全部集合在一个 `collections` 列表里声明（每个 App 最多 64 个），只建一个进程级 client；不要手动 ensure、不要在 import 时访问数据、不要自建“已初始化”标记。
+1. 声明文件只从 `@tier0/sdk-v2/data/define` 导入，客户端代码可以安全引用它；由 ensure 管理的自有集合放在一个 `collections` 列表里（每个 App 最多 64 个），只建一个进程级 client；不要手动 ensure、不要在 import 时访问数据、不要自建“已初始化”标记。
 2. 集合 Schema 是存储 Schema：只能用可存储的 Zod 子集，输入规则（格式、长度、默认值、transform）放在 API 入参 Schema。
    新建数值字段明确选择 int（integer + int32）、float 或 double（number + 对应 format）；普通小数选 double，嵌套对象和数组元素同样处理。SDK 会为未标注的 integer/number 补齐 int32/double；直接 MCP 请求必须自行提供 format。
 3. 写入前按声明严格校验，未知字段、类型错误、未声明的更新路径直接抛 `ZodError`；读取不做严格解析，旧版本写入的字段、新枚举值或缺字段都可能出现。

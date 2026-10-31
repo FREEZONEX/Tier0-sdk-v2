@@ -444,8 +444,11 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
 
   it('executes metadata and Record CRUD, Schema replacement, soft delete and restore', async () => {
     steps = [
-      { path: 'metadata', data: outcome('validated') },
-      { path: 'metadata', check: b => expect(b.data.recordSchema.required).toEqual(['name', 'enabled']), data: outcome() },
+      { path: 'metadata', check: b => expect(b).toMatchObject({ dryRun: true, data: { parentId: 'workshop-1' } }), data: outcome('validated') },
+      { path: 'metadata', check: b => {
+        expect(b).toMatchObject({ dryRun: false, idempotencyKey: 'create-collection', data: { parentId: 'workshop-1' } });
+        expect(b.data.recordSchema.required).toEqual(['name', 'enabled']);
+      }, data: outcome() },
       { path: 'metadata:find', data: { items: [collection()] } },
       { path: 'collections/devices/records', check: b => expect(b.returnDocument).toBe('after'),
         data: { insertedId: 'device-1', value: record(), status: 'committed', replayed: false } },
@@ -479,7 +482,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
       { path: 'metadata:restore', check: b => expect(b.items[0].expectedRevision).toBe(4), data: { ...outcome(), restoredCount: 1 } },
       { path: 'metadata:find', data: { items: [collection(5)] } },
     ];
-    await example('uns', 'create').createDeviceCollection('devices', 'devices', 'create-collection', client);
+    await example('uns', 'create').createDeviceCollection('devices', 'devices', 'workshop-1', 'create-collection', client);
     const inserted = await example('uns', 'create', 1).insertDevice('devices', 'device-1', 'pump', 'insert-record', client);
     expect(inserted.created).toEqual(record());
     await example('uns', 'update', 2).renameDevice('devices', 'device-1', 'pump-2', 'update-record', client);
@@ -495,10 +498,10 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
 
   it('does not treat an unconfirmed metadata mutation as committed or perform dependent reads', async () => {
     steps = [
-      { path: 'metadata', data: outcome('validated') },
-      { path: 'metadata', data: outcome('unconfirmed') },
+      { path: 'metadata', check: b => expect(b.data.parentId).toBeNull(), data: outcome('validated') },
+      { path: 'metadata', check: b => expect(b.data.parentId).toBeNull(), data: outcome('unconfirmed') },
     ];
-    const result = await example('uns', 'create').createDeviceCollection('devices', 'devices', 'create', client);
+    const result = await example('uns', 'create').createDeviceCollection('devices', 'devices', null, 'create', client);
     expect(result.state).toBe('unconfirmed');
     expect(result.receipt.data.status).toBe('unconfirmed');
     finished();
