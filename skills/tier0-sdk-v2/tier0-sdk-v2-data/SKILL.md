@@ -5,9 +5,9 @@ description: 使用 @tier0/sdk-v2/data 在 App 服务端声明并读写本 App �
 
 # App 数据层
 
-`@tier0/sdk-v2/data` 是 App 自有业务数据的服务端入口：用 `defineCollection` 声明集合，`createDataClient` 在首次访问时一次性 ensure 全部声明，然后用 Mongo 驱动风格的集合句柄读写 UNS 记录。没有 SQL、ORM、连接串或迁移步骤；Preview 与部署后的 App 共用同一批集合和记录。
+`@tier0/sdk-v2/data` 是 App 业务数据的服务端入口：用 `defineCollection` 声明集合，`createDataClient` 在首次访问时一次性 ensure 全部声明，然后用 Mongo 驱动风格的集合句柄读写 UNS 记录。没有 SQL、ORM、连接串或迁移步骤；Preview 与部署后的 App 共用同一批集合和记录。
 
-这里创建的集合以 `ownerAppId` 标识唯一所属 App。使用已有或其他 App 共享的集合时，直接走 [UNS](../tier0-sdk-v2-uns/SKILL.md) 的 `client.uns.recordFind`、`recordInsertOne` 等 collectionId 接口，不再用 defineCollection/ensure 声明它；无需服务端 alias，仍须当前 App 已有相应集合授权，复用不改变所属关系。
+这里创建的集合以 `ownerAppId` 标识唯一所属 App。使用已有或其他 App 共享的集合时，用 `data.collection({ collectionId })` 获取句柄；可选 `schema` 仅做本地写入校验，不创建或修改集合。已有 ID 引用同样用于 `queryBatch`、`transact` 和 `subscribe`，不放入 `createDataClient` 的 `collections` 声明数组，不执行 ensure 或写种子。无需服务端 alias，仍须当前 App 已有相应集合授权；SDK 不授予权限，复用不改变所属关系。底层 [UNS](../tier0-sdk-v2-uns/SKILL.md) 的记录接口仍可直接按 ID 使用。
 
 数据读写只在服务端代码（业务 service）里用 `@tier0/sdk-v2/data`：该入口依赖 Node 内置模块，浏览器打包会直接失败。组件和 route 的客户端代码只能从 `@tier0/sdk-v2/data/define` 取集合声明和类型（`defineCollection`、`Doc`、`NewDoc` 等），它不加载数据运行时，可以进浏览器包。需要 `zod` 4。底层调用 SDK 生成的 UNS 操作（`appCollectionsEnsure`、`recordFind`、`recordTransactionExecute` 等），凭证读取平台注入的 TIER0_API_HOST / TIER0_API_KEY。
 

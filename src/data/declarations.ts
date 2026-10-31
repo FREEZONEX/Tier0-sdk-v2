@@ -6,6 +6,6 @@
  * while data reads and writes stay on the server (`@tier0/sdk-v2/data`).
  */
 export { defineCollection, MAX_COLLECTIONS } from './define.js';
-export type { CollectionDefinition, CollectionSchema, Doc, IndexSpec, NewDoc, RecordMeta, SeedDoc } from './define.js';
+export type { CollectionDefinition, CollectionReference, CollectionSchema, CollectionTarget, Doc, IndexSpec, NewDoc, RecordMeta, SeedDoc } from './define.js';
 export { CollectionSchemaError, compileCollection, validateDocument } from './schema.js';
 export type { CompiledCollection, NormalizedIndex, RecordSchema, SchemaIssue } from './schema.js';

@@ -105,3 +105,22 @@ if (failure instanceof DataError) {
   const answer: { status: number; code: string; reason?: string; outcomeUnknown: boolean } = failure;
   void answer;
 }
+
+const existing = { collectionId: 'existing-devices', schema: z.object({ code: z.string(), state: z.enum(['ON', 'OFF']) }) };
+const existingData = createDataClient({});
+const devices = existingData.collection(existing);
+devices.findOne({}).then(record => {
+  if (record) {
+    const state: 'ON' | 'OFF' = record.state;
+    void state;
+  }
+});
+devices.insertOne({ code: 'PUMP-1', state: 'ON' });
+// @ts-expect-error references retain schema-based write inference
+devices.insertOne({ code: 'PUMP-1', state: 'UNKNOWN' });
+const untypedReference = existingData.collection<{ code: string }>({ collectionId: 'existing-untyped' });
+// @ts-expect-error caller-provided types also constrain writes without a local schema
+untypedReference.insertOne({ code: 42 });
+existingData.queryBatch({ devices: devices.query.find() });
+existingData.transact([{ opId: 'read', action: 'record.read', collection: existing, id: 'device-1' }]);
+existingData.subscribe({ collections: [existing] });
