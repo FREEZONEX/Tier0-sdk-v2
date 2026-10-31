@@ -380,6 +380,8 @@ export class UnsV2ClientCore {
         // A keep-alive comment counts as a heartbeat too.
         if ('comment' in event) {
           yield { type: 'heartbeat' };
+        } else if (!('event' in event)) {
+          continue;
         } else if (event.event === 'heartbeat') {
           yield event.id === undefined ? { type: 'heartbeat' } : { type: 'heartbeat', eventId: event.id };
         } else if (event.event === 'reset') {

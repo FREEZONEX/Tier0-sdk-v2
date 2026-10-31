@@ -1,3 +1,4 @@
+import { platformErrorCode, reportAuthError } from './page-runtime.js';
 import { assertCompactToken, currentDelegation } from './request-context.js';
 import type { AppRuntime } from './runtime.js';
 import { getClient, type HttpClient, type RequestOptions } from './openapi/client.js';
@@ -232,7 +233,10 @@ export class CloudTransport {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const exchange = async () => {
       try {
-        if (runtime) response = await runtime.request(path, body, { signal: controller.signal });
+        if (runtime) {
+          response = await runtime.request(path, body, { signal: controller.signal });
+          reportAuthError(platformErrorCode(response));
+        }
         else {
           const client = this.resolveClient();
           const url = `${client.getBaseURL()}${path}`;

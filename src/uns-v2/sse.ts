@@ -17,14 +17,19 @@ export const SSE_MAX_LINE_BYTES = 1 << 20;
 
 export class ServerSentEventsError extends Error {}
 
-/** Yields each dispatched event and each comment line; `retry:` is ignored. Throws ServerSentEventsError on an oversized line. */
-export async function* parseServerSentEvents(stream: ReadableStream<Uint8Array>): AsyncGenerator<ServerSentEvent | { comment: string }> {
+/**
+ * Yields each dispatched event and each comment line, plus `{ id }` for a frame
+ * that only moves the position; `retry:` is ignored. Throws
+ * ServerSentEventsError on an oversized line.
+ */
+export async function* parseServerSentEvents(stream: ReadableStream<Uint8Array>): AsyncGenerator<ServerSentEvent | { comment: string } | { id: string }> {
   const reader = stream.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
   let event = '';
   let data: string[] = [];
   let id: string | undefined;
+  let moved = false;
   try {
     while (true) {
       const { done, value } = await reader.read();
@@ -37,6 +42,8 @@ export async function* parseServerSentEvents(stream: ReadableStream<Uint8Array>)
       for (const line of lines) {
         if (line === '') {
           if (data.length > 0 || event) yield { event: event || 'message', data: data.join('\n'), ...(id === undefined ? {} : { id }) };
+          else if (moved && id !== undefined) yield { id };
+          moved = false;
           event = '';
           data = [];
           continue;
@@ -51,7 +58,10 @@ export async function* parseServerSentEvents(stream: ReadableStream<Uint8Array>)
         const text = raw.startsWith(' ') ? raw.slice(1) : raw;
         if (field === 'event') event = text;
         else if (field === 'data') data.push(text);
-        else if (field === 'id' && !text.includes('\u0000')) id = text;
+        else if (field === 'id' && !text.includes('\u0000')) {
+          id = text;
+          moved = true;
+        }
       }
       if (done) return;
     }

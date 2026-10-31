@@ -96,6 +96,26 @@
         "default": "./dist/cjs/mq/index.js"
       }
     },
+    "./page-runtime": {
+      "import": {
+        "types": "./dist/esm/page-runtime.d.ts",
+        "default": "./dist/esm/page-runtime.js"
+      },
+      "require": {
+        "types": "./dist/cjs/page-runtime.d.ts",
+        "default": "./dist/cjs/page-runtime.js"
+      }
+    },
+    "./event-stream": {
+      "import": {
+        "types": "./dist/esm/event-stream.d.ts",
+        "default": "./dist/esm/event-stream.js"
+      },
+      "require": {
+        "types": "./dist/cjs/event-stream.d.ts",
+        "default": "./dist/cjs/event-stream.js"
+      }
+    },
     "./server": {
       "import": {
         "types": "./dist/esm/cloud-server.d.ts",
