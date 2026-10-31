@@ -26,7 +26,7 @@ const operation = (name: string) => manifest.operations.find(item => item.name =
 
 describe('Backend App UNS access contract without generic record audit', () => {
   it('pins the exact upstream commit and all generator inputs', () => {
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('8c3967611cb7f28bfb8e6dc7063affef3d0b5210');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('0d8cb6dd7c72fb794dd1d63f5c7efb5017804545');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     for (const [key, file] of Object.entries({ contract: 'contract.json', cloudSupport: 'cloud-support.json', manifest: 'manifest.json', provenance: 'provenance.json', registry: 'registry_generated.go' })) {
       expect(UNS_V2_CONTRACT_PROVENANCE.hashes[key as keyof typeof UNS_V2_CONTRACT_PROVENANCE.hashes]).toBe(
