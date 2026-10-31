@@ -20,13 +20,13 @@ Collection 声明必须同时提供业务名称 `name`（例如「生产工单�
 
 ## 安装与初始化
 
-维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。本分支的功能应使用检查通过的 `tier0-sdk-v2-0.9.3.tgz` 在业务项目中验证：
+维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。本分支的功能应使用检查通过的 `tier0-sdk-v2-0.9.4.tgz` 在业务项目中验证：
 
 ```sh
-npm install /path/to/tier0-sdk-v2-0.9.3.tgz
+npm install /path/to/tier0-sdk-v2-0.9.4.tgz
 ```
 
-`0.9.3` 正式发布后再使用 `npm install @tier0/sdk-v2@0.9.3`。发布前，npm 的既有版本和 `next` 标签不代表本分支的完整功能。
+`0.9.4` 正式发布后再使用 `npm install @tier0/sdk-v2@0.9.4`。发布前，npm 的既有版本和 `next` 标签不代表本分支的完整功能。
 
 ```ts
 import { createClient } from '@tier0/sdk-v2';
