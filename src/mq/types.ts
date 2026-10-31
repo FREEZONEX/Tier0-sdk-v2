@@ -16,11 +16,22 @@ export interface MQTTConfig {
   secure?: boolean;
   clientId?: string;
   username?: string;
-  /** Original API key; connect-time changes refresh automatically derived identity fields. */
+  /**
+   * Original API key; connect-time changes refresh automatically derived identity fields.
+   * Leave it unset in the platform: the client takes a fresh token for every
+   * connection, from `TIER0_CREDENTIALS_FILE` on the server and from the page
+   * runtime in the browser, and derives username and clientId with it.
+   */
   password?: string;
   keepAlive?: number;
+  /** Base of the reconnect backoff in milliseconds, capped at 5 minutes; 0 turns reconnecting off. */
   reconnectPeriod?: number;
   connectTimeout?: number;
+  /**
+   * Defaults to false: the persistent session keeps QoS 1 messages across a
+   * reconnect. Messages beyond the broker's offline queue (EMQX default 1000)
+   * are still lost.
+   */
   clean?: boolean;
   /**
    * 背压保护阈值：handler 连续返回 false（表示下游停滞/消费者已断开）达到
