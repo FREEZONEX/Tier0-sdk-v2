@@ -75,5 +75,6 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
   access.properties.blockedReasons.items.enum = reasons.map(reason =>
     reason === 'app_stream_ceiling' ? 'app_control_ceiling' : reason);
   const digest = createHash('sha256').update(JSON.stringify(canonical({ operations: baselineOperations, schemas: baselineSchemas }))).digest('hex');
-  expect(digest).toBe('551a703407c20dfc155bde25d9fda6780830a2a2d5fb8fa4b44567b09f4ac4ad');
+  // Reviewed delta: grant aliases are optional and an empty alias clears the convenience name.
+  expect(digest).toBe('58ed03b8c6ef045be2c8a374875393ad993dec78371dec31de9ff3f1e84ac3b3');
 });
