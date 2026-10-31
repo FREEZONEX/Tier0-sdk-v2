@@ -4,6 +4,22 @@
 
 `name` 是必填的业务名称，界面直接展示，例如“生产工单”；1–63 个 Unicode 字符，无首尾空白，不含 `/` 或空字符。`alias` 是独立、稳定的程序标识，例如 `production_orders`，改业务名称不改 alias 或集合 ID。名称应表达实际用途，语言遵循用户偏好和已有业务术语，不附加无业务含义的随机串、时间戳或 ID。没有 displayName，也不从 alias 回退生成名称。ensure 只在首次创建时写入 name；命中已有 alias 时保留用户当前名称，显式改名走 MCP 元数据更新。
 
+已有集合直接引用实际 ID，不需要 alias、name 或注册到声明数组；只使用已有集合时可调用 `createDataClient({})`。可选 `schema` 沿用数据层的本地写入校验规则；省略时由服务端验证存储 schema。ID 引用不会 ensure、写种子、改变 owner 或自动补授权，被删或撤权时直接报告错误。
+
+```ts
+import { createDataClient } from '@tier0/sdk-v2/data';
+
+const data = createDataClient({});
+const devices = { collectionId: 'existing-device-collection-id' };
+const handle = data.collection<{ code: string }>(devices);
+const rows = await handle.find({}).toArray();
+const counts = await data.queryBatch({ devices: handle.query.count() });
+await data.transact([{ opId: 'read-device', action: 'record.read', collection: devices, id: 'device-1' }]);
+// 订阅同样使用 ID 引用；事件的 collection 字段为该 ID。
+const changes = data.subscribe({ collections: [devices] });
+void [rows, counts, changes];
+```
+
 ```ts
 import { z } from 'zod';
 import { defineCollection, type Doc } from '@tier0/sdk-v2/data/define';

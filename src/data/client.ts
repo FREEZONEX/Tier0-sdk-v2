@@ -10,7 +10,7 @@ import { createBootstrap, type DataEnvironment, type EnsureState, type Logger } 
 import { createDataTransport } from './call.js';
 import { assertAtomicBatch, Collection, toDoc, type BatchQuery, type UnsRecord, type WithMeta } from './collection.js';
 import { currentDataSubject, currentSignal } from './context.js';
-import { MAX_COLLECTIONS, type CollectionDefinition } from './define.js';
+import { MAX_COLLECTIONS, type CollectionDefinition, type CollectionReference, type CollectionSchema, type CollectionTarget } from './define.js';
 import { createSubscribe, type SubscribeOptions, type SubscriptionEvent } from './subscribe.js';
 import { parseUnsV2Fault, UnsV2Error } from '../uns-v2/client.js';
 import { DataError, toDataError } from './error.js';
@@ -27,11 +27,11 @@ export type TransactAction =
   | 'record.delete'
   | 'record.query';
 
-/** One `recordTransactionExecute` item; `collection` is a declaration or alias instead of a collection ID. */
+/** One `recordTransactionExecute` item; `collection` is a declaration, declared alias, or existing-ID reference. */
 export interface TransactStep {
   opId: string;
   action: TransactAction;
-  collection: CollectionDefinition | string;
+  collection: CollectionTarget | string;
   id?: string | { ref: string };
   filter?: Filter;
   data?: Record<string, unknown>;
@@ -83,7 +83,7 @@ const QUERY_NAME = /^[A-Za-z0-9_.-]{1,64}$/;
 
 /** Credentials as for `createClient`; `transportTimeoutMs` (per attempt) defaults to 25 s here, see DEFAULT_DATA_TIMEOUT_MS. */
 export interface DataClientConfig extends ClientConfig {
-  collections: readonly CollectionDefinition[];
+  collections?: readonly CollectionDefinition[];
   /** Defaults to "deployed" when NODE_ENV is production, otherwise "preview". */
   environment?: DataEnvironment;
   logger?: Logger;
@@ -92,6 +92,9 @@ export interface DataClientConfig extends ClientConfig {
 export interface DataClient {
   /** Typed handle for a declaration listed in `collections`. */
   collection<C extends CollectionDefinition>(definition: C): Collection<z.output<C['schema']>, z.input<C['schema']>>;
+  /** Existing collection, with optional local write validation. Never ensured, seeded, or granted by the SDK. */
+  collection<S extends CollectionSchema>(reference: CollectionReference<S> & { schema: S }): Collection<z.output<S>, z.input<S>>;
+  collection<T extends object = Record<string, unknown>>(reference: CollectionReference): Collection<T>;
   /** Handle by alias, typed by the caller. */
   collection<T extends object = Record<string, unknown>>(alias: string): Collection<T>;
   /**
@@ -130,7 +133,7 @@ export interface DataClient {
 export function createDataClient(config: DataClientConfig): DataClient {
   const { call, openStream } = createDataTransport(config);
   const environment = config.environment ?? (getEnvVar('NODE_ENV') === 'production' ? 'deployed' : 'preview');
-  const declared = [...config.collections];
+  const declared = [...(config.collections ?? [])];
   if (declared.length > MAX_COLLECTIONS) {
     throw new Error(`An App declares at most ${MAX_COLLECTIONS} collections; got ${declared.length}.`);
   }
@@ -144,18 +147,28 @@ export function createDataClient(config: DataClientConfig): DataClient {
   const bootstrap = createBootstrap({ call, collections: declared, environment, logger: config.logger ?? console });
   const runtime = {
     call,
-    resolve: (target: CollectionDefinition | string) => bootstrap.resolve(lookup(target)),
-    recover: bootstrap.recover,
+    resolve: async (target: CollectionTarget | string) => {
+      const definition = lookup(target);
+      return 'collectionId' in definition ? definition.collectionId : bootstrap.resolve(definition);
+    },
+    recover: <R>(fn: () => Promise<R>, options: { collections: readonly CollectionTarget[]; retry?: boolean }) =>
+      options.collections.every(target => 'collectionId' in target) ? fn() : bootstrap.recover(fn, options),
     subject: currentDataSubject,
     signal: currentSignal,
   };
-  const handles = new Map<CollectionDefinition, Collection<object>>();
+  const handles = new WeakMap<CollectionTarget, Collection<object>>();
 
-  function lookup(target: CollectionDefinition | string): CollectionDefinition {
+  function lookup(target: CollectionTarget | string): CollectionTarget {
     if (typeof target === 'string') {
       const found = declared.find((definition) => definition.alias.toLowerCase() === target.toLowerCase());
       if (!found) throw new Error(`Collection "${target}" is not declared in this data client's collections.`);
       return found;
+    }
+    if ('collectionId' in target) {
+      if (typeof target.collectionId !== 'string' || !target.collectionId || target.collectionId.trim() !== target.collectionId) {
+        throw new TypeError('An existing collection reference needs a nonempty collectionId without surrounding whitespace.');
+      }
+      return target;
     }
     if (!declared.includes(target)) {
       throw new Error(`Collection "${target.alias}" is declared but missing from the \`collections\` passed to createDataClient.`);
@@ -163,7 +176,7 @@ export function createDataClient(config: DataClientConfig): DataClient {
     return target;
   }
 
-  function collection(target: CollectionDefinition | string) {
+  function collection(target: CollectionTarget | string) {
     const definition = lookup(target);
     let handle = handles.get(definition);
     if (!handle) {
@@ -179,7 +192,7 @@ export function createDataClient(config: DataClientConfig): DataClient {
   ): Promise<TransactResult> {
     assertAtomicBatch('data.transact', steps.length);
     // Steps resolve their collection IDs inside the recovered call, so a retry uses fresh IDs.
-    const result = await bootstrap.recover(() => sendTransaction(steps, options));
+    const result = await runtime.recover(() => sendTransaction(steps, options), { collections: steps.map(step => lookup(step.collection)) });
     const results = (result.results ?? []).map(({ document, ...item }) => ({
       ...item,
       ...(document ? { document: toDoc<Record<string, unknown>>(document) } : {}),
@@ -205,7 +218,7 @@ export function createDataClient(config: DataClientConfig): DataClient {
     const items = await Promise.all(
       steps.map(async ({ collection: target, sort, query, ...step }) => {
         const definition = lookup(target);
-        const item: Record<string, unknown> = { ...step, collectionId: await bootstrap.resolve(definition) };
+        const item: Record<string, unknown> = { ...step, collectionId: await runtime.resolve(definition) };
         if (sort) item.sort = toSortPairs(sort);
         if (query) item.query = { ...query, ...(query.sort ? { sort: toSortPairs(query.sort) } : {}) };
         if (step.data) {
@@ -236,17 +249,17 @@ export function createDataClient(config: DataClientConfig): DataClient {
     }
     const bad = names.find((name) => !QUERY_NAME.test(name));
     if (bad !== undefined) throw new TypeError(`data.queryBatch query name "${bad}" must match ${QUERY_NAME}.`);
-    for (const name of names) lookup(queries[name].collection);
+    const collections = names.map(name => lookup(queries[name].collection));
     // Items resolve their collection IDs inside the recovered call, so a retry uses fresh IDs.
-    const { results } = await bootstrap.recover(async () => {
+    const { results } = await runtime.recover(async () => {
       const items = await Promise.all(names.map(async (name) => ({
         id: name,
-        collectionId: await bootstrap.resolve(queries[name].collection),
+        collectionId: await runtime.resolve(queries[name].collection),
         ...(await queries[name].prepare()),
       })));
       return call<{ results: Record<string, { ok: true; data: unknown } | { ok: false; error: unknown }> }>(
         'recordQueryBatch', { queries: items }, { dataSubject: currentDataSubject(), signal: currentSignal() });
-    });
+    }, { collections });
     const settled = Object.fromEntries(names.map((name) => {
       const result = results[name];
       if (result?.ok === true) return [name, { ok: true, value: queries[name].parse(result.data) }];
@@ -260,8 +273,13 @@ export function createDataClient(config: DataClientConfig): DataClient {
 
   const subscribe = createSubscribe({
     openStream,
-    ensure: bootstrap.ensure,
-    rebuild: bootstrap.rebuild,
+    ensure: (targets) => targets.some(target => !('collectionId' in target))
+      ? bootstrap.ensure()
+      : Promise.resolve({ results: [], collectionIds: new Map<string, string>(), conflicts: [] }),
+    rebuild: (state, error, targets) => targets.every(target => 'collectionId' in target)
+      ? Promise.resolve(false)
+      : bootstrap.rebuild(state, error),
+    resolve: runtime.resolve,
     lookup,
     declared,
     subject: currentDataSubject,

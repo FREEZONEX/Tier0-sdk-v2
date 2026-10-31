@@ -68,6 +68,18 @@ export interface CollectionDefinition<S extends CollectionSchema = CollectionSch
   readonly seed?: readonly SeedDoc<S>[];
 }
 
+/** An existing collection. The optional schema validates writes locally; it never changes storage. */
+export interface CollectionReference<S extends CollectionSchema = CollectionSchema> {
+  readonly collectionId: string;
+  readonly schema?: S;
+}
+
+export type CollectionTarget = CollectionDefinition | CollectionReference;
+
+export function collectionLabel(target: CollectionTarget): string {
+  return 'collectionId' in target ? target.collectionId : target.alias;
+}
+
 /** A stored record as services read it: `{ _id, ...fields, _meta }`. */
 export type Doc<C extends CollectionDefinition> = z.output<C['schema']> & {
   _id: string;

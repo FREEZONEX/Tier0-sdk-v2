@@ -21,7 +21,7 @@ UNS 管数据命名空间、集合、Record 和 Sample；外部连接与脚本�
 
 ## 找到正确数据上下文
 
-托管 App 从配置或 dataAppContext 取得实际 collectionId；alias 是可选的查找便利。dataAppContext 同时给出授权、revision、索引就绪状态（indexStatus）、TTL 和平台限额（limits）。已有或共享集合直接用 collectionId 调用记录接口，无需先 ensure 或配置服务端 alias；App Key 必须已有该集合及操作的授权，不以 Workspace 权限替代 App 授权。App 凭证不能调用 metadataFind/FindOne、async 模式与 jobs 查询；Workspace 集成（会话、personal / agent Key）用 dataDiscover/metadataFind，不强制 App 上下文。通用元数据管理写入不向 App 凭证开放。App 自有业务数据优先用 [App 数据层](../tier0-sdk-v2-data/SKILL.md)（`@tier0/sdk-v2/data`），变更订阅只在那里提供（`data.subscribe`）。
+托管 App 从配置或 dataAppContext 取得实际 collectionId；alias 是可选的查找便利。dataAppContext 同时给出授权、revision、索引就绪状态（indexStatus）、TTL 和平台限额（limits）。已有或共享集合直接用 collectionId 调用记录接口，无需先 ensure 或配置服务端 alias；App Key 必须已有该集合及操作的授权，不以 Workspace 权限替代 App 授权。App 凭证不能调用 metadataFind/FindOne、async 模式与 jobs 查询；Workspace 集成（会话、personal / agent Key）用 dataDiscover/metadataFind，不强制 App 上下文。通用元数据管理写入不向 App 凭证开放。App 业务数据可用 [App 数据层](../tier0-sdk-v2-data/SKILL.md)（`@tier0/sdk-v2/data`，已有集合用 `data.collection({ collectionId })`），变更订阅只在那里提供（`data.subscribe`）。
 
 ```ts
 import { createClient } from '@tier0/sdk-v2';

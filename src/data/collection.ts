@@ -9,7 +9,7 @@
  */
 import type { UnsV2OperationName } from '../uns-v2/generated.js';
 import type { CallOptions, DataCall } from './call.js';
-import type { CollectionDefinition, RecordMeta } from './define.js';
+import { collectionLabel, type CollectionTarget, type RecordMeta } from './define.js';
 import { DataError } from './error.js';
 import { validateDocument, validateUpdate } from './schema.js';
 import { toSortPairs, type Filter, type Sort, type SortPairs } from './sort.js';
@@ -75,10 +75,10 @@ interface ManyPage extends WriteResult {
 /** Runtime services a collection handle needs from its client. */
 export interface CollectionRuntime {
   call: DataCall;
-  /** Collection ID of a declaration or declared alias, ensuring all declarations first. */
-  resolve(target: CollectionDefinition | string): Promise<string>;
+  /** Resolve an existing ID directly, or ensure a declared collection. */
+  resolve(target: CollectionTarget | string): Promise<string>;
   /** Runs a call, re-ensuring and retrying once when its collection ID went stale (see bootstrap). */
-  recover<R>(fn: () => Promise<R>, options?: { retry?: boolean }): Promise<R>;
+  recover<R>(fn: () => Promise<R>, options: { collections: readonly CollectionTarget[]; retry?: boolean }): Promise<R>;
   /** Data subject of the request being served. */
   subject(): string | undefined;
   /** Abort signal of the request being served. */
@@ -227,7 +227,7 @@ interface RecordGetResult {
 
 /** One read of `data.queryBatch`, built by `collection.query.*`. */
 export interface BatchQuery<R> {
-  readonly collection: CollectionDefinition;
+  readonly collection: CollectionTarget;
   /** The batch item without `id` and `collectionId`; resolves `$lookup` targets. */
   prepare(): Promise<Record<string, unknown>>;
   /** The item's result as the builder's caller sees it. */
@@ -369,12 +369,12 @@ function partialWrite(operation: string, totals: Record<string, number>, resumeA
 
 export class Collection<T extends object = Record<string, unknown>, TInput extends object = T> {
   constructor(
-    readonly definition: CollectionDefinition,
+    readonly definition: CollectionTarget,
     private readonly runtime: CollectionRuntime,
   ) {}
 
   get alias(): string {
-    return this.definition.alias;
+    return collectionLabel(this.definition);
   }
 
   /**
@@ -385,7 +385,7 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
   private post<R>(operation: UnsV2OperationName, body: Record<string, unknown>, options: CallOptions = {}): Promise<R> {
     const page = body.page as { cursor?: unknown } | undefined;
     const continues = typeof body.cursor === 'string' || typeof body.resumeAfter === 'string' || typeof page?.cursor === 'string';
-    return this.runtime.recover(() => this.send<R>(operation, body, options), { retry: !continues });
+    return this.runtime.recover(() => this.send<R>(operation, body, options), { collections: [this.definition], retry: !continues });
   }
 
   private async send<R>(operation: UnsV2OperationName, body: Record<string, unknown>, options: CallOptions = {}): Promise<R> {
@@ -557,7 +557,7 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
    */
   aggregate<R = Record<string, unknown>>(pipeline: Record<string, unknown>[]): Cursor<R> {
     // Recovery wraps stage preparation too, so a retry re-resolves `$lookup` IDs.
-    return new Cursor<R>(({ token, size }) => this.runtime.recover(() => this.aggregatePage<R>(pipeline, token, size), { retry: typeof token !== 'string' }));
+    return new Cursor<R>(({ token, size }) => this.runtime.recover(() => this.aggregatePage<R>(pipeline, token, size), { collections: [this.definition], retry: typeof token !== 'string' }));
   }
 
   private async aggregatePage<R>(
@@ -600,7 +600,7 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
         if ('$lookup' in stage && stage.$lookup && typeof stage.$lookup === 'object') {
           const { from, pipeline: inner, ...lookup } = stage.$lookup as Record<string, unknown>;
           const resolved: Record<string, unknown> = { ...lookup };
-          if (from !== undefined) resolved.collectionId = await this.runtime.resolve(from as CollectionDefinition | string);
+          if (from !== undefined) resolved.collectionId = await this.runtime.resolve(from as CollectionTarget | string);
           if (Array.isArray(inner)) resolved.pipeline = await this.prepareStages(inner as Record<string, unknown>[]);
           return { ...stage, $lookup: resolved };
         }
