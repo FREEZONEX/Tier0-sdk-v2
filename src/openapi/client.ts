@@ -1,3 +1,5 @@
+import { credentialsFile, dropCachedCredential, readCredentialToken } from '../credentials.js';
+import { assertCompactToken, currentDelegation, DELEGATION_HEADER } from '../request-context.js';
 import { getEnvVar } from '../runtime-env.js';
 import { decodeUnsV2JSON, encodeUnsV2JSON } from '../uns-v2/codec.js';
 
@@ -65,16 +67,59 @@ export class HttpClient {
     if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new TypeError('Invalid apiHost');
     return url.href.replace(/\/+$/, '');
   }
-  getApiKey(): string | undefined { return this.config.apiKey ?? this.config.getApiKey?.() ?? getEnvVar('TIER0_API_KEY'); }
+  /** The token file, unless this client was given its own key. */
+  private credentialPath(): string | undefined {
+    return this.config.apiKey !== undefined || this.config.getApiKey !== undefined ? undefined : credentialsFile();
+  }
+  /** True when requests carry the App credential token instead of an API key. */
+  usesAppCredential(): boolean { return this.credentialPath() !== undefined; }
+  getApiKey(): string | undefined {
+    const configured = this.config.apiKey ?? this.config.getApiKey?.();
+    if (configured !== undefined) return configured;
+    const path = this.credentialPath();
+    return path ? readCredentialToken(path) : getEnvVar('TIER0_API_KEY');
+  }
   getFetch(): typeof globalThis.fetch { return this.config.fetch ?? globalThis.fetch; }
+
+  private authorize(headers: Headers | Record<string, string>, delegation: string | undefined): void {
+    const set = (name: string, value: string) => {
+      if (headers instanceof Headers) headers.set(name, value);
+      else headers[name] = value;
+    };
+    const key = this.getApiKey();
+    if (key) {
+      set('Authorization', `Bearer ${key}`);
+      if (!this.usesAppCredential()) set('X-API-Key', key);
+    }
+    if (delegation !== undefined) {
+      assertCompactToken(delegation, DELEGATION_HEADER);
+      set(DELEGATION_HEADER, delegation);
+    }
+  }
+
+  /**
+   * One platform request with the current credentials (design 21.7). A 401 on
+   * the App credential token rereads the file and sends once more: the token
+   * can be stale right after a memory restore. Backend refuses before running
+   * anything, so writes repeat safely.
+   */
+  async authorizedFetch(url: string, init: RequestInit & { headers: Headers | Record<string, string> }, delegation: string | undefined = currentDelegation()): Promise<Response> {
+    const { headers } = init;
+    this.authorize(headers, delegation);
+    const response = await this.getFetch()(url, { ...init, headers });
+    const path = this.credentialPath();
+    if (response.status !== 401 || !path) return response;
+    await response.body?.cancel().catch(() => undefined);
+    dropCachedCredential(path);
+    this.authorize(headers, delegation);
+    return this.getFetch()(url, { ...init, headers });
+  }
 
   private async exchange(path: string, init: RequestInit, options: RequestOptions, mutation: boolean): Promise<{ text: string; status: number; ok: boolean }> {
     if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\')) throw new TypeError('A relative API path is required');
     const url = this.getBaseURL() + path;
-    const key = this.getApiKey();
     const headers = new Headers(init.headers);
     headers.set('Content-Type', 'application/json');
-    if (key) { headers.set('X-API-Key', key); headers.set('Authorization', `Bearer ${key}`); }
     const controller = new AbortController();
     let expired = false;
     let started = false;
@@ -93,8 +138,11 @@ export class HttpClient {
       if (options.signal?.aborted) throw new TransportError('ABORTED', false);
       const request = async () => {
         started = true;
-        try { response = await this.getFetch()(url, { ...init, headers, redirect: 'manual', signal: controller.signal }); }
-        catch { throw new TransportError(expired ? 'TIMEOUT' : controller.signal.aborted ? 'ABORTED' : 'NETWORK', mutation, response?.status); }
+        try { response = await this.authorizedFetch(url, { ...init, headers, redirect: 'manual', signal: controller.signal }); }
+        catch (error) {
+          if (error instanceof TypeError && /X-Tier0-Delegation/.test(error.message)) throw error;
+          throw new TransportError(expired ? 'TIMEOUT' : controller.signal.aborted ? 'ABORTED' : 'NETWORK', mutation, response?.status);
+        }
         const maxBytes = 20 * 1024 * 1024;
         if (Number(response.headers.get('content-length')) > maxBytes) { await response.body?.cancel(); throw new TransportError('PROTOCOL', mutation, response.status); }
         if (!response.body) return { text: '', status: response.status, ok: response.ok };

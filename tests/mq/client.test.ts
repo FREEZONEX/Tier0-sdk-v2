@@ -26,6 +26,8 @@ describe('Tier0MQClient', () => {
 
     mockMqttClient = {
       connected: false,
+      options: {},
+      reconnect: vi.fn(),
       subscribe: vi.fn((topic: string, opts: any, cb: Function) => {
         subscribeCallbacks.push({ topic, opts, cb });
         if (typeof cb === 'function') cb(null);
@@ -158,9 +160,10 @@ describe('Tier0MQClient', () => {
     expect(mqtt.connect).toHaveBeenCalledWith(
       'ws://localhost:8080/mqtt',
       expect.objectContaining({
-        reconnectPeriod: 5000,
+        reconnectPeriod: 0,
+      reconnectOnConnackError: true,
         connectTimeout: 30000,
-        clean: true,
+        clean: false,
       })
     );
   });
@@ -251,7 +254,8 @@ describe('Tier0MQClient', () => {
       clientId: 'test-client',
       username: 'user',
       password: 'pass',
-      reconnectPeriod: 1000,
+      reconnectPeriod: 0,
+      reconnectOnConnackError: true,
       connectTimeout: 5000,
       clean: false,
     });
@@ -265,7 +269,8 @@ describe('Tier0MQClient', () => {
         clientId: 'test-client',
         username: 'user',
         password: 'pass',
-        reconnectPeriod: 1000,
+        reconnectPeriod: 0,
+      reconnectOnConnackError: true,
         connectTimeout: 5000,
         clean: false,
       })

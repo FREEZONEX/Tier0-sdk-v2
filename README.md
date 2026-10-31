@@ -2,6 +2,8 @@
 
 Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交互均使用 `@tier0/sdk-v2`。旧 SDK 不再作为依赖。
 
+`0.10.0-aenv.1` 是 aenv-next 的本地预发布版本，基于 `0.9.4`，未发布到 npm；新增内容见下方「aenv-next 运行环境」。
+
 `0.9.3` 同步集合授权合同：授予既有集合访问权限时无需提供别名，并更新生成类型与使用说明。集合声明的 `name` / `alias` 要求保持不变。
 
 `0.9.2` 包含接口合同变更，升级时需核对下方使用方式并确认目标后端已部署对应合同。平台接口统一使用 OpenAPI v2，能力发现使用 `state + reasonCode + operations`。Stream 请求与消息交互统一到本包的 `client.streams`；`client.stream` 保留 Stream 管理。文件上传支持并发分片与断点续传。
@@ -20,13 +22,13 @@ Collection 声明必须同时提供业务名称 `name`（例如「生产工单�
 
 ## 安装与初始化
 
-维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。本分支的功能应使用检查通过的 `tier0-sdk-v2-0.9.4.tgz` 在业务项目中验证：
+维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。本分支的功能应使用检查通过的 `tier0-sdk-v2-0.10.0-aenv.1.tgz` 在业务项目中验证：
 
 ```sh
-npm install /path/to/tier0-sdk-v2-0.9.4.tgz
+npm install /path/to/tier0-sdk-v2-0.10.0-aenv.1.tgz
 ```
 
-`0.9.4` 正式发布后再使用 `npm install @tier0/sdk-v2@0.9.4`。发布前，npm 的既有版本和 `next` 标签不代表本分支的完整功能。
+`0.10.0-aenv.1` 正式发布后再使用 `npm install @tier0/sdk-v2@0.10.0-aenv.1`。发布前，npm 的既有版本和 `next` 标签不代表本分支的完整功能。
 
 ```ts
 import { createClient } from '@tier0/sdk-v2';
@@ -40,6 +42,23 @@ const user = await tier0.system.whoami();
 也可显式配置 `{ apiHost, apiKey, transportTimeoutMs, fetch }`，或提供 `getApiHost` / `getApiKey` 回调。裸域名默认使用 HTTPS；本地 HTTP 测试请显式写 `http://127.0.0.1:端口`。不自动向浏览器注入或读取 `VITE_` API Key。
 
 `createClient()` 实例之间不共享配置；推荐在一个稳定身份的服务生命周期内复用实例。员工数据委托必须为每个请求创建新实例，传入受信网关的 `unsV2AppDataSubject`。App Key 只代表 App，不能替代当前用户身份，也不能下发到浏览器。浏览器页面应调用自己的服务端 API。
+
+## aenv-next 运行环境
+
+平台 VM 里不再注入 `TIER0_API_KEY`。设置了 `TIER0_CREDENTIALS_FILE` 时：
+
+- SDK 同步读取令牌文件，按 inode、修改时间、大小缓存，用 `Authorization: Bearer` 发送，不发 `X-API-Key`；收到 401 重读文件再重试一次；
+- 工作区和 App ID 以令牌里的值为准，MQTT 的 username、clientId 由令牌推导；
+- `runWithRequestContext` 把收到的 `X-Tier0-Delegation` 原样转发到所有平台接口，`runAsApp` 不带；
+- SDK 不提供打印令牌的命令，不要读取、打印或复制令牌文件。
+
+没有这个变量时，API Key 路径保持不变。
+
+- `@tier0/sdk-v2/server`：`createVisitorTokenVerifier()` 校验 `X-Tier0-Visitor`（契约 v2，公钥从 `TIER0_JWKS_DIR` 读最新集合）。
+- `@tier0/sdk-v2/page-runtime`：页面运行时 v1 和平台错误（`x-sbx-error`）。
+- `@tier0/sdk-v2/event-stream`：基于 fetch 的 SSE。App 休眠时停止，`resumed` 后重建，节点 agent 重启时透明重连。`EventSource` 遇到 503 不重试，手写时要订阅 `resumed` 后重建。
+
+**MQTT**：`clean` 默认 `false`，每次重连都取新令牌（服务端读文件，浏览器走页面运行时）。服务端按指数退避一直重试，上限 5 分钟；浏览器在令牌接口返回 401/403，或连续 3 次 CONNACK 认证失败时停止，`resumed` 后恢复。持久会话、QoS 1 下跨令牌过期不丢消息，但断开期间的积压超过 EMQX 离线队列（默认 `max_mqueue_len=1000`）仍会丢。
 
 ## 能力与入口
 

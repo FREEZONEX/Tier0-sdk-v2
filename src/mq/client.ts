@@ -1,8 +1,47 @@
 import mqtt from 'mqtt';
 import type { MqttClient, IClientOptions } from 'mqtt';
+import { appCredentialClaims, credentialsFile, readCredentialToken } from '../credentials.js';
+import { getPageRuntime, isAuthErrorCode, onPageRuntime, reportAuthError, type Tier0AuthErrorCode } from '../page-runtime.js';
 import { getEnvVar } from '../runtime-env.js';
 import { DEFAULT_WSS_PORT, isBrowserHttps, parseMqttBroker, toWebSocketUrl } from './broker.js';
 import type { MQTTConfig, MQTTEventMap } from './types.js';
+
+/** Design 21.6: backoff ceiling of a client that never gives up. */
+const RECONNECT_MAX_MS = 5 * 60_000;
+/** A reconnect right after the token's `exp` is spread over this window. */
+const FIRST_RECONNECT_MS = 500;
+/** Design 21.6: refused this many times in a row, a browser stops reconnecting. */
+const MAX_AUTH_REFUSALS = 3;
+/** CONNACK codes for bad credentials: MQTT 3.1.1 (4, 5), MQTT 5 (134, 135). */
+const AUTH_REFUSED_CODES: ReadonlySet<unknown> = new Set([4, 5, 134, 135]);
+/** Reported when the broker keeps refusing tokens the front door issued; see the feature notes. */
+const REFUSED_AUTH_ERROR: Tier0AuthErrorCode = 'grant_expired';
+
+/** One connection attempt: what the broker sees. */
+interface ConnectionParams {
+  url: string;
+  username: string;
+  clientId: string;
+  password: string;
+}
+
+/** A stopped client: the platform refused it, and retrying cannot help. */
+class StoppedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'Tier0MQStoppedError';
+  }
+}
+
+/** The authorization code of a failed `getMqttToken()`. */
+function tokenAuthCode(error: unknown): Tier0AuthErrorCode | undefined {
+  if (error === null || typeof error !== 'object') return undefined;
+  const { code, status } = error as { code?: unknown; status?: unknown };
+  if (typeof code === 'string' && isAuthErrorCode(code)) return code;
+  if (status === 401) return 'grant_expired';
+  if (status === 403) return 'unavailable';
+  return undefined;
+}
 
 /**
  * 消息回调。公开类型保持 `void` 返回，以兼容 async handler、`push()` 简写等
@@ -52,16 +91,27 @@ export class Tier0MQClient {
   private subscriptions: Subscription[] = [];
   private connectingPromise: Promise<void> | null = null;
   private _connected = false;
+  /** Random clientId segment; a persistent session is found again through it. */
+  private readonly clientSuffix = generateRandomString(16);
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectAttempts = 0;
+  private authRefusals = 0;
+  /** Paused by the page runtime's `sleeping` until `resumed`. */
+  private paused = false;
+  private stopped: StoppedError | null = null;
+  private offRuntime: Array<() => void> = [];
+  private connectWaiters: Array<{ resolve(): void; reject(error: Error): void }> = [];
 
   constructor(config?: MQTTConfig) {
     this.explicitClientId = config?.clientId !== undefined;
     this.explicitUsername = config?.username !== undefined;
-    const envHost = getEnvVar('TIER0_MQTT_HOST');
+    const envHost = getEnvVar('TIER0_MQTT_URL') || getEnvVar('TIER0_MQTT_HOST');
     const envPort = getEnvVar('TIER0_MQTT_PORT');
 
     const host = config?.host || envHost || '';
     const port = config?.port || parseInt(envPort || '8084') || 8084;
-    const password = config?.password || getEnvVar('TIER0_API_KEY') || '';
+    // The token file and the browser runtime supply the password per connection.
+    const password = config?.password || (this.tokenSource() ? '' : getEnvVar('TIER0_API_KEY')) || '';
 
     // 从 apiKey 解析 workspaceID，自动生成 clientId 和 username
     const workspaceID = config?.clientId && config?.username
@@ -84,8 +134,8 @@ export class Tier0MQClient {
       keepAlive: config?.keepAlive ?? 60,
       reconnectPeriod: config?.reconnectPeriod ?? 5000,
       connectTimeout: config?.connectTimeout ?? 30000,
-      clean: config?.clean ?? true,
       ...config,
+      clean: config?.clean ?? false,
     };
   }
 
@@ -115,59 +165,200 @@ export class Tier0MQClient {
     return `${useSecure ? 'wss' : 'ws'}://${hostname}:${effectivePort}/mqtt`;
   }
 
-  // 内部确保已连接（懒连接）
-  private async ensureConnected(): Promise<void> {
-    if (this._connected) return;
-    if (this.connectingPromise) return this.connectingPromise;
-
-    void this.mqttUrl;
-    if (!this.config.password || !this.config.username || !this.config.clientId) {
-      throw new Error('Tier0 SDK v2: provide a workspace-encoded API key or explicit MQTT username, clientId and password.');
-    }
-
-    this.connectingPromise = this.doConnect();
-    return this.connectingPromise;
+  /** Where the token comes from; undefined when a fixed password is used. */
+  private tokenSource(): 'browser' | 'file' | undefined {
+    if (this.config?.password) return undefined;
+    if (getPageRuntime()) return 'browser';
+    return credentialsFile() ? 'file' : undefined;
   }
 
-  private doConnect(): Promise<void> {
+  /**
+   * What the next connection presents. A token is fetched for every attempt:
+   * reconnecting with the old one after `exp` is refused (PoC-11).
+   */
+  private connectionParams(): ConnectionParams | Promise<ConnectionParams> {
+    const source = this.tokenSource();
+    if (source === 'browser') {
+      return getPageRuntime()!.getMqttToken().then((issued) => ({
+        url: issued.url, username: issued.username, clientId: issued.client_id, password: issued.token,
+      }));
+    }
+    if (source === 'file') {
+      const path = credentialsFile()!;
+      const token = readCredentialToken(path);
+      const claims = token ? appCredentialClaims(token) : undefined;
+      if (!token || !claims) throw new Error('Tier0 SDK v2: TIER0_CREDENTIALS_FILE does not hold an App credential token.');
+      const scope = claims.runtime === 'preview' ? `p.${claims.session}` : `d.${claims.release}`;
+      const envUrl = getEnvVar('TIER0_MQTT_URL')?.trim();
+      return {
+        url: this.config.host !== envUrl || !envUrl ? this.mqttUrl : envUrl,
+        username: this.config.username ?? `${claims.ws}&${claims.app}&appcred`,
+        clientId: this.config.clientId ?? `${claims.ws}&a.${claims.app}.${scope}.${this.clientSuffix}`,
+        password: token,
+      };
+    }
+    const { username, clientId, password } = this.config;
+    const url = this.mqttUrl;
+    if (!password || !username || !clientId) {
+      throw new Error('Tier0 SDK v2: provide a workspace-encoded API key or explicit MQTT username, clientId and password.');
+    }
+    return { url, username, clientId, password };
+  }
+
+  // 内部确保已连接（懒连接）。已有客户端时只等它重连，绝不另建：
+  // 同一 clientId 的新旧客户端会互相顶掉。
+  private async ensureConnected(): Promise<void> {
+    if (this._connected) return;
+    if (this.stopped) throw this.stopped;
+    if (this.connectingPromise) return this.connectingPromise;
+    if (this.client) {
+      return new Promise((resolve, reject) => this.connectWaiters.push({ resolve, reject }));
+    }
+
+    this.watchRuntime();
+    // Synchronous unless a browser token has to be fetched.
+    const params = this.connectionParams();
+    const connecting = params instanceof Promise ? params.then((value) => this.doConnect(value)) : this.doConnect(params);
+    this.connectingPromise = connecting;
+    return connecting.catch((error: unknown) => {
+      if (this.connectingPromise === connecting) this.connectingPromise = null;
+      throw this.refuse(error);
+    });
+  }
+
+  /** Stops on an authorization failure of the token endpoint; other failures pass through. */
+  private refuse(error: unknown): unknown {
+    const code = tokenAuthCode(error);
+    if (!code || this.tokenSource() !== 'browser') return error;
+    this.stop(code);
+    return this.stopped;
+  }
+
+  private stop(code: Tier0AuthErrorCode): void {
+    this.stopped = new StoppedError(`Tier0 SDK v2: MQTT stopped reconnecting (${code}).`);
+    this.clearReconnect();
+    reportAuthError(code);
+    const waiters = this.connectWaiters;
+    this.connectWaiters = [];
+    waiters.forEach((waiter) => waiter.reject(this.stopped!));
+    this.emit('error', this.stopped);
+  }
+
+  /** Design 21.6: no reconnects while the App sleeps; `resumed`, a reauthorization included, starts them again. */
+  private watchRuntime(): void {
+    if (this.offRuntime.length > 0 || !getPageRuntime()) return;
+    this.offRuntime = [
+      onPageRuntime('sleeping', () => {
+        this.paused = true;
+        this.clearReconnect();
+      }),
+      onPageRuntime('resumed', () => {
+        this.paused = false;
+        this.stopped = null;
+        this.authRefusals = 0;
+        this.reconnectAttempts = 0;
+        if (this.client && !this._connected) this.scheduleReconnect();
+      }),
+    ];
+  }
+
+  private clearReconnect(): void {
+    if (this.reconnectTimer !== null) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+  }
+
+  private reconnectDelay(): number {
+    const attempt = this.reconnectAttempts;
+    this.reconnectAttempts += 1;
+    if (attempt === 0) return Math.random() * FIRST_RECONNECT_MS;
+    const base = this.config.reconnectPeriod ?? 5000;
+    const ceiling = Math.min(RECONNECT_MAX_MS, base * 2 ** (attempt - 1));
+    return ceiling / 2 + Math.random() * (ceiling / 2);
+  }
+
+  private scheduleReconnect(): void {
+    if (!this.client || this._connected || this.paused || this.stopped || this.reconnectTimer !== null) return;
+    if (this.config.reconnectPeriod === 0) return;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      void this.reconnect();
+    }, this.reconnectDelay());
+  }
+
+  /** The same client, with a new token: mqtt.js keeps its session and offline queue. */
+  private async reconnect(): Promise<void> {
+    const client = this.client;
+    if (!client) return;
+    let params: ConnectionParams;
+    try {
+      params = await this.connectionParams();
+    } catch (error) {
+      this.emit('error', error as Error);
+      const code = tokenAuthCode(error);
+      if (code && this.tokenSource() === 'browser') this.stop(code);
+      else this.scheduleReconnect();
+      return;
+    }
+    if (client !== this.client || this._connected || this.paused || this.stopped) return;
+    client.options.username = params.username;
+    client.options.clientId = params.clientId;
+    client.options.password = params.password;
+    client.reconnect();
+  }
+
+  private doConnect(params: ConnectionParams): Promise<void> {
     return new Promise((resolve, reject) => {
       const options: IClientOptions = {
-        clientId: this.config.clientId,
-        username: this.config.username,
-        password: this.config.password,
+        clientId: params.clientId,
+        username: params.username,
+        password: params.password,
         keepalive: this.config.keepAlive,
-        reconnectPeriod: this.config.reconnectPeriod,
+        // Reconnects are ours: mqtt.js's timer cannot wait for a new token.
+        reconnectPeriod: 0,
+        // Without it a refused CONNACK leaves the client disconnected for good.
+        reconnectOnConnackError: true,
         connectTimeout: this.config.connectTimeout,
         clean: this.config.clean,
       };
 
-      this.client = mqtt.connect(this.mqttUrl, options);
+      const client = mqtt.connect(params.url, options);
+      this.client = client;
 
-      this.client.on('connect', () => {
+      client.on('connect', () => {
         this._connected = true;
         this.connectingPromise = null;
+        this.clearReconnect();
+        this.reconnectAttempts = 0;
+        this.authRefusals = 0;
         this.emit('connect');
         // 断连重连后自动恢复所有订阅
         this.resubscribeAll();
         resolve();
+        const waiters = this.connectWaiters;
+        this.connectWaiters = [];
+        waiters.forEach((waiter) => waiter.resolve());
       });
 
-      this.client.on('error', (err) => {
+      client.on('error', (err) => {
         this.emit('error', err);
         this.connectingPromise = null;
         reject(err);
+        if (!AUTH_REFUSED_CODES.has((err as { code?: unknown }).code)) return;
+        this.authRefusals += 1;
+        if (this.tokenSource() === 'browser' && this.authRefusals >= MAX_AUTH_REFUSALS) this.stop(REFUSED_AUTH_ERROR);
       });
 
-      this.client.on('disconnect', () => {
+      client.on('disconnect', () => {
         this._connected = false;
         this.emit('disconnect');
       });
 
-      this.client.on('close', () => {
+      client.on('close', () => {
         this._connected = false;
+        if (client === this.client) this.scheduleReconnect();
       });
 
-      this.client.on(
+      client.on(
         'message',
         (topic: string, payload: Buffer, _packet: mqtt.IPublishPacket) => {
           const payloadStr = payload.toString();
@@ -280,7 +471,9 @@ export class Tier0MQClient {
     payload: string | object,
     options?: { qos?: number; retain?: boolean }
   ): Promise<void> {
-    await this.ensureConnected();
+    // A disconnected client queues the message and sends it after reconnecting.
+    if (this.stopped) throw this.stopped;
+    if (!this.client) await this.ensureConnected();
 
     const message =
       typeof payload === 'string' ? payload : JSON.stringify(payload);
@@ -291,6 +484,9 @@ export class Tier0MQClient {
   }
 
   disconnect(): void {
+    this.clearReconnect();
+    this.offRuntime.forEach((off) => off());
+    this.offRuntime = [];
     if (!this.client) return;
 
     this.client.end(true, () => {

@@ -26,6 +26,10 @@
  * - Changes in collections with employee data rules (`restricted`) come as
  *   collection-level notices unless `restricted: "record"` is asked for.
  * - Aborting `signal` or leaving the loop ends the iteration without error.
+ * - A subscription opened inside a request keeps that request's delegation,
+ *   which lasts 10 minutes. Backend renews it on the open stream, but a
+ *   reconnect after it expired is refused and ends the iteration: use
+ *   `runAsApp` for one App-wide stream, as the Scaffold's change hub does.
  *
  * Events carry identities only, never record data; read the record to show it.
  */
@@ -121,6 +125,7 @@ export interface SubscribeRuntime {
   lookup(target: CollectionTarget | string): CollectionTarget;
   declared: readonly CollectionTarget[];
   subject(): string | undefined;
+  delegation(): string | undefined;
 }
 
 function reconnectDelay(failures: number, afterMs: number | undefined): number {
@@ -186,7 +191,7 @@ export function createSubscribe(runtime: SubscribeRuntime) {
     const redact = (options.restricted ?? 'collection') === 'collection';
     const idleMs = options.idleTimeoutMs ?? SUBSCRIBE_IDLE_TIMEOUT_MS;
     // The subject of the request that subscribed; an App-level subscription carries none.
-    const call: CallOptions = { dataSubject: runtime.subject() };
+    const call: CallOptions = { dataSubject: runtime.subject(), delegation: runtime.delegation() };
     const stop = new AbortController();
     const onAbort = () => stop.abort();
     options.signal?.addEventListener('abort', onAbort, { once: true });

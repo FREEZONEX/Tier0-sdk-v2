@@ -39,6 +39,8 @@ export async function inspectConnection() {
 
 也可传 `apiHost`、`apiKey` 或 `getApiHost` / `getApiKey` 回调。API Key 留在服务端；不要生成 `VITE_*KEY` 或让页面携带 App Key。浏览器通过自己的服务端接口访问平台；App Stream 交互使用根入口 `client` 和受信宿主注入，无需设置密钥。消息要求 WebSocket（Node.js 22+ 或浏览器）。
 
+平台 VM 里凭证是 `TIER0_CREDENTIALS_FILE` 指向的令牌文件，SDK 自己读取和续用。不要读取、打印或复制这个文件，脚本一律用 SDK。
+
 不同身份使用独立实例。含员工数据委托时，每个入站请求新建实例，使用受信 App Gateway 提供的 `unsV2AppDataSubject`；它不是用户 ID，也不是 App 请求验签断言。不要从请求 JSON 拼造委托。身份验签流程见 [身份与框架集成](references/integration.md)。
 
 ## 返回值与错误

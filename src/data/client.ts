@@ -9,7 +9,7 @@ import { getEnvVar } from '../runtime-env.js';
 import { createBootstrap, type DataEnvironment, type EnsureState, type Logger } from './bootstrap.js';
 import { createDataTransport } from './call.js';
 import { assertAtomicBatch, Collection, toDoc, type BatchQuery, type UnsRecord, type WithMeta } from './collection.js';
-import { currentDataSubject, currentSignal } from './context.js';
+import { currentDataSubject, currentDelegation, currentSignal, runAsApp } from './context.js';
 import { MAX_COLLECTIONS, type CollectionDefinition, type CollectionReference, type CollectionSchema, type CollectionTarget } from './define.js';
 import { createSubscribe, type SubscribeOptions, type SubscriptionEvent } from './subscribe.js';
 import { parseUnsV2Fault, UnsV2Error } from '../uns-v2/client.js';
@@ -144,7 +144,9 @@ export function createDataClient(config: DataClientConfig): DataClient {
     seen.add(key);
   }
 
-  const bootstrap = createBootstrap({ call, collections: declared, environment, logger: config.logger ?? console });
+  // Ensure and seed writes are App-level work, even when a request triggers them.
+  const appCall: typeof call = (operation, request, options) => runAsApp(() => call(operation, request, options));
+  const bootstrap = createBootstrap({ call: appCall, collections: declared, environment, logger: config.logger ?? console });
   const runtime = {
     call,
     resolve: async (target: CollectionTarget | string) => {
@@ -283,6 +285,7 @@ export function createDataClient(config: DataClientConfig): DataClient {
     lookup,
     declared,
     subject: currentDataSubject,
+    delegation: currentDelegation,
   });
 
   return {
