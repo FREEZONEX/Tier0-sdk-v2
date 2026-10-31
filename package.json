@@ -1,6 +1,6 @@
 {
   "name": "@tier0/sdk-v2",
-  "version": "0.9.2",
+  "version": "0.10.0-aenv.1",
   "description": "Tier0 Cloud new-architecture SDK for TypeScript and JavaScript",
   "license": "MIT",
   "type": "module",
