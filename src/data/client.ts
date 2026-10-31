@@ -156,7 +156,7 @@ export function createDataClient(config: DataClientConfig): DataClient {
     subject: currentDataSubject,
     signal: currentSignal,
   };
-  const handles = new Map<CollectionTarget, Collection<object>>();
+  const handles = new WeakMap<CollectionTarget, Collection<object>>();
 
   function lookup(target: CollectionTarget | string): CollectionTarget {
     if (typeof target === 'string') {

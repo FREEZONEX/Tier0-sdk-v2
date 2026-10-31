@@ -317,6 +317,9 @@ export function createBootstrap(config: BootstrapConfig) {
    * propagate.
    */
   async function rebuild(before: EnsureState, cause: DataError): Promise<boolean> {
+    // Only owned IDs can be recovered by ensure; shared references must keep their original error.
+    const failedId = cause.details.collectionId;
+    if (typeof failedId === 'string' && ![...before.collectionIds.values()].includes(failedId)) return false;
     const current = ensure();
     const latest = await current;
     if (latest !== before) return !sameCollectionIds(before, latest);

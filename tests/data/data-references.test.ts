@@ -108,6 +108,26 @@ describe('existing collection references', () => {
     expect(sent).toHaveLength(1);
   });
 
+  it.each(['transaction', 'queryBatch', 'lookup', 'subscription'] as const)('does not rebuild owned collections when a shared %s is denied', async kind => {
+    const { data, sent } = fixture(path => {
+      if (path.endsWith('/ensure')) return { results: [{ alias: 'orders', collectionId: 'owned-orders', revision: 1, status: 'unchanged' }] };
+      return denied();
+    });
+    const request = kind === 'transaction'
+      ? data.transact([
+        { opId: 'owned', action: 'record.read', collection: owned, id: 'order-1' },
+        { opId: 'shared', action: 'record.read', collection: shared, id: 'device-1' },
+      ])
+      : kind === 'queryBatch'
+        ? data.queryBatch({ orders: data.collection(owned).query.count(), devices: data.collection(shared).query.count() })
+        : kind === 'lookup'
+          ? data.collection(owned).aggregate([{ $lookup: { from: shared, localField: 'deviceId', foreignField: '_id', as: 'device' } }]).toArray()
+          : data.subscribe({ collections: [owned, shared] })[Symbol.asyncIterator]().next();
+    await expect(request).rejects.toMatchObject({ code: 'FORBIDDEN', reason: 'COLLECTION_NOT_GRANTED' });
+    expect(sent.map(request => request.path).filter(path => path.endsWith('/ensure'))).toHaveLength(1);
+    expect(sent).toHaveLength(2);
+  });
+
   it('subscribes to an existing ID without initializing unrelated declarations', async () => {
     const event = { eventId: 'event-1', collectionId: shared.collectionId, recordId: 'device-1', revision: 2, change: 'record', occurredAt: 1, restricted: false };
     const { data, sent } = fixture(path => {
