@@ -201,7 +201,7 @@ export function toDataError(error: UnsV2Error, attempts = 1, idempotencyKey?: st
   } else if (reason === ACCESS_REASONS.notFound) {
     message = `${message} The collection was archived or deleted; the data layer ensures the declared collections again.`;
   } else if (httpStatus === 401) {
-    message = `Tier0 rejected the App credential for ${error.operation} (${code}). The platform injects TIER0_API_KEY; do not replace it.`;
+    message = `Tier0 rejected the App credential for ${error.operation} (${code}). The platform issues this credential; do not replace it.`;
   } else if (hint) {
     message = `${message} ${hint}`;
   }

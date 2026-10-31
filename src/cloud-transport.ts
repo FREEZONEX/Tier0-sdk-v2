@@ -1,3 +1,4 @@
+import { assertCompactToken, currentDelegation } from './request-context.js';
 import type { AppRuntime } from './runtime.js';
 import { getClient, type HttpClient, type RequestOptions } from './openapi/client.js';
 import { UNS_V2_OPERATIONS, UNS_V2_STREAM_OPERATIONS, type UnsV2OperationName, type UnsV2StreamOperationName } from './uns-v2/generated.js';
@@ -15,6 +16,12 @@ export interface CloudTransportConfig {
    * Do not automatically forward the runtime App request assertion: its audience differs.
    */
   unsV2AppDataSubject?: string;
+  /**
+   * Fixed `X-Tier0-Delegation` for this client, for work that outlives the
+   * call that started it (`data.subscribe`). Every other call takes it from
+   * the request context.
+   */
+  delegation?: string;
 }
 
 export const DEFAULT_CLOUD_TRANSPORT_TIMEOUT_MS = 60_000;
@@ -39,6 +46,7 @@ export class CloudTransport {
   private get timeoutMs(): number { return this.configuredTimeoutMs ?? this.resolveClient().timeoutMs; }
   private readonly unsV2MaxResponseBytes: number;
   readonly #unsV2AppDataSubject: string | undefined;
+  readonly #delegation: string | undefined;
 
   constructor(private readonly resolveClient: () => HttpClient = getClient, config: CloudTransportConfig = {}) {
     const timeout = config.transportTimeoutMs ?? DEFAULT_CLOUD_TRANSPORT_TIMEOUT_MS;
@@ -52,12 +60,12 @@ export class CloudTransport {
     }
     this.unsV2MaxResponseBytes = maxResponseBytes;
     const subject = config.unsV2AppDataSubject;
-    // ASCII-only syntax makes string length equal byte length. Do not trim or decode.
-    if (subject !== undefined && (typeof subject !== 'string' || subject.length > 8192 || /[^A-Za-z0-9_.-]/.test(subject) ||
-        !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(subject))) {
-      throw new TypeError('Tier0 SDK: unsV2AppDataSubject must be a compact three-segment base64url token of at most 8192 ASCII bytes.');
+    if (subject !== undefined) {
+      if (typeof subject !== 'string') throw new TypeError('Tier0 SDK: unsV2AppDataSubject must be a compact three-segment base64url token of at most 8192 ASCII bytes.');
+      assertCompactToken(subject, 'unsV2AppDataSubject');
     }
     this.#unsV2AppDataSubject = subject;
+    this.#delegation = config.delegation;
   }
 
   /** `retryAfter`: the raw `Retry-After` header, for answers without a UNS error body. */
@@ -65,17 +73,12 @@ export class CloudTransport {
     options.signal?.throwIfAborted();
     const client = this.resolveClient();
     const url = `${client.getBaseURL()}${path}`;
-    const key = client.getApiKey();
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     // The registered operation determines data delegation, never a route blacklist.
     if (operation !== undefined && Object.hasOwn(UNS_V2_OPERATIONS, operation) &&
         UNS_V2_OPERATIONS[operation].scope.startsWith('uns:') &&
-        this.#unsV2AppDataSubject !== undefined) {
+        this.#unsV2AppDataSubject !== undefined && !client.usesAppCredential()) {
       headers[UNS_V2_APP_DATA_SUBJECT_HEADER] = this.#unsV2AppDataSubject;
-    }
-    if (key) {
-      headers.Authorization = `Bearer ${key}`;
-      headers['X-API-Key'] = key;
     }
     const controller = new AbortController();
     let response: Response | undefined;
@@ -91,8 +94,9 @@ export class CloudTransport {
     options.signal?.addEventListener('abort', onAbort, { once: true });
     const exchange = async () => {
       try {
-        response = await client.getFetch()(url, { method: 'POST', headers, body, redirect: 'manual', signal: controller.signal });
-      } catch {
+        response = await client.authorizedFetch(url, { method: 'POST', headers, body, redirect: 'manual', signal: controller.signal }, this.#delegation ?? currentDelegation());
+      } catch (error) {
+        if (error instanceof TypeError && /X-Tier0-Delegation/.test(error.message)) throw error;
         throw new CloudTransportError('TRANSPORT_ERROR');
       }
       const declaredLength = response.headers.get('content-length');
@@ -160,17 +164,12 @@ export class CloudTransport {
     options.signal?.throwIfAborted();
     const client = this.resolveClient();
     const url = `${client.getBaseURL()}${path}`;
-    const key = client.getApiKey();
     const headers: Record<string, string> = { Accept: 'text/event-stream' };
     if (operation !== undefined && Object.hasOwn(UNS_V2_STREAM_OPERATIONS, operation) &&
-        UNS_V2_STREAM_OPERATIONS[operation].scope.startsWith('uns:') && this.#unsV2AppDataSubject !== undefined) {
+        UNS_V2_STREAM_OPERATIONS[operation].scope.startsWith('uns:') && this.#unsV2AppDataSubject !== undefined && !client.usesAppCredential()) {
       headers[UNS_V2_APP_DATA_SUBJECT_HEADER] = this.#unsV2AppDataSubject;
     }
     if (options.lastEventId !== undefined) headers['Last-Event-ID'] = options.lastEventId;
-    if (key) {
-      headers.Authorization = `Bearer ${key}`;
-      headers['X-API-Key'] = key;
-    }
     const controller = new AbortController();
     const onAbort = () => controller.abort();
     const close = () => {
@@ -184,10 +183,11 @@ export class CloudTransport {
       new CloudTransportError(expired ? 'TRANSPORT_TIMEOUT' : controller.signal.aborted ? 'TRANSPORT_ABORTED' : kind, status);
     let response: Response;
     try {
-      response = await client.getFetch()(url, { method: 'GET', headers, redirect: 'manual', signal: controller.signal });
-    } catch {
+      response = await client.authorizedFetch(url, { method: 'GET', headers, redirect: 'manual', signal: controller.signal }, this.#delegation ?? currentDelegation());
+    } catch (error) {
       clearTimeout(timer);
       close();
+      if (error instanceof TypeError && /X-Tier0-Delegation/.test(error.message)) throw error;
       throw failure('TRANSPORT_ERROR');
     }
     const type = response.headers.get('content-type') ?? '';
@@ -236,13 +236,8 @@ export class CloudTransport {
         else {
           const client = this.resolveClient();
           const url = `${client.getBaseURL()}${path}`;
-          const key = client.getApiKey();
           const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-          if (key) {
-            headers.Authorization = `Bearer ${key}`;
-            headers['X-API-Key'] = key;
-          }
-          response = await client.getFetch()(url, { method: 'POST', headers, body: serialized, redirect: 'manual', signal: controller.signal });
+          response = await client.authorizedFetch(url, { method: 'POST', headers, body: serialized, redirect: 'manual', signal: controller.signal }, this.#delegation ?? currentDelegation());
         }
       } catch {
         throw new CloudTransportError('TRANSPORT_ERROR');
