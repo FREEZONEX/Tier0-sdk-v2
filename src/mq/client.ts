@@ -14,7 +14,7 @@ const FIRST_RECONNECT_MS = 500;
 const MAX_AUTH_REFUSALS = 3;
 /** CONNACK codes for bad credentials: MQTT 3.1.1 (4, 5), MQTT 5 (134, 135). */
 const AUTH_REFUSED_CODES: ReadonlySet<unknown> = new Set([4, 5, 134, 135]);
-/** Reported when the broker keeps refusing tokens the front door issued; see the feature notes. */
+/** What a runtime without `reportMqttFailure()` hears instead (design 21.3). */
 const REFUSED_AUTH_ERROR: Tier0AuthErrorCode = 'grant_expired';
 
 /** One connection attempt: what the broker sees. */
@@ -33,7 +33,7 @@ class StoppedError extends Error {
   }
 }
 
-/** The authorization code of a failed `getMqttToken()`. */
+/** The authorization code of a failed `getMqttToken()`, a `Tier0RuntimeError{status, code}` (design 21.3). */
 function tokenAuthCode(error: unknown): Tier0AuthErrorCode | undefined {
   if (error === null || typeof error !== 'object') return undefined;
   const { code, status } = error as { code?: unknown; status?: unknown };
@@ -179,7 +179,8 @@ export class Tier0MQClient {
   private connectionParams(): ConnectionParams | Promise<ConnectionParams> {
     const source = this.tokenSource();
     if (source === 'browser') {
-      return getPageRuntime()!.getMqttToken().then((issued) => ({
+      // After a refusal the cached token is the likely culprit.
+      return getPageRuntime()!.getMqttToken(this.authRefusals > 0 ? { fresh: true } : undefined).then((issued) => ({
         url: issued.url, username: issued.username, clientId: issued.client_id, password: issued.token,
       }));
     }
@@ -234,10 +235,13 @@ export class Tier0MQClient {
     return this.stopped;
   }
 
-  private stop(code: Tier0AuthErrorCode): void {
-    this.stopped = new StoppedError(`Tier0 SDK v2: MQTT stopped reconnecting (${code}).`);
+  /** `code` undefined: the broker refused fresh tokens, and the runtime finds out whether authorization really failed. */
+  private stop(code?: Tier0AuthErrorCode): void {
+    this.stopped = new StoppedError(`Tier0 SDK v2: MQTT stopped reconnecting (${code ?? 'refused by the broker'}).`);
     this.clearReconnect();
-    reportAuthError(code);
+    const runtime = getPageRuntime();
+    if (!code && runtime?.reportMqttFailure) runtime.reportMqttFailure();
+    else reportAuthError(code ?? REFUSED_AUTH_ERROR);
     const waiters = this.connectWaiters;
     this.connectWaiters = [];
     waiters.forEach((waiter) => waiter.reject(this.stopped!));
@@ -345,7 +349,7 @@ export class Tier0MQClient {
         reject(err);
         if (!AUTH_REFUSED_CODES.has((err as { code?: unknown }).code)) return;
         this.authRefusals += 1;
-        if (this.tokenSource() === 'browser' && this.authRefusals >= MAX_AUTH_REFUSALS) this.stop(REFUSED_AUTH_ERROR);
+        if (this.tokenSource() === 'browser' && this.authRefusals >= MAX_AUTH_REFUSALS) this.stop();
       });
 
       client.on('disconnect', () => {

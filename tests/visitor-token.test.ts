@@ -101,6 +101,11 @@ describe('visitor token verification v2', () => {
       expect(source.keys().has('k1')).toBe(true);
     });
 
+    it('never trusts a dev- key from the platform directory', () => {
+      write(JSON.stringify({ keys: [jwk(main.publicKey, 'dev-signer'), jwk(main.publicKey, 'k1')] }));
+      expect([...frontdoorKeysFromDir(dir).keys().keys()]).toEqual(['k1']);
+    });
+
     it('refuses every token while the file is missing', () => {
       expect(frontdoorKeysFromDir(dir).keys().size).toBe(0);
     });

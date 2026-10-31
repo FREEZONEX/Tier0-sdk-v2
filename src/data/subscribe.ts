@@ -28,8 +28,10 @@
  * - Aborting `signal` or leaving the loop ends the iteration without error.
  * - A subscription opened inside a request keeps that request's delegation,
  *   which lasts 10 minutes. Backend renews it on the open stream, but a
- *   reconnect after it expired is refused and ends the iteration: use
- *   `runAsApp` for one App-wide stream, as the Scaffold's change hub does.
+ *   reconnect after it expired is refused and ends the iteration; the next
+ *   request with a new delegation opens it again (design 21.7). Never fall
+ *   back to `runAsApp` for that. A deployed App uses `runAsApp` for one
+ *   App-wide stream, as the Scaffold's change hub does.
  *
  * Events carry identities only, never record data; read the record to show it.
  */
