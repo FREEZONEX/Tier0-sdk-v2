@@ -10,7 +10,7 @@
  * time) instead of on the first request.
  */
 import { z } from 'zod';
-import { ALIAS_PATTERN, assertCollectionName, type CollectionDefinition, type IndexSpec } from './define.js';
+import { ALIAS_PATTERN, assertCollectionName, collectionLabel, type CollectionDefinition, type CollectionReference, type CollectionTarget, type IndexSpec } from './define.js';
 
 export type RecordSchemaType = 'object' | 'array' | 'string' | 'number' | 'integer' | 'boolean';
 export type EnumValue = string | number | boolean;
@@ -529,6 +529,19 @@ export function compileCollection(definition: CollectionDefinition): CompiledCol
 
 type IssuePath = (string | number)[];
 
+const referenceSchemas = new WeakMap<CollectionReference, RecordSchema>();
+
+function validationSchema(target: CollectionTarget): RecordSchema | undefined {
+  if (!('collectionId' in target)) return compileCollection(target).recordSchema;
+  if (!target.schema) return undefined;
+  let schema = referenceSchemas.get(target);
+  if (!schema) {
+    schema = toRecordSchema(target.collectionId, target.schema);
+    referenceSchemas.set(target, schema);
+  }
+  return schema;
+}
+
 function unknownKeyIssues(schema: RecordSchema | undefined, value: unknown, path: IssuePath, out: z.core.$ZodIssue[]) {
   if (!schema) return;
   if (schema.type === 'object' && isPlainObject(value)) {
@@ -584,7 +597,7 @@ function validationError(path: IssuePath, message: string, input: unknown): z.Zo
 
 /** Splits `_id` / `_meta` off a document and strictly validates the body. */
 export function validateDocument(
-  definition: CollectionDefinition,
+  definition: CollectionTarget,
   document: Record<string, unknown>,
 ): { id?: string; data: Record<string, unknown> } {
   if (!isPlainObject(document)) throw validationError([], 'Expected a document object.', document);
@@ -593,7 +606,8 @@ export function validateDocument(
   if (_id !== undefined && (typeof _id !== 'string' || _id.length === 0 || _id.length > 128)) {
     throw validationError(['_id'], '`_id` must be a string of 1–128 characters.', _id);
   }
-  const { recordSchema } = compileCollection(definition);
+  if (!definition.schema) return { ...(typeof _id === 'string' ? { id: _id } : {}), data: body };
+  const recordSchema = validationSchema(definition);
   const data = strictParse(definition.schema, recordSchema, body, []) as Record<string, unknown>;
   return { ...(typeof _id === 'string' ? { id: _id } : {}), data };
 }
@@ -604,7 +618,7 @@ export function validateDocument(
  * field is strictly validated, and other required fields must be present.
  */
 export function validateStepData(
-  definition: CollectionDefinition,
+  definition: CollectionTarget,
   data: Record<string, unknown>,
   boundFields: readonly string[],
 ): Record<string, unknown> {
@@ -612,12 +626,13 @@ export function validateStepData(
   if ('_id' in data || '_meta' in data) {
     throw validationError(['data', '_id' in data ? '_id' : '_meta'], 'A transaction step sets the record ID with `id`, not `data._id`; `_meta` is read-only.', data);
   }
-  const { recordSchema } = compileCollection(definition);
+  if (!definition.schema) return data;
+  const recordSchema = validationSchema(definition)!;
   const properties = recordSchema.properties ?? {};
   const bound = new Set(boundFields.filter((field) => field in properties));
   const unknownBound = boundFields.filter((field) => !(field in properties));
   if (unknownBound.length > 0) {
-    throw validationError(['bindings'], `Bound field${unknownBound.length > 1 ? 's' : ''} ${unknownBound.join(', ')} not declared in "${definition.alias}".`, boundFields);
+    throw validationError(['bindings'], `Bound field${unknownBound.length > 1 ? 's' : ''} ${unknownBound.join(', ')} not declared in "${collectionLabel(definition)}".`, boundFields);
   }
   if (bound.size === 0) return strictParse(definition.schema, recordSchema, data, ['data']) as Record<string, unknown>;
 
@@ -638,11 +653,11 @@ const ELEMENT_OPERATORS = new Set(['$push', '$addToSet']);
 const NUMERIC_OPERATORS = new Set(['$inc', '$mul']);
 
 /** Validates update-operator documents against the declaration (paths and values). */
-export function validateUpdate(definition: CollectionDefinition, update: Record<string, unknown>): Record<string, unknown> {
+export function validateUpdate(definition: CollectionTarget, update: Record<string, unknown>): Record<string, unknown> {
   if (!isPlainObject(update) || Object.keys(update).length === 0) {
     throw validationError([], 'An update needs at least one operator such as `$set`.', update);
   }
-  const { recordSchema } = compileCollection(definition);
+  const recordSchema = validationSchema(definition);
   const out: Record<string, unknown> = {};
 
   for (const [operator, fields] of Object.entries(update)) {
@@ -657,10 +672,14 @@ export function validateUpdate(definition: CollectionDefinition, update: Record<
       if (path === '_id' || path === '_meta' || path.startsWith('_meta.')) {
         throw validationError(issuePath, '`_id` and `_meta` are read-only.', value);
       }
+      if (!definition.schema || !recordSchema) {
+        next[path] = value;
+        continue;
+      }
       const target = recordSchemaAt(recordSchema, path);
       const zodTarget = zodAt(definition.schema, path);
       if (!target || !zodTarget) {
-        throw validationError(issuePath, `"${path}" is not a declared field of "${definition.alias}".`, value);
+        throw validationError(issuePath, `"${path}" is not a declared field of "${collectionLabel(definition)}".`, value);
       }
 
       if (VALUE_OPERATORS.has(operator)) {

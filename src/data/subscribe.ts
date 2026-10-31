@@ -32,7 +32,7 @@
 import { isStaleCollectionError, type EnsureState } from './bootstrap.js';
 import type { CallOptions, DataOpenStream } from './call.js';
 import { assertEventId, UNS_V2_SUBSCRIBE_MAX_COLLECTIONS, UNS_V2_SUBSCRIBE_MAX_RECORD_IDS } from '../uns-v2/client.js';
-import type { CollectionDefinition } from './define.js';
+import { collectionLabel, type CollectionTarget } from './define.js';
 import { DataError } from './error.js';
 
 /** Three missed 15 s heartbeats. */
@@ -47,8 +47,8 @@ const HEALTHY_CONNECTION_MS = 30_000;
 const SUBSCRIBE_SEEN_RECORDS_MAX = 10_000;
 
 export interface SubscribeOptions {
-  /** Declarations or aliases to watch (at most 64); defaults to every declared collection. */
-  collections?: readonly (CollectionDefinition | string)[];
+  /** Declarations, aliases, or existing-ID references (at most 64); defaults to every declared collection. */
+  collections?: readonly (CollectionTarget | string)[];
   /** Only changes of these record IDs (1–100, duplicates ignored), when exactly one collection is watched. */
   recordIds?: readonly string[];
   /**
@@ -69,7 +69,7 @@ export interface SubscribeOptions {
 interface ChangeBase {
   type: 'change';
   eventId: string;
-  /** Alias of the declared collection. */
+  /** Alias of a declared collection, or the ID of an existing collection reference. */
   collection: string;
   collectionId: string;
   occurredAt: number;
@@ -115,10 +115,11 @@ export function redactRestricted<E extends SubscriptionEvent>(event: E): E | Col
 
 export interface SubscribeRuntime {
   openStream: DataOpenStream;
-  ensure(): Promise<EnsureState>;
-  rebuild(before: EnsureState, cause: DataError): Promise<boolean>;
-  lookup(target: CollectionDefinition | string): CollectionDefinition;
-  declared: readonly CollectionDefinition[];
+  ensure(targets: readonly CollectionTarget[]): Promise<EnsureState>;
+  rebuild(before: EnsureState, cause: DataError, targets: readonly CollectionTarget[]): Promise<boolean>;
+  resolve(target: CollectionTarget): Promise<string>;
+  lookup(target: CollectionTarget | string): CollectionTarget;
+  declared: readonly CollectionTarget[];
   subject(): string | undefined;
 }
 
@@ -202,7 +203,7 @@ export function createSubscribe(runtime: SubscribeRuntime) {
       while (!stop.signal.aborted) {
         let state: EnsureState;
         try {
-          state = await runtime.ensure();
+          state = await runtime.ensure(definitions);
         } catch (error) {
           // A freshly imported App answers APP_NOT_READY for a while: keep waiting for it.
           if (!(error instanceof DataError) || !error.retry.safe || stop.signal.aborted) throw error;
@@ -211,15 +212,8 @@ export function createSubscribe(runtime: SubscribeRuntime) {
         }
         const aliases = new Map<string, string>();
         for (const definition of definitions) {
-          const id = state.collectionIds.get(definition.alias.toLowerCase());
-          if (!id) {
-            throw new DataError({
-              message: `Collection "${definition.alias}" is unavailable: ensure did not return it (see the server log).`,
-              status: 503,
-              code: 'COLLECTION_UNAVAILABLE',
-            });
-          }
-          aliases.set(id, definition.alias);
+          const id = await runtime.resolve(definition);
+          aliases.set(id, collectionLabel(definition));
         }
 
         const connection = new AbortController();
@@ -278,7 +272,7 @@ export function createSubscribe(runtime: SubscribeRuntime) {
           if (isStaleCollectionError(error)) {
             let changed: boolean;
             try {
-              changed = await runtime.rebuild(state, error);
+              changed = await runtime.rebuild(state, error, definitions);
             } catch (cause) {
               if (!(cause instanceof DataError) || !cause.retry.safe) throw cause;
               await backOff(cause.retry.afterMs);

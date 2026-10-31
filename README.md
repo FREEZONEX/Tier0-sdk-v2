@@ -63,7 +63,7 @@ const user = await tier0.system.whoami();
 | `@tier0/sdk-v2/react` | `useTier0Query()`、`useTier0Mutation()`，需要 React 和 TanStack Query |
 | `@tier0/sdk-v2/vue` | `useTier0Request()`，需要 Vue 3 |
 | `@tier0/sdk-v2/server` | `createCloudAppRequestVerifier()`，仅服务端加载 `node:crypto` |
-| `@tier0/sdk-v2/data` | App 数据层：`defineCollection()` 声明集合（含 TTL）、`createDataClient()` 首次访问时 ensure，Mongo 风格读写、带总数分页与封顶计数、原子批量与 `transact`、`subscribe` 变更订阅、员工数据主体透传；自动幂等键、并发上限与按 `retry.safe` 重试；仅服务端，需要 `zod` 4 |
+| `@tier0/sdk-v2/data` | App 数据层：`defineCollection()` 声明集合（含 TTL）、`createDataClient()` 首次访问时 ensure，按 collectionId 引用已有集合、Mongo 风格读写、带总数分页与封顶计数、原子批量与 `transact`、`subscribe` 变更订阅、员工数据主体透传；自动幂等键、并发上限与按 `retry.safe` 重试；仅服务端，需要 `zod` 4 |
 | `@tier0/sdk-v2/data/define` | 集合声明与类型：`defineCollection()`、`Doc` / `NewDoc` 等、`compileCollection()`、`validateDocument()`；可进浏览器包，组件和 route 的客户端代码只从这里取声明和类型 |
 
 集合声明必须分别提供稳定程序标识 `alias` 和业务名称 `name`，例如 `alias: 'production_orders'`、`name: '生产工单'`。目录、数据和引用直接用 name 展示，不提供 displayName 或名称回退；name 为 1–63 个 Unicode 字符，无首尾空白，不含 `/` 或空字符。ensure 按 alias 关联集合，仅首次创建设置 name，不覆盖用户改名。名称冲突时选择有区分度的业务名称，不拼随机后缀。
@@ -106,7 +106,7 @@ Source/Stream 仍保留 `{ code, msg, requestId, data }` 响应以及 `UnsV2Erro
 
 ## UNS 数据访问
 
-创建本 App 集合使用 `defineCollection` / `appCollectionsEnsure`，`ownerAppId` 表示唯一所属 App。使用已有或其他 App 共享的集合，直接向 `tier0.uns.recordFind`、`recordInsertOne` 等现有接口传入实际 `collectionId`；无需新增声明或配置服务端 alias，也不改变集合归属。App Key 仍须已有覆盖该集合及操作的授权，知道 ID 不代表获得权限。
+创建本 App 集合使用 `defineCollection` / `appCollectionsEnsure`，`ownerAppId` 表示唯一所属 App。使用已有或其他 App 共享的集合，可用 `data.collection({ collectionId })` 获取数据层句柄，也可向 `tier0.uns.recordFind`、`recordInsertOne` 等接口传入实际 `collectionId`；无需新增声明或配置服务端 alias，也不改变集合归属。引用已有集合跳过 ensure、schema 修改和种子写入；可选的 `schema` 仅用于本地写入校验。App Key 仍须已有覆盖该集合及操作的授权，知道 ID 不代表获得权限。
 
 新建 Schema 的数值字段使用明确格式：整数为 `type: 'integer', format: 'int32'`，小数为 `type: 'number', format: 'double'`，明确需要单精度时指定 `format: 'float'`。App 数据层编译 Zod 声明时，会递归为未指定格式的 integer/number 补齐 int32/double，并保留显式格式；直接调用 UNS/MCP 时由调用方提供 format。这些是类型注解，不新增数值范围或舍入规则；ensure 不改写已有字段注解，已有 legacy 字段需通过 schema:replace 单独迁移。
 
