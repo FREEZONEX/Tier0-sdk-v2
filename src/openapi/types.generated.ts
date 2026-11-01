@@ -1087,6 +1087,8 @@ export interface components {
             page?: number | bigint;
             /** @description 任一命中即可，大小写不敏感 */
             roleKeys?: string[];
+            /** @description draft：按草稿角色计算；production 或不传：按线上版本计算 */
+            scope?: string;
             size?: number | bigint;
         };
         AppAccessMembersListResp: {
