@@ -4,7 +4,7 @@
   "inputs": {
     "contracts/openapi-v2.source.json": {
       "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
-      "sha256": "6a8e117c876e54238423305ff0e684a77090e798deafc07f7bb13e0c3063b7d3"
+      "sha256": "b44712856b8a4847493d6262c13176f96721da1d7f4406996f53518bb400fd9b"
     },
     "contracts/uns-v2/contract.json": {
       "path": "service/unssvr/internal/domain/unsv2/contract_generated.go#ContractJSON",
@@ -60,5 +60,9 @@
         }
       }
     }
-  ]
+  ],
+  "platformSource": {
+    "repository": "FREEZONEX/Tier0-Backend",
+    "revision": "31fa441b738163620bf56cfba9d5366b8a9129ac"
+  }
 }

@@ -32652,6 +32652,10 @@
             },
             "type": "array"
           },
+          "scope": {
+            "description": "draft：按草稿角色计算；production 或不传：按线上版本计算",
+            "type": "string"
+          },
           "size": {
             "type": "integer"
           }
