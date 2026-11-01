@@ -87,6 +87,35 @@ const record = (revision = 1, name = 'pump') => ({ id: 'device-1', collectionId:
 const records = (...items: unknown[]) => ({ items, pageInfo: { hasMore: false } });
 
 describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () => {
+  it.each(['source', 'stream'])('reads a %s summary without requiring full-document access or observations', async domain => {
+    const current = domain === 'source' ? source() : stream();
+    steps = [{ path: `${domain}s/documents/get`, check: body => expect(body).toEqual({ id: current.id, view: 'summary' }), data: current }];
+    const workflow = example(domain, 'read');
+    const result = await workflow[domain === 'source' ? 'readSource' : 'readStream'](current.id, client);
+    expect(result.current.id).toBe(current.id);
+    expect(calls).toHaveLength(1);
+    finished();
+  });
+
+  it('reads existing collection records without requiring metadata access', async () => {
+    steps = [{ path: 'collections/devices/records:find', data: records(record()) }];
+    const result = await example('uns', 'read').readDevices('devices', client);
+    expect(result.items).toEqual([record()]);
+    expect(result.pageInfo.hasMore).toBe(false);
+    expect(calls).toHaveLength(1);
+    finished();
+  });
+
+  it('propagates record authorization failure without discovery or retries', async () => {
+    steps = [{ path: 'collections/devices/records:find', status: 403, raw: JSON.stringify({
+      code: 403, msg: 'Collection not granted', requestId: 'denied', data: { reason: 'COLLECTION_NOT_GRANTED' },
+      error: { code: 'FORBIDDEN', details: [], execution: 'notStarted', retry: { safe: false } },
+    }) }];
+    await expect(example('uns', 'read').readDevices('devices', client)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    expect(calls).toHaveLength(1);
+    finished();
+  });
+
   it('documents only HTTP paths present in the pinned SDK contract', () => {
     const paths = new Set<string>(Object.values(sdk.UNS_V2_OPERATIONS).map(operation => operation.path));
     for (const domain of ['source', 'stream', 'uns']) {
@@ -444,7 +473,6 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
 
   it('executes metadata and Record CRUD, Schema replacement, soft delete and restore', async () => {
     steps = [
-      { path: 'metadata', check: b => expect(b).toMatchObject({ dryRun: true, data: { parentId: 'workshop-1' } }), data: outcome('validated') },
       { path: 'metadata', check: b => {
         expect(b).toMatchObject({ dryRun: false, idempotencyKey: 'create-collection', data: { parentId: 'workshop-1' } });
         expect(b.data.recordSchema.required).toEqual(['name', 'enabled']);
@@ -498,7 +526,6 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
 
   it('does not treat an unconfirmed metadata mutation as committed or perform dependent reads', async () => {
     steps = [
-      { path: 'metadata', check: b => expect(b.data.parentId).toBeNull(), data: outcome('validated') },
       { path: 'metadata', check: b => expect(b.data.parentId).toBeNull(), data: outcome('unconfirmed') },
     ];
     const result = await example('uns', 'create').createDeviceCollection('devices', 'devices', null, 'create', client);
