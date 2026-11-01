@@ -14,9 +14,8 @@ page 从 1 开始，size 最大 200。summary 只需 uns.stream.view 或 uns.str
 import { createClient, type Tier0Client } from '@tier0/sdk-v2';
 
 export async function readStream(id: string, client: Tier0Client = createClient()) {
-  const draft = await client.stream.documents.get({ id });
-  const observation = await client.stream.observations.get({ id });
-  return { draft: draft.data, observation: observation.data };
+  const current = await client.stream.documents.get({ id, view: 'summary' });
+  return { current: current.data };
 }
 export async function* listStreams(client: Tier0Client = createClient()) {
   let page = 1;
@@ -29,6 +28,8 @@ export async function* listStreams(client: Tier0Client = createClient()) {
   }
 }
 ```
+
+查询摘要只需一次请求。编辑完整草稿时显式使用 `documents.get({ id, view: 'full' })`；只看运行观测时直接 `observations.get({ id })`，不先读取草稿。已有写回执时可直接消费其中的状态和修订。
 
 保存、发布、某次执行成功是三个事实。显示实际 revision/activeVersion/release，不用旧 runs 证明新版本生效。版本列表不保证与普通列表相同分页结构；按其 list/total/page/size 读取，versionId 不是 release 序号。
 

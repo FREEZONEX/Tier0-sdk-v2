@@ -61,7 +61,9 @@ export async function createHttpStream(
 
 先创建或复用真实 Collection，再传入 collectionId；此库存示例的 recordSchema 必须包含 sku（string）与 quantity（number），以业务 SKU 作为稳定 recordId。按真实上游合同修改字段映射、path="inventory"、query 和 60 秒周期；不能只返回 response.data 就声称已经落库。resources=[] 是空冻结资源集，不是通配授权。源地址和凭据留在 Source，不能拷进 acquisition 或脚本。
 
-此函数保存草稿。完整采集还需启用 Source，取得最新 revision 后更新绑定并部署 Stream；核对本次发布的运行成功，再通过 records:find 读回目标 Collection 的业务记录。acceptedRows 只表示处理器已接受写入，隔离 sampleTest 的 writePreview 不会落库；未完成真实运行和读回前，不得报告采集完成。
+此函数保存草稿。新建完整采集链路时，先创建或复用 Collection，启用尚无引用的 Source，取得启用后的最新 revision，再创建并部署 Stream；这样无需在绑定后再启用 Source、确认引用影响和更新绑定。若 Source 已有其他 Stream 引用，启用仍遵守影响确认流程。仅保存草稿的任务不额外启用或部署。
+
+核对本次发布的运行成功，再通过 records:find 读回目标 Collection 的业务记录。acceptedRows 只表示处理器已接受写入，隔离 sampleTest 的 writePreview 不会落库；未完成真实运行和读回前，不得报告采集完成。
 
 `upstream.request` 收到完整的 401/403/429/5xx 响应时仍返回 `{status,headers,data}`，不会仅因非 2xx 自动抛错；必须先检查状态，再校验业务数据，最后才缓冲 UNS 写入。此库存示例约定 200 和数组；其他接口按其合同调整，不能把错误响应当业务数据。脚本异常只使用固定文案，不拼接响应正文、认证头或 URL。
 

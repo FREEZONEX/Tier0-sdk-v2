@@ -29,8 +29,6 @@ export async function createDeviceCollection(
       },
     },
   };
-  const preview = await client.uns.metadataInsertOne({ ...request, dryRun: true });
-  if (preview.data.status !== 'validated') throw new Error('集合预检未通过');
   const receipt = await client.uns.metadataInsertOne({ ...request, dryRun: false, idempotencyKey: intentKey });
   if (receipt.data.status !== 'committed') return { state: 'unconfirmed' as const, receipt };
   const current = await client.uns.metadataFind({ kind: 'collection', filter: { _id: collectionId }, limit: 1 });
@@ -38,6 +36,8 @@ export async function createDeviceCollection(
   return { state: 'committed' as const, receipt, current: current.data.items[0] };
 }
 ```
+
+普通创建直接提交，服务端在提交时校验。只有需要展示预检结果时才单独使用 `dryRun: true`，预检不锁定提交条件。示例提交后读取一次，是为了返回服务端补全的集合结构和 revision；仅需创建回执时可省略这次读取。
 
 单条 Record 新增默认返回 insertedId/status/replayed。需要创建后的数据、revision 和时间戳时，传 returnDocument:'after'，同一次写入返回 value，无需再查询；可配合 projection，调用者必须同时具有读取权限。幂等重放返回原始创建快照，后续读取最新状态仍用 recordGet/recordFind。dryRun 的 value 是未提交预览。
 
