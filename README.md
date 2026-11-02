@@ -2,7 +2,9 @@
 
 Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交互均使用 `@tier0/sdk-v2`。旧 SDK 不再作为依赖。
 
-`0.9.8` 候选版新增 App 集合业务目录声明 `directoryPath`，按已知业务范围创建或复用目录，已有集合保持位置。保留 `0.9.7` 的 Source 生命周期简化：创建后可直接使用，删除后停止后续使用；移除 `client.source.state.update`、启停能力与 `desiredState`。名称和描述修改无需影响确认，连接配置变更或删除存在引用时仍须确认；运行中的 Stream 可直接删除。该版本尚未发布 npm，验收使用下方安装包。
+`0.9.9` 新增 `client.uns.metadataPurge`，通过明确的已归档 Collection ID 提交永久删除，返回 `accepted` / `jobId` 并通过现有 `jobs` 查询逐项完成结果；`dryRun` 可选。集合删除保留 Record/Sample，支持恢复或继续永久清理。
+
+保留 `0.9.8` 的 App 集合业务目录声明 `directoryPath`，按已知业务范围创建或复用目录，已有集合保持位置。Source 创建后可直接使用，删除后停止后续使用；不再提供 `client.source.state.update`、启停能力与 `desiredState`。名称和描述修改无需影响确认，连接配置变更或删除存在引用时仍须确认；运行中的 Stream 可直接删除。
 
 `0.9.3` 同步集合授权合同：授予既有集合访问权限时无需提供别名，并更新生成类型与使用说明。集合声明的 `name` / `alias` 要求保持不变。
 
@@ -22,13 +24,13 @@ Collection 声明必须同时提供业务名称 `name`（例如「生产工单�
 
 ## 安装与初始化
 
-维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。本分支的功能应使用检查通过的 `tier0-sdk-v2-0.9.8.tgz` 在业务项目中验证：
+安装正式版本：
 
 ```sh
-npm install /path/to/tier0-sdk-v2-0.9.8.tgz
+npm install @tier0/sdk-v2@0.9.9
 ```
 
-`0.9.8` 正式发布后再使用 `npm install @tier0/sdk-v2@0.9.8`。发布前，npm 的既有版本和 `next` 标签不代表本分支的完整功能。
+维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。
 
 ```ts
 import { createClient } from '@tier0/sdk-v2';
