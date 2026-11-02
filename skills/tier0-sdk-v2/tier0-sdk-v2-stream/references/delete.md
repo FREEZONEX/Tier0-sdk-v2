@@ -9,7 +9,7 @@
 | dryRun | boolean | 是 | true 预检；false 提交 |
 | idempotencyKey | string | 否 | 最多 128 字符 |
 
-使用已确认目标的回执或查询快照，评估活跃发布/调用依赖。停止运行与删除是两个操作，删除请求不自动授予对 Source/UNS 数据的清理权限。
+使用已确认目标的回执或查询快照，评估活跃发布/调用依赖。运行中的 Stream 可直接删除，删除会同时撤销后续执行准入；无需先停用。删除请求不自动授予对 Source/UNS 数据的清理权限。
 
 ```ts
 import { createClient, type Tier0Client, type CloudStreamStopView } from '@tier0/sdk-v2';

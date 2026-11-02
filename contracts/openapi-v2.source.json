@@ -758,169 +758,6 @@
         "x-tier0-destructive": false
       }
     },
-    "/uns/sources/state/update": {
-      "post": {
-        "operationId": "UnsV2SourceStateUpdate",
-        "tags": [
-          "数据源"
-        ],
-        "summary": "更新数据源启停状态",
-        "description": "更新数据源期望状态，需提供当前 expectedRevision；没有任何 Stream 引用时可直接提交，存在引用时需提供与本次变更一致的 confirmedImpactRevision；dryRun=true 仅校验。",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "idempotencyKey": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 128,
-                    "description": "可选幂等键；重试同一请求时复用，相同键不得用于不同请求。"
-                  },
-                  "dryRun": {
-                    "type": "boolean",
-                    "description": "true 仅校验；false 执行写入。",
-                    "default": false
-                  },
-                  "allowPartial": {
-                    "type": "boolean",
-                    "enum": [
-                      false
-                    ],
-                    "default": false,
-                    "description": "默认 false，整批回滚；true 逐项提交，失败信息见 results[].error。"
-                  },
-                  "mode": {
-                    "type": "string",
-                    "enum": [
-                      "auto",
-                      "sync"
-                    ]
-                  },
-                  "items": {
-                    "type": "array",
-                    "minItems": 1,
-                    "maxItems": 200,
-                    "items": {
-                      "type": "object",
-                      "additionalProperties": false,
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "pattern": "^[1-9][0-9]*$",
-                          "maxLength": 19
-                        },
-                        "expectedRevision": {
-                          "type": "integer",
-                          "minimum": 1,
-                          "description": "Cloud source-impact/2: explicit positive revision is required."
-                        },
-                        "desiredState": {
-                          "type": "string",
-                          "enum": [
-                            "enabled",
-                            "disabled"
-                          ]
-                        },
-                        "confirmedImpactRevision": {
-                          "type": "string",
-                          "pattern": "^si1_[A-Za-z0-9_-]{43}$",
-                          "minLength": 47,
-                          "maxLength": 47,
-                          "description": "无任何 Stream 引用时可省略；存在引用时先评估本次变更的影响，使用实际确认版本。任何已提供的确认值都必须有效。"
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "desiredState",
-                        "expectedRevision"
-                      ]
-                    }
-                  }
-                },
-                "required": [
-                  "items"
-                ]
-              },
-              "example": {
-                "dryRun": true,
-                "items": [
-                  {
-                    "id": "example-id",
-                    "desiredState": "disabled",
-                    "expectedRevision": 1
-                  }
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "操作结果。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocUnsV2SourceStateUpdateResponse"
-                },
-                "example": {
-                  "code": 200,
-                  "msg": "success",
-                  "requestId": "request-id",
-                  "data": {
-                    "status": "committed",
-                    "replayed": false,
-                    "results": [
-                      {
-                        "opId": "item-0",
-                        "action": "meta.resourcePatch",
-                        "kind": "source",
-                        "id": "example-id",
-                        "revision": 1,
-                        "status": "updated"
-                      }
-                    ]
-                  }
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocCommonError"
-                },
-                "example": {
-                  "code": 422,
-                  "msg": "请求参数不合法",
-                  "requestId": "request-id",
-                  "data": null,
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "reason": "filter.status must be a string",
-                    "details": [],
-                    "execution": "notStarted",
-                    "retry": {
-                      "safe": false
-                    },
-                    "path": "filter.status"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-tier0-audience": "builder",
-        "x-tier0-starter": false,
-        "x-tier0-readonly": false,
-        "x-tier0-destructive": false
-      }
-    },
     "/uns/sources/runtime/get": {
       "post": {
         "operationId": "UnsV2SourceRuntimeGet",
@@ -4807,7 +4644,7 @@
         "tags": [
           "数据源"
         ],
-        "description": "按 items 删除数据源，需提交当前版本且数据源已停用；没有任何 Stream 引用时可直接提交，存在引用时仍需影响确认。dryRun=true 仅校验；云端数据源生命周期操作整批原子执行。",
+        "description": "按 items 删除数据源，需提交当前版本，删除后停止后续使用，无需先停用；没有任何 Stream 引用时可直接提交，存在引用时仍需影响确认。dryRun=true 仅校验；云端数据源生命周期操作整批原子执行。",
         "x-tier0-audience": "builder",
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
@@ -5001,7 +4838,7 @@
         "tags": [
           "处理流"
         ],
-        "description": "按 id 删除处理流程序，可用 expectedRevision 检查并发修改；dryRun=true 仅校验。",
+        "description": "按 id 删除处理流程序，运行中的程序也可直接删除并撤销后续执行准入，无需先停用；可用 expectedRevision 检查并发修改，dryRun=true 仅校验。",
         "x-tier0-audience": "builder",
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
@@ -5608,7 +5445,7 @@
         "tags": [
           "数据源"
         ],
-        "description": "使用 document 或 patch 更新指定数据源，必须提供当前 expectedRevision；没有任何 Stream 引用时可直接提交，存在引用时需提供与本次变更一致的 confirmedImpactRevision。提交返回完整 Source，无需再次读取；dryRun=true 仅校验。",
+        "description": "使用 document 或 patch 更新指定数据源，必须提供当前 expectedRevision；仅修改名称、描述可直接提交，连接配置变更在没有任何 Stream 引用时也可直接提交，否则需提供与本次变更一致的 confirmedImpactRevision。提交返回完整 Source，无需再次读取；dryRun=true 仅校验。",
         "x-tier0-audience": "builder",
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
@@ -6018,13 +5855,6 @@
                       "edge"
                     ]
                   },
-                  "desiredState": {
-                    "type": "string",
-                    "enum": [
-                      "enabled",
-                      "disabled"
-                    ]
-                  },
                   "health": {
                     "type": "string"
                   },
@@ -6083,7 +5913,7 @@
         "tags": [
           "数据源"
         ],
-        "description": "分页列出数据源，支持 protocol、desiredState、health 等筛选。默认返回安全摘要；includeDocument=true 需要管理权限并返回完整原生配置。",
+        "description": "分页列出数据源，支持 protocol、health 等筛选。默认返回安全摘要；includeDocument=true 需要管理权限并返回完整原生配置。",
         "x-tier0-audience": "builder",
         "x-tier0-starter": false,
         "x-tier0-readonly": true,
@@ -6344,8 +6174,6 @@
                     "type": "string",
                     "enum": [
                       "update",
-                      "enable",
-                      "disable",
                       "delete"
                     ]
                   },
@@ -6421,8 +6249,6 @@
                     "properties": {
                       "action": {
                         "enum": [
-                          "enable",
-                          "disable",
                           "delete"
                         ]
                       }
@@ -20070,7 +19896,7 @@
           "name": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 63
           },
           "description": {
             "type": "string",
@@ -21470,9 +21296,6 @@
           "document": {
             "$ref": "#/components/schemas/CloudSourceDocument"
           },
-          "desiredState": {
-            "type": "string"
-          },
           "runtimeState": {
             "type": "string"
           },
@@ -21494,7 +21317,6 @@
           "id",
           "revision",
           "document",
-          "desiredState",
           "runtimeState",
           "health",
           "createdAt",
@@ -21593,9 +21415,6 @@
           "protocol": {
             "type": "string"
           },
-          "desiredState": {
-            "type": "string"
-          },
           "runtimeState": {
             "type": "string"
           },
@@ -21625,7 +21444,6 @@
           "name",
           "description",
           "protocol",
-          "desiredState",
           "runtimeState",
           "health",
           "createdAt",
@@ -25339,7 +25157,7 @@
           "name": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 63
           },
           "description": {
             "type": "string",
@@ -25388,9 +25206,6 @@
           "protocol": {
             "type": "string"
           },
-          "desiredState": {
-            "type": "string"
-          },
           "runtimeState": {
             "type": "string"
           },
@@ -25411,7 +25226,6 @@
           "updatedAt",
           "redacted",
           "protocol",
-          "desiredState",
           "runtimeState",
           "health"
         ]
@@ -26578,108 +26392,6 @@
           "data"
         ]
       },
-      "DocUnsV2SourceStateUpdateResult": {
-        "additionalProperties": false,
-        "properties": {
-          "opId": {
-            "type": "string",
-            "description": "输入项标识，用于关联原请求。"
-          },
-          "action": {
-            "type": "string",
-            "enum": [
-              "meta.resourcePatch"
-            ]
-          },
-          "id": {
-            "type": "string",
-            "description": "对象 ID（字符串），从发现或读取接口取得；不要把名称当成 ID。"
-          },
-          "status": {
-            "description": "该输入项的执行状态。",
-            "type": "string"
-          },
-          "kind": {
-            "type": "string"
-          },
-          "revision": {
-            "type": "integer"
-          },
-          "error": {
-            "$ref": "#/components/schemas/DocItemFault"
-          }
-        },
-        "required": [
-          "opId",
-          "action",
-          "id",
-          "status"
-        ],
-        "type": "object"
-      },
-      "DocUnsV2SourceStateUpdateOutcome": {
-        "additionalProperties": false,
-        "properties": {
-          "jobId": {
-            "type": "string"
-          },
-          "replayed": {
-            "type": "boolean"
-          },
-          "results": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DocUnsV2SourceStateUpdateResult"
-            }
-          },
-          "status": {
-            "description": "本次操作的执行状态。",
-            "enum": [
-              "committed",
-              "validated",
-              "accepted",
-              "partiallyCommitted",
-              "failed",
-              "unknown",
-              "validationFailed"
-            ],
-            "type": "string"
-          },
-          "summary": {
-            "$ref": "#/components/schemas/OutcomeSummary",
-            "description": "仅部分提交时返回的逐项执行汇总。"
-          }
-        },
-        "required": [
-          "status",
-          "replayed"
-        ],
-        "type": "object"
-      },
-      "DocUnsV2SourceStateUpdateResponse": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "code": {
-            "type": "integer"
-          },
-          "msg": {
-            "type": "string"
-          },
-          "requestId": {
-            "type": "string"
-          },
-          "data": {
-            "$ref": "#/components/schemas/DocUnsV2SourceStateUpdateOutcome"
-          }
-        },
-        "required": [
-          "code",
-          "msg",
-          "requestId",
-          "data"
-        ]
-      },
       "DocUnsV2SourceRuntimeGetResponse": {
         "type": "object",
         "additionalProperties": false,
@@ -26704,13 +26416,6 @@
               },
               "revision": {
                 "type": "integer"
-              },
-              "desiredState": {
-                "type": "string",
-                "enum": [
-                  "enabled",
-                  "disabled"
-                ]
               },
               "state": {
                 "type": "object",
@@ -26805,7 +26510,6 @@
             "required": [
               "sourceId",
               "revision",
-              "desiredState",
               "state"
             ]
           }
@@ -28991,8 +28695,6 @@
                 "type": "string",
                 "enum": [
                   "update",
-                  "enable",
-                  "disable",
                   "delete"
                 ]
               },
@@ -33359,6 +33061,77 @@
             }
           }
         },
+        "allOf": [
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "product": {
+                          "enum": [
+                            "cloud"
+                          ]
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  {
+                    "properties": {
+                      "capabilities": {
+                        "items": {
+                          "allOf": [
+                            {
+                              "anyOf": [
+                                {
+                                  "not": {
+                                    "properties": {
+                                      "code": {
+                                        "enum": [
+                                          "source"
+                                        ]
+                                      }
+                                    },
+                                    "type": "object"
+                                  }
+                                },
+                                {
+                                  "properties": {
+                                    "operations": {
+                                      "items": {
+                                        "properties": {
+                                          "operation": {
+                                            "not": {
+                                              "enum": [
+                                                "enable",
+                                                "disable"
+                                              ]
+                                            }
+                                          }
+                                        },
+                                        "type": "object"
+                                      },
+                                      "type": "array"
+                                    }
+                                  },
+                                  "type": "object"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "type": "object"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
         "description": "OpenAPI 3.0 wire schema. Array contains/cardinality annotations and cross-field proof ordering require the shared JSON Schema plus SDK semantic checks; this projection alone is not full contract acceptance.",
         "x-tier0-json-schema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -34152,7 +33925,58 @@
               ],
               "description": "State reports publication and assessed prerequisites only; ready never grants resource access or confirms an actual execution."
             }
-          }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "product": {
+                    "const": "cloud"
+                  }
+                },
+                "type": "object"
+              },
+              "then": {
+                "properties": {
+                  "capabilities": {
+                    "items": {
+                      "if": {
+                        "properties": {
+                          "code": {
+                            "const": "source"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "then": {
+                        "properties": {
+                          "operations": {
+                            "items": {
+                              "properties": {
+                                "operation": {
+                                  "not": {
+                                    "enum": [
+                                      "enable",
+                                      "disable"
+                                    ]
+                                  }
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "type": "object"
+                      }
+                    },
+                    "type": "array"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          ]
         }
       },
       "PlatformCapabilityErrorResp": {

@@ -349,12 +349,13 @@ describe('UNS v2 localhost HTTP fixture', () => {
       'app-collection/2', 'metadata/1', 'app-data/3', 'hosted-control/1', 'source-bindings/1',
       'record-notifications/1', 'record-delete-samples/1', 'stream-history/1',
       'record-reads/1', 'app-context/3', 'collection-ttl/1', 'error-model/1', 'record-insert-return/1', 'stream-run-error/1',
+      'source-lifecycle/2', 'app-collections/2',
     ]));
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('69b9dda5cbc6fcb447ddb752b656ec5a202a4ea6');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('5c77d6f21e6332cb09e3212df9203eb01bf7f129');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(UNS_V2_CONTRACT_PROVENANCE.sourceDerivedContractSHA256).toBe(UNS_V2_CONTRACT_PROVENANCE.hashes.contract);
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(82);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(95);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(81);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(94);
     expect(received.slice(start)).toHaveLength(1);
   });
 
@@ -398,7 +399,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
     respond = (req, res) => {
       if (req.url === '/openapi/v2/uns/sources/impact') {
         return send(res, { code: 200, msg: 'ok', requestId: 'impact', data: {
-          impactRevision: 'reviewed-token', sourceID: '101', sourceRevision: 2, action: 'disable', complete: 1,
+          impactRevision: 'reviewed-token', sourceID: '101', sourceRevision: 2, action: 'delete', complete: 1,
           counts: { draft: 1, activeRelease: 1, historicalRelease: 0 }, restrictedCount: 0, references: [], nextOffset: 0, expiresAt: 2_000_000_000_000,
         } });
       }
@@ -410,14 +411,14 @@ describe('UNS v2 localhost HTTP fixture', () => {
       return send(res, { code: 409, msg: 'SOURCE_IMPACT_CHANGED', requestId: 'conflict' }, 409);
     };
     const api = client();
-    const review = await api.source.impact({ id: '101', expectedRevision: 2, action: 'disable', size: 20 });
+    const review = await api.source.impact({ id: '101', expectedRevision: 2, action: 'delete', size: 20 });
     expect(review.data.impactRevision).toBe('reviewed-token');
     expect(received.length - start).toBe(1);
     expect(received[start].path).toBe('/openapi/v2/uns/sources/impact');
     const history = await api.source.history({ id: '101', size: 20 });
     expect(history.data.sourceID).toBe('101');
-    await expect(api.source.state.update({ dryRun: false, items: [{
-      id: '101', expectedRevision: 2, desiredState: 'disabled', confirmedImpactRevision: review.data.impactRevision,
+    await expect(api.source.delete({ dryRun: false, items: [{
+      id: '101', expectedRevision: 2, confirmedImpactRevision: review.data.impactRevision,
     }] })).rejects.toBeInstanceOf(UnsV2Error);
     expect(received.length - start).toBe(3);
     expect(JSON.parse(received[start + 2].body).items[0].confirmedImpactRevision).toBe('reviewed-token');
@@ -603,21 +604,12 @@ describe('UNS v2 localhost HTTP fixture', () => {
     expect(JSON.parse(received[start].body).assertLocks).toEqual([{ collectionId: 'stock', id: 'part-1', token: 'lease' }]);
   });
 
-  it('exposes Source state update and keeps the mutation single-shot', async () => {
+  it('does not expose retired Source state through either facade or raw dispatch', async () => {
     const start = received.length;
-    respond = (_req, res) => send(res, {
-      code: 200, msg: 'updated', requestId: 'req-source-state',
-      data: { status: 'committed', replayed: false, results: [] },
-    });
-    await client().source.state.update({
-      dryRun: false, idempotencyKey: 'source-state-1',
-      items: [{ id: 'source-1', expectedRevision: 2, desiredState: 'enabled', confirmedImpactRevision: 'reviewed-confirmation' }],
-    });
-    expect(received[start]).toMatchObject({
-      path: '/openapi/v2/uns/sources/state/update',
-      body: '{"dryRun":false,"idempotencyKey":"source-state-1","items":[{"id":"source-1","expectedRevision":2,"desiredState":"enabled","confirmedImpactRevision":"reviewed-confirmation"}]}',
-    });
-    expect(received.length - start).toBe(1);
+    expect(client().source).not.toHaveProperty('state');
+    const core = rawClient() as unknown as { call(name: unknown, request: unknown): Promise<unknown> };
+    await expect(core.call('sourceStateUpdate', {})).rejects.toThrow('unknown UNS v2 operation');
+    expect(received.length).toBe(start);
   });
 
   it('preserves Resource4 references in Stream document validation', async () => {

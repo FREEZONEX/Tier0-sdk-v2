@@ -1181,7 +1181,13 @@ export interface components {
                 replacement?: string;
                 sunsetAt?: string;
             }[];
-        };
+        } & (unknown | {
+            capabilities?: (unknown | {
+                operations?: {
+                    operation?: unknown;
+                }[];
+            })[];
+        });
         /** @description Unknown capability codes are ignored; only recognized codes use the frozen assessment contract. */
         CapabilityDiscoverycapability: {
             code: string;

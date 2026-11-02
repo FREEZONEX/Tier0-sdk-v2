@@ -82,7 +82,7 @@ try {
       sourceCurrent = result.current;
       report.fixtures.source = { id: sourceId, state: 'created' };
       assert.equal(result.current.document.name, prefix);
-      assert.notEqual(result.current.desiredState, 'enabled');
+      assert.equal('desiredState' in result.current, false);
     });
     await step('Skill Source direct patch with canonical receipt', async () => {
       const result = await sourceUpdate.renameSource(sourceId, sourceRevision, prefix + '-edited', intent('source-update'), client);
