@@ -17,6 +17,7 @@ UNS 管数据命名空间、集合、Record 和 Sample；外部连接与脚本�
 | 查询集合、筛选/排序记录 | [查询](references/read.md) | dataAppContext、metadataFind/FindOne（非 App 凭证）、collectionDescribe、recordFind |
 | 改记录、集合名称、扩展 Schema | [修改](references/update.md) | recordUpdateOne、metadataUpdateOne/Many |
 | 删记录、软删除集合 | [删除](references/delete.md) | recordDeleteOne、metadataDeleteOne/Many |
+| 永久删除回收站集合 | [删除](references/delete.md) | metadataPurge、jobs |
 | 恢复集合或记录 | [恢复](references/restore.md) | metadataRestore、recordRestore |
 | 分页、历史采样、事务、写入结果 | [数据工作流](references/data-workflows.md) | sampleFind、recordTransactionExecute |
 | 目录、Topic 元数据及组合事务 | [命名空间](references/namespace.md) | metadata*、metadataBulkWrite、metadataTransact |
@@ -43,7 +44,7 @@ export async function readAppRecords(collectionId: string) {
 1. 记录行是 id/data/revision；filter 与 update 的业务路径用 name、customer.name，不加 data.；系统路径用 _id、_meta.revision。
 2. 改/删使用最近写回执或读取取得的 revision 作为 expectedRevision；创建时可用 returnDocument:'after' 取得快照。历史重放不是当前最新版本，冲突时显式处理；不同操作使用独立意图键，长度上限以当前操作契约为准。
 3. metadataUpdateOne 的 $set.recordSchema 替换完整 Schema，不迁移已有记录；未更新的 sampleSchema/indexes 保留。先预检兼容性。
-4. 集合无硬删除入口，用 metadataDeleteOne/Many 软删除；Record 删除会物理删除关联 Sample，恢复 Record 不会恢复这些 Sample。
+4. metadataDeleteOne/Many 软删除集合并保留 Record/Sample；metadataPurge 永久清理明确 ID 的回收站集合。accepted 只表示任务已受理，须用 jobs 查询逐项结果。Record 删除会物理删除关联 Sample，恢复 Record 不会恢复这些 Sample。
 5. recordFind 使用 pageInfo.hasMore/nextCursor，limit 1–200；sort 为 [['field',1]]。单页不是全量，跨页不是稳定快照。
 6. Sample 的时间是 Unix 毫秒，查询范围 [from,to)。Record 代表业务实体，不用覆盖它来保存历史。
 

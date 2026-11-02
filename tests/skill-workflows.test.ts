@@ -433,6 +433,17 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     finished();
   });
 
+  it('submits the documented collection purge without claiming completion', async () => {
+    steps = [{ path: 'metadata:purge', check: body => expect(body).toEqual({
+      kind: 'collection', ids: ['devices'], idempotencyKey: 'purge-devices',
+    }), data: { status: 'accepted', jobId: 'purge-job', replayed: false, results: [] } }];
+    const result = await example('uns', 'delete', 2).purgeCollections(['devices'], 'purge-devices', client);
+    expect(result.state).toBe('submitted');
+    expect(result.receipt.data).toMatchObject({ status: 'accepted', jobId: 'purge-job' });
+    expect(calls).toHaveLength(1);
+    finished();
+  });
+
   it('executes metadata and Record CRUD, Schema replacement, soft delete and restore', async () => {
     steps = [
       { path: 'metadata', check: b => expect(b).toMatchObject({ dryRun: true, data: { parentId: 'workshop-1' } }), data: outcome('validated') },

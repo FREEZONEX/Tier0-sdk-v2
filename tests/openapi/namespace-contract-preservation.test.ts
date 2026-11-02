@@ -80,6 +80,8 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
   ensure.description = ensure.description.split(' New aliases require directoryPath:')[0];
   expect(ensure.example.collections[0].directoryPath).toEqual(['示例工厂', '生产车间']);
   delete ensure.example.collections[0].directoryPath;
+  expect(baselineOperations.metadataDeleteOne.description).toBe('软删除有效对象，不级联清除 Record/Sample。Collection 有数据或配置引用不阻止明确删除；保留引用方，其数据访问返回目标已删除。Directory/Topic 保留子节点和引用约束。');
+  baselineOperations.metadataDeleteOne.description = '软删除有效对象，执行引用和子节点校验，不级联清除 Record/Sample。';
   expect(baselineOperations.appStreamAccessList.resource).toBe('stream');
   baselineOperations.appStreamAccessList.resource = 'control';
   const access = baselineSchemas.CloudAppStreamAccessItem as {

@@ -10932,7 +10932,7 @@
         "tags": [
           "元数据管理"
         ],
-        "description": "软删除有效对象，执行引用和子节点校验，不级联清除 Record/Sample。",
+        "description": "软删除有效对象，不级联清除 Record/Sample。Collection 有数据或配置引用不阻止明确删除；保留引用方，其数据访问返回目标已删除。Directory/Topic 保留子节点和引用约束。",
         "x-tier0-audience": "builder",
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
@@ -11341,6 +11341,135 @@
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
+      }
+    },
+    "/uns/metadata:purge": {
+      "post": {
+        "operationId": "UnsV2MetadataPurge",
+        "summary": "永久删除回收站中的集合",
+        "deprecated": false,
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "collection"
+                    ]
+                  },
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "minItems": 1,
+                    "maxItems": 200,
+                    "uniqueItems": true
+                  },
+                  "dryRun": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "true 仅校验；false 执行写入。"
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "可选幂等键；重试同一请求时复用，相同键不得用于不同请求。"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "ids"
+                ]
+              },
+              "example": {
+                "kind": "collection",
+                "ids": [
+                  "retired-work-orders"
+                ],
+                "idempotencyKey": "purge-retired-work-orders"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "操作结果。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocUnsV2MetadataPurgeResponse"
+                },
+                "example": {
+                  "code": 200,
+                  "msg": "success",
+                  "requestId": "request-id",
+                  "data": {
+                    "status": "committed",
+                    "replayed": false,
+                    "results": [
+                      {
+                        "opId": "item-0",
+                        "action": "meta.purge",
+                        "kind": "metadata",
+                        "id": "example-id",
+                        "revision": 1,
+                        "status": "updated"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocCommonError"
+                },
+                "example": {
+                  "code": 422,
+                  "msg": "请求参数不合法",
+                  "requestId": "request-id",
+                  "data": null,
+                  "error": {
+                    "code": "INVALID_REQUEST",
+                    "reason": "filter.status must be a string",
+                    "details": [],
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "元数据管理"
+        ],
+        "description": "仅接受当前工作空间回收站中的 Collection 明确 ID，最多 200 项；一项与批量共用同一操作。正式调用返回 accepted/jobId，由 jobs 查询逐项完成结果；accepted 不代表已永久删除。各集合独立清理，单项失败不回滚已完成项目。删除全部 Record（含已软删除记录）、Sample、集合元数据并撤销指向集合的 App 授权，索引由后台继续回收。保留 Topic/Source/Stream 等引用方，引用是影响而不是阻止条件，其数据访问返回目标不存在。清理开始后不可恢复；任务中断可续做，同键重试不重新选择已完成目标。dryRun 可选，只验证目标，不创建任务或删除数据；不需要前置预检、force 或确认凭证。清空已删除集合时先固定当前目标 ID，再分批调用，不包含 Directory/Topic。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
+        "x-tier0-readonly": false,
+        "x-tier0-destructive": true
       }
     },
     "/uns/metadata:bulkWrite": {
@@ -30792,6 +30921,108 @@
           "data"
         ]
       },
+      "DocUnsV2MetadataPurgeResult": {
+        "additionalProperties": false,
+        "properties": {
+          "opId": {
+            "type": "string",
+            "description": "输入项标识，用于关联原请求。"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "meta.purge"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "description": "对象 ID（字符串），从发现或读取接口取得；不要把名称当成 ID。"
+          },
+          "status": {
+            "description": "该输入项的执行状态。",
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "error": {
+            "$ref": "#/components/schemas/DocItemFault"
+          }
+        },
+        "required": [
+          "opId",
+          "action",
+          "id",
+          "status"
+        ],
+        "type": "object"
+      },
+      "DocUnsV2MetadataPurgeOutcome": {
+        "additionalProperties": false,
+        "properties": {
+          "jobId": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DocUnsV2MetadataPurgeResult"
+            }
+          },
+          "status": {
+            "description": "本次操作的执行状态。",
+            "enum": [
+              "committed",
+              "validated",
+              "accepted",
+              "partiallyCommitted",
+              "failed",
+              "unknown",
+              "validationFailed"
+            ],
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/OutcomeSummary",
+            "description": "仅部分提交时返回的逐项执行汇总。"
+          }
+        },
+        "required": [
+          "status",
+          "replayed"
+        ],
+        "type": "object"
+      },
+      "DocUnsV2MetadataPurgeResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DocUnsV2MetadataPurgeOutcome"
+          }
+        },
+        "required": [
+          "code",
+          "msg",
+          "requestId",
+          "data"
+        ]
+      },
       "DocUnsV2MetadataBulkWriteResponse": {
         "type": "object",
         "additionalProperties": false,
@@ -34195,7 +34426,7 @@
             "type": "string"
           },
           "type": {
-            "description": "枚举 app/other/system，缺省 other；system=平台内部服务，usage_type=internal 的 API key 可用；工作区系统 Key 须同时声明 sender.id=uns-agent；其他情况 400，建信归 workspace 分组（System tab）",
+            "description": "枚举 app/other/system，缺省 other；system 仅平台内部发送方（如 UNS Agent）可用；App 凭证不能使用 system，sender.type=app 时 sender.id 以凭证绑定的 App 为准；建信归 workspace 分组（System tab）",
             "type": "string",
             "enum": [
               "app",

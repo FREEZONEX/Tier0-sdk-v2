@@ -39,6 +39,38 @@ const rawClient = (overrides: Parameters<typeof createClient>[0] = {}) => {
 };
 
 describe('UNS v2 localhost HTTP fixture', () => {
+  it('submits a collection purge once and preserves the async receipt', async () => {
+    const start = received.length;
+    respond = (_req, res) => send(res, { code: 200, msg: '', requestId: 'purge-request',
+      data: { status: 'accepted', jobId: 'purge-job', replayed: false, results: [] } });
+    const body = { kind: 'collection' as const, ids: ['old-orders', 'old-events'], idempotencyKey: 'purge-once' };
+    const result = await client().uns.metadataPurge(body);
+    expect(received.slice(start)).toHaveLength(1);
+    expect(received.at(-1)?.path).toBe('/openapi/v2/uns/metadata:purge');
+    expect(JSON.parse(received.at(-1)!.body)).toEqual(body);
+    expect(result.data.status).toBe('accepted');
+    expect(result.data.jobId).toBe('purge-job');
+    expect(result.data.results).toEqual([]);
+  });
+
+  it('keeps purge dryRun optional and carries the intent key on an explicit retry', async () => {
+    const start = received.length;
+    const caller = client();
+    respond = (_req, res) => send(res, { code: 200, msg: '', requestId: 'purge-preview',
+      data: { status: 'validated', replayed: false, results: [] } });
+    const preview = await caller.uns.metadataPurge({ kind: 'collection', ids: ['old-orders'], dryRun: true });
+    expect(preview.data.status).toBe('validated');
+    expect(preview.data.jobId).toBeUndefined();
+    respond = (_req, res) => send(res, { code: 200, msg: '', requestId: 'purge-replay',
+      data: { status: 'accepted', jobId: 'purge-job', replayed: true, results: [] } });
+    const request = { kind: 'collection' as const, ids: ['old-orders'], idempotencyKey: 'same-intent' };
+    await caller.uns.metadataPurge(request);
+    const replay = await caller.uns.metadataPurge(request);
+    expect(received.slice(start)).toHaveLength(3);
+    expect(received.slice(-2).map(row => JSON.parse(row.body))).toEqual([request, request]);
+    expect(replay.data).toMatchObject({ status: 'accepted', jobId: 'purge-job', replayed: true });
+  });
+
   it('carries the insert snapshot and exact revision in one request', async () => {
     const start = received.length;
     respond = (_req, res) => {
@@ -351,11 +383,11 @@ describe('UNS v2 localhost HTTP fixture', () => {
       'record-reads/1', 'app-context/3', 'collection-ttl/1', 'error-model/1', 'record-insert-return/1', 'stream-run-error/1',
       'source-lifecycle/2', 'app-collections/2',
     ]));
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('5c77d6f21e6332cb09e3212df9203eb01bf7f129');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('064cdcdb688b18fb73295ac986380d84daa08188');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(UNS_V2_CONTRACT_PROVENANCE.sourceDerivedContractSHA256).toBe(UNS_V2_CONTRACT_PROVENANCE.hashes.contract);
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(81);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(94);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(82);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(95);
     expect(received.slice(start)).toHaveLength(1);
   });
 
