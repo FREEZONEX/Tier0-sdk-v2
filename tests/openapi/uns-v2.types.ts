@@ -61,6 +61,15 @@ inserted.then(response => {
 client.uns.recordInsertOne({ collectionId: 'orders', data: {}, returnDocument: 'before' });
 const list = client.uns.recordFind({ collectionId: 'orders', limit: 20, cursor: 'opaque' });
 const jobs = client.uns.jobs({ queries: [{ queryId: 'job', jobIds: ['job-1'] }] });
+const purge = client.uns.metadataPurge({ kind: 'collection', ids: ['old-orders'], idempotencyKey: 'purge-once' });
+purge.then(response => {
+  const jobId: string | undefined = response.data.jobId;
+  void jobId;
+});
+// @ts-expect-error Permanent deletion is available for collections only.
+client.uns.metadataPurge({ kind: 'directory', ids: ['old-folder'] });
+// @ts-expect-error Explicit target IDs are required; an empty filter is not a purge target.
+client.uns.metadataPurge({ kind: 'collection', filter: {} });
 const transaction = client.uns.recordTransactionExecute({ items: [] });
 const sources = client.source.documents.list({ page: 1, size: 20, archived: false });
 const deployment = client.stream.programs.deploy({

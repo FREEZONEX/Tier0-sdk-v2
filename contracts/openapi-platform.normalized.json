@@ -2750,7 +2750,7 @@
             "type": "string"
           },
           "type": {
-            "description": "枚举 app/other/system，缺省 other；system=平台内部服务，usage_type=internal 的 API key 可用；工作区系统 Key 须同时声明 sender.id=uns-agent；其他情况 400，建信归 workspace 分组（System tab）",
+            "description": "枚举 app/other/system，缺省 other；system 仅平台内部发送方（如 UNS Agent）可用；App 凭证不能使用 system，sender.type=app 时 sender.id 以凭证绑定的 App 为准；建信归 workspace 分组（System tab）",
             "type": "string",
             "enum": [
               "app",
