@@ -19,6 +19,8 @@ export const MAX_COLLECTIONS = 64;
 export const MAX_DESCRIPTION_LENGTH = 512;
 /** UNS: business-facing collection name length in Unicode characters. */
 export const MAX_NAME_LENGTH = 63;
+/** Business directory paths may omit unknown ISA-95 levels. */
+export const MAX_DIRECTORY_DEPTH = 16;
 /** Seeds are inserted in atomic chunks of 200 during the first request; keep them a baseline, not a data import. */
 export const MAX_SEED_DOCUMENTS = 1000;
 
@@ -57,6 +59,8 @@ export interface CollectionDefinition<S extends CollectionSchema = CollectionSch
   readonly alias: string;
   /** Business-facing name, independent of the stable App alias. */
   readonly name: string;
+  /** Workspace-root business path. Required when creating a new collection; omitted only for existing aliases. */
+  readonly directoryPath?: readonly string[];
   /** Zod 4 object schema of the record body (no `_id` / `_meta`). */
   readonly schema: S;
   readonly indexes: readonly IndexSpec[];
@@ -94,6 +98,7 @@ export type NewDoc<C extends CollectionDefinition> = z.input<C['schema']> & {
 export function defineCollection<S extends CollectionSchema>(definition: {
   alias: string;
   name: string;
+  directoryPath?: readonly string[];
   schema: S;
   indexes?: IndexSpec[];
   description?: string;
@@ -105,6 +110,7 @@ export function defineCollection<S extends CollectionSchema>(definition: {
     );
   }
   assertCollectionName(definition.name);
+  if (definition.directoryPath !== undefined) assertDirectoryPath(definition.directoryPath);
   if (definition.description && [...definition.description].length > MAX_DESCRIPTION_LENGTH) {
     throw new Error(`Collection "${definition.alias}": description is longer than ${MAX_DESCRIPTION_LENGTH} characters.`);
   }
@@ -116,6 +122,7 @@ export function defineCollection<S extends CollectionSchema>(definition: {
   return Object.freeze({
     alias: definition.alias,
     name: definition.name,
+    ...(definition.directoryPath !== undefined ? { directoryPath: Object.freeze([...definition.directoryPath]) } : {}),
     schema: definition.schema,
     indexes: Object.freeze([...(definition.indexes ?? [])]),
     ...(definition.description ? { description: definition.description } : {}),
@@ -126,5 +133,19 @@ export function defineCollection<S extends CollectionSchema>(definition: {
 export function assertCollectionName(name: unknown): asserts name is string {
   if (typeof name !== 'string' || name.length === 0 || name.trim() !== name || [...name].length > MAX_NAME_LENGTH || /[\/\0]/.test(name)) {
     throw new Error(`Collection name must be nonempty, at most ${MAX_NAME_LENGTH} Unicode characters, without surrounding whitespace, "/" or NUL.`);
+  }
+}
+
+/** Validate each business name as one segment; no normalization or fabricated levels. */
+export function assertDirectoryPath(path: unknown): asserts path is readonly string[] {
+  if (!Array.isArray(path) || path.length < 1 || path.length > MAX_DIRECTORY_DEPTH) {
+    throw new Error(`directoryPath must contain 1–${MAX_DIRECTORY_DEPTH} business directory names from the workspace root.`);
+  }
+  for (let index = 0; index < path.length; index += 1) {
+    try {
+      assertCollectionName(path[index]);
+    } catch {
+      throw new Error(`directoryPath[${index}] must be a nonempty business name of at most ${MAX_NAME_LENGTH} Unicode characters, without surrounding whitespace, "/" or NUL.`);
+    }
   }
 }

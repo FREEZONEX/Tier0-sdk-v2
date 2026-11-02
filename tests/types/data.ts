@@ -4,6 +4,7 @@ import { createDataClient, DataError, defineCollection, runAsApp, type DeepParti
 const workOrders = defineCollection({
   alias: 'work_orders',
   name: '生产工单',
+  directoryPath: ['苏州工厂', '装配一线'] as const,
   schema: z.object({ code: z.string(), status: z.enum(['DRAFT', 'DONE']), qty: z.number().int().optional() }),
   indexes: [{ path: 'code', unique: true }],
   seed: [{ _id: 'wo-1', code: 'WO-1', status: 'DRAFT' }],
@@ -12,6 +13,10 @@ const workOrders = defineCollection({
 defineCollection({ alias: 'unseeded', name: '种子校验', schema: z.object({ a: z.string() }), seed: [{ a: 'x' }] });
 
 const data = createDataClient({ collections: [workOrders] });
+// @ts-expect-error paths are immutable after declaration
+workOrders.directoryPath?.push('unknown');
+// @ts-expect-error a directory path is an array of names, not a slash-delimited string
+defineCollection({ alias: 'invalid_path', name: '路径校验', directoryPath: 'Plant/Line', schema: z.object({ code: z.string() }) });
 // @ts-expect-error a business name is required separately from the alias
 defineCollection({ alias: 'missing_name', schema: z.object({ code: z.string() }) });
 const orders = data.collection(workOrders);

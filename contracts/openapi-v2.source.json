@@ -7377,7 +7377,11 @@
                         "path": "status"
                       }
                     ],
-                    "name": "生产工单"
+                    "name": "生产工单",
+                    "directoryPath": [
+                      "示例工厂",
+                      "生产车间"
+                    ]
                   }
                 ]
               }
@@ -21917,6 +21921,17 @@
             "type": "string",
             "maxLength": 512,
             "description": "集合说明，只在创建时写入；之后修改须用 schema:replace（ensure 不写注解，差异以 ANNOTATION_NOT_APPLIED 列在 ignored）。"
+          },
+          "directoryPath": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 16,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 63
+            },
+            "description": "从 Workspace 根开始的真实业务目录名称路径。新 alias 必填；既有 alias 可省略，声明路径变化只返回 ignored，不移动集合。按父目录和名称逐级复用存活目录，缺失则原子创建；归档或非目录同名冲突拒绝，不恢复目录、不更改额外权限。工业数据优先按 ISA-95 Enterprise → Site → Area → Work Center → Work Unit，只声明业务已知且有意义的层级，可跳过不适用层级；非工业业务使用真实业务层级，不机械补齐五级。允许在真实设备作用范围下增加 MES、App 或业务模块目录，例如 工厂/产线/MES/工单；禁止的是把不同设备范围的数据统一放进根目录 App 容器。"
           }
         },
         "required": [

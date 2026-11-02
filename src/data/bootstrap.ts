@@ -260,7 +260,14 @@ export function createBootstrap(config: BootstrapConfig) {
       collectionIds.set(result.alias.toLowerCase(), result.collectionId);
       const notes = result.ignored ?? [];
       const annotations = notes.filter((note) => note.reason === 'ANNOTATION_NOT_APPLIED');
-      const wider = notes.filter((note) => note.reason !== 'ANNOTATION_NOT_APPLIED');
+      const directories = notes.filter((note) => note.reason === 'DIRECTORY_PATH_NOT_APPLIED');
+      const wider = notes.filter((note) => note.reason !== 'ANNOTATION_NOT_APPLIED' && note.reason !== 'DIRECTORY_PATH_NOT_APPLIED');
+      if (directories.length > 0) {
+        logger.warn(
+          `[data] ensure keeps existing collection locations; not applied: ${directories.map((note) => notePath(result.alias, note)).join(', ')}. ` +
+            'A directoryPath declaration only places a new collection. Move existing collections explicitly through metadata operations when authorized.',
+        );
+      }
       if (wider.length > 0) {
         logger.info(
           `[data] "${result.alias}" storage is wider than this declaration (or has retired parts); ignored: ` +

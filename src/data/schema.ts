@@ -10,7 +10,7 @@
  * time) instead of on the first request.
  */
 import { z } from 'zod';
-import { ALIAS_PATTERN, assertCollectionName, collectionLabel, type CollectionDefinition, type CollectionReference, type CollectionTarget, type IndexSpec } from './define.js';
+import { ALIAS_PATTERN, assertCollectionName, assertDirectoryPath, collectionLabel, type CollectionDefinition, type CollectionReference, type CollectionTarget, type IndexSpec } from './define.js';
 
 export type RecordSchemaType = 'object' | 'array' | 'string' | 'number' | 'integer' | 'boolean';
 export type EnumValue = string | number | boolean;
@@ -42,6 +42,7 @@ export interface NormalizedIndex {
 export interface CompiledCollection {
   alias: string;
   name: string;
+  directoryPath?: readonly string[];
   recordSchema: RecordSchema;
   indexes: NormalizedIndex[];
   description?: string;
@@ -508,6 +509,13 @@ export function compileCollection(definition: CollectionDefinition): CompiledCol
   } catch (error) {
     throw new CollectionSchemaError(definition.alias, [{ path: 'name', message: error instanceof Error ? error.message : String(error) }]);
   }
+  if (definition.directoryPath !== undefined) {
+    try {
+      assertDirectoryPath(definition.directoryPath);
+    } catch (error) {
+      throw new CollectionSchemaError(definition.alias, [{ path: 'directoryPath', message: error instanceof Error ? error.message : String(error) }]);
+    }
+  }
   const recordSchema = toRecordSchema(definition.alias, definition.schema);
   const issues: SchemaIssue[] = [];
   const indexes = normalizeIndexes(definition.alias, definition.indexes, recordSchema, issues);
@@ -515,6 +523,7 @@ export function compileCollection(definition: CollectionDefinition): CompiledCol
   const result: CompiledCollection = {
     alias: definition.alias,
     name: definition.name,
+    ...(definition.directoryPath !== undefined ? { directoryPath: Object.freeze([...definition.directoryPath]) } : {}),
     recordSchema,
     indexes,
     ...(definition.description ? { description: definition.description } : {}),
