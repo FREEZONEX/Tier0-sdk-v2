@@ -65,11 +65,11 @@ describe('Source, Stream and UNS domain clients', () => {
       fetch: async (_url, init) => { received.push(JSON.parse(String(init?.body))); return new Response('truncated'); },
     });
     const body = {
-      dryRun: false, idempotencyKey: 'source-disable-101-rev2',
-      items: [{ id: '101', expectedRevision: 2, desiredState: 'disabled' as const, confirmedImpactRevision: 'si1_' + 'x'.repeat(43) }],
+      dryRun: false, idempotencyKey: 'source-delete-101-rev2',
+      items: [{ id: '101', expectedRevision: 2, confirmedImpactRevision: 'si1_' + 'x'.repeat(43) }],
     };
-    await expect(client.source.state.update(body)).rejects.toMatchObject({
-      operation: 'sourceStateUpdate', outcomeUnknown: true,
+    await expect(client.source.delete(body)).rejects.toMatchObject({
+      operation: 'sourceDelete', outcomeUnknown: true,
     });
     expect(received).toEqual([body]);
   });

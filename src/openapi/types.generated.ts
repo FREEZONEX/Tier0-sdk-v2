@@ -1020,7 +1020,7 @@ export interface components {
             /** @description 人读显示名（接替废弃的 source），≤100字符 */
             name?: string;
             /**
-             * @description 枚举 app/other/system，缺省 other；system=平台内部服务，仅 usage_type=internal 的 API key 可用（否则 400），建信归 workspace 分组（System tab）
+             * @description 枚举 app/other/system，缺省 other；system=平台内部服务，usage_type=internal 的 API key 可用；工作区系统 Key 须同时声明 sender.id=uns-agent；其他情况 400，建信归 workspace 分组（System tab）
              * @default other
              * @enum {string}
              */
@@ -1039,6 +1039,7 @@ export interface components {
             messageId: string;
         };
         GetNotificationResp: {
+            channels: components["schemas"]["NotificationChannelResult"][];
             completedAt?: string;
             createdAt: string;
             errorCode?: string;
@@ -1046,6 +1047,16 @@ export interface components {
             messageId: string;
             status: string;
             type: string;
+        };
+        NotificationChannelResult: {
+            channel: string;
+            errorCode?: string;
+            message?: string;
+            platform: string;
+            /** @description sent / failed / no_device / not_configured / accepted / pending；accepted 仅 inbox（站内信已受理，仍在处理）；pending 表示请求了该渠道但推送还在处理中，尚无最终结果 */
+            status: string;
+            successCount: number | bigint;
+            targetCount: number | bigint;
         };
         PlatformGetMembersReq: {
             keyword?: string;
@@ -1170,7 +1181,13 @@ export interface components {
                 replacement?: string;
                 sunsetAt?: string;
             }[];
-        };
+        } & (unknown | {
+            capabilities?: (unknown | {
+                operations?: {
+                    operation?: unknown;
+                }[];
+            })[];
+        });
         /** @description Unknown capability codes are ignored; only recognized codes use the frozen assessment contract. */
         CapabilityDiscoverycapability: {
             code: string;

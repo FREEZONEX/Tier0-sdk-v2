@@ -1,20 +1,20 @@
 {
   "repository": "FREEZONEX/Tier0-Backend",
-  "revision": "0d8cb6dd7c72fb794dd1d63f5c7efb5017804545",
+  "revision": "87a2bc316fbae69448e58dd66e38450c744793b5",
   "sourceKind": "committed",
   "sources": {
     "contracts/capability-discovery/response.schema.json": "share/domain/capability/discovery.schema.json",
     "contracts/capability-discovery/vectors.json": "share/domain/capability/testdata/discovery.vectors.json"
   },
-  "vectorCount": 211,
+  "vectorCount": 213,
   "consumerScope": [
     "namespace.v2",
     "source",
     "stream"
   ],
   "inputs": {
-    "contracts/capability-discovery/response.schema.json": "25f490aaedd45fe5a452a57b5dec062cf25a8e29561a623c5e06bfc528ea6df4",
-    "contracts/capability-discovery/vectors.json": "149060a4cf79a0e2ba4fa654b472fe5caa2898fad41658104a852eb122af757c",
-    "src/capabilities.ts": "8c4cad72f5f392165c0f29a82d3ab2462c65955fa2fc3c5c15ff410a1f48ea96"
+    "contracts/capability-discovery/response.schema.json": "2760f3fe9b2c9870e58c5f4772a321c9a0a1e44a5278e4a5042087fc67c96b36",
+    "contracts/capability-discovery/vectors.json": "1f651e3f0dfc3b6d795e3d0f2cb921ff4069715dd991ecde28681f8345a093e5",
+    "src/capabilities.ts": "db65733c11b21eadd28f0a20650f2f50e6ca32c9817128030f1ec82ed83465e3"
   }
 }

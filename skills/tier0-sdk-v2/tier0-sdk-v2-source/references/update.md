@@ -7,13 +7,13 @@
 | id | string | 是 | 已知的 Source ID |
 | patch / document | object / CloudSourceDocument | 二选一 | patch 保留未提供的字段；document 完整替换 |
 | expectedRevision | integer | 是 | 已读取或上次提交返回的 revision，原样传回 |
-| confirmedImpactRevision | string | 有引用时 | 相同修改意图和修订的 impact 回执 |
+| confirmedImpactRevision | string | 有引用的连接变更时 | 相同修改意图和修订的 impact 回执；仅改名称、描述无需提供 |
 | dryRun | boolean | 否 | 默认 false 提交；true 仅预检 |
 | idempotencyKey | string | 否 | 最多 128 字符 |
 
 ## 示例：一次请求修改名称
 
-已有 ID 和 revision 时直接提交 patch。服务端在同一事务和依赖锁下检查引用并修改：没有任何草稿、活动或历史 Stream 引用时无需 impact。patch 中未提供的字段保留原值，config 如果提供则整体替换；完整 document 更新需先取得完整文档并保留未改配置和认证引用。
+已有 ID 和 revision 时直接提交 patch。仅改名称、描述无需 impact；连接配置变更在没有任何草稿、活动或历史 Stream 引用时也无需 impact。服务端在同一事务和依赖锁下检查并修改。patch 中未提供的字段保留原值，config 如果提供则整体替换；完整 document 更新需先取得完整文档并保留未改配置和认证引用。
 
 ```ts
 import { createClient, type Tier0Client, type UnsV2Request } from '@tier0/sdk-v2';
@@ -32,19 +32,19 @@ export async function renameSource(
 
 提交直接返回完整 Source view 和新的 revision，无需额外 get。版本冲突时不会覆盖其他人的修改。返回 `SOURCE_IMPACT_CONFIRMATION_REQUIRED` 表示存在引用且未提交，进入下面的显式评估流程；不要自动获取并同意影响。
 
-## 有引用时：评估后确认相同意图
+## 有引用的连接变更：评估后确认相同意图
 
 prepare 收集全部影响分页。在已有授权范围内评估 counts、restrictedCount 和引用后，再调用 commit。不可见引用也要求确认。影响字段说明见[影响分析](changes.md)。
 
 ```ts
-import { createClient, type Tier0Client, type UnsV2Request } from '@tier0/sdk-v2';
+import { createClient, type Tier0Client, type UnsV2Request, type CloudSourceDocument } from '@tier0/sdk-v2';
 
-export async function prepareSourceRename(
+export async function prepareSourceConfigUpdate(
   id: string, expectedRevision: UnsV2Request<'sourceImpact'>['expectedRevision'],
-  name: string, client: Tier0Client = createClient(),
+  config: CloudSourceDocument['config'], client: Tier0Client = createClient(),
 ) {
   const intent: UnsV2Request<'sourceImpact'> = {
-    id, expectedRevision, action: 'update', patch: { name },
+    id, expectedRevision, action: 'update', patch: { config },
   };
   const impact = await client.source.impact({ ...intent, offset: 0, size: 200 });
   const references = [...impact.data.references];
@@ -62,7 +62,7 @@ export async function prepareSourceRename(
   }
   return { intent, impact: { ...impact.data, references, nextOffset: offset } };
 }
-export async function commitSourceRename(
+export async function commitSourceConfigUpdate(
   plan: { intent: UnsV2Request<'sourceImpact'>; impact: { impactRevision: string } },
   intentKey: string, client: Tier0Client = createClient(),
 ) {

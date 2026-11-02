@@ -99,7 +99,8 @@ function diagnostics(value: Record<string, unknown>, fail: () => never): Capabil
   return result;
 }
 
-const sourceOperations = ['read', 'configure', 'test', 'discover', 'enable', 'disable'];
+const sourceOperations = ['read', 'configure', 'test', 'discover'];
+const enterpriseSourceOperations = [...sourceOperations, 'enable', 'disable'];
 const streamOperations = ['read', 'configure', 'validate', 'deploy', 'execute', 'disable'];
 const resourceOperations: Partial<Record<CapabilityCode, readonly string[]>> = {
   source: ['test', 'discover', 'enable'],
@@ -107,15 +108,16 @@ const resourceOperations: Partial<Record<CapabilityCode, readonly string[]>> = {
   'stream.requests.invoke.v1': ['invoke'],
 };
 
-function operationFields(value: Record<string, unknown>, code: CapabilityCode, fail: () => never): { operations?: CapabilityOperation[] } {
+function operationFields(value: Record<string, unknown>, code: CapabilityCode, product: string, fail: () => never): { operations?: CapabilityOperation[] } {
   if (value.operations === undefined) return {};
   if (!Array.isArray(value.operations)) return fail();
   const operations: CapabilityOperation[] = [];
-  const supported = code === 'source' ? sourceOperations : code === 'stream' ? streamOperations :
+  const supported = code === 'source' ? (product === 'cloud' ? sourceOperations : enterpriseSourceOperations) : code === 'stream' ? streamOperations :
     code === 'stream.requests.invoke.v1' ? ['invoke'] : [];
   const seen = new Set<string>();
   for (const item of value.operations) {
     if (!record(item) || !text(item.operation)) return fail();
+    if (product === 'cloud' && code === 'source' && ['enable', 'disable'].includes(item.operation)) return fail();
     if (!supported.includes(item.operation)) continue;
     if (seen.has(item.operation)) return fail();
     seen.add(item.operation);
@@ -162,7 +164,7 @@ function discovery(value: unknown, status: number, accepted: Partial<Record<Capa
       code, state: item.state as CapabilityState, reasonCode: item.reasonCode,
       contractVersions: [...item.contractVersions],
       ...diagnostics(item, fail),
-      ...operationFields(item, code, fail),
+      ...operationFields(item, code, value.product, fail),
     });
   }
   const deprecations: CapabilityDeprecation[] = [];

@@ -530,7 +530,7 @@
           ],
           "operations": [
             {
-              "operation": "enable",
+              "operation": "test",
               "state": "ready",
               "requiresResourceCheck": true,
               "reasonCode": "READY"
@@ -561,7 +561,7 @@
           ],
           "operations": [
             {
-              "operation": "enable",
+              "operation": "test",
               "state": "unavailable",
               "requiresResourceCheck": true,
               "reasonCode": "RUNTIME_UNREACHABLE"
@@ -592,7 +592,7 @@
           ],
           "operations": [
             {
-              "operation": "enable",
+              "operation": "test",
               "state": "disabled",
               "requiresResourceCheck": true,
               "reasonCode": "RELEASE_DISABLED"
@@ -822,7 +822,7 @@
     }
   },
   {
-    "name": "cloud-source-enable-missing-resource-recheck",
+    "name": "cloud-source-test-missing-resource-recheck",
     "valid": false,
     "response": {
       "product": "cloud",
@@ -840,7 +840,7 @@
           ],
           "operations": [
             {
-              "operation": "enable",
+              "operation": "test",
               "state": "ready",
               "requiresResourceCheck": false,
               "reasonCode": "READY"
@@ -853,7 +853,7 @@
     }
   },
   {
-    "name": "cloud-source-enable-disabled-still-needs-resource-recheck",
+    "name": "cloud-source-test-disabled-still-needs-resource-recheck",
     "valid": false,
     "response": {
       "product": "cloud",
@@ -871,7 +871,7 @@
           ],
           "operations": [
             {
-              "operation": "enable",
+              "operation": "test",
               "state": "disabled",
               "requiresResourceCheck": false,
               "reasonCode": "RELEASE_DISABLED"
@@ -884,7 +884,7 @@
     }
   },
   {
-    "name": "cloud-source-enable-resource-recheck",
+    "name": "cloud-source-test-resource-recheck",
     "valid": true,
     "response": {
       "product": "cloud",
@@ -902,7 +902,7 @@
           ],
           "operations": [
             {
-              "operation": "enable",
+              "operation": "test",
               "state": "ready",
               "requiresResourceCheck": true,
               "reasonCode": "READY"
@@ -1075,7 +1075,7 @@
           ],
           "operations": [
             {
-              "operation": "enable",
+              "operation": "test",
               "state": "ready",
               "requiresResourceCheck": true
             }
@@ -1105,7 +1105,7 @@
           ],
           "operations": [
             {
-              "operation": "enable",
+              "operation": "test",
               "state": "ready",
               "requiresResourceCheck": true,
               "checkedAt": "2026-10-28T14:00:00Z",
@@ -5471,7 +5471,7 @@
     }
   },
   {
-    "name": "cloud-duplicate-source-enable",
+    "name": "cloud-duplicate-source-test",
     "valid": false,
     "response": {
       "product": "cloud",
@@ -5491,13 +5491,13 @@
           "checkedAt": "2026-10-28T14:00:00Z",
           "operations": [
             {
-              "operation": "enable",
+              "operation": "test",
               "state": "unavailable",
               "requiresResourceCheck": true,
               "reasonCode": "RUNTIME_UNREACHABLE"
             },
             {
-              "operation": "enable",
+              "operation": "test",
               "state": "readiness_unknown",
               "requiresResourceCheck": true,
               "reasonCode": "READINESS_NOT_ASSESSED"
@@ -5529,13 +5529,13 @@
           "checkedAt": "2026-10-28T14:00:00Z",
           "operations": [
             {
-              "operation": "disable",
+              "operation": "configure",
               "state": "unavailable",
               "requiresResourceCheck": true,
               "reasonCode": "RUNTIME_UNREACHABLE"
             },
             {
-              "operation": "disable",
+              "operation": "configure",
               "state": "readiness_unknown",
               "requiresResourceCheck": true,
               "reasonCode": "READINESS_NOT_ASSESSED"
@@ -6714,17 +6714,33 @@
     "response": {
       "product": "cloud",
       "contractVersion": "2.0",
-      "apiContractVersions": ["openapi/v2"],
-      "sdkContractVersions": ["stream-requests/v1"],
-      "capabilities": [{
-        "code": "stream.requests.invoke.v1",
-        "state": "ready",
-        "reasonCode": "READY",
-        "checkedAt": "2026-10-30T14:00:00Z",
-        "validUntil": "2026-10-30T14:00:05Z",
-        "contractVersions": ["openapi/v2", "stream-requests/v1"],
-        "operations": [{"operation": "invoke", "state": "ready", "reasonCode": "READY", "requiresResourceCheck": true}]
-      }],
+      "apiContractVersions": [
+        "openapi/v2"
+      ],
+      "sdkContractVersions": [
+        "stream-requests/v1"
+      ],
+      "capabilities": [
+        {
+          "code": "stream.requests.invoke.v1",
+          "state": "ready",
+          "reasonCode": "READY",
+          "checkedAt": "2026-10-30T14:00:00Z",
+          "validUntil": "2026-10-30T14:00:05Z",
+          "contractVersions": [
+            "openapi/v2",
+            "stream-requests/v1"
+          ],
+          "operations": [
+            {
+              "operation": "invoke",
+              "state": "ready",
+              "reasonCode": "READY",
+              "requiresResourceCheck": true
+            }
+          ]
+        }
+      ],
       "deprecations": []
     }
   },
@@ -6753,5 +6769,67 @@
       "deprecations": []
     },
     "expectedErrorCode": "CAPABILITY_UNSUPPORTED_VERSION"
+  },
+  {
+    "name": "cloud-source-retired-enable",
+    "valid": false,
+    "response": {
+      "product": "cloud",
+      "contractVersion": "2.0",
+      "apiContractVersions": [
+        "openapi/v2"
+      ],
+      "sdkContractVersions": [],
+      "capabilities": [
+        {
+          "code": "source",
+          "state": "ready",
+          "reasonCode": "READY",
+          "contractVersions": [
+            "openapi/v2"
+          ],
+          "operations": [
+            {
+              "operation": "enable",
+              "state": "ready",
+              "reasonCode": "READY",
+              "requiresResourceCheck": true
+            }
+          ]
+        }
+      ],
+      "deprecations": []
+    }
+  },
+  {
+    "name": "cloud-source-retired-disable",
+    "valid": false,
+    "response": {
+      "product": "cloud",
+      "contractVersion": "2.0",
+      "apiContractVersions": [
+        "openapi/v2"
+      ],
+      "sdkContractVersions": [],
+      "capabilities": [
+        {
+          "code": "source",
+          "state": "ready",
+          "reasonCode": "READY",
+          "contractVersions": [
+            "openapi/v2"
+          ],
+          "operations": [
+            {
+              "operation": "disable",
+              "state": "ready",
+              "reasonCode": "READY",
+              "requiresResourceCheck": true
+            }
+          ]
+        }
+      ],
+      "deprecations": []
+    }
   }
 ]

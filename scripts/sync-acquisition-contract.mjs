@@ -13,7 +13,7 @@ const sha = value => createHash('sha256').update(value).digest('hex');
 const json = value => JSON.stringify(value, null, 2) + '\n';
 export const acquisitionSchemas = [
   'CloudSourceCreateCredentials', 'CloudSourceDocumentCreateReq', 'CloudSourceDocumentUpdateReq',
-  'UnsV2SourceStateUpdateReq', 'CloudStreamDocumentCreateReq', 'CloudStreamDocumentUpdateReq',
+  'CloudStreamDocumentCreateReq', 'CloudStreamDocumentUpdateReq',
   'UnsV2StreamProgramDeployReq',
 ];
 

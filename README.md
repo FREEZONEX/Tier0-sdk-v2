@@ -2,6 +2,8 @@
 
 Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交互均使用 `@tier0/sdk-v2`。旧 SDK 不再作为依赖。
 
+`0.9.7` 候选版简化 Source 生命周期：创建后可直接使用，删除后停止后续使用；移除 `client.source.state.update`、启停能力与 `desiredState`。名称和描述修改无需影响确认，连接配置变更或删除存在引用时仍须确认；运行中的 Stream 可直接删除。该版本尚未发布 npm，验收使用下方安装包。
+
 `0.9.3` 同步集合授权合同：授予既有集合访问权限时无需提供别名，并更新生成类型与使用说明。集合声明的 `name` / `alias` 要求保持不变。
 
 `0.9.2` 包含接口合同变更，升级时需核对下方使用方式并确认目标后端已部署对应合同。平台接口统一使用 OpenAPI v2，能力发现使用 `state + reasonCode + operations`。Stream 请求与消息交互统一到本包的 `client.streams`；`client.stream` 保留 Stream 管理。文件上传支持并发分片与断点续传。
@@ -20,13 +22,13 @@ Collection 声明必须同时提供业务名称 `name`（例如「生产工单�
 
 ## 安装与初始化
 
-维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。本分支的功能应使用检查通过的 `tier0-sdk-v2-0.9.6.tgz` 在业务项目中验证：
+维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。本分支的功能应使用检查通过的 `tier0-sdk-v2-0.9.7.tgz` 在业务项目中验证：
 
 ```sh
-npm install /path/to/tier0-sdk-v2-0.9.6.tgz
+npm install /path/to/tier0-sdk-v2-0.9.7.tgz
 ```
 
-`0.9.6` 正式发布后再使用 `npm install @tier0/sdk-v2@0.9.6`。发布前，npm 的既有版本和 `next` 标签不代表本分支的完整功能。
+`0.9.7` 正式发布后再使用 `npm install @tier0/sdk-v2@0.9.7`。发布前，npm 的既有版本和 `next` 标签不代表本分支的完整功能。
 
 ```ts
 import { createClient } from '@tier0/sdk-v2';
@@ -241,7 +243,7 @@ node scripts/check-live-workflows.mjs <consumer> <workspaceId> .tmp/live-workflo
 node scripts/check-live-transports.mjs <consumer> <workspaceId> .tmp/live-transports.json --write-test-fixtures
 ```
 
-写入验收不发布 Stream、不启用 Source、不发送通知。归档资源保留正常产品恢复能力；报告区分通过、服务端拒绝和未验证范围。分片上传失败会保留错误原因，确认尚未尝试 complete 时清理本次会话；完成结果未知时先对账。
+写入验收不发布 Stream、不发送通知。归档资源保留正常产品恢复能力；报告区分通过、服务端拒绝和未验证范围。分片上传失败会保留错误原因，确认尚未尝试 complete 时清理本次会话；完成结果未知时先对账。
 
 Stream 发布和实际运行使用单独的验收脚本，同样只在明确授权的测试 Workspace 执行；按脚本报告区分已测和未测的生命周期阶段：
 
