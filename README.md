@@ -20,13 +20,13 @@ Collection 声明必须同时提供业务名称 `name`（例如「生产工单�
 
 ## 安装与初始化
 
-维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。本分支的功能应使用检查通过的 `tier0-sdk-v2-0.9.6.tgz` 在业务项目中验证：
+维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。本分支的功能应使用检查通过的 `tier0-sdk-v2-0.9.7.tgz` 在业务项目中验证：
 
 ```sh
-npm install /path/to/tier0-sdk-v2-0.9.6.tgz
+npm install /path/to/tier0-sdk-v2-0.9.7.tgz
 ```
 
-`0.9.6` 正式发布后再使用 `npm install @tier0/sdk-v2@0.9.6`。发布前，npm 的既有版本和 `next` 标签不代表本分支的完整功能。
+`0.9.7` 正式发布后再使用 `npm install @tier0/sdk-v2@0.9.7`。发布前，npm 的既有版本和 `next` 标签不代表本分支的完整功能。
 
 ```ts
 import { createClient } from '@tier0/sdk-v2';
@@ -108,7 +108,7 @@ Source/Stream 仍保留 `{ code, msg, requestId, data }` 响应以及 `UnsV2Erro
 
 ## UNS 数据访问
 
-创建本 App 集合使用 `defineCollection` / `appCollectionsEnsure`，`ownerAppId` 表示唯一所属 App。使用已有或其他 App 共享的集合，可用 `data.collection({ collectionId })` 获取数据层句柄，也可向 `tier0.uns.recordFind`、`recordInsertOne` 等接口传入实际 `collectionId`；无需新增声明或配置服务端 alias，也不改变集合归属。引用已有集合跳过 ensure、schema 修改和种子写入；可选的 `schema` 仅用于本地写入校验。App Key 仍须已有覆盖该集合及操作的授权，知道 ID 不代表获得权限。
+创建本 App 集合使用 `defineCollection` / `appCollectionsEnsure`，新建必须声明 `directoryPath`（从 Workspace 根开始的实际业务名称数组）。工业数据按业务已知的 ISA-95 层级逐级复用或创建目录，不强行补满五层、不统一放入缺少业务范围的根级 App 目录；允许在已知工厂、产线下声明 MES 等 App 或业务模块目录，例如“工厂 / 产线 / MES / 工单”。共享数据放在适合其范围的共同祖先。已有 alias 的位置不会因声明变化自动移动。`ownerAppId` 表示唯一所属 App。使用已有或其他 App 共享的集合，可用 `data.collection({ collectionId })` 获取数据层句柄，也可向 `tier0.uns.recordFind`、`recordInsertOne` 等接口传入实际 `collectionId`；无需新增声明或配置服务端 alias，也不改变集合归属。引用已有集合跳过 ensure、schema 修改和种子写入；可选的 `schema` 仅用于本地写入校验。App Key 仍须已有覆盖该集合及操作的授权，知道 ID 不代表获得权限。
 
 新建 Schema 的数值字段使用明确格式：整数为 `type: 'integer', format: 'int32'`，小数为 `type: 'number', format: 'double'`，明确需要单精度时指定 `format: 'float'`。App 数据层编译 Zod 声明时，会递归为未指定格式的 integer/number 补齐 int32/double，并保留显式格式；直接调用 UNS/MCP 时由调用方提供 format。这些是类型注解，不新增数值范围或舍入规则；ensure 不改写已有字段注解，已有 legacy 字段需通过 schema:replace 单独迁移。
 

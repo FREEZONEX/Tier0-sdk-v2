@@ -132,6 +132,27 @@ afterEach(() => {
 });
 
 describe('transport', () => {
+  it('sends each actual business path unchanged, including shared ancestor scopes', async () => {
+    const lineOrders = defineCollection({ alias: 'line_orders', name: '产线工单', directoryPath: ['苏州工厂', '装配一线'], schema: z.object({ code: z.string() }) });
+    const siteMaterials = defineCollection({ alias: 'site_materials', name: '工厂物料', directoryPath: ['苏州工厂'], schema: z.object({ code: z.string() }) });
+    const mock = mockUns({ [ENSURE]: ensured(
+      { alias: 'line_orders', collectionId: 'c-line', status: 'created' },
+      { alias: 'site_materials', collectionId: 'c-site', status: 'created' },
+    ) });
+    await client(mock, { collections: [lineOrders, siteMaterials] }).ensure();
+    expect(mock.calls(ENSURE)).toHaveLength(1);
+    expect(mock.calls(ENSURE)[0].body.collections).toEqual([
+      expect.objectContaining({ alias: 'line_orders', directoryPath: ['苏州工厂', '装配一线'] }),
+      expect.objectContaining({ alias: 'site_materials', directoryPath: ['苏州工厂'] }),
+    ]);
+  });
+
+  it('propagates a missing new-collection directory error instead of retrying in an App folder', async () => {
+    const mock = mockUns({ [ENSURE]: fail(400, 'INVALID_REQUEST', { field: 'directoryPath' }, 'directoryPath is required for a new collection') });
+    await expect(client(mock).ensure()).rejects.toMatchObject({ code: 'INVALID_REQUEST', details: { field: 'directoryPath' } });
+    expect(mock.calls(ENSURE)).toHaveLength(1);
+    expect(mock.calls(ENSURE)[0].body.collections).toEqual([compileCollection(orders), compileCollection(lines)]);
+  });
   it('sends explicit numeric formats for new collection fields, including nested arrays', async () => {
     const measurements = defineCollection({
       alias: 'measurements',
@@ -419,6 +440,18 @@ describe('call deadline and cancellation', () => {
 });
 
 describe('bootstrap', () => {
+  it('reports an ignored location change separately and continues using the existing collection', async () => {
+    const info = vi.fn();
+    const warn = vi.fn();
+    const mock = mockUns({ [ENSURE]: ensured({
+      alias: 'orders', collectionId: 'existing-orders', status: 'unchanged',
+      ignored: [{ path: 'directoryPath', reason: 'DIRECTORY_PATH_NOT_APPLIED' }],
+    }) });
+    const state = await client(mock, { collections: [orders], logger: { ...silent, info, warn } }).ensure();
+    expect(state.collectionIds.get('orders')).toBe('existing-orders');
+    expect(info).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('ensure keeps existing collection locations'));
+  });
   it('ensures every declaration in one batch, once', async () => {
     const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, '/uns/collections/c-orders/records:count': ok({ count: 1, capped: false }), '/uns/collections/c-lines/records:count': ok({ count: 2, capped: false }) });
     const data = client(mock);

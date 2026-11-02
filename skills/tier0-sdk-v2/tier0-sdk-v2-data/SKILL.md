@@ -5,7 +5,7 @@ description: 使用 @tier0/sdk-v2/data 在 App 服务端声明并读写本 App �
 
 # App 数据层
 
-工业场景创建数据前，先按[工业命名空间指导](../tier0-sdk-v2-uns/references/namespace.md)查找并复用已有 ISA-95 目录，只创建业务需要且缺失的层级。`defineCollection` / ensure 不接收 `parentId`，新集合默认放入 App 专属目录；需要指定工业目录时，由 Agent 在构建期用现有元数据接口创建并通过 `data.parentId` 放置，运行时按已有集合 ID 访问。
+创建 App 集合必须在 `defineCollection` 中声明 `directoryPath`：从 Workspace 根开始的实际业务目录名称数组，例如已确认的 `['苏州工厂', '装配一线', 'MES']`（代码写法见下方）。工业场景先按[工业命名空间指导](../tier0-sdk-v2-uns/references/namespace.md)查询并复用已有 ISA-95 目录，只声明业务需要且已知的层级；不同集合按实际范围放置，共享数据放到共同祖先。ensure 按路径逐级复用或创建目录，不再把所有集合放入缺少业务范围的根级 App 目录；允许在已知工厂、产线等业务范围下声明 App 或业务模块目录，例如“工厂 / 产线 / MES / 工单”中的 MES。不强行补满五层，不编造企业、工厂或设备。非工业场景使用真实业务目录。
 
 `@tier0/sdk-v2/data` 是 App 业务数据的服务端入口：用 `defineCollection` 声明集合，`createDataClient` 在首次访问时一次性 ensure 全部声明，然后用 Mongo 驱动风格的集合句柄读写 UNS 记录。没有 SQL、ORM、连接串或迁移步骤；Preview 与部署后的 App 共用同一批集合和记录。
 
@@ -37,6 +37,7 @@ import { defineCollection, type Doc } from '@tier0/sdk-v2/data/define';
 export const workOrders = defineCollection({
   alias: 'work_orders',
   name: '生产工单',
+  directoryPath: ['苏州工厂', '装配一线', 'MES'],
   description: 'Production work orders',
   schema: z.object({
     code: z.string(),
@@ -55,6 +56,8 @@ export async function releasedOrders(): Promise<WorkOrder[]> {
   return data.collection(workOrders).find({ status: 'RELEASED' }, { sort: { '_meta.createdAt': -1 }, limit: 50 }).toArray();
 }
 ```
+
+示例假设“苏州工厂 / 装配一线 / MES”已由业务确认；替换为实际目录，不照抄示例工厂。每段为独立业务名称，不使用斜杠拼接。新建缺少路径会报 `INVALID_REQUEST`；已有 alias 可兼容省略路径，后续声明的路径变化不会自动搬迁集合，返回 `DIRECTORY_PATH_NOT_APPLIED` 提示。
 
 ## 核心约束
 

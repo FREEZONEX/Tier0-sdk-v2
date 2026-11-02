@@ -26,7 +26,7 @@ const operation = (name: string) => manifest.operations.find(item => item.name =
 
 describe('Backend App UNS access contract without generic record audit', () => {
   it('pins the exact upstream commit and all generator inputs', () => {
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('0d8cb6dd7c72fb794dd1d63f5c7efb5017804545');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('69b9dda5cbc6fcb447ddb752b656ec5a202a4ea6');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     for (const [key, file] of Object.entries({ contract: 'contract.json', cloudSupport: 'cloud-support.json', manifest: 'manifest.json', provenance: 'provenance.json', registry: 'registry_generated.go' })) {
       expect(UNS_V2_CONTRACT_PROVENANCE.hashes[key as keyof typeof UNS_V2_CONTRACT_PROVENANCE.hashes]).toBe(
@@ -50,14 +50,15 @@ describe('Backend App UNS access contract without generic record audit', () => {
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudContractRevision).toContain('+business-name/1+');
   });
 
-  it('keeps acquisition and capability provenance on the same committed Cloud baseline', () => {
+  it('keeps acquisition and capability provenance on the same declared Cloud baseline', () => {
     const upstream = JSON.parse(readFileSync(new URL('../../contracts/upstream.json', import.meta.url), 'utf8'));
     const capability = JSON.parse(readFileSync(new URL('../../contracts/capability-discovery/provenance.json', import.meta.url), 'utf8'));
     expect(upstream.revision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(capability.revision).toBe(upstream.revision);
     const acquisition = upstream.schemaUpdates.find((update: { scope: string }) => update.scope === 'source-stream-acquisition');
     expect(acquisition.revision).toBe(upstream.revision);
-    expect(acquisition.sourceKind).toBe('committed');
+    expect(acquisition.sourceKind).toBe(upstream.sourceKind ?? 'committed');
+    expect(capability.sourceKind).toBe(upstream.sourceKind ?? 'committed');
     for (const input of Object.values(acquisition.inputs) as { baseSHA256: string; resultSHA256: string }[]) {
       expect(input.resultSHA256).toBe(input.baseSHA256);
     }

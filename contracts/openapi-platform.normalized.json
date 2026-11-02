@@ -2750,7 +2750,7 @@
             "type": "string"
           },
           "type": {
-            "description": "枚举 app/other/system，缺省 other；system=平台内部服务，仅 usage_type=internal 的 API key 可用（否则 400），建信归 workspace 分组（System tab）",
+            "description": "枚举 app/other/system，缺省 other；system=平台内部服务，usage_type=internal 的 API key 可用；工作区系统 Key 须同时声明 sender.id=uns-agent；其他情况 400，建信归 workspace 分组（System tab）",
             "type": "string",
             "enum": [
               "app",
@@ -2809,6 +2809,12 @@
       },
       "GetNotificationResp": {
         "properties": {
+          "channels": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationChannelResult"
+            },
+            "type": "array"
+          },
           "completedAt": {
             "type": "string"
           },
@@ -2835,7 +2841,42 @@
           "messageId",
           "type",
           "status",
-          "createdAt"
+          "createdAt",
+          "channels"
+        ],
+        "type": "object"
+      },
+      "NotificationChannelResult": {
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "errorCode": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "status": {
+            "description": "sent / failed / no_device / not_configured / accepted / pending；accepted 仅 inbox（站内信已受理，仍在处理）；pending 表示请求了该渠道但推送还在处理中，尚无最终结果",
+            "type": "string"
+          },
+          "successCount": {
+            "type": "integer"
+          },
+          "targetCount": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "channel",
+          "platform",
+          "status",
+          "targetCount",
+          "successCount"
         ],
         "type": "object"
       },
