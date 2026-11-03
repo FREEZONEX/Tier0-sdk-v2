@@ -41,6 +41,14 @@ export async function inspectConnection() {
 
 不同身份使用独立实例。含员工数据委托时，每个入站请求新建实例，使用受信 App Gateway 提供的 `unsV2AppDataSubject`；它不是用户 ID，也不是 App 请求验签断言。不要从请求 JSON 拼造委托。身份验签流程见 [身份与框架集成](references/integration.md)。
 
+## 从中心调用 Edge
+
+为每个目标创建独立客户端：`createClient({ apiHost, apiKey, fleetNodeId })`。`apiHost` 是中心地址，`apiKey` 是该工作区已有且有相应业务权限的服务端凭证，`fleetNodeId` 是该工作区已注册的完整节点 ID（字符串）。SDK 保持原生 UNS 路径，通过 `X-Fleet-Node-Id` 选择目标，不拼 Edge 路径前缀，也不直接访问 Edge IP。
+
+目标客户端支持 `client.uns.metadataFind`、`client.uns.recordFind`、`client.source.documents.list`、`client.stream.programs.list` 等原生 UNS v2 操作。先通过目标的 `/openapi/v2/uns/catalog/get` 核对版本和操作契约。不同目标的 ID、契约和缓存不能混用。未传 `fleetNodeId` 的客户端仍调用中心；目标客户端请求非 UNS 路径会拒绝，因此 `system.whoami` 等中心身份查询使用单独的不带目标客户端。
+
+目标 header 不授予权限。云端校验工作区、业务权限和 Edge 授权，当前不支持 App 绑定或 builder target 身份转发；Enterprise 中心还保留既有 Fleet 权限及 Cluster 许可要求。禁止使用节点入网凭据。未知节点或拒绝访问时不回退到中心。写入遇到超时/未知结果先查询目标状态并保留原幂等键，不能自动重新提交。
+
 ## 返回值与错误
 
 | 入口 | 成功值 | 失败类型 |
