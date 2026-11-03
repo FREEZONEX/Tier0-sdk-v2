@@ -375,6 +375,15 @@ export function createBootstrap(config: BootstrapConfig) {
       .then(() => run(collections.map(compileCollection)))
       .catch((error) => {
         pending = null;
+        // Even an unrelated ensure failure cannot establish the outcome of a
+        // previously dispatched seed chunk.
+        const unresolved = [...pendingSeeds.values()].find(seed => seed.unknown);
+        if (unresolved) {
+          const idempotencyKey = seedChunkKey(unresolved.collectionId, unresolved.next);
+          if (error instanceof DataPrincipalError) throw new DataPrincipalError({ idempotencyKey });
+          throw new DataError({ message: 'The seed write outcome remains unknown.', status: 503,
+            code: 'OUTCOME_UNKNOWN', execution: 'unknown', retry: { safe: false }, idempotencyKey });
+        }
         throw error;
       });
     return pending;

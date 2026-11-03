@@ -211,6 +211,26 @@ describe('internal Data principal preparation (fake verifier only)', () => {
     expect(sends).toBe(1);
   });
 
+  it('preserves the unknown seed outcome when a later ensure itself fails', async () => {
+    const seeded = defineCollection({ alias: 'orders', name: 'Orders', schema: z.object({ value: z.string() }),
+      seed: [{ _id: 'one', value: 'one' }] });
+    let ensures = 0;
+    let seedKey = '';
+    const call = vi.fn(async (op: string, body: Record<string, unknown>) => {
+      if (op === 'appCollectionsEnsure') {
+        if (++ensures > 1) throw new DataError({ message: 'dependency down', status: 503, code: 'TEMPORARILY_UNAVAILABLE', execution: 'notStarted' });
+        return { appId: 'app-a', results: [{ alias: 'orders', collectionId: 'c1', revision: 1, status: 'created' }] };
+      }
+      seedKey = String(body.idempotencyKey);
+      throw new DataError({ message: 'unknown', status: 503, code: 'OUTCOME_UNKNOWN', execution: 'unknown' });
+    });
+    const bootstrap = createBootstrap({ call: call as unknown as DataCall, collections: [seeded], environment: 'preview',
+      logger: { info() {}, warn() {}, error() {} } });
+    await expect(bootstrap.ensure()).rejects.toMatchObject({ execution: 'unknown', idempotencyKey: expect.any(String) });
+    await expect(bootstrap.ensure()).rejects.toMatchObject({ execution: 'unknown', outcomeUnknown: true, idempotencyKey: seedKey });
+    expect(call.mock.calls.filter(args => args[0] === 'recordBulkWrite')).toHaveLength(1);
+  });
+
   it('retains a seed after unknown retries are exhausted and resumes only the unfinished chunk', async () => {
     const seeded = defineCollection({ alias: 'orders', name: 'Orders', schema: z.object({ value: z.string() }),
       seed: Array.from({ length: 201 }, (_, i) => ({ _id: `id-${i}`, value: 'x' })) });
