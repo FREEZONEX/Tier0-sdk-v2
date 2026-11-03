@@ -145,13 +145,13 @@ export function createDataTransport(config: ClientConfig): { call: DataCall; ope
     let problem: string | undefined;
     try {
       http.getBaseURL();
-      if (!http.getApiKey()?.trim()) problem = http.usesAppCredential() ? 'TIER0_CREDENTIALS_FILE cannot be read' : 'TIER0_API_KEY is not set';
+      if (!http.usesAppCredential() && !http.getApiKey()?.trim()) problem = 'TIER0_API_KEY is not set';
     } catch (error) {
       problem = error instanceof Error ? error.message : String(error);
     }
     if (problem) {
       throw new DataError({
-        message: `${problem}. The platform provides TIER0_API_HOST and the App credential in Preview and deployments; for local development set TIER0_API_HOST and TIER0_API_KEY before starting the App.`,
+        message: `${problem}. In a Tier0 Preview or deployment the platform sets TIER0_API_HOST and its node proxy injects the App's key; for local development set TIER0_API_HOST and TIER0_API_KEY before starting the App.`,
         status: 503,
         code: 'DATA_NOT_CONFIGURED',
       });

@@ -9,6 +9,16 @@ description: 使用 @tier0/sdk-v2/mq 连接 Tier0 MQTT WebSocket Broker，管理
 
 `Tier0MQClient` 从独立子入口导入。它面向消息客户端；配置平台采集连接用 Source，运行处理逻辑用 Stream。HTTP SDK 的“不自动重试”不等于 MQTT 禁用重连或 QoS 重投递。
 
+## 在 Tier0 App 里
+
+预览和部署里直接 `new Tier0MQClient()`，**什么都不传**：SDK 用平台设置的 `TIER0_MQTT_URL`（`mqtt://`）走 TCP，经节点代理连 EMQX，不发 password，由代理填入 App 的长期 Key；username 为 `<ws>&open`、clientId 为 `<ws>&h.<app>.<16 位随机>`，由 `TIER0_WORKSPACE_ID`、`TIER0_APP_ID` 拼出，预览和正式相同。显式传 `host` 会改走 WebSocket，经代理连不上。断线后 SDK 一直重连，持久会话保留 QoS 1 消息。App 能用的主题由工作区管理员在 App 设置里管理，改了立即生效。App 里也不能调 `mqttAuth`。
+
+```ts
+import { Tier0MQClient } from '@tier0/sdk-v2/mq';
+
+export const appMq = new Tier0MQClient();
+```
+
 ## 使用已有凭证订阅
 
 ```ts

@@ -67,7 +67,6 @@ describe('visitor token verification v2', () => {
   });
 
   it('reports a verifier with no App as a configuration error, not as a bad token', () => {
-    vi.stubEnv('TIER0_CREDENTIALS_FILE', undefined);
     vi.stubEnv('TIER0_APP_ID', undefined);
     expect(() => createVisitorTokenVerifier({ keys })(issue(main.privateKey))).toThrow('VISITOR_TOKEN_CONFIGURATION_INVALID');
   });

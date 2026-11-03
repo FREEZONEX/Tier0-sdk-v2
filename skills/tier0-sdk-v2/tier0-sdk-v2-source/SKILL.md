@@ -5,7 +5,7 @@ description: 使用 @tier0/sdk-v2 的 client.source 查询、创建、修改、�
 
 # Source 数据接入
 
-Source 维护连接配置、认证引用与源状态。脚本处理用 [Stream](../tier0-sdk-v2-stream/SKILL.md)，数据存储用 [UNS](../tier0-sdk-v2-uns/SKILL.md)。服务端使用 `createClient({apiHost,apiKey})`，或注入 TIER0_API_HOST / TIER0_API_KEY 后 `createClient()`；密钥不进入浏览器。
+Source 维护连接配置、认证引用与源状态。脚本处理用 [Stream](../tier0-sdk-v2-stream/SKILL.md)，数据存储用 [UNS](../tier0-sdk-v2-uns/SKILL.md)。服务端使用 `createClient({apiHost,apiKey})`，或注入 TIER0_API_HOST / TIER0_API_KEY 后 `createClient()`；密钥不进入浏览器。Tier0 App 的 Key 无权调 Source 管理接口：请求经节点代理转发（路径在 `/openapi/v2/uns/**` 下），由 Backend 拒绝（403）。
 
 ## 按任务加载参考
 

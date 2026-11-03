@@ -1,6 +1,6 @@
 import mqtt from 'mqtt';
 import type { MqttClient, IClientOptions } from 'mqtt';
-import { appCredentialClaims, credentialsFile, readCredentialToken } from '../credentials.js';
+import { platformIdentity, platformProxyMode } from '../platform-proxy.js';
 import { getPageRuntime, isAuthErrorCode, onPageRuntime, reportAuthError, type Tier0AuthErrorCode } from '../page-runtime.js';
 import { getEnvVar } from '../runtime-env.js';
 import { DEFAULT_WSS_PORT, isBrowserHttps, parseMqttBroker, toWebSocketUrl } from './broker.js';
@@ -17,12 +17,12 @@ const AUTH_REFUSED_CODES: ReadonlySet<unknown> = new Set([4, 5, 134, 135]);
 /** What a runtime without `reportMqttFailure()` hears instead (design 21.3). */
 const REFUSED_AUTH_ERROR: Tier0AuthErrorCode = 'grant_expired';
 
-/** One connection attempt: what the broker sees. */
+/** One connection attempt: what the broker sees. No password through the node proxy, which fills it in. */
 interface ConnectionParams {
   url: string;
   username: string;
   clientId: string;
-  password: string;
+  password?: string;
 }
 
 /** A stopped client: the platform refused it, and retrying cannot help. */
@@ -110,7 +110,7 @@ export class Tier0MQClient {
 
     const host = config?.host || envHost || '';
     const port = config?.port || parseInt(envPort || '8084') || 8084;
-    // The token file and the browser runtime supply the password per connection.
+    // The browser runtime supplies the password per connection; the node proxy puts in the App's key on the server.
     const password = config?.password || (this.tokenSource() ? '' : getEnvVar('TIER0_API_KEY')) || '';
 
     // 从 apiKey 解析 workspaceID，自动生成 clientId 和 username
@@ -165,16 +165,22 @@ export class Tier0MQClient {
     return `${useSecure ? 'wss' : 'ws'}://${hostname}:${effectivePort}/mqtt`;
   }
 
-  /** Where the token comes from; undefined when a fixed password is used. */
-  private tokenSource(): 'browser' | 'file' | undefined {
+  /**
+   * Where the credential comes from; undefined when a fixed password is used.
+   * `proxy`: platform proxy mode, the node proxy puts in the App's key and
+   * the SDK sends none.
+   */
+  private tokenSource(): 'browser' | 'proxy' | undefined {
     if (this.config?.password) return undefined;
     if (getPageRuntime()) return 'browser';
-    return credentialsFile() ? 'file' : undefined;
+    return platformProxyMode() ? 'proxy' : undefined;
   }
 
   /**
-   * What the next connection presents. A token is fetched for every attempt:
-   * reconnecting with the old one after `exp` is refused (PoC-11).
+   * What the next connection presents. In the browser a token is fetched for
+   * every attempt: reconnecting with the old one after `exp` is refused
+   * (PoC-11). Through the node proxy the same identity reconnects, and the
+   * proxy puts in the App's current key.
    */
   private connectionParams(): ConnectionParams | Promise<ConnectionParams> {
     const source = this.tokenSource();
@@ -184,18 +190,19 @@ export class Tier0MQClient {
         url: issued.url, username: issued.username, clientId: issued.client_id, password: issued.token,
       }));
     }
-    if (source === 'file') {
-      const path = credentialsFile()!;
-      const token = readCredentialToken(path);
-      const claims = token ? appCredentialClaims(token) : undefined;
-      if (!token || !claims) throw new Error('Tier0 SDK v2: TIER0_CREDENTIALS_FILE does not hold an App credential token.');
-      const scope = claims.runtime === 'preview' ? `p.${claims.session}` : `d.${claims.release}`;
+    if (source === 'proxy') {
+      const identity = platformIdentity();
+      if (!identity) {
+        throw new Error('Tier0 SDK v2: TIER0_WORKSPACE_ID and TIER0_APP_ID are required for MQTT in the platform.');
+      }
+      // Only `mqtt://` from the platform goes over TCP to the proxy; an explicit host means WebSocket.
       const envUrl = getEnvVar('TIER0_MQTT_URL')?.trim();
+      const tcp = envUrl !== undefined && /^mqtt:\/\//i.test(envUrl) && this.config.host === envUrl;
+      // The proxy accepts only `<ws>&open` and `<ws>&h.<app>.<random>`, and puts the App's key in as the password.
       return {
-        url: this.config.host !== envUrl || !envUrl ? this.mqttUrl : envUrl,
-        username: this.config.username ?? `${claims.ws}&${claims.app}&appcred`,
-        clientId: this.config.clientId ?? `${claims.ws}&a.${claims.app}.${scope}.${this.clientSuffix}`,
-        password: token,
+        url: tcp ? envUrl : this.mqttUrl,
+        username: this.config.username ?? `${identity.ws}&open`,
+        clientId: this.config.clientId ?? `${identity.ws}&h.${identity.app}.${this.clientSuffix}`,
       };
     }
     const { username, clientId, password } = this.config;
@@ -289,7 +296,7 @@ export class Tier0MQClient {
     }, this.reconnectDelay());
   }
 
-  /** The same client, with a new token: mqtt.js keeps its session and offline queue. */
+  /** The same client, with a new token in the browser: mqtt.js keeps its session and offline queue. */
   private async reconnect(): Promise<void> {
     const client = this.client;
     if (!client) return;
@@ -306,7 +313,8 @@ export class Tier0MQClient {
     if (client !== this.client || this._connected || this.paused || this.stopped) return;
     client.options.username = params.username;
     client.options.clientId = params.clientId;
-    client.options.password = params.password;
+    if (params.password === undefined) delete client.options.password;
+    else client.options.password = params.password;
     client.reconnect();
   }
 
@@ -315,7 +323,7 @@ export class Tier0MQClient {
       const options: IClientOptions = {
         clientId: params.clientId,
         username: params.username,
-        password: params.password,
+        ...(params.password === undefined ? {} : { password: params.password }),
         keepalive: this.config.keepAlive,
         // Reconnects are ours: mqtt.js's timer cannot wait for a new token.
         reconnectPeriod: 0,

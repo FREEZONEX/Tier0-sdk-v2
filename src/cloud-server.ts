@@ -3,7 +3,6 @@ import { createHash, createPublicKey, verify, type KeyObject } from 'node:crypto
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { APP_REQUEST_IDENTITY_CONTRACT as contract } from './app-identity-contract.generated.js';
-import { currentAppCredential } from './credentials.js';
 import { getEnvVar } from './runtime-env.js';
 
 export const APP_REQUEST_IDENTITY_HEADER = contract.header;
@@ -213,7 +212,7 @@ export function frontdoorKeysFromDir(dir: string | undefined = getEnvVar('TIER0_
 }
 
 export interface VisitorVerifierConfig {
-  /** Expected `aud` is `app:<appID>`. Defaults to the `app` of the App credential token. */
+  /** Expected `aud` is `app:<appID>`. Defaults to `TIER0_APP_ID`. */
   appID?: string;
   /** Defaults to `frontdoorKeysFromDir()`. */
   keys?: VisitorKeySource;
@@ -231,8 +230,7 @@ export function createVisitorTokenVerifier(config: VisitorVerifierConfig = {}) {
   const fail = () => new VisitorTokenError('VISITOR_TOKEN_INVALID');
 
   return (token: string | null | undefined): VerifiedVisitor => {
-    // The token file carries the App: read it per call, it is cached and may appear after start-up.
-    const appID = fixedAppID ?? currentAppCredential()?.app ?? getEnvVar('TIER0_APP_ID')?.trim();
+    const appID = fixedAppID ?? getEnvVar('TIER0_APP_ID')?.trim();
     if (!appID) throw new VisitorTokenError('VISITOR_TOKEN_CONFIGURATION_INVALID');
     try {
       if (typeof token !== 'string' || Buffer.byteLength(token) > VISITOR_MAX_BYTES) throw fail();

@@ -1,11 +1,10 @@
-import { currentAppCredential } from './credentials.js';
 import { getEnvVar } from './runtime-env.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * Return the agent-platform app id: from the App credential token when there is
- * one (design 21.7), else `APP_ID` as injected by the Tier0 application runtime.
+ * Return the agent-platform app id: `TIER0_APP_ID` as the platform sets it in
+ * Previews and deployments (design 21.7), else the older `APP_ID`.
  *
  * Throws rather than passing a suspect value through: a wrong app id has no
  * symptom at call time — the notification is still accepted — it only makes the
@@ -13,12 +12,12 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * no icon and no Open button.
  */
 export function getCurrentAppId(): string {
-  const credential = currentAppCredential();
-  if (credential) return credential.app;
+  const platformAppId = getEnvVar('TIER0_APP_ID')?.trim();
+  if (platformAppId) return platformAppId;
   const appId = getEnvVar('APP_ID')?.trim();
   if (!appId) {
     throw new Error(
-      'Tier0 SDK: current app ID is required. Run inside a Tier0 application runtime or set APP_ID.'
+      'Tier0 SDK: current app ID is required. Run inside a Tier0 application runtime or set TIER0_APP_ID.'
     );
   }
   if (!UUID_RE.test(appId)) {

@@ -1,4 +1,4 @@
-import { awaitCredentialChange, credentialsFile, readCredentialToken } from '../credentials.js';
+import { platformProxyMode, PROXY_HEADER, PROXY_NOT_FORWARDED, SDK_HEADER } from '../platform-proxy.js';
 import { assertCompactToken, currentDelegation, DELEGATION_HEADER } from '../request-context.js';
 import { getEnvVar } from '../runtime-env.js';
 import { decodeUnsV2JSON, encodeUnsV2JSON } from '../uns-v2/codec.js';
@@ -44,10 +44,41 @@ export class TransportError extends ApiError {
   }
 }
 const record = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v);
+/** `sbx_proxy_*` of an answer the node proxy produced itself (design 21.28). */
+const proxyCode = (value: unknown) =>
+  record(value) && typeof value.code === 'string' && /^sbx_proxy_[a-z_]+$/.test(value.code) ? value.code : undefined;
 export function responseError(status: number, value: unknown, fallback = 'Request failed'): ApiError {
   return new ApiError(status, record(value) && typeof value.code === 'number' ? value.code : 0,
     record(value) && typeof value.message === 'string' ? value.message : record(value) && typeof value.msg === 'string' ? value.msg : fallback,
-    { errorCode: record(value) && typeof value.errorCode === 'string' ? value.errorCode : undefined });
+    { errorCode: record(value) && typeof value.errorCode === 'string' ? value.errorCode : proxyCode(value) });
+}
+
+/** Design 21.28: retries of an answer the node proxy produced itself. */
+const PROXY_MAX_RETRIES = 3;
+const PROXY_DEFAULT_RETRY_MS = [250, 500, 1_000];
+const PROXY_MAX_RETRY_MS = 10_000;
+
+function proxyRetryable(response: Response): boolean {
+  return (response.status === 503 || response.status === 429) && response.headers.get(PROXY_HEADER) === PROXY_NOT_FORWARDED;
+}
+
+/** `retry_after_ms` of the proxy's body `{code, message, retry_after_ms?}`, else a short backoff. */
+async function proxyRetryDelay(response: Response, retry: number): Promise<number> {
+  let value: unknown;
+  try { value = JSON.parse(await response.text()); } catch { value = undefined; }
+  const ms = record(value) ? value.retry_after_ms : undefined;
+  if (typeof ms === 'number' && Number.isFinite(ms) && ms >= 0) return Math.min(ms, PROXY_MAX_RETRY_MS);
+  return PROXY_DEFAULT_RETRY_MS[Math.min(retry, PROXY_DEFAULT_RETRY_MS.length - 1)];
+}
+
+function sleep(ms: number, signal: AbortSignal | null | undefined): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(signal.reason); return; }
+    const done = () => { signal?.removeEventListener('abort', abort); resolve(); };
+    const abort = () => { clearTimeout(timer); reject(signal!.reason); };
+    const timer = setTimeout(done, ms);
+    signal?.addEventListener('abort', abort, { once: true });
+  });
 }
 
 /** An immutable configuration snapshot. Each request resolves optional credential callbacks once. */
@@ -60,6 +91,8 @@ export class HttpClient {
     if (!Number.isInteger(this.timeoutMs) || this.timeoutMs < 1 || this.timeoutMs > 2_147_483_647) throw new TypeError('Invalid transportTimeoutMs');
   }
   getBaseURL(): string {
+    // An invalid TIER0_RUNTIME throws here, before any transport catch can turn it into a network failure.
+    this.usesAppCredential();
     const host = this.config.apiHost ?? this.config.getApiHost?.() ?? getEnvVar('TIER0_API_HOST');
     if (!host?.trim()) throw new Error('Tier0 SDK v2: apiHost or TIER0_API_HOST is required.');
     const base = host.trim().replace(/\/+$/, '');
@@ -67,17 +100,19 @@ export class HttpClient {
     if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new TypeError('Invalid apiHost');
     return url.href.replace(/\/+$/, '');
   }
-  /** The token file, unless this client was given its own key. */
-  private credentialPath(): string | undefined {
-    return this.config.apiKey !== undefined || this.config.getApiKey !== undefined ? undefined : credentialsFile();
+  /**
+   * True in platform proxy mode: the node proxy injects the App's key, so
+   * this client sends no credential of its own. A client given
+   * `apiKey` or `getApiKey` never is.
+   */
+  usesAppCredential(): boolean {
+    return this.config.apiKey === undefined && this.config.getApiKey === undefined && platformProxyMode();
   }
-  /** True when requests carry the App credential token instead of an API key. */
-  usesAppCredential(): boolean { return this.credentialPath() !== undefined; }
+  /** The API key to send; always undefined in platform proxy mode. */
   getApiKey(): string | undefined {
     const configured = this.config.apiKey ?? this.config.getApiKey?.();
     if (configured !== undefined) return configured;
-    const path = this.credentialPath();
-    return path ? readCredentialToken(path) : getEnvVar('TIER0_API_KEY');
+    return this.usesAppCredential() ? undefined : getEnvVar('TIER0_API_KEY');
   }
   getFetch(): typeof globalThis.fetch { return this.config.fetch ?? globalThis.fetch; }
 
@@ -86,10 +121,14 @@ export class HttpClient {
       if (headers instanceof Headers) headers.set(name, value);
       else headers[name] = value;
     };
-    const key = this.getApiKey();
-    if (key) {
-      set('Authorization', `Bearer ${key}`);
-      if (!this.usesAppCredential()) set('X-API-Key', key);
+    if (this.usesAppCredential()) {
+      set(SDK_HEADER, '1');
+    } else {
+      const key = this.getApiKey();
+      if (key) {
+        set('Authorization', `Bearer ${key}`);
+        set('X-API-Key', key);
+      }
     }
     if (delegation !== undefined) {
       assertCompactToken(delegation, DELEGATION_HEADER);
@@ -98,21 +137,24 @@ export class HttpClient {
   }
 
   /**
-   * One platform request with the current credentials (design 21.7). A 401 on
-   * the App credential token rereads the file, once it changed or after 2
-   * seconds, and sends once more: the token can be stale right after a memory restore. Backend refuses before running
-   * anything, so writes repeat safely.
+   * One platform request (design 21.7). Redirects are never followed.
+   *
+   * In platform proxy mode an answer the node proxy produced itself
+   * (`X-Tier0-Proxy: not-forwarded`) never reached the platform, so a `503`
+   * (proxy not ready, key pending) or `429` (proxy limit) is sent again after
+   * `retry_after_ms`, at most 3 times; writes repeat safely. Anything else,
+   * a platform `5xx` included, is returned as is.
    */
   async authorizedFetch(url: string, init: RequestInit & { headers: Headers | Record<string, string> }, delegation: string | undefined = currentDelegation()): Promise<Response> {
     const { headers } = init;
     this.authorize(headers, delegation);
-    const response = await this.getFetch()(url, { ...init, headers });
-    const path = this.credentialPath();
-    if (response.status !== 401 || !path) return response;
-    await response.body?.cancel().catch(() => undefined);
-    await awaitCredentialChange(path, init.signal);
-    this.authorize(headers, delegation);
-    return this.getFetch()(url, { ...init, headers });
+    const send = () => this.getFetch()(url, { ...init, headers, redirect: 'manual' });
+    if (!this.usesAppCredential()) return send();
+    for (let retry = 0; ; retry += 1) {
+      const response = await send();
+      if (retry >= PROXY_MAX_RETRIES || !proxyRetryable(response)) return response;
+      await sleep(await proxyRetryDelay(response, retry), init.signal);
+    }
   }
 
   private async exchange(path: string, init: RequestInit, options: RequestOptions, mutation: boolean): Promise<{ text: string; status: number; ok: boolean }> {
