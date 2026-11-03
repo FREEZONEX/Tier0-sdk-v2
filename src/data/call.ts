@@ -48,6 +48,8 @@ export interface CallOptions {
   dataSubject?: string;
   /** Abort of the current business request: a queued call leaves the queue, an in-flight one is cancelled. */
   signal?: AbortSignal;
+  /** Internal identity anchor shared by every attempt of one seed chunk. */
+  seedOperation?: object;
 }
 
 /** Sends one operation and resolves with the envelope's `data`. */

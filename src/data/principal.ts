@@ -54,14 +54,20 @@ export class DataPrincipalFence {
   operation() {
     let effective: Pick<VerifiedDataPrincipal, 'effectivePrincipal' | 'idempotencyScope'> | undefined;
     let failed = false;
+    let generation = 0;
     const assertCurrent = () => {
       if (this.failed || failed) throw new DataPrincipalError();
     };
-    const failOperation = (): never => { failed = true; throw new DataPrincipalError(); };
+    const failOperation = (permanent = false): never => {
+      generation++;
+      if (permanent) failed = true;
+      throw new DataPrincipalError();
+    };
     return {
       assertCurrent,
       prepare: async (input: { credential: string; endpoint: string; dataSubject?: string; signal: AbortSignal }) => {
         assertCurrent();
+        const startedAt = generation;
         const attempt = Object.freeze({ credential: input.credential, endpoint: input.endpoint,
           dataSubject: input.dataSubject, signal: input.signal });
         if (attempt.signal.aborted || !attempt.credential || !attempt.endpoint) return failOperation();
@@ -78,6 +84,7 @@ export class DataPrincipalFence {
           });
         } catch { return failOperation(); }
         assertCurrent();
+        if (startedAt !== generation) return failOperation();
         let identity: VerifiedDataPrincipal;
         try {
           identity = { authority: proof.authority, workspace: proof.workspace, credentialPrincipal: proof.credentialPrincipal,
@@ -93,15 +100,16 @@ export class DataPrincipalFence {
         }
         const current = { effectivePrincipal: identity.effectivePrincipal, idempotencyScope: identity.idempotencyScope };
         if (effective && (effective.effectivePrincipal !== current.effectivePrincipal || effective.idempotencyScope !== current.idempotencyScope)) {
-          failed = true;
-          throw new DataPrincipalError();
+          return failOperation(true);
         }
         this.base ??= base;
         effective ??= current;
+        const confirmedAt = generation;
         // This object is attempt-local. The fence stores no credential or assertion.
         return Object.freeze({ credential: attempt.credential, endpoint: attempt.endpoint, dataSubject: attempt.dataSubject,
           signal: attempt.signal, assertCurrent: () => {
             assertCurrent();
+            if (confirmedAt !== generation) throw new DataPrincipalError();
             if (attempt.signal.aborted) return failOperation();
           } });
       },

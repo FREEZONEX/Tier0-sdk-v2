@@ -108,6 +108,20 @@ describe('internal Data principal preparation (fake verifier only)', () => {
     expect(() => prepared.assertCurrent()).toThrow(DataPrincipalError);
   });
 
+  it('allows later re-verification of the same principal after a transient failure, invalidating earlier leases', async () => {
+    let n = 0;
+    const fence = new DataPrincipalFence(async () => {
+      if (++n === 2) throw new Error('temporary verifier failure');
+      return proof();
+    });
+    const operation = fence.operation();
+    const before = await operation.prepare(attempt('first'));
+    await expect(operation.prepare(attempt('second'))).rejects.toBeInstanceOf(DataPrincipalError);
+    expect(() => before.assertCurrent()).toThrow(DataPrincipalError);
+    const recovered = await operation.prepare(attempt('third'));
+    recovered.assertCurrent();
+  });
+
   it('does not treat seed principal failure as a successful cached ensure', async () => {
     const seeded = defineCollection({ alias: 'orders', name: 'Orders', schema: z.object({ value: z.string() }),
       seed: [{ _id: 'one', value: 'one' }] });
@@ -121,6 +135,106 @@ describe('internal Data principal preparation (fake verifier only)', () => {
     expect(call.mock.calls.map(args => args[0])).toEqual(['appCollectionsEnsure', 'recordBulkWrite']);
     await expect(bootstrap.ensure()).rejects.toBeInstanceOf(DataPrincipalError);
     expect(call.mock.calls.filter(args => args[0] === 'appCollectionsEnsure')).toHaveLength(2);
+    expect(call.mock.calls.filter(args => args[0] === 'recordBulkWrite')).toHaveLength(1);
+  });
+
+  it('resumes an unsent seed after created becomes unchanged without caching an incomplete ensure', async () => {
+    const seeded = defineCollection({ alias: 'orders', name: 'Orders', schema: z.object({ value: z.string() }),
+      seed: [{ _id: 'one', value: 'one' }] });
+    let ensures = 0;
+    const anchors: object[] = [];
+    const keys: string[] = [];
+    const call = vi.fn(async (op: string, body: Record<string, unknown>, options?: { seedOperation?: object }) => {
+      if (op === 'appCollectionsEnsure') return { appId: 'app-a', results: [{ alias: 'orders', collectionId: 'c1', revision: 1,
+        status: ensures++ === 0 ? 'created' : 'unchanged' }] };
+      anchors.push(options!.seedOperation!); keys.push(String(body.idempotencyKey));
+      if (keys.length === 1) throw new DataPrincipalError();
+      return { insertedCount: 1 };
+    });
+    const bootstrap = createBootstrap({ call: call as unknown as DataCall, collections: [seeded], environment: 'preview', prepareSeedRecovery: async () => {},
+      logger: { info() {}, warn() {}, error() {} } });
+    await expect(bootstrap.ensure()).rejects.toBeInstanceOf(DataPrincipalError);
+    await expect(bootstrap.ensure()).resolves.toMatchObject({ appId: 'app-a' });
+    await bootstrap.ensure();
+    expect(ensures).toBe(2);
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toBe(keys[1]);
+    expect(anchors[0]).toBe(anchors[1]);
+  });
+
+  it('keeps an unknown seed pending across unchanged and a later ordinary error until confirmed', async () => {
+    const seeded = defineCollection({ alias: 'orders', name: 'Orders', schema: z.object({ value: z.string() }),
+      seed: [{ _id: 'one', value: 'one' }] });
+    let ensures = 0;
+    const keys: string[] = [];
+    const anchors: object[] = [];
+    const call = vi.fn(async (op: string, body: Record<string, unknown>, options?: { seedOperation?: object }) => {
+      if (op === 'appCollectionsEnsure') return { appId: 'app-a', results: [{ alias: 'orders', collectionId: 'c1', revision: 1,
+        status: ensures++ === 0 ? 'created' : 'unchanged' }] };
+      keys.push(String(body.idempotencyKey)); anchors.push(options!.seedOperation!);
+      if (keys.length === 1) throw new DataError({ message: 'unknown', status: 503, code: 'OUTCOME_UNKNOWN', execution: 'unknown' });
+      if (keys.length === 2) throw new DataPrincipalError();
+      if (keys.length === 3) throw new DataError({ message: 'denied', status: 403, code: 'FORBIDDEN', execution: 'notStarted' });
+      return { insertedCount: 1, replayed: true };
+    });
+    const bootstrap = createBootstrap({ call: call as unknown as DataCall, collections: [seeded], environment: 'preview', prepareSeedRecovery: async () => {},
+      logger: { info() {}, warn() {}, error() {} } });
+    const first = await bootstrap.ensure().catch(e => e);
+    expect(first).toMatchObject({ execution: 'unknown', outcomeUnknown: true, idempotencyKey: keys[0] });
+    const second = await bootstrap.ensure().catch(e => e);
+    expect(second).toMatchObject({ execution: 'unknown', outcomeUnknown: true, idempotencyKey: keys[0], retry: { safe: false } });
+    await expect(bootstrap.ensure()).resolves.toMatchObject({ appId: 'app-a' });
+    expect(new Set(keys).size).toBe(1);
+    expect(new Set(anchors).size).toBe(1);
+    expect(ensures).toBe(3);
+  });
+
+  it('never resumes a pending seed when the ensured App or collection changes', async () => {
+    const seeded = defineCollection({ alias: 'orders', name: 'Orders', schema: z.object({ value: z.string() }),
+      seed: [{ _id: 'one', value: 'one' }] });
+    let ensures = 0;
+    let sends = 0;
+    const call = vi.fn(async (op: string) => {
+      if (op === 'appCollectionsEnsure') {
+        const n = ensures++;
+        return { appId: n === 1 ? 'app-b' : 'app-a', results: [{ alias: 'orders', collectionId: n === 2 ? 'c2' : 'c1',
+          revision: 1, status: n === 0 ? 'created' : 'unchanged' }] };
+      }
+      sends++;
+      throw new DataPrincipalError();
+    });
+    const bootstrap = createBootstrap({ call: call as unknown as DataCall, collections: [seeded], environment: 'preview',
+      logger: { info() {}, warn() {}, error() {} } });
+    await expect(bootstrap.ensure()).rejects.toBeInstanceOf(DataPrincipalError);
+    await expect(bootstrap.ensure()).rejects.toMatchObject({ code: 'SEED_RECOVERY_REQUIRED', retry: { safe: false } });
+    await expect(bootstrap.ensure()).rejects.toMatchObject({ code: 'SEED_RECOVERY_REQUIRED', retry: { safe: false } });
+    expect(sends).toBe(1);
+  });
+
+  it('retains a seed after unknown retries are exhausted and resumes only the unfinished chunk', async () => {
+    const seeded = defineCollection({ alias: 'orders', name: 'Orders', schema: z.object({ value: z.string() }),
+      seed: Array.from({ length: 201 }, (_, i) => ({ _id: `id-${i}`, value: 'x' })) });
+    let ensures = 0;
+    const calls: { key: string; count: number; anchor?: object }[] = [];
+    const call = vi.fn(async (op: string, body: Record<string, unknown>, options?: { seedOperation?: object }) => {
+      if (op === 'appCollectionsEnsure') return { appId: 'app-a', results: [{ alias: 'orders', collectionId: 'c1', revision: 1,
+        status: ensures++ === 0 ? 'created' : 'unchanged' }] };
+      calls.push({ key: String(body.idempotencyKey), count: (body.operations as unknown[]).length, anchor: options?.seedOperation });
+      if (calls.length >= 2 && calls.length <= 4) throw new DataError({ message: 'unknown', status: 503, code: 'OUTCOME_UNKNOWN', execution: 'unknown' });
+      if (calls.length === 5) throw new DataError({ message: 'temporarily denied', status: 403, code: 'FORBIDDEN', execution: 'notStarted' });
+      return { insertedCount: calls.at(-1)!.count };
+    });
+    const bootstrap = createBootstrap({ call: call as unknown as DataCall, collections: [seeded], environment: 'preview', prepareSeedRecovery: async () => {},
+      logger: { info() {}, warn() {}, error() {} } });
+    const failure = await bootstrap.ensure().catch(e => e);
+    expect(failure).toMatchObject({ execution: 'unknown', outcomeUnknown: true, idempotencyKey: calls[1].key, retry: { safe: false } });
+    const stillUnknown = await bootstrap.ensure().catch(e => e);
+    expect(stillUnknown).toMatchObject({ execution: 'unknown', outcomeUnknown: true, idempotencyKey: calls[1].key, retry: { safe: false } });
+    await expect(bootstrap.ensure()).resolves.toMatchObject({ appId: 'app-a' });
+    expect(calls.map(c => c.count)).toEqual([200, 1, 1, 1, 1, 1]);
+    expect(new Set(calls.slice(1).map(c => c.key)).size).toBe(1);
+    expect(new Set(calls.slice(1).map(c => c.anchor)).size).toBe(1);
+    expect(calls[0].anchor).not.toBe(calls[1].anchor);
   });
 
   it('keeps the seed idempotency key but does not replay an unknown write under a different App', async () => {
@@ -142,7 +256,7 @@ describe('internal Data principal preparation (fake verifier only)', () => {
       seedSends++;
       throw new DataError({ message: 'outcome unknown', status: 503, code: 'OUTCOME_UNKNOWN', execution: 'unknown' });
     });
-    const bootstrap = createBootstrap({ call: call as unknown as DataCall, collections: [seeded], environment: 'preview',
+    const bootstrap = createBootstrap({ call: call as unknown as DataCall, collections: [seeded], environment: 'preview', prepareSeedRecovery: async () => {},
       logger: { info() {}, warn() {}, error() {} } });
     const error = await bootstrap.ensure().catch(e => e);
     expect(error).toBeInstanceOf(DataPrincipalError);

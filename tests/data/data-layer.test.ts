@@ -521,17 +521,19 @@ describe('bootstrap', () => {
     expect(errors).toHaveLength(0);
   });
 
-  it('replays a seed chunk whose outcome is unknown with the same key after a wait', async () => {
+  it('retains an unknown seed and refuses replay without a verified receipt scope', async () => {
     const mock = mockUns({
-      [ENSURE]: ensured({ alias: 'orders', collectionId: 'c-orders', status: 'created' }, { alias: 'lines', collectionId: 'c-lines' }),
+      [ENSURE]: [ensured({ alias: 'orders', collectionId: 'c-orders', status: 'created' }, { alias: 'lines', collectionId: 'c-lines' }),
+        ensured({ alias: 'orders', collectionId: 'c-orders', status: 'unchanged' }, { alias: 'lines', collectionId: 'c-lines' })],
       '/uns/collections/c-orders/records:bulkWrite': [failure(503, 'OUTCOME_UNKNOWN', null, 'commit unconfirmed', false, 'unknown'), ok({ insertedCount: 2, replayed: true })],
     });
-    const started = Date.now();
-    await client(mock).ensure();
+    const data = client(mock);
+    const first = await data.ensure().catch(e => e);
     const chunks = mock.calls('/uns/collections/c-orders/records:bulkWrite');
-    expect(chunks).toHaveLength(2);
-    expect(chunks[1].body.idempotencyKey).toBe(chunks[0].body.idempotencyKey);
-    expect(Date.now() - started).toBeGreaterThanOrEqual(900);
+    expect(first).toMatchObject({ execution: 'unknown', outcomeUnknown: true, idempotencyKey: chunks[0].body.idempotencyKey });
+    const again = await data.ensure().catch(e => e);
+    expect(again).toMatchObject({ execution: 'unknown', outcomeUnknown: true, idempotencyKey: chunks[0].body.idempotencyKey });
+    expect(mock.calls('/uns/collections/c-orders/records:bulkWrite')).toHaveLength(1);
   });
 
   it('logs a failed seed and keeps serving', async () => {
