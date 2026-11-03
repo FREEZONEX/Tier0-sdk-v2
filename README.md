@@ -2,9 +2,9 @@
 
 Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交互均使用 `@tier0/sdk-v2`。旧 SDK 不再作为依赖。
 
-`0.10.0-aenv.2` 是 aenv-next 的本地预发布版本，基于 `0.9.4`，未发布到 npm；内容见下方「aenv-next 运行环境」。
+`0.10.0-aenv.3` 是 aenv-next 的本地预发布版本，基于 `0.9.4`，未发布到 npm；内容见下方「aenv-next 运行环境」。
 
-**`0.10.0-aenv.2` 是破坏性变更**：平台 VM 里不再有令牌文件，`TIER0_CREDENTIALS_FILE` 不再读取，SDK 在平台里不发任何凭据，改由节点代理附加；必须和新的 AgentENV（`sbx-api-proxy`）一起上线，在旧 VM 上请求会被拒绝。
+**`0.10.0-aenv.2` 起是破坏性变更**：平台 VM 里不再有令牌文件，`TIER0_CREDENTIALS_FILE` 不再读取，SDK 在平台里不发任何凭据，改由节点代理附加；必须和新的 AgentENV（`sbx-api-proxy`）一起上线，在旧 VM 上请求会被拒绝。`0.10.0-aenv.3` 起 `TIER0_RUNTIME` 只接受 `deployed` / `preview`，其他非空值（且没有 Key）直接报配置错误。
 
 `0.9.3` 同步集合授权合同：授予既有集合访问权限时无需提供别名，并更新生成类型与使用说明。集合声明的 `name` / `alias` 要求保持不变。
 
@@ -24,13 +24,13 @@ Collection 声明必须同时提供业务名称 `name`（例如「生产工单�
 
 ## 安装与初始化
 
-维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。本分支的功能应使用检查通过的 `tier0-sdk-v2-0.10.0-aenv.2.tgz` 在业务项目中验证：
+维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。本分支的功能应使用检查通过的 `tier0-sdk-v2-0.10.0-aenv.3.tgz` 在业务项目中验证：
 
 ```sh
-npm install /path/to/tier0-sdk-v2-0.10.0-aenv.2.tgz
+npm install /path/to/tier0-sdk-v2-0.10.0-aenv.3.tgz
 ```
 
-`0.10.0-aenv.2` 正式发布后再使用 `npm install @tier0/sdk-v2@0.10.0-aenv.2`。发布前，npm 的既有版本和 `next` 标签不代表本分支的完整功能。
+`0.10.0-aenv.3` 正式发布后再使用 `npm install @tier0/sdk-v2@0.10.0-aenv.3`。发布前，npm 的既有版本和 `next` 标签不代表本分支的完整功能。
 
 ```ts
 import { createClient } from '@tier0/sdk-v2';
@@ -49,7 +49,7 @@ const user = await tier0.system.whoami();
 
 **平台里不需要、也读不到凭据。** Tier0 预览和部署的 VM 里没有令牌文件，也没有 `TIER0_API_KEY`。节点代理（`sbx-api-proxy`）按 VM 的源地址认出 App，在转发到平台时附加 App 凭证。
 
-有 `TIER0_RUNTIME`、没有 `TIER0_API_KEY` 时，SDK 进入「平台代理模式」（显式传了 `apiKey` / `getApiKey` 的客户端仍按显式配置）：
+`TIER0_RUNTIME` 为 `deployed` 或 `preview`、没有 `TIER0_API_KEY` 时，SDK 进入「平台代理模式」（显式传了 `apiKey` / `getApiKey` 的客户端仍按显式配置）。没有 `TIER0_API_KEY` 而 `TIER0_RUNTIME` 是其他非空值时，SDK 抛出配置错误，不猜测模式。平台代理模式下：
 
 - 不读任何凭据，不发 `Authorization`、`X-API-Key`、`X-Tier0-App-Data-Subject`；
 - 每个请求带 `X-Tier0-SDK: 1`，代理拒绝不带它的请求；
@@ -76,7 +76,7 @@ const user = await tier0.system.whoami();
 curl -sS -X POST "$TIER0_API_HOST/openapi/v2/info" -H 'X-Tier0-SDK: 1' -H 'Content-Type: application/json' -d '{}'
 ```
 
-代理只放行 `/openapi/v2/uns/**`、`/openapi/v2/assets/**`、`/openapi/v2/notifications/send`、`/openapi/v2/notifications/get`、`/openapi/v2/platform/getMembers`、`/openapi/v2/info`，这是 App 凭证能用的全部接口；其他接口（如 `system.whoami()`）在平台里回 404 `sbx_proxy_not_found`。代理自己产生的错误带 `X-Tier0-Proxy: not-forwarded`，响应体 `{code, message, retry_after_ms?}`：
+代理只转发 `/openapi/v2/uns/**`、`assets/**`、`notifications/send`、`notifications/get`、`platform/getMembers`（`members.listWorkspace()`）、`info`。白名单外的接口（`system.whoami()`、`members.listApp()`、`mqttAuth`、`capabilities`、`agent`、`client.streams` 的 Stream 请求和消息）回 404 `sbx_proxy_not_found`；Source / Stream 管理接口虽在 `/openapi/v2/uns/**` 下会被转发，但 App 凭证无权调用，Backend 回 403。代理自己产生的错误带 `X-Tier0-Proxy: not-forwarded`，响应体 `{code, message, retry_after_ms?}`：
 
 | `code` | 状态 | 含义 |
 | --- | --- | --- |

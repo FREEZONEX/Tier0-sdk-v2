@@ -91,6 +91,8 @@ export class HttpClient {
     if (!Number.isInteger(this.timeoutMs) || this.timeoutMs < 1 || this.timeoutMs > 2_147_483_647) throw new TypeError('Invalid transportTimeoutMs');
   }
   getBaseURL(): string {
+    // An invalid TIER0_RUNTIME throws here, before any transport catch can turn it into a network failure.
+    this.usesAppCredential();
     const host = this.config.apiHost ?? this.config.getApiHost?.() ?? getEnvVar('TIER0_API_HOST');
     if (!host?.trim()) throw new Error('Tier0 SDK v2: apiHost or TIER0_API_HOST is required.');
     const base = host.trim().replace(/\/+$/, '');

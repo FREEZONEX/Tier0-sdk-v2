@@ -6,8 +6,11 @@
  * EMQX. The SDK therefore reads no credential and sends none; it marks each
  * request with `X-Tier0-SDK: 1`, which the proxy requires.
  *
- * The mode is on when `TIER0_RUNTIME` is set and `TIER0_API_KEY` is not.
- * A client given its own `apiKey` or `getApiKey` keeps using that.
+ * The mode is on when `TIER0_RUNTIME` is `deployed` or `preview` and
+ * `TIER0_API_KEY` is not set. Any other value of `TIER0_RUNTIME` without
+ * `TIER0_API_KEY` is a configuration error and throws: guessing either way
+ * would send requests the proxy refuses, or none at all. A client given its
+ * own `apiKey` or `getApiKey` keeps using that and never looks.
  *
  * The identity comes from plain environment variables the platform sets. They
  * are identifiers, not secrets: a wrong value is refused, it grants nothing.
@@ -34,16 +37,26 @@ export interface PlatformIdentity {
 
 const env = (name: string) => getEnvVar(name)?.trim() || undefined;
 
-/** True inside a Tier0 Preview or deployment that has no API key of its own. */
+/** The platform runtime, or undefined outside platform proxy mode. Throws on an invalid `TIER0_RUNTIME`. */
+function proxyRuntime(): PlatformRuntime | undefined {
+  const runtime = env('TIER0_RUNTIME');
+  if (runtime === undefined || env('TIER0_API_KEY') !== undefined) return undefined;
+  if (runtime === 'deployed' || runtime === 'preview') return runtime;
+  throw new TypeError(`Tier0 SDK v2: TIER0_RUNTIME must be "deployed" or "preview", not ${JSON.stringify(runtime.slice(0, 64))}.`);
+}
+
+/**
+ * True inside a Tier0 Preview or deployment that has no API key of its own.
+ * Throws when `TIER0_RUNTIME` is set to anything but `deployed` or `preview`
+ * and `TIER0_API_KEY` is not set.
+ */
 export function platformProxyMode(): boolean {
-  return env('TIER0_RUNTIME') !== undefined && env('TIER0_API_KEY') === undefined;
+  return proxyRuntime() !== undefined;
 }
 
 /** The runtime the proxy attaches the App credential for; undefined outside platform proxy mode. */
 export function appCredentialRuntime(): PlatformRuntime | undefined {
-  if (!platformProxyMode()) return undefined;
-  const runtime = env('TIER0_RUNTIME');
-  return runtime === 'deployed' || runtime === 'preview' ? runtime : undefined;
+  return proxyRuntime();
 }
 
 /** The App this VM serves, from the platform's environment; undefined when incomplete. */

@@ -245,6 +245,9 @@ export class CloudTransport {
     if (signal?.aborted) controller.abort();
     let response: Response | undefined;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    // Outside the transport catch: a configuration error (host, TIER0_RUNTIME) must surface as itself.
+    const client = runtime ? undefined : this.resolveClient();
+    const url = client ? `${client.getBaseURL()}${path}` : '';
     const exchange = async () => {
       try {
         if (runtime) {
@@ -252,10 +255,8 @@ export class CloudTransport {
           reportAuthError(platformErrorCode(response));
         }
         else {
-          const client = this.resolveClient();
-          const url = `${client.getBaseURL()}${path}`;
           const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-          response = await client.authorizedFetch(url, { method: 'POST', headers, body: serialized, redirect: 'manual', signal: controller.signal }, this.#delegation ?? currentDelegation());
+          response = await client!.authorizedFetch(url, { method: 'POST', headers, body: serialized, redirect: 'manual', signal: controller.signal }, this.#delegation ?? currentDelegation());
         }
       } catch {
         throw new CloudTransportError('TRANSPORT_ERROR');

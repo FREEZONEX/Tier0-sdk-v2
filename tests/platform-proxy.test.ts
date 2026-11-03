@@ -8,6 +8,7 @@ import { HttpClient } from '../src/openapi/client.js';
 import { appCredentialRuntime, createDataClient, defineCollection, runAsApp, runWithRequestContext } from '../src/data/index.js';
 import { platformIdentity, platformProxyMode } from '../src/platform-proxy.js';
 import { getCurrentAppId } from '../src/runtime-context.js';
+import { Tier0MQClient } from '../src/mq/client.js';
 import { createVisitorTokenVerifier } from '../src/cloud-server.js';
 
 // The node proxy (design 21.28) on a real socket: what the SDK puts on the wire.
@@ -65,6 +66,38 @@ describe('platform proxy mode (design 21.7)', () => {
     vi.stubEnv('TIER0_API_KEY', undefined);
     vi.stubEnv('TIER0_RUNTIME', undefined);
     expect(platformProxyMode()).toBe(false);
+  });
+
+  it.each(['', '  '])('stays off for an empty TIER0_RUNTIME %j', (value) => {
+    vi.stubEnv('TIER0_RUNTIME', value);
+    expect(platformProxyMode()).toBe(false);
+    expect(appCredentialRuntime()).toBeUndefined();
+  });
+
+  it.each(['production', 'Deployed', 'true', '1'])('refuses TIER0_RUNTIME=%j instead of guessing', async (value) => {
+    vi.stubEnv('TIER0_RUNTIME', value);
+    const refused = /TIER0_RUNTIME must be "deployed" or "preview"/;
+    expect(() => platformProxyMode()).toThrow(refused);
+    expect(() => appCredentialRuntime()).toThrow(refused);
+    await expect(createClient().system.whoami()).rejects.toThrow(refused);
+    await expect(createUnsV2Client(() => new HttpClient()).recordCount({ collectionId: 'c1' } as never)).rejects.toThrow(refused);
+    expect(() => new Tier0MQClient()).toThrow(refused);
+    const orders = defineCollection({ alias: 'orders', name: 'orders', collectionId: 'c1', schema: z.object({ title: z.string() }) } as never);
+    const data = createDataClient({ collections: [orders], environment: 'deployed', logger: { info() {}, warn() {}, error() {} } as never });
+    await expect(data.collection(orders).countDocuments()).rejects.toMatchObject({ code: 'DATA_NOT_CONFIGURED', message: expect.stringMatching(refused) });
+    expect(received).toHaveLength(0);
+  });
+
+  it('ignores TIER0_RUNTIME when a key is given, by TIER0_API_KEY or explicitly', async () => {
+    vi.stubEnv('TIER0_RUNTIME', 'production');
+    await createClient({ apiKey: 'sk-explicit' }).system.whoami();
+    vi.stubEnv('TIER0_API_KEY', 'sk-app-ws1_local');
+    expect(platformProxyMode()).toBe(false);
+    await createClient().system.whoami();
+    expect(received.map(r => [r.headers.authorization, r.headers['x-tier0-sdk']])).toEqual([
+      ['Bearer sk-explicit', undefined],
+      ['Bearer sk-app-ws1_local', undefined],
+    ]);
   });
 
   it('sends no credential header, marks the request with X-Tier0-SDK: 1, and does not follow redirects', async () => {
