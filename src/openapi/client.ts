@@ -2,6 +2,7 @@ import { getEnvVar } from '../runtime-env.js';
 import { decodeUnsV2JSON, encodeUnsV2JSON } from '../uns-v2/codec.js';
 
 export interface ClientConfig {
+  fleetNodeId?: string;
   apiHost?: string;
   apiKey?: string;
   getApiHost?: () => string | undefined;
@@ -53,6 +54,7 @@ export class HttpClient {
   private readonly config: Readonly<ClientConfig>;
   readonly timeoutMs: number;
   constructor(config: ClientConfig = {}) {
+    if (config.fleetNodeId !== undefined && (typeof config.fleetNodeId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(config.fleetNodeId))) throw new TypeError('Invalid fleetNodeId');
     this.config = Object.freeze({ ...config });
     this.timeoutMs = config.transportTimeoutMs ?? 60_000;
     if (!Number.isInteger(this.timeoutMs) || this.timeoutMs < 1 || this.timeoutMs > 2_147_483_647) throw new TypeError('Invalid transportTimeoutMs');
@@ -68,11 +70,18 @@ export class HttpClient {
   getApiKey(): string | undefined { return this.config.apiKey ?? this.config.getApiKey?.() ?? getEnvVar('TIER0_API_KEY'); }
   getFetch(): typeof globalThis.fetch { return this.config.fetch ?? globalThis.fetch; }
 
+  applyFleetTarget(headers: Headers, path: string): void {
+    if (this.config.fleetNodeId === undefined) return;
+    if (!path.startsWith('/openapi/v2/uns/')) throw new TypeError('Fleet targets require a UNS v2 operation');
+    headers.set('X-Fleet-Node-Id', this.config.fleetNodeId);
+  }
+
   private async exchange(path: string, init: RequestInit, options: RequestOptions, mutation: boolean): Promise<{ text: string; status: number; ok: boolean }> {
     if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\')) throw new TypeError('A relative API path is required');
     const url = this.getBaseURL() + path;
     const key = this.getApiKey();
     const headers = new Headers(init.headers);
+    this.applyFleetTarget(headers, path);
     headers.set('Content-Type', 'application/json');
     if (key) { headers.set('X-API-Key', key); headers.set('Authorization', `Bearer ${key}`); }
     const controller = new AbortController();

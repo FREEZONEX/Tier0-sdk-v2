@@ -63,6 +63,9 @@ export class CloudTransport {
     const url = `${client.getBaseURL()}${path}`;
     const key = client.getApiKey();
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const targetHeaders = new Headers();
+    client.applyFleetTarget(targetHeaders, path);
+    targetHeaders.forEach((value, name) => { headers[name] = value; });
     // Control routes also live under UNS v2, but must never receive data delegation.
     // Keep this per-client proof out of shared HTTP headers and Control capabilities.
     if (path.startsWith('/openapi/v2/uns/') &&
@@ -148,6 +151,9 @@ export class CloudTransport {
     const url = `${client.getBaseURL()}${path}`;
     const key = client.getApiKey();
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const targetHeaders = new Headers();
+    client.applyFleetTarget(targetHeaders, path);
+    targetHeaders.forEach((value, name) => { headers[name] = value; });
     if (key) {
       headers.Authorization = `Bearer ${key}`;
       headers['X-API-Key'] = key;
