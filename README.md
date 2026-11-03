@@ -45,6 +45,8 @@ const user = await tier0.system.whoami();
 
 Data 高层会跨请求复用 ensure 结果、重放带幂等键的 seed、恢复 stale 集合和续接 SSE。现有 whoami 不返回权威 App ID，同一工作空间和创建者的不同 App Key 可能具有相同的 workspace/user/type；名称、前缀或 provider 自报的身份不能证明不同 Key 属于同一主体。移除高层拒绝前，需要与实际请求凭据绑定、可验证且覆盖 App、员工委托及幂等作用域的服务端身份合同，并将这些跨请求状态隔离到已确认主体。`scripts/check-data-principal-boundary.mjs` 可在受控环境中用真实 Gateway 和两个不同 App 的临时 Key 验证此边界；脚本开头列出输入，Key 文件由调用方在验证后撤销和清理。
 
+内部主体围栏目前仅有模拟验证器测试，没有连接服务端，也不开放 Data provider。后端合同须让服务端在实际业务请求中验证与凭据、Workspace、有效主体和幂等作用域绑定的身份，避免预检后身份被切换；SDK 接入时还须在每次发送前及返回缓存结果前复核，并把 ensure、seed、stale 恢复和 SSE 续连绑定到相应主体。身份不能确认时停止相关操作，不能自动跨主体重放或返回旧主体结果。
+
 `createClient()` 实例之间不共享配置；推荐在一个稳定身份的服务生命周期内复用实例。员工数据委托必须为每个请求创建新实例，传入受信网关的 `unsV2AppDataSubject`。App Key 只代表 App，不能替代当前用户身份，也不能下发到浏览器。浏览器页面应调用自己的服务端 API。
 
 ## 能力与入口

@@ -32,6 +32,7 @@ import { assertNoWriteErrors, MAX_ATOMIC_ITEMS } from './collection.js';
 import type { CollectionDefinition } from './define.js';
 import { ACCESS_REASONS, DataError } from './error.js';
 import { compileCollection, validateDocument, type CompiledCollection } from './schema.js';
+import { DataPrincipalError } from './principal.js';
 
 export type DataEnvironment = 'preview' | 'deployed';
 
@@ -172,6 +173,8 @@ export function createBootstrap(config: BootstrapConfig) {
   }
 
   async function insertSeedChunk(collectionId: string, chunk: number, documents: { id?: string; data: Record<string, unknown> }[]) {
+    const idempotencyKey = seedChunkKey(collectionId, chunk);
+    let priorUnknown = false;
     for (let attempt = 1; ; attempt += 1) {
       try {
         const result = await call<{ writeErrors?: Record<string, unknown>[] }>('recordBulkWrite', {
@@ -179,11 +182,13 @@ export function createBootstrap(config: BootstrapConfig) {
           operations: documents.map(document => ({ insertOne: document })),
           ordered: true,
           atomic: true,
-          idempotencyKey: seedChunkKey(collectionId, chunk),
+          idempotencyKey,
         });
         assertNoWriteErrors(result, 'seed');
         return;
       } catch (error) {
+        if (error instanceof DataPrincipalError && priorUnknown) throw new DataPrincipalError({ idempotencyKey });
+        if (error instanceof DataError && error.outcomeUnknown) priorUnknown = true;
         // The chunk key is stable, so replaying is safe even when the outcome is unknown: a chunk
         // that did commit replays its receipt. Wait first, so a write still running can finish.
         if (!(error instanceof DataError) || !(error.outcomeUnknown || error.retry.safe) || attempt >= SEED_ATTEMPTS) throw error;
@@ -208,6 +213,8 @@ export function createBootstrap(config: BootstrapConfig) {
         }
         logger.info(`[data] seeded ${documents.length} record(s) into "${result.alias}"`);
       } catch (error) {
+        // A principal boundary failure must never turn into a successful ensure.
+        if (error instanceof DataPrincipalError) throw error;
         // The collection exists now; a later ensure reports "unchanged" and
         // never re-seeds, so the failure must be visible in the server log.
         logger.error(`[data] seed for new collection "${result.alias}" failed; it keeps the chunks written so far:`, error);
