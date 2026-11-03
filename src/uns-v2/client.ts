@@ -292,7 +292,7 @@ export class UnsV2ClientCore {
         : error.kind === 'PROTOCOL_ERROR' ? 'Invalid UNS v2 HTTP response.'
           : error.kind === 'TRANSPORT_ABORTED' ? 'UNS v2 request aborted.' : 'UNS v2 transport failed.';
       const resendable = error.kind === 'TRANSPORT_TIMEOUT' || error.kind === 'TRANSPORT_ERROR';
-      throw localError(message, name, mutation, `UNS_V2_${error.kind}`, error.status, resendable);
+      throw localError(message, name, mutation, `UNS_V2_${error.kind}`, error.status, resendable, { notStarted: error.notStarted });
     }
 
     // An ingress answers 502/503/504 without the UNS envelope during rollouts and restarts.

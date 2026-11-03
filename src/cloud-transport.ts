@@ -76,6 +76,7 @@ export class CloudTransport {
     }
     const controller = new AbortController();
     let response: Response | undefined;
+    let dispatched = false;
     let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let rejectAbort: (error: Error) => void = () => undefined;
@@ -83,18 +84,23 @@ export class CloudTransport {
     const onAbort = () => {
       controller.abort();
       void reader?.cancel().catch(() => undefined);
-      rejectAbort(new CloudTransportError('TRANSPORT_ABORTED', response?.status));
+      rejectAbort(new CloudTransportError('TRANSPORT_ABORTED', response?.status, !dispatched));
     };
     options.signal?.addEventListener('abort', onAbort, { once: true });
     if (options.signal?.aborted) onAbort();
     const exchange = async () => {
-      const key = client.hasApiKeyProvider() ? await client.resolveApiKey(controller.signal) : staticKey;
-      if (controller.signal.aborted) throw new CloudTransportError('TRANSPORT_ABORTED');
+      let key = staticKey;
+      if (client.hasApiKeyProvider()) {
+        try { key = await client.resolveApiKey(controller.signal); }
+        catch { throw new CloudTransportError('TRANSPORT_ERROR', undefined, true); }
+      }
+      if (controller.signal.aborted) throw new CloudTransportError('TRANSPORT_ABORTED', undefined, !dispatched);
       if (key) {
         headers.Authorization = `Bearer ${key}`;
         headers['X-API-Key'] = key;
       }
       try {
+        dispatched = true;
         response = await fetch(url, { method: 'POST', headers, body, redirect: 'manual', signal: controller.signal });
       } catch {
         throw new CloudTransportError('TRANSPORT_ERROR');
@@ -137,13 +143,13 @@ export class CloudTransport {
         timer = setTimeout(() => {
           controller.abort();
           void reader?.cancel().catch(() => undefined);
-          reject(new CloudTransportError('TRANSPORT_TIMEOUT', response?.status));
+          reject(new CloudTransportError('TRANSPORT_TIMEOUT', response?.status, !dispatched));
         }, timeoutMs);
       });
       // Also bounds custom transports which ignore AbortSignal.
       return await Promise.race([exchange(), deadline, cancelled]);
     } catch (error) {
-      if (controller.signal.aborted) throw new CloudTransportError(options.signal?.aborted ? 'TRANSPORT_ABORTED' : 'TRANSPORT_TIMEOUT', response?.status);
+      if (controller.signal.aborted) throw new CloudTransportError(options.signal?.aborted ? 'TRANSPORT_ABORTED' : 'TRANSPORT_TIMEOUT', response?.status, !dispatched);
       throw error;
     } finally {
       clearTimeout(timer);
