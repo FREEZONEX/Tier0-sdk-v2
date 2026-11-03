@@ -2,7 +2,9 @@
 
 Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交互均使用 `@tier0/sdk-v2`。旧 SDK 不再作为依赖。
 
-`0.10.0-aenv.1` 是 aenv-next 的本地预发布版本，基于 `0.9.4`，未发布到 npm；新增内容见下方「aenv-next 运行环境」。
+`0.10.0-aenv.2` 是 aenv-next 的本地预发布版本，基于 `0.9.4`，未发布到 npm；内容见下方「aenv-next 运行环境」。
+
+**`0.10.0-aenv.2` 是破坏性变更**：平台 VM 里不再有令牌文件，`TIER0_CREDENTIALS_FILE` 不再读取，SDK 在平台里不发任何凭据，改由节点代理附加；必须和新的 AgentENV（`sbx-api-proxy`）一起上线，在旧 VM 上请求会被拒绝。
 
 `0.9.3` 同步集合授权合同：授予既有集合访问权限时无需提供别名，并更新生成类型与使用说明。集合声明的 `name` / `alias` 要求保持不变。
 
@@ -22,20 +24,20 @@ Collection 声明必须同时提供业务名称 `name`（例如「生产工单�
 
 ## 安装与初始化
 
-维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。本分支的功能应使用检查通过的 `tier0-sdk-v2-0.10.0-aenv.1.tgz` 在业务项目中验证：
+维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。本分支的功能应使用检查通过的 `tier0-sdk-v2-0.10.0-aenv.2.tgz` 在业务项目中验证：
 
 ```sh
-npm install /path/to/tier0-sdk-v2-0.10.0-aenv.1.tgz
+npm install /path/to/tier0-sdk-v2-0.10.0-aenv.2.tgz
 ```
 
-`0.10.0-aenv.1` 正式发布后再使用 `npm install @tier0/sdk-v2@0.10.0-aenv.1`。发布前，npm 的既有版本和 `next` 标签不代表本分支的完整功能。
+`0.10.0-aenv.2` 正式发布后再使用 `npm install @tier0/sdk-v2@0.10.0-aenv.2`。发布前，npm 的既有版本和 `next` 标签不代表本分支的完整功能。
 
 ```ts
 import { createClient } from '@tier0/sdk-v2';
 
-// 服务端环境注入 TIER0_API_HOST 和 TIER0_API_KEY。
+// 平台里只需 TIER0_API_HOST（平台已设置）；本地开发另设 TIER0_API_KEY。
 const tier0 = createClient();
-// 首次接入时确认身份与 Workspace；不需要在每次业务操作前重复调用。
+// 用 API Key 首次接入时确认身份与 Workspace（平台里 App 凭证不能调 whoami）。
 const user = await tier0.system.whoami();
 ```
 
@@ -45,21 +47,59 @@ const user = await tier0.system.whoami();
 
 ## aenv-next 运行环境
 
-平台 VM 里不再注入 `TIER0_API_KEY`。设置了 `TIER0_CREDENTIALS_FILE` 时：
+**平台里不需要、也读不到凭据。** Tier0 预览和部署的 VM 里没有令牌文件，也没有 `TIER0_API_KEY`。节点代理（`sbx-api-proxy`）按 VM 的源地址认出 App，在转发到平台时附加 App 凭证。
 
-- SDK 同步读取令牌文件，按 inode、修改时间、大小缓存，用 `Authorization: Bearer` 发送，不发 `X-API-Key`；收到 401 时等文件变化（最多 2 秒），再重试一次；
-- 工作区和 App ID 以令牌里的值为准，MQTT 的 username、clientId 由令牌推导；
-- `runWithRequestContext` 把收到的 `X-Tier0-Delegation` 原样转发到所有平台接口，`runAsApp` 不带；
-- SDK 不提供打印令牌的命令，不要读取、打印或复制令牌文件。
+有 `TIER0_RUNTIME`、没有 `TIER0_API_KEY` 时，SDK 进入「平台代理模式」（显式传了 `apiKey` / `getApiKey` 的客户端仍按显式配置）：
 
-没有这个变量时，API Key 路径保持不变。
+- 不读任何凭据，不发 `Authorization`、`X-API-Key`、`X-Tier0-App-Data-Subject`；
+- 每个请求带 `X-Tier0-SDK: 1`，代理拒绝不带它的请求；
+- 不跟随重定向；
+- 只对代理自己产生的 `503`、`429`（带 `X-Tier0-Proxy: not-forwarded`）按响应体的 `retry_after_ms` 重试，最多 3 次。这类请求没有到达平台，写操作重发也安全。平台返回的 5xx 不重试；
+- `runWithRequestContext` 把收到的 `X-Tier0-Delegation` 原样转发到所有平台接口，`runAsApp` 不带。
 
-- `@tier0/sdk-v2/server`：`createVisitorTokenVerifier()` 校验 `X-Tier0-Visitor`（契约 v2，公钥从 `TIER0_JWKS_DIR` 读最新集合）。
-- 预览里 App 凭证只能对自有集合做 `ensure`，种子写入等第一个带委托令牌的请求。
+平台设置的环境变量（都是标识，不是秘密）：
+
+| 变量 | 值 |
+| --- | --- |
+| `TIER0_API_HOST` | `http://api.sbx.internal:8080`，带 scheme。不带 scheme 的主机名仍按 `https://` 处理，给本地开发用 |
+| `TIER0_MQTT_URL` | `mqtt://mqtt.sbx.internal:1883` |
+| `TIER0_WORKSPACE_ID` | 工作区 ID，SDK 以它为准 |
+| `TIER0_APP_ID` | App ID，SDK 以它为准（`getCurrentAppId()` 先读它，再读旧的 `APP_ID`） |
+| `TIER0_RUNTIME` | `deployed` 或 `preview` |
+| `TIER0_RELEASE` | 正式部署的 release |
+| `TIER0_SESSION` | 预览所在的会话 |
+| `TIER0_JWKS_DIR` | 前门公钥目录，`createVisitorTokenVerifier()` 读取 |
+
+**直接用 `fetch` / `curl` 调平台**（不经过 SDK）时，必须自己带 `X-Tier0-SDK: 1`，不要带 `Authorization`；`Forwarded`、`X-Forwarded-*`、`X-Real-IP` 会被拒绝：
+
+```sh
+curl -sS -X POST "$TIER0_API_HOST/openapi/v2/info" -H 'X-Tier0-SDK: 1' -H 'Content-Type: application/json' -d '{}'
+```
+
+代理只放行 `/openapi/v2/uns/**`、`/openapi/v2/assets/**`、`/openapi/v2/notifications/send`、`/openapi/v2/notifications/get`、`/openapi/v2/platform/getMembers`、`/openapi/v2/info`，这是 App 凭证能用的全部接口；其他接口（如 `system.whoami()`）在平台里回 404 `sbx_proxy_not_found`。代理自己产生的错误带 `X-Tier0-Proxy: not-forwarded`，响应体 `{code, message, retry_after_ms?}`：
+
+| `code` | 状态 | 含义 |
+| --- | --- | --- |
+| `sbx_proxy_not_ready` | 503 | 代理刚启动、还没拿到绑定；SDK 自动重试 |
+| `sbx_proxy_limited` | 429 | 超过这个 VM 的并发或速率上限；SDK 自动重试 |
+| `sbx_proxy_unbound` | 403 | 这个 VM 没有绑定 App 凭证（实例正在启动或已停止） |
+| `sbx_proxy_token_expired` | 403 | App 凭证没续上就过期了，等平台恢复签发 |
+| `sbx_proxy_bad_request` | 400 | 请求格式被拒（absolute-form、`Upgrade`、路径含 `..` / `%2f` 等、多个 `X-Tier0-Delegation`） |
+| `sbx_proxy_forbidden` | 403 | 缺 `X-Tier0-SDK: 1`，或带了 `Forwarded` / `X-Forwarded-*` / `X-Real-IP` |
+| `sbx_proxy_not_found` | 404 | 路径不在白名单里 |
+
+`ApiError.errorCode`、`UnsV2Error.code` 是上表的 `code`；UNS 调用的 `execution` 为 `notStarted`。
+
+平台权限（十项）和消息主题由工作区管理员在 App 设置里管理，改了立即生效；外部集合仍在发布时确认。
+
+本地开发（没有 `TIER0_RUNTIME`）照旧设 `TIER0_API_HOST`、`TIER0_API_KEY`。
+
+- `@tier0/sdk-v2/server`：`createVisitorTokenVerifier()` 校验 `X-Tier0-Visitor`（契约 v2，公钥从 `TIER0_JWKS_DIR` 读最新集合，`aud` 按 `TIER0_APP_ID`）。
+- 预览里 App 凭证只能对自有集合做 `ensure`，种子写入等第一个带委托令牌的请求（判断依据 `TIER0_RUNTIME=preview`，可用 `appCredentialRuntime()` 读取）。
 - `@tier0/sdk-v2/page-runtime`：页面运行时 v1 和平台错误（`x-sbx-error`）。
 - `@tier0/sdk-v2/event-stream`：基于 fetch 的 SSE。App 休眠时停止，`resumed` 后重建，节点 agent 重启时透明重连。`EventSource` 遇到 503 不重试，手写时要订阅 `resumed` 后重建。
 
-**MQTT**：`clean` 默认 `false`，每次重连都取新令牌（服务端读文件，浏览器走页面运行时）。服务端按指数退避一直重试，上限 5 分钟；浏览器在令牌接口返回 401/403，或连续 3 次 CONNACK 认证失败时停止，`resumed` 后恢复。持久会话、QoS 1 下跨令牌过期不丢消息，但断开期间的积压超过 EMQX 离线队列（默认 `max_mqueue_len=1000`）仍会丢。
+**MQTT**：服务端在平台代理模式下不发 password，由代理填入 App 凭证；username 为 `<ws>&<app>&appcred`，clientId 为 `<ws>&a.<app>.<p.<session> 或 d.<release>>.<16 位随机>`，都由上面的环境变量拼出。只有用平台给的 `TIER0_MQTT_URL`（`mqtt://`）时才走 TCP 经过代理；显式传 `host` 会改用 WebSocket，经代理连不上，平台里不要传。浏览器照旧每次连接从页面运行时取令牌。`clean` 默认 `false`；服务端按指数退避一直重连，上限 5 分钟，重连时代理换上新令牌；浏览器在令牌接口返回 401/403，或连续 3 次 CONNACK 认证失败时停止，`resumed` 后恢复。持久会话、QoS 1 下跨令牌过期不丢消息，但断开期间的积压超过 EMQX 离线队列（默认 `max_mqueue_len=1000`）仍会丢。
 
 ## 能力与入口
 

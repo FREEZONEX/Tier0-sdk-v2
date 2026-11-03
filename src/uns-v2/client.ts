@@ -195,6 +195,21 @@ function retryAfterMs(value: string | undefined): number | undefined {
  */
 const rejectedBeforeUns = (status: number) => status >= 400 && status < 500 && status !== 408;
 
+/**
+ * An answer of the node proxy (design 21.28, `X-Tier0-Proxy: not-forwarded`):
+ * `{code: "sbx_proxy_*", message, retry_after_ms?}`. UNS never saw the request,
+ * so it is `notStarted`, a write included. The HTTP client already resent a
+ * 503 or 429 three times; `retry.safe` is false so that no caller multiplies
+ * those resends.
+ */
+function proxyError(text: string, status: number, operation: UnsV2ErrorOperation): UnsV2Error {
+  let value: unknown;
+  try { value = JSON.parse(text); } catch { value = undefined; }
+  const code = record(value) && typeof value.code === 'string' && /^sbx_proxy_[a-z_]+$/.test(value.code) ? value.code : 'UNS_V2_PROTOCOL_ERROR';
+  const message = record(value) && typeof value.message === 'string' ? value.message : 'Rejected by the Tier0 node proxy.';
+  return localError(message, operation, false, code, status, false, { notStarted: true });
+}
+
 /** Contract limits of one `records:subscribe` stream. */
 export const UNS_V2_SUBSCRIBE_MAX_COLLECTIONS = 64;
 export const UNS_V2_SUBSCRIBE_MAX_RECORD_IDS = 100;
@@ -295,6 +310,7 @@ export class UnsV2ClientCore {
       throw localError(message, name, mutation, `UNS_V2_${error.kind}`, error.status, resendable);
     }
 
+    if (response.notForwarded) throw proxyError(response.text, response.status, name);
     // An ingress answers 502/503/504 without the UNS envelope during rollouts and restarts.
     const unavailable = response.status === 502 || response.status === 503 || response.status === 504;
     // `enveloped`: the body looks like a UNS envelope, so UNS may have answered it.
@@ -359,6 +375,7 @@ export class UnsV2ClientCore {
       throw localError('UNS v2 event stream could not be opened.', name, false, `UNS_V2_${error.kind}`, error.status, resendable);
     }
     if ('text' in opened) {
+      if (opened.notForwarded) throw proxyError(opened.text, opened.status, name);
       const unavailable = opened.status === 502 || opened.status === 503 || opened.status === 504;
       const invalid = (enveloped: boolean) => localError('Invalid UNS v2 event stream response.', name, false, 'UNS_V2_PROTOCOL_ERROR', opened.status, unavailable, {
         notStarted: !enveloped && rejectedBeforeUns(opened.status),

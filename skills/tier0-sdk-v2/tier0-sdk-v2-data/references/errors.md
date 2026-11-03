@@ -38,7 +38,7 @@ export function toResponse(error: unknown): Response {
 
 | code | 含义 |
 | --- | --- |
-| `DATA_NOT_CONFIGURED` (503) | 缺少 TIER0_API_HOST / TIER0_API_KEY（或 apiHost / apiKey） |
+| `DATA_NOT_CONFIGURED` (503) | 缺少 TIER0_API_HOST（或 apiHost）；本地开发还缺 TIER0_API_KEY（或 apiKey）。平台里不需要 Key，凭据由节点代理附加 |
 | `DATA_TIMEOUT` (503) | UNS 未在超时内应答（每次调用从开始算共 25 秒，含排队与重试，`transportTimeoutMs` 可调）；写入时 `outcomeUnknown` 为 true、不重试 |
 | `DATA_OVERLOADED` (503) | 本进程 6 个请求名额一直占满，调用在超时前没排到，**没有发出**（`execution: 'notStarted'`，`retry.safe`）；减少并发或合并读取 |
 | `DATA_ABORTED` (499) | 业务请求已中止（`runWithRequestContext(request, …)` 的 `request.signal`）：排队中的调用不再发出（`notStarted`），已发出的写入 `outcomeUnknown` |
@@ -80,3 +80,19 @@ export function toResponse(error: unknown): Response {
 | `FORBIDDEN` (403) | Key 不能做该操作（其他 App 或共享集合），或 Key 已吊销 |
 
 记录调用上的 `data.reason`：`COLLECTION_NOT_GRANTED`（403，授权不覆盖该集合或操作）与 `COLLECTION_NOT_FOUND`（403/404，已归档或删除）会触发数据层重新 ensure；`APP_PERMISSION_MISSING`（403，`data.missingPermission`）表示 Key 缺少权限，例如删除记录需要 `uns.delete`——业务记录通常以状态结束（`CANCELLED`、`ARCHIVED`）而不是删除。
+
+## 节点代理错误
+
+Tier0 预览和部署里，平台请求经过节点代理（`sbx-api-proxy`），它按 VM 源地址附加 App 凭证。代理自己产生的错误带响应头 `X-Tier0-Proxy: not-forwarded`，响应体 `{code, message, retry_after_ms?}`，请求**没有到达平台**，所以 `execution` 是 `notStarted`，写入重发也安全。`DataError.code`、`UnsV2Error.code`、`ApiError.errorCode` 都是下表的 `code`。
+
+| code | 含义与处理 |
+| --- | --- |
+| `sbx_proxy_not_ready` (503) | 代理刚启动，还没拿到这台 VM 的绑定。SDK 已按 `retry_after_ms` 重试 3 次，仍失败就稍后再试 |
+| `sbx_proxy_limited` (429) | 超过这台 VM 的上限（64 个并发请求、50 rps、8 个 SSE、16 条 MQTT 等）。SDK 已重试 3 次；减少并发 |
+| `sbx_proxy_unbound` (403) | 这台 VM 当前没有绑定 App 凭证：实例正在启动、停止或被替换，等平台恢复 |
+| `sbx_proxy_token_expired` (403) | App 凭证没续上就过期了（签发服务不可用），平台恢复后自动好 |
+| `sbx_proxy_bad_request` (400) | 请求格式被拒：absolute-form、`CONNECT`、`Upgrade`、路径含 `.` / `..` / `//` / `%2f` / `%2e` / `%5c` / `;`、多个 `X-Tier0-Delegation`、请求头超过 32 KiB 或 100 个 |
+| `sbx_proxy_forbidden` (403) | 缺 `X-Tier0-SDK: 1`，或带了 `Forwarded` / `X-Forwarded-*` / `X-Real-IP`。直接用 `fetch` / `curl` 时自己加 `X-Tier0-SDK: 1` |
+| `sbx_proxy_not_found` (404) | 路径不在 App 凭证能用的范围里：只有 `/openapi/v2/uns/**`、`assets/**`、`notifications/send`、`notifications/get`、`platform/getMembers`、`info` |
+
+只有带 `X-Tier0-Proxy: not-forwarded` 的 `503` / `429` 会被 SDK 自动重试；平台返回的 5xx 不重试。

@@ -1,4 +1,5 @@
 import { platformErrorCode, reportAuthError } from './page-runtime.js';
+import { PROXY_HEADER, PROXY_NOT_FORWARDED } from './platform-proxy.js';
 import { assertCompactToken, currentDelegation } from './request-context.js';
 import type { AppRuntime } from './runtime.js';
 import { getClient, type HttpClient, type RequestOptions } from './openapi/client.js';
@@ -41,7 +42,12 @@ export class CloudTransportError extends Error {
   }
 }
 
-/** Single fetch, no redirects/retries; one deadline covers both headers and body. */
+const notForwarded = (response: Response) => response.headers.get(PROXY_HEADER) === PROXY_NOT_FORWARDED;
+
+/**
+ * No redirects; one deadline covers both headers and body. The only retries are
+ * the HTTP client's, of answers the node proxy produced itself.
+ */
 export class CloudTransport {
   private readonly configuredTimeoutMs: number | undefined;
   private get timeoutMs(): number { return this.configuredTimeoutMs ?? this.resolveClient().timeoutMs; }
@@ -69,8 +75,11 @@ export class CloudTransport {
     this.#delegation = config.delegation;
   }
 
-  /** `retryAfter`: the raw `Retry-After` header, for answers without a UNS error body. */
-  async postText(path: string, body: string, options: RequestOptions = {}, operation?: UnsV2OperationName): Promise<{ text: string; status: number; ok: boolean; retryAfter?: string }> {
+  /**
+   * `retryAfter`: the raw `Retry-After` header, for answers without a UNS error body.
+   * `notForwarded`: the node proxy answered itself (`X-Tier0-Proxy: not-forwarded`), the platform never saw the request.
+   */
+  async postText(path: string, body: string, options: RequestOptions = {}, operation?: UnsV2OperationName): Promise<{ text: string; status: number; ok: boolean; retryAfter?: string; notForwarded?: true }> {
     options.signal?.throwIfAborted();
     const client = this.resolveClient();
     const url = `${client.getBaseURL()}${path}`;
@@ -131,7 +140,11 @@ export class CloudTransport {
         reader = undefined;
       }
       const retryAfter = response.headers.get('retry-after') ?? undefined;
-      return { text: chunks.join(''), status: response.status, ok: response.ok, ...(retryAfter === undefined ? {} : { retryAfter }) };
+      return {
+        text: chunks.join(''), status: response.status, ok: response.ok,
+        ...(retryAfter === undefined ? {} : { retryAfter }),
+        ...(notForwarded(response) ? { notForwarded: true as const } : {}),
+      };
     };
     try {
       const deadline = new Promise<never>((_resolve, reject) => {
@@ -161,7 +174,7 @@ export class CloudTransport {
    * link to `signal`, which also ends it.
    */
   async getEventStream(path: string, options: { lastEventId?: string; signal?: AbortSignal } = {}, operation?: UnsV2StreamOperationName):
-    Promise<{ status: number; stream: ReadableStream<Uint8Array>; close(): void } | { status: number; text: string }> {
+    Promise<{ status: number; stream: ReadableStream<Uint8Array>; close(): void } | { status: number; text: string; notForwarded?: true }> {
     options.signal?.throwIfAborted();
     const client = this.resolveClient();
     const url = `${client.getBaseURL()}${path}`;
@@ -197,7 +210,8 @@ export class CloudTransport {
       return { status: response.status, stream: response.body, close };
     }
     try {
-      if (!response.body) return { status: response.status, text: '' };
+      const proxied = notForwarded(response) ? { notForwarded: true as const } : {};
+      if (!response.body) return { status: response.status, text: '', ...proxied };
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8', { fatal: true });
       const chunks: string[] = [];
@@ -213,7 +227,7 @@ export class CloudTransport {
         chunks.push(decoder.decode(value, { stream: true }));
       }
       chunks.push(decoder.decode());
-      return { status: response.status, text: chunks.join('') };
+      return { status: response.status, text: chunks.join(''), ...proxied };
     } catch (error) {
       if (error instanceof CloudTransportError) throw error;
       throw failure('PROTOCOL_ERROR', response.status);

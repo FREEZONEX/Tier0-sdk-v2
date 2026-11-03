@@ -1,6 +1,3 @@
-import { mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Tier0MQClient } from '../../src/mq/client.js';
 import type { Tier0Event } from '../../src/page-runtime.js';
@@ -9,9 +6,6 @@ vi.mock('mqtt', () => ({ default: { connect: vi.fn() } }));
 import mqtt from 'mqtt';
 
 const RUNTIME_KEY = Symbol.for('tier0.page-runtime.v1');
-const b64 = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
-const appToken = (mark: string, claims: Record<string, unknown> = {}) =>
-  `${b64({ alg: 'EdDSA' })}.${b64({ typ: 'app-credential', ws: '42', app: 'app_1', runtime: 'deployed', release: 'r1', ...claims })}.${mark}`;
 
 function fakeMqtt() {
   const handlers: Record<string, ((...args: any[]) => void)[]> = {};
@@ -28,14 +22,14 @@ function fakeMqtt() {
   return { client, emit: (event: string, ...args: unknown[]) => (handlers[event] ?? []).forEach((handler) => handler(...args)) };
 }
 
-describe('Tier0MQClient across token expiry', () => {
+describe('Tier0MQClient across reconnects and token expiry', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     vi.stubEnv('TIER0_API_KEY', undefined);
     vi.stubEnv('TIER0_MQTT_HOST', undefined);
     vi.stubEnv('TIER0_MQTT_URL', undefined);
-    vi.stubEnv('TIER0_CREDENTIALS_FILE', undefined);
+    vi.stubEnv('TIER0_RUNTIME', undefined);
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -43,22 +37,15 @@ describe('Tier0MQClient across token expiry', () => {
     delete (globalThis as Record<symbol, unknown>)[RUNTIME_KEY];
   });
 
-  describe('on the server', () => {
-    let dir: string;
-    let file: string;
-    const write = (value: string) => {
-      const next = join(dir, '.next');
-      writeFileSync(next, value);
-      renameSync(next, file);
-    };
+  describe('on the server, through the node proxy', () => {
     beforeEach(() => {
-      dir = mkdtempSync(join(tmpdir(), 'tier0-mq-'));
-      file = join(dir, 'app-token');
-      write(appToken('first'));
-      vi.stubEnv('TIER0_CREDENTIALS_FILE', file);
-      vi.stubEnv('TIER0_MQTT_URL', 'mqtt://emqx.internal:1883');
+      vi.stubEnv('TIER0_RUNTIME', 'deployed');
+      vi.stubEnv('TIER0_WORKSPACE_ID', '42');
+      vi.stubEnv('TIER0_APP_ID', 'app_1');
+      vi.stubEnv('TIER0_RELEASE', 'r1');
+      vi.stubEnv('TIER0_SESSION', undefined);
+      vi.stubEnv('TIER0_MQTT_URL', 'mqtt://mqtt.sbx.internal:1883');
     });
-    afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
     async function connected() {
       const { client, emit } = fakeMqtt();
@@ -69,27 +56,46 @@ describe('Tier0MQClient across token expiry', () => {
       return { sdk, client, emit };
     }
 
-    it('connects with the token, identity from its claims, and the four changed options', async () => {
+    it('connects over TCP without a password, identity from the environment, and the four changed options', async () => {
       await connected();
       const [url, options] = (mqtt.connect as any).mock.calls[0];
-      expect(url).toBe('mqtt://emqx.internal:1883');
-      expect(options).toMatchObject({ username: '42&app_1&appcred', password: appToken('first'), clean: false, reconnectOnConnackError: true, reconnectPeriod: 0 });
+      expect(url).toBe('mqtt://mqtt.sbx.internal:1883');
+      expect(options).toMatchObject({ username: '42&app_1&appcred', clean: false, reconnectOnConnackError: true, reconnectPeriod: 0 });
+      expect(options).not.toHaveProperty('password');
       expect(options.clientId).toMatch(/^42&a\.app_1\.d\.r1\.[a-z0-9]{16}$/);
     });
 
     it('uses the session in a preview clientId', async () => {
-      write(appToken('p', { runtime: 'preview', release: undefined, session: 's1' }));
+      vi.stubEnv('TIER0_RUNTIME', 'preview');
+      vi.stubEnv('TIER0_RELEASE', undefined);
+      vi.stubEnv('TIER0_SESSION', 's1');
       await connected();
       expect((mqtt.connect as any).mock.calls[0][1].clientId).toMatch(/^42&a\.app_1\.p\.s1\.[a-z0-9]{16}$/);
     });
 
-    it('reconnects the same client with the new token and the same clientId', async () => {
+    it('goes over WebSocket for an explicit host, or a TIER0_MQTT_URL that is not mqtt://', async () => {
+      const { client, emit } = fakeMqtt();
+      const explicit = new Tier0MQClient({ host: 'mqtt.sbx.internal:1883' });
+      const pending = explicit.connect();
+      emit('connect');
+      await pending;
+      expect((mqtt.connect as any).mock.calls[0][0]).toMatch(/^ws:\/\//);
+      expect(client).toBeDefined();
+      vi.stubEnv('TIER0_MQTT_URL', 'mqtts://mqtt.sbx.internal:8883');
+      const tls = new Tier0MQClient();
+      const second = tls.connect();
+      emit('connect');
+      await second;
+      expect((mqtt.connect as any).mock.calls[1][0]).toMatch(/^wss?:\/\//);
+    });
+
+    it('reconnects the same client with the same identity, still without a password', async () => {
       const { client, emit } = await connected();
-      write(appToken('second'));
       emit('close');
       await vi.advanceTimersByTimeAsync(600);
       expect(client.reconnect).toHaveBeenCalledTimes(1);
-      expect(client.options.password).toBe(appToken('second'));
+      expect(client.options).not.toHaveProperty('password');
+      expect(client.options.username).toBe('42&app_1&appcred');
       expect(client.options.clientId).toBe((mqtt.connect as any).mock.calls[0][1].clientId);
       expect(mqtt.connect).toHaveBeenCalledTimes(1);
     });
@@ -102,7 +108,7 @@ describe('Tier0MQClient across token expiry', () => {
       expect(client.publish).toHaveBeenCalledTimes(1);
     });
 
-    it('never gives up on refused tokens, backing off up to 5 minutes', async () => {
+    it('never gives up on refused connections, backing off up to 5 minutes', async () => {
       vi.spyOn(Math, 'random').mockReturnValue(1);
       const sdk = await connected();
       sdk.sdk.on('error', () => undefined);
