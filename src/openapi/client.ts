@@ -101,8 +101,8 @@ export class HttpClient {
     return url.href.replace(/\/+$/, '');
   }
   /**
-   * True in platform proxy mode (design 21.7): the node proxy attaches the App
-   * credential, so this client sends no credential of its own. A client given
+   * True in platform proxy mode: the node proxy injects the App's key, so
+   * this client sends no credential of its own. A client given
    * `apiKey` or `getApiKey` never is.
    */
   usesAppCredential(): boolean {
@@ -141,7 +141,7 @@ export class HttpClient {
    *
    * In platform proxy mode an answer the node proxy produced itself
    * (`X-Tier0-Proxy: not-forwarded`) never reached the platform, so a `503`
-   * (proxy not ready) or `429` (proxy limit) is sent again after
+   * (proxy not ready, key pending) or `429` (proxy limit) is sent again after
    * `retry_after_ms`, at most 3 times; writes repeat safely. Anything else,
    * a platform `5xx` included, is returned as is.
    */

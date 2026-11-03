@@ -5,7 +5,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { z } from 'zod';
 import { createClient, createUnsV2Client } from '../src/index.js';
 import { HttpClient } from '../src/openapi/client.js';
-import { appCredentialRuntime, createDataClient, defineCollection, runAsApp, runWithRequestContext } from '../src/data/index.js';
+import { createDataClient, defineCollection, runAsApp, runWithRequestContext } from '../src/data/index.js';
 import { platformIdentity, platformProxyMode } from '../src/platform-proxy.js';
 import { getCurrentAppId } from '../src/runtime-context.js';
 import { Tier0MQClient } from '../src/mq/client.js';
@@ -71,14 +71,12 @@ describe('platform proxy mode (design 21.7)', () => {
   it.each(['', '  '])('stays off for an empty TIER0_RUNTIME %j', (value) => {
     vi.stubEnv('TIER0_RUNTIME', value);
     expect(platformProxyMode()).toBe(false);
-    expect(appCredentialRuntime()).toBeUndefined();
   });
 
   it.each(['production', 'Deployed', 'true', '1'])('refuses TIER0_RUNTIME=%j instead of guessing', async (value) => {
     vi.stubEnv('TIER0_RUNTIME', value);
     const refused = /TIER0_RUNTIME must be "deployed" or "preview"/;
     expect(() => platformProxyMode()).toThrow(refused);
-    expect(() => appCredentialRuntime()).toThrow(refused);
     await expect(createClient().system.whoami()).rejects.toThrow(refused);
     await expect(createUnsV2Client(() => new HttpClient()).recordCount({ collectionId: 'c1' } as never)).rejects.toThrow(refused);
     expect(() => new Tier0MQClient()).toThrow(refused);
@@ -218,6 +216,19 @@ describe('retries of answers the proxy produced itself (design 21.28)', () => {
     expect(received).toHaveLength(1);
   });
 
+  it('resends sbx_proxy_credential_pending like any marked 503', async () => {
+    let calls = 0;
+    respond = res => (++calls <= 2 ? proxy(res, 503, 'sbx_proxy_credential_pending', 5) : ok(res));
+    await createClient().system.whoami();
+    expect(received).toHaveLength(3);
+  });
+
+  it('never resends sbx_proxy_no_credential', async () => {
+    respond = res => proxy(res, 403, 'sbx_proxy_no_credential');
+    await expect(createClient().system.whoami()).rejects.toMatchObject({ status: 403, errorCode: 'sbx_proxy_no_credential' });
+    expect(received).toHaveLength(1);
+  });
+
   it('never resends other proxy refusals', async () => {
     respond = res => proxy(res, 403, 'sbx_proxy_forbidden');
     await expect(createClient().system.whoami()).rejects.toMatchObject({ status: 403, errorCode: 'sbx_proxy_forbidden' });
@@ -259,20 +270,15 @@ describe('identity from the environment', () => {
     expect(getCurrentAppId()).toBe('00000000-0000-4000-8000-000000000000');
   });
 
-  it('builds the identity of a deployment and of a Preview', () => {
-    expect(platformIdentity()).toEqual({ ws: '7205759403792793999', app: 'app_1', runtime: 'deployed', release: 'r1' });
+  it('builds the same identity for a deployment and a Preview', () => {
+    expect(platformIdentity()).toEqual({ ws: '7205759403792793999', app: 'app_1' });
     platformEnv('preview');
-    expect(platformIdentity()).toEqual({ ws: '7205759403792793999', app: 'app_1', runtime: 'preview', session: 's1' });
-    vi.stubEnv('TIER0_SESSION', undefined);
+    expect(platformIdentity()).toEqual({ ws: '7205759403792793999', app: 'app_1' });
+    vi.stubEnv('TIER0_APP_ID', undefined);
     expect(platformIdentity()).toBeUndefined();
-  });
-
-  it('reports the runtime only in platform proxy mode', () => {
-    expect(appCredentialRuntime()).toBe('deployed');
-    platformEnv('preview');
-    expect(appCredentialRuntime()).toBe('preview');
+    vi.stubEnv('TIER0_APP_ID', 'app_1');
     vi.stubEnv('TIER0_API_KEY', 'sk-app-ws1_local');
-    expect(appCredentialRuntime()).toBeUndefined();
+    expect(platformIdentity()).toBeUndefined();
   });
 
   it('checks the visitor token audience against TIER0_APP_ID', () => {
@@ -314,10 +320,10 @@ describe('the data layer in platform proxy mode', () => {
     expect(seen).toEqual({ ensure: null, count: delegationToken });
   });
 
-  describe('seeds in a platform Preview', () => {
+  describe.each(['deployed', 'preview'] as const)('seeds in a platform %s', (runtime) => {
     const seeded = defineCollection({ alias: 'orders', name: 'orders', schema: z.object({ title: z.string() }), seed: [{ _id: 's1', title: 'x' }] });
-    function preview(status: string) {
-      platformEnv('preview');
+    function platform(status: string) {
+      platformEnv(runtime);
       const writes: (string | null)[] = [];
       const fetch = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
         if (String(url).includes('collections/ensure')) return envelope({ results: [{ alias: 'orders', collectionId: 'c1', revision: 1, status, ignored: [], warnings: [], indexStatus: [] }] });
@@ -331,17 +337,22 @@ describe('the data layer in platform proxy mode', () => {
       return { data, writes };
     }
 
-    it('wait for the first delegated request, and go once', async () => {
-      const { data, writes } = preview('created');
+    it('are written by ensure, as the App, without waiting for a request', async () => {
+      const { data, writes } = platform('created');
       await runAsApp(() => data.ensure());
-      expect(writes).toEqual([]);
+      expect(writes).toEqual([null]);
       await runWithRequestContext(new Headers({ 'X-Tier0-Delegation': delegationToken }), () => data.collection(seeded).countDocuments());
+      expect(writes).toEqual([null]);
+    });
+
+    it('are written as the App even when a delegated request triggers ensure', async () => {
+      const { data, writes } = platform('created');
       await runWithRequestContext(new Headers({ 'X-Tier0-Delegation': delegationToken }), () => data.collection(seeded).countDocuments());
-      expect(writes).toEqual([delegationToken]);
+      expect(writes).toEqual([null]);
     });
 
     it('are not written for an existing collection', async () => {
-      const { data, writes } = preview('unchanged');
+      const { data, writes } = platform('unchanged');
       await runWithRequestContext(new Headers({ 'X-Tier0-Delegation': delegationToken }), () => data.collection(seeded).countDocuments());
       expect(writes).toEqual([]);
     });

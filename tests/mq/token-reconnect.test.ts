@@ -60,17 +60,18 @@ describe('Tier0MQClient across reconnects and token expiry', () => {
       await connected();
       const [url, options] = (mqtt.connect as any).mock.calls[0];
       expect(url).toBe('mqtt://mqtt.sbx.internal:1883');
-      expect(options).toMatchObject({ username: '42&app_1&appcred', clean: false, reconnectOnConnackError: true, reconnectPeriod: 0 });
+      expect(options).toMatchObject({ username: '42&open', clean: false, reconnectOnConnackError: true, reconnectPeriod: 0 });
       expect(options).not.toHaveProperty('password');
-      expect(options.clientId).toMatch(/^42&a\.app_1\.d\.r1\.[a-z0-9]{16}$/);
+      expect(options.clientId).toMatch(/^42&h\.app_1\.[a-z0-9]{16}$/);
     });
 
-    it('uses the session in a preview clientId', async () => {
+    it('uses the same identity in a preview', async () => {
       vi.stubEnv('TIER0_RUNTIME', 'preview');
       vi.stubEnv('TIER0_RELEASE', undefined);
       vi.stubEnv('TIER0_SESSION', 's1');
       await connected();
-      expect((mqtt.connect as any).mock.calls[0][1].clientId).toMatch(/^42&a\.app_1\.p\.s1\.[a-z0-9]{16}$/);
+      expect((mqtt.connect as any).mock.calls[0][1]).toMatchObject({ username: '42&open' });
+      expect((mqtt.connect as any).mock.calls[0][1].clientId).toMatch(/^42&h\.app_1\.[a-z0-9]{16}$/);
     });
 
     it('goes over WebSocket for an explicit host, or a TIER0_MQTT_URL that is not mqtt://', async () => {
@@ -95,7 +96,7 @@ describe('Tier0MQClient across reconnects and token expiry', () => {
       await vi.advanceTimersByTimeAsync(600);
       expect(client.reconnect).toHaveBeenCalledTimes(1);
       expect(client.options).not.toHaveProperty('password');
-      expect(client.options.username).toBe('42&app_1&appcred');
+      expect(client.options.username).toBe('42&open');
       expect(client.options.clientId).toBe((mqtt.connect as any).mock.calls[0][1].clientId);
       expect(mqtt.connect).toHaveBeenCalledTimes(1);
     });

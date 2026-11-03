@@ -22,9 +22,9 @@ export interface MQTTConfig {
   /**
    * Original API key; connect-time changes refresh automatically derived identity fields.
    * Leave it unset in the platform. On the server no password is sent: the
-   * node proxy fills in the App credential, and username and clientId come
-   * from `TIER0_WORKSPACE_ID`, `TIER0_APP_ID`, `TIER0_RUNTIME`,
-   * `TIER0_RELEASE` / `TIER0_SESSION`. In the browser the page runtime gives a
+   * node proxy puts in the App's key; username `<ws>&open` and clientId
+   * `<ws>&h.<app>.<random>` come from `TIER0_WORKSPACE_ID` and
+   * `TIER0_APP_ID`. In the browser the page runtime gives a
    * fresh token for every connection.
    */
   password?: string;

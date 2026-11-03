@@ -151,7 +151,7 @@ export function createDataTransport(config: ClientConfig): { call: DataCall; ope
     }
     if (problem) {
       throw new DataError({
-        message: `${problem}. In a Tier0 Preview or deployment the platform sets TIER0_API_HOST and its node proxy attaches the App credential; for local development set TIER0_API_HOST and TIER0_API_KEY before starting the App.`,
+        message: `${problem}. In a Tier0 Preview or deployment the platform sets TIER0_API_HOST and its node proxy injects the App's key; for local development set TIER0_API_HOST and TIER0_API_KEY before starting the App.`,
         status: 503,
         code: 'DATA_NOT_CONFIGURED',
       });

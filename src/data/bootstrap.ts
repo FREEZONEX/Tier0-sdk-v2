@@ -11,9 +11,8 @@
  *   `created`: fixed `_id`s, atomic chunks of 200 with a stable idempotency
  *   key per chunk, so a failed chunk (outcome unknown, or marked safe to
  *   resend) is replayed after a short wait instead of duplicated. Seed writes
- *   never carry a data subject. In a platform Preview the App credential may
- *   only ensure structure (access design 8), so seeds wait for the first
- *   request with a delegation and are written as that Builder.
+ *   never carry a data subject. Preview and deployments write them the same
+ *   way, as the App: both use the App's key, which the node proxy attaches.
  * - Preview throws on SCHEMA_CONFLICT and warnings so the worker sees them;
  *   a deployment logs them and keeps serving with the IDs it has.
  * - Self-healing: a Preview reset hard-deletes collections, and a worker or
@@ -88,15 +87,6 @@ export interface BootstrapConfig {
   collections: readonly CollectionDefinition[];
   environment: DataEnvironment;
   logger: Logger;
-  /** Seeds written as the visitor instead of the App (platform Preview). */
-  delegatedSeeds?: {
-    /** Seeds must wait for a delegated request. */
-    required(): boolean;
-    /** The current request carries a delegation. */
-    available(): boolean;
-    /** Sends with the current request's delegation. */
-    call: DataCall;
-  };
 }
 
 const SEED_ATTEMPTS = 3;
@@ -175,9 +165,6 @@ function describeWarnings(results: EnsureResult[]): string {
 export function createBootstrap(config: BootstrapConfig) {
   const { call, collections, environment, logger } = config;
   let pending: Promise<EnsureState> | null = null;
-  /** Created collections whose seed waits for a delegated request. */
-  let unseeded: EnsureResult[] = [];
-  let seeding: Promise<void> | null = null;
   let lastRebuild = Number.NEGATIVE_INFINITY;
 
   async function requestEnsure(items: CompiledCollection[]) {
@@ -185,10 +172,10 @@ export function createBootstrap(config: BootstrapConfig) {
     return call<{ appId?: string; results: EnsureResult[] }>('appCollectionsEnsure', { collections: items });
   }
 
-  async function insertSeedChunk(write: DataCall, collectionId: string, chunk: number, documents: { id?: string; data: Record<string, unknown> }[]) {
+  async function insertSeedChunk(collectionId: string, chunk: number, documents: { id?: string; data: Record<string, unknown> }[]) {
     for (let attempt = 1; ; attempt += 1) {
       try {
-        const result = await write<{ writeErrors?: Record<string, unknown>[] }>('recordBulkWrite', {
+        const result = await call<{ writeErrors?: Record<string, unknown>[] }>('recordBulkWrite', {
           collectionId,
           operations: documents.map(document => ({ insertOne: document })),
           ordered: true,
@@ -206,7 +193,7 @@ export function createBootstrap(config: BootstrapConfig) {
     }
   }
 
-  async function writeSeeds(results: EnsureResult[], write: DataCall = call) {
+  async function writeSeeds(results: EnsureResult[]) {
     for (const result of results) {
       if (result.status !== 'created') continue;
       const definition = collections.find((candidate) => candidate.alias.toLowerCase() === result.alias.toLowerCase());
@@ -218,7 +205,7 @@ export function createBootstrap(config: BootstrapConfig) {
           return { id, data };
         });
         for (let start = 0; start < documents.length; start += MAX_ATOMIC_ITEMS) {
-          await insertSeedChunk(write, result.collectionId, start / MAX_ATOMIC_ITEMS, documents.slice(start, start + MAX_ATOMIC_ITEMS));
+          await insertSeedChunk(result.collectionId, start / MAX_ATOMIC_ITEMS, documents.slice(start, start + MAX_ATOMIC_ITEMS));
         }
         logger.info(`[data] seeded ${documents.length} record(s) into "${result.alias}"`);
       } catch (error) {
@@ -290,8 +277,7 @@ export function createBootstrap(config: BootstrapConfig) {
       }
     }
 
-    if (config.delegatedSeeds?.required()) unseeded.push(...results);
-    else await writeSeeds(results);
+    await writeSeeds(results);
 
     const warnings = describeWarnings(results);
     if (warnings) {
@@ -325,23 +311,6 @@ export function createBootstrap(config: BootstrapConfig) {
     return pending;
   }
 
-  /** Writes waiting seeds if this request can; concurrent requests wait for the same write. */
-  async function flushSeeds(): Promise<void> {
-    if (seeding) return seeding;
-    const seeds = config.delegatedSeeds;
-    if (unseeded.length === 0 || !seeds?.available()) return;
-    const batch = unseeded;
-    unseeded = [];
-    seeding = writeSeeds(batch, seeds.call).finally(() => { seeding = null; });
-    return seeding;
-  }
-
-  async function ensureSeeded(): Promise<EnsureState> {
-    const state = await ensure();
-    await flushSeeds();
-    return state;
-  }
-
   /**
    * Re-ensures after `before` turned out stale. Joins a rebuild already in
    * flight; otherwise rebuilds at most once per REBUILD_INTERVAL_MS. Resolves
@@ -370,7 +339,7 @@ export function createBootstrap(config: BootstrapConfig) {
    * cursor or resumeAfter token of the old collection) only rebuilds.
    */
   async function recover<R>(fn: () => Promise<R>, options: { retry?: boolean } = {}): Promise<R> {
-    const before = await ensureSeeded();
+    const before = await ensure();
     try {
       return await fn();
     } catch (error) {
@@ -382,7 +351,7 @@ export function createBootstrap(config: BootstrapConfig) {
   }
 
   async function resolve(definition: CollectionDefinition): Promise<string> {
-    const state = await ensureSeeded();
+    const state = await ensure();
     const id = state.collectionIds.get(definition.alias.toLowerCase());
     if (!id) {
       throw new DataError({
@@ -394,5 +363,5 @@ export function createBootstrap(config: BootstrapConfig) {
     return id;
   }
 
-  return { ensure: ensureSeeded, resolve, recover, rebuild };
+  return { ensure, resolve, recover, rebuild };
 }

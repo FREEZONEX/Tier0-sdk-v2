@@ -1,10 +1,11 @@
 /**
- * Platform proxy mode (design 21.7, 21.28). Inside a Tier0 Preview or
- * deployment the VM holds no platform credential: no token file, no
- * `TIER0_API_KEY`. The node's `sbx-api-proxy` knows the VM by its source
- * address and attaches the App credential token on the way to Backend and
- * EMQX. The SDK therefore reads no credential and sends none; it marks each
- * request with `X-Tier0-SDK: 1`, which the proxy requires.
+ * Platform proxy mode (design 21.28, revised 2026-11-03 "代理注入长期 App
+ * Key"). Inside a Tier0 Preview or deployment the VM holds no platform
+ * credential: no `TIER0_API_KEY`, no file. The node's `sbx-api-proxy` knows
+ * the VM by its source address and injects the App's long-lived API key on
+ * the way to Backend and EMQX; Preview and deployments use the same key. The
+ * SDK therefore reads no credential and sends none; it marks each request with
+ * `X-Tier0-SDK: 1`, which the proxy requires.
  *
  * The mode is on when `TIER0_RUNTIME` is `deployed` or `preview` and
  * `TIER0_API_KEY` is not set. Any other value of `TIER0_RUNTIME` without
@@ -23,27 +24,12 @@ export const SDK_HEADER = 'X-Tier0-SDK';
 export const PROXY_HEADER = 'X-Tier0-Proxy';
 export const PROXY_NOT_FORWARDED = 'not-forwarded';
 
-export type PlatformRuntime = 'deployed' | 'preview';
-
 export interface PlatformIdentity {
   ws: string;
   app: string;
-  runtime: PlatformRuntime;
-  /** Deployments only. */
-  release?: string;
-  /** Previews only. */
-  session?: string;
 }
 
 const env = (name: string) => getEnvVar(name)?.trim() || undefined;
-
-/** The platform runtime, or undefined outside platform proxy mode. Throws on an invalid `TIER0_RUNTIME`. */
-function proxyRuntime(): PlatformRuntime | undefined {
-  const runtime = env('TIER0_RUNTIME');
-  if (runtime === undefined || env('TIER0_API_KEY') !== undefined) return undefined;
-  if (runtime === 'deployed' || runtime === 'preview') return runtime;
-  throw new TypeError(`Tier0 SDK v2: TIER0_RUNTIME must be "deployed" or "preview", not ${JSON.stringify(runtime.slice(0, 64))}.`);
-}
 
 /**
  * True inside a Tier0 Preview or deployment that has no API key of its own.
@@ -51,24 +37,16 @@ function proxyRuntime(): PlatformRuntime | undefined {
  * and `TIER0_API_KEY` is not set.
  */
 export function platformProxyMode(): boolean {
-  return proxyRuntime() !== undefined;
+  const runtime = env('TIER0_RUNTIME');
+  if (runtime === undefined || env('TIER0_API_KEY') !== undefined) return false;
+  if (runtime === 'deployed' || runtime === 'preview') return true;
+  throw new TypeError(`Tier0 SDK v2: TIER0_RUNTIME must be "deployed" or "preview", not ${JSON.stringify(runtime.slice(0, 64))}.`);
 }
 
-/** The runtime the proxy attaches the App credential for; undefined outside platform proxy mode. */
-export function appCredentialRuntime(): PlatformRuntime | undefined {
-  return proxyRuntime();
-}
-
-/** The App this VM serves, from the platform's environment; undefined when incomplete. */
+/** The App this VM serves, from `TIER0_WORKSPACE_ID` and `TIER0_APP_ID`; undefined when incomplete or outside platform proxy mode. */
 export function platformIdentity(): PlatformIdentity | undefined {
-  const runtime = appCredentialRuntime();
+  if (!platformProxyMode()) return undefined;
   const ws = env('TIER0_WORKSPACE_ID');
   const app = env('TIER0_APP_ID');
-  if (!runtime || !ws || !app) return undefined;
-  if (runtime === 'preview') {
-    const session = env('TIER0_SESSION');
-    return session ? { ws, app, runtime, session } : undefined;
-  }
-  const release = env('TIER0_RELEASE');
-  return release ? { ws, app, runtime, release } : undefined;
+  return ws && app ? { ws, app } : undefined;
 }

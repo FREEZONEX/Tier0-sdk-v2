@@ -6,7 +6,6 @@
 import type { z } from 'zod';
 import type { ClientConfig } from '../openapi/client.js';
 import { getEnvVar } from '../runtime-env.js';
-import { appCredentialRuntime } from '../platform-proxy.js';
 import { createBootstrap, type DataEnvironment, type EnsureState, type Logger } from './bootstrap.js';
 import { createDataTransport } from './call.js';
 import { assertAtomicBatch, Collection, toDoc, type BatchQuery, type UnsRecord, type WithMeta } from './collection.js';
@@ -147,17 +146,7 @@ export function createDataClient(config: DataClientConfig): DataClient {
 
   // Ensure and seed writes are App-level work, even when a request triggers them.
   const appCall: typeof call = (operation, request, options) => runAsApp(() => call(operation, request, options));
-  const bootstrap = createBootstrap({
-    call: appCall,
-    collections: declared,
-    environment,
-    logger: config.logger ?? console,
-    delegatedSeeds: {
-      required: () => config.apiKey === undefined && config.getApiKey === undefined && appCredentialRuntime() === 'preview',
-      available: () => currentDelegation() !== undefined,
-      call,
-    },
-  });
+  const bootstrap = createBootstrap({ call: appCall, collections: declared, environment, logger: config.logger ?? console });
   const runtime = {
     call,
     resolve: async (target: CollectionTarget | string) => {

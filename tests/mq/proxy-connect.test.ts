@@ -110,20 +110,20 @@ describe('MQTT through the node proxy, real mqtt.js (design 21.7)', () => {
     expect(broker.connects).toHaveLength(1);
     const [connect] = broker.connects;
     expect(connect.password).toBeUndefined();
-    expect(connect.username).toBe('7205759403792793999&app_1&appcred');
-    expect(connect.clientId).toMatch(/^7205759403792793999&a\.app_1\.d\.r1\.[a-z0-9]{16}$/);
+    expect(connect.username).toBe('7205759403792793999&open');
+    expect(connect.clientId).toMatch(/^7205759403792793999&h\.app_1\.[a-z0-9]{16}$/);
     expect(connect.cleanSession).toBe(false);
     expect(connect.level).toBe(4);
   });
 
-  it('uses the session in a Preview clientId', async () => {
+  it('connects a Preview exactly like a deployment', async () => {
     vi.stubEnv('TIER0_RUNTIME', 'preview');
     vi.stubEnv('TIER0_RELEASE', undefined);
     vi.stubEnv('TIER0_SESSION', 'sess_9');
     sdk = new Tier0MQClient();
     await sdk.connect();
-    expect(broker.connects[0].clientId).toMatch(/^7205759403792793999&a\.app_1\.p\.sess_9\.[a-z0-9]{16}$/);
-    expect(broker.connects[0].password).toBeUndefined();
+    expect(broker.connects[0]).toMatchObject({ username: '7205759403792793999&open', password: undefined, cleanSession: false });
+    expect(broker.connects[0].clientId).toMatch(/^7205759403792793999&h\.app_1\.[a-z0-9]{16}$/);
   });
 
   it('reconnects with the same identity and still no password', async () => {
@@ -137,9 +137,9 @@ describe('MQTT through the node proxy, real mqtt.js (design 21.7)', () => {
   });
 
   it('refuses to connect without the platform identity', async () => {
-    vi.stubEnv('TIER0_RELEASE', undefined);
+    vi.stubEnv('TIER0_APP_ID', undefined);
     sdk = new Tier0MQClient();
-    await expect(sdk.connect()).rejects.toThrow(/TIER0_RELEASE or TIER0_SESSION/);
+    await expect(sdk.connect()).rejects.toThrow(/TIER0_WORKSPACE_ID and TIER0_APP_ID/);
     expect(broker.connects).toHaveLength(0);
   });
 });

@@ -110,7 +110,7 @@ export class Tier0MQClient {
 
     const host = config?.host || envHost || '';
     const port = config?.port || parseInt(envPort || '8084') || 8084;
-    // The browser runtime supplies the password per connection; the node proxy fills it in on the server.
+    // The browser runtime supplies the password per connection; the node proxy puts in the App's key on the server.
     const password = config?.password || (this.tokenSource() ? '' : getEnvVar('TIER0_API_KEY')) || '';
 
     // 从 apiKey 解析 workspaceID，自动生成 clientId 和 username
@@ -167,8 +167,8 @@ export class Tier0MQClient {
 
   /**
    * Where the credential comes from; undefined when a fixed password is used.
-   * `proxy`: platform proxy mode (design 21.7), the node proxy fills in the
-   * App credential and the SDK sends none.
+   * `proxy`: platform proxy mode, the node proxy puts in the App's key and
+   * the SDK sends none.
    */
   private tokenSource(): 'browser' | 'proxy' | undefined {
     if (this.config?.password) return undefined;
@@ -180,7 +180,7 @@ export class Tier0MQClient {
    * What the next connection presents. In the browser a token is fetched for
    * every attempt: reconnecting with the old one after `exp` is refused
    * (PoC-11). Through the node proxy the same identity reconnects, and the
-   * proxy puts in the current token.
+   * proxy puts in the App's current key.
    */
   private connectionParams(): ConnectionParams | Promise<ConnectionParams> {
     const source = this.tokenSource();
@@ -193,16 +193,16 @@ export class Tier0MQClient {
     if (source === 'proxy') {
       const identity = platformIdentity();
       if (!identity) {
-        throw new Error('Tier0 SDK v2: TIER0_WORKSPACE_ID, TIER0_APP_ID, TIER0_RUNTIME and TIER0_RELEASE or TIER0_SESSION are required for MQTT in the platform.');
+        throw new Error('Tier0 SDK v2: TIER0_WORKSPACE_ID and TIER0_APP_ID are required for MQTT in the platform.');
       }
-      const scope = identity.runtime === 'preview' ? `p.${identity.session}` : `d.${identity.release}`;
       // Only `mqtt://` from the platform goes over TCP to the proxy; an explicit host means WebSocket.
       const envUrl = getEnvVar('TIER0_MQTT_URL')?.trim();
       const tcp = envUrl !== undefined && /^mqtt:\/\//i.test(envUrl) && this.config.host === envUrl;
+      // The proxy accepts only `<ws>&open` and `<ws>&h.<app>.<random>`, and puts the App's key in as the password.
       return {
         url: tcp ? envUrl : this.mqttUrl,
-        username: this.config.username ?? `${identity.ws}&${identity.app}&appcred`,
-        clientId: this.config.clientId ?? `${identity.ws}&a.${identity.app}.${scope}.${this.clientSuffix}`,
+        username: this.config.username ?? `${identity.ws}&open`,
+        clientId: this.config.clientId ?? `${identity.ws}&h.${identity.app}.${this.clientSuffix}`,
       };
     }
     const { username, clientId, password } = this.config;

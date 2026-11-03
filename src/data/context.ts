@@ -2,7 +2,7 @@
  * Request context for the data layer.
  *
  * The front door signs the current employee into `X-Tier0-Delegation` on each
- * business request. Backend uses it, together with the App credential token,
+ * business request. Backend uses it, together with the App's key,
  * to narrow App access to that employee (data rules, record leases). The SDK
  * forwards it as received, on every platform call, only while serving that
  * request: the App's request entry point opens the context with

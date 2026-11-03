@@ -9,7 +9,7 @@ description: 使用 @tier0/sdk-v2/data 在 App 服务端声明并读写本 App �
 
 这里创建的集合以 `ownerAppId` 标识唯一所属 App。使用已有或其他 App 共享的集合时，用 `data.collection({ collectionId })` 获取句柄；可选 `schema` 仅做本地写入校验，不创建或修改集合。已有 ID 引用同样用于 `queryBatch`、`transact` 和 `subscribe`，不放入 `createDataClient` 的 `collections` 声明数组，不执行 ensure 或写种子。无需服务端 alias，仍须当前 App 已有相应集合授权；SDK 不授予权限，复用不改变所属关系。底层 [UNS](../tier0-sdk-v2-uns/SKILL.md) 的记录接口仍可直接按 ID 使用。
 
-数据读写只在服务端代码（业务 service）里用 `@tier0/sdk-v2/data`：该入口依赖 Node 内置模块，浏览器打包会直接失败。组件和 route 的客户端代码只能从 `@tier0/sdk-v2/data/define` 取集合声明和类型（`defineCollection`、`Doc`、`NewDoc` 等），它不加载数据运行时，可以进浏览器包。需要 `zod` 4。底层调用 SDK 生成的 UNS 操作（`appCollectionsEnsure`、`recordFind`、`recordTransactionExecute` 等），Tier0 预览和部署里只读平台设置的 TIER0_API_HOST，不需要也读不到 Key，节点代理附加 App 凭证；本地开发另设 TIER0_API_KEY。
+数据读写只在服务端代码（业务 service）里用 `@tier0/sdk-v2/data`：该入口依赖 Node 内置模块，浏览器打包会直接失败。组件和 route 的客户端代码只能从 `@tier0/sdk-v2/data/define` 取集合声明和类型（`defineCollection`、`Doc`、`NewDoc` 等），它不加载数据运行时，可以进浏览器包。需要 `zod` 4。底层调用 SDK 生成的 UNS 操作（`appCollectionsEnsure`、`recordFind`、`recordTransactionExecute` 等），Tier0 预览和部署里只读平台设置的 TIER0_API_HOST，不需要也读不到 Key，节点代理注入 App 的长期 Key（预览和正式同一把，行为相同，种子在 ensure 时以 App 身份写入）；本地开发另设 TIER0_API_KEY。
 
 集合声明必须分别填写业务名称 `name` 与稳定程序标识 `alias`，例如 `name: '生产工单'`、`alias: 'production_orders'`。name 是唯一界面名称，没有 displayName 或 alias 回退；ensure 通过 alias 找回原集合，不覆盖用户改名。
 

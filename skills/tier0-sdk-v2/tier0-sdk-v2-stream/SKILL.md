@@ -5,7 +5,7 @@ description: 使用 @tier0/sdk-v2 的 client.stream 创建、查询、修改和�
 
 # Stream 处理与运行
 
-应用代码使用 client.stream；外部连接用 [Source](../tier0-sdk-v2-source/SKILL.md)，集合和记录用 [UNS](../tier0-sdk-v2-uns/SKILL.md)。服务端 `createClient()` 在平台里读 TIER0_API_HOST、凭据由节点代理附加，本地开发读 TIER0_API_HOST / TIER0_API_KEY，也可显式传 apiHost/apiKey。Tier0 App 里的 App 凭证无权调 Stream 管理接口（经代理转发，Backend 回 403）。
+应用代码使用 client.stream；外部连接用 [Source](../tier0-sdk-v2-source/SKILL.md)，集合和记录用 [UNS](../tier0-sdk-v2-uns/SKILL.md)。服务端 `createClient()` 在平台里读 TIER0_API_HOST、节点代理注入 App 的 Key，本地开发读 TIER0_API_HOST / TIER0_API_KEY，也可显式传 apiHost/apiKey。Tier0 App 的 Key 无权调 Stream 管理接口（经代理转发，Backend 回 403）。
 
 ## 按任务加载参考
 
