@@ -94,7 +94,7 @@ const CODE_HINTS: Record<string, string> = {
   INDEX_QUOTA_EXCEEDED:
     'The workspace index quota (200, counting every index that physically exists) is exhausted. Remove unused indexes through the tier0 MCP.',
   COLLECTION_TOO_LARGE:
-    'archive / restore handle at most 2000 records; stop using a large collection in code instead of archiving it.',
+    'Legacy recordsArchivedAt restoration handles at most 2000 records; current collection archive / restore retains records without rewriting them and has no record-count limit.',
 };
 
 /** `APP_QUOTA_EXCEEDED` per `data.resource`; each per-App limit is 64. */

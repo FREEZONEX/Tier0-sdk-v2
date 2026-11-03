@@ -23,7 +23,9 @@ export async function deleteDevice(
 }
 ```
 
-元数据使用 metadataDeleteOne/Many，或 metadataFindOneAndDelete 返回删除前对象。它们执行软删除，增加 revision，不隐式级联目录后代、引用对象或集合数据。引用约束与版本冲突必须处理，不能自行扩展删除范围。
+元数据使用 metadataDeleteOne/Many，或 metadataFindOneAndDelete 返回删除前对象。它们把对象移入回收站并增加 revision；删除 Namespace 目录会在同一事务内回收整棵有效子树，操作前应确认该范围。此前独立回收的对象不加入本次批次。外部引用不阻止 collection、Topic 或目录回收，引用方配置保留；删除 Topic 不删除其引用的 Collection。
+
+软删除保留 Record、Sample 与查询索引，历史数据继续按既有授权可读，所有数据写入和后台 TTL 清理停止；软删除不等于永久清理。App 回收联动其自有 collection 和明确专属目录，借用集合、共享目录保留；回收中的 App 自身停用，其他既有授权主体仍可读取历史。
 
 ```ts
 import { createClient, type Tier0Client } from '@tier0/sdk-v2';
@@ -46,7 +48,7 @@ export async function deleteCollection(
 }
 ```
 
-metadataDeleteMany 使用明确 filter 和 maxDocs。默认原子；超过上限整体拒绝，不会静默只删第一批。批量删除前可 dryRun。state 默认 active，删除对象通过 state=deleted 查询；all 同时包含两种状态。
+metadataDeleteMany 使用明确 filter 和 maxDocs。默认原子；超过上限整体拒绝，不会静默只删第一批。目录删除的 maxDocs 与 deletedCount 按显式匹配项计，不是全部级联后代的数量；同时匹配父子目录时由服务端去重，无需客户端逐个删除后代。批量删除前可 dryRun。state 默认 active，删除对象通过 state=deleted 查询；all 同时包含两种状态。
 
 业务记录使用 recordDeleteOne/Many，传 collectionId 和明确 filter，编辑型流程同时传 expectedRevision。不要把元数据软删除解释成逐条删除该集合的 Record。Sample 的删除是独立的显式时间范围操作，具体影响遵循当前数据 API 契约。
 

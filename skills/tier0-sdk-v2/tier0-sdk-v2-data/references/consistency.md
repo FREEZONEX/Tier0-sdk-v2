@@ -67,4 +67,6 @@ export function servingEmployee(): boolean {
 
 运行中的进程在所用集合消失时会自愈（Preview 重置会删除集合，worker 或管理员可能归档集合）：UNS 以 `data.reason` 为 `COLLECTION_NOT_FOUND` 或 `COLLECTION_NOT_GRANTED` 拒绝调用时，数据层重新 ensure（重建并重新写入种子），并在集合 ID 确实变化时把该调用重试一次。每个 client 每 30 秒最多重建一次；`APP_GRANT_REVOKED`（管理员决定）从不重试。延续旧集合游标的分页、`updateMany` / `deleteMany` 的续写直接失败，不会重试。
 
+历史读取成功时不会触发上述自愈；`OWNER_APP_TRASHED` 也不属于自动重建原因。`createDataClient` 首次访问仍会 ensure 自身声明，不能把它当作回收站浏览器。读取指定回收集合的历史时，使用已有授权与原 collectionId 调用 client.uns 的读接口，不主动 ensure 或写入种子。
+
 Preview（`environment: 'preview'`，`NODE_ENV` 不是 production 时的默认值）下，Schema 冲突或 ensure 警告会让请求失败并带上详情；部署环境只记录日志、继续服务。`ignored` 提示从不让请求失败：存储比声明更宽的部分记为 info，`ANNOTATION_NOT_APPLIED`（ensure 不会改写的描述）记为指向 `schema:replace` 的 warning。

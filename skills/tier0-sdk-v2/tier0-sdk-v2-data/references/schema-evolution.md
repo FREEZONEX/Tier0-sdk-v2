@@ -33,4 +33,6 @@ export function replaceBody(expectedRevision: number) {
 }
 ```
 
+App 集合 archive 只改变集合状态并撤销调用 App 对该集合的 grant，保留 Record/Sample 与查询索引；引用不阻止归档，其他未撤销的既有授权仍可读历史，写入拒绝。restore 恢复该 alias 最近归档的集合并重新授权，复用保留索引，不重写当前格式的记录；此前独立删除的记录不复活。2000 条限制仅用于旧 recordsArchivedAt 墓碑恢复。
+
 Schema 中 `ignored`、`warnings`、`conflicts`、`violations` 的路径用 `.` 连接属性，用 `[]` 表示数组元素（`lines.[].qty`）。

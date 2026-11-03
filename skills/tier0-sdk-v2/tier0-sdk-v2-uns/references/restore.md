@@ -1,6 +1,10 @@
 # 恢复元数据与记录
 
-metadataRestore 接收 kind、items[{id,expectedRevision?}]，支持一个或多个明确 ID。revision 应从 state=deleted 的当前对象读取。恢复重新校验名称、父目录、Schema 与引用；不会恢复其他对象，冲突时原子批次回滚。
+metadataRestore 接收 kind、items[{id,expectedRevision?}]，支持一个或多个明确 ID。revision 应从 state=deleted 的当前对象读取。恢复重新校验名称、父目录、Schema 与引用，冲突时原子批次回滚。
+
+恢复目录只恢复随该目录同一次删除的子树，此前独立回收的对象保持原状态。随目录回收的子项不能单独恢复，应恢复原目录；否则返回 CONDITION_FAILED，data.reason 为 DIRECTORY_IN_TRASH。批次同时选择根目录和其子项时，服务端先校验每项 expectedRevision，再执行一次级联恢复。
+
+随 App 回收的自有集合与专属目录须通过恢复原 App 处理；原本已独立回收的对象不会随 App 恢复。OWNER_APP_TRASHED 表示所属 App 仍在回收站，应恢复 App，不要原样重试写入或单独恢复集合。恢复不扩大授权，通用元数据恢复也不自动补回已撤销的 App grant。
 
 ```ts
 import { createClient, type Tier0Client } from '@tier0/sdk-v2';

@@ -65,6 +65,8 @@ export const createSalesOrderInput = salesOrders.schema
 
 `{ path }` 或复合 `{ paths }`（最多 3 个不同路径）；业务键加 `unique: true`；一个数组/对象字段用 `kind: 'gin'`；每个集合最多 16 个。路径只能沿对象属性走：数组元素里的字段（`lines.sku`）不能直接建索引，改为给 `lines` 建 GIN 或把值放到顶层字段。列表页过滤和排序用到的字段要建索引。
 
+集合软删除、App 集合 archive 和 App 回收站会保留查询索引，供已有授权继续读取历史，保留的物理索引仍占配额；不能把归档当成释放索引配额。永久清理才移除集合数据和索引。
+
 ## 种子数据
 
 种子是基线记录：固定 `_id`，各生命周期状态自洽，相互引用用这些 ID；每个集合最多 1000 条。只在 ensure 报告集合为 `created` 时写入一次（每 200 条一个原子分块，分块带固定幂等键，重试安全）；修改 `seed` 不会改动已存在的集合。不要在服务启动或列表为空时从代码插入基线数据。构建期可以对每条种子调用 `validateDocument(definition, document)` 校验。

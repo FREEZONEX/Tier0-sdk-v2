@@ -63,7 +63,9 @@ export function toResponse(error: unknown): Response {
 | `APP_GRANT_REVOKED` (403) | 管理员撤销了本 App 对集合的授权；ensure 不会自动恢复，请管理员处理 |
 | `APP_QUOTA_EXCEEDED` (409) | `data.resource` 指出触达的每 App 上限（64）：`collections` → 归档不用的集合；`indexes` → 从声明删索引并 `schema:replace`；`archivedCollections` → 恢复一个或请管理员清理 |
 | `INDEX_QUOTA_EXCEEDED` (409) | Workspace 实际存在的索引已达 200；删除不用的索引 |
-| `COLLECTION_TOO_LARGE` (409) | archive / restore 最多处理 2000 条记录（`data.maxRecords`）；不要归档大集合 |
+| `COLLECTION_TOO_LARGE` (409) | 仅旧 `recordsArchivedAt` 墓碑恢复保留最多 2000 条记录的限制（`data.maxRecords`）；当前集合 archive / restore 保留记录、不逐条重写，不受该记录数上限限制 |
 | `FORBIDDEN` (403) | Key 不能做该操作（其他 App 或共享集合）；导入后马上出现的 `hosted App is not ready` 可重试，数据层按 503 回答 |
 
-记录调用上的 `data.reason`：`COLLECTION_NOT_GRANTED`（403，授权不覆盖该集合或操作）与 `COLLECTION_NOT_FOUND`（403/404，已归档或删除）会触发数据层重新 ensure；`APP_PERMISSION_MISSING`（403，`data.missingPermission`）表示 Key 缺少权限，例如删除记录需要 `uns.delete`——业务记录通常以状态结束（`CANCELLED`、`ARCHIVED`）而不是删除。
+记录调用上的 `data.reason`：`COLLECTION_NOT_GRANTED`（403，授权不覆盖该集合或操作）与 `COLLECTION_NOT_FOUND`（403/404，集合不存在、已硬删或写入目标已软删除）会触发数据层重新 ensure；有既有授权的历史读取不会仅因集合软删除而触发自愈。`APP_PERMISSION_MISSING`（403，`data.missingPermission`）表示 Key 缺少权限，例如删除记录需要 `uns.delete`——业务记录通常以状态结束（`CANCELLED`、`ARCHIVED`）而不是删除。
+
+`OWNER_APP_TRASHED` 表示所属 App 在回收站，写入与该 App 运行被拒绝，需恢复 App；这不是数据层自动重建的原因。元数据恢复返回 `DIRECTORY_IN_TRASH` 时，需恢复原删除目录及同批子树。两种原因均不应通过换幂等键、重试写入或重建对象来处理。

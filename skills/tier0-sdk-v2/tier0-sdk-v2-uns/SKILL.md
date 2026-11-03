@@ -44,7 +44,7 @@ export async function findAppCollection(alias: string) {
 1. 记录行是 id/data/revision；filter 与 update 的业务路径用 name、customer.name，不加 data.；系统路径用 _id、_meta.revision。
 2. 改/删前读取 expectedRevision；不同操作使用独立意图键，长度上限以当前操作契约为准。
 3. metadataUpdateOne 的 $set.recordSchema 替换完整 Schema，不迁移已有记录；未更新的 sampleSchema/indexes 保留。先预检兼容性。
-4. 集合无硬删除入口，用 metadataDeleteOne/Many 软删除；Record 删除会物理删除关联 Sample，恢复 Record 不会恢复这些 Sample。
+4. metadataDeleteOne/Many 软删除保留数据与索引，历史按既有授权可读、写入拒绝；目录删除级联有效子树，恢复只覆盖同次批次。永久清理是独立动作。Record 删除会物理删除关联 Sample，恢复 Record 不会恢复这些 Sample。
 5. recordFind 使用 pageInfo.hasMore/nextCursor，limit 1–200；sort 为 [['field',1]]。单页不是全量，跨页不是稳定快照。
 6. Sample 的时间是 Unix 毫秒，查询范围 [from,to)。Record 代表业务实体，不用覆盖它来保存历史。
 
