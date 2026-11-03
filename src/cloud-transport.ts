@@ -65,17 +65,13 @@ export class CloudTransport {
     options.signal?.throwIfAborted();
     const client = this.resolveClient();
     const url = `${client.getBaseURL()}${path}`;
-    const key = client.getApiKey();
+    const staticKey = client.hasApiKeyProvider() ? undefined : client.getApiKey();
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     // The registered operation determines data delegation, never a route blacklist.
     if (operation !== undefined && Object.hasOwn(UNS_V2_OPERATIONS, operation) &&
         UNS_V2_OPERATIONS[operation].scope.startsWith('uns:') &&
         this.#unsV2AppDataSubject !== undefined) {
       headers[UNS_V2_APP_DATA_SUBJECT_HEADER] = this.#unsV2AppDataSubject;
-    }
-    if (key) {
-      headers.Authorization = `Bearer ${key}`;
-      headers['X-API-Key'] = key;
     }
     const controller = new AbortController();
     let response: Response | undefined;
@@ -89,7 +85,14 @@ export class CloudTransport {
       rejectAbort(new CloudTransportError('TRANSPORT_ABORTED', response?.status));
     };
     options.signal?.addEventListener('abort', onAbort, { once: true });
+    if (options.signal?.aborted) onAbort();
     const exchange = async () => {
+      const key = client.hasApiKeyProvider() ? await client.resolveApiKey(controller.signal) : staticKey;
+      if (controller.signal.aborted) throw new CloudTransportError('TRANSPORT_ABORTED');
+      if (key) {
+        headers.Authorization = `Bearer ${key}`;
+        headers['X-API-Key'] = key;
+      }
       try {
         response = await client.getFetch()(url, { method: 'POST', headers, body, redirect: 'manual', signal: controller.signal });
       } catch {
@@ -160,17 +163,13 @@ export class CloudTransport {
     options.signal?.throwIfAborted();
     const client = this.resolveClient();
     const url = `${client.getBaseURL()}${path}`;
-    const key = client.getApiKey();
+    const staticKey = client.hasApiKeyProvider() ? undefined : client.getApiKey();
     const headers: Record<string, string> = { Accept: 'text/event-stream' };
     if (operation !== undefined && Object.hasOwn(UNS_V2_STREAM_OPERATIONS, operation) &&
         UNS_V2_STREAM_OPERATIONS[operation].scope.startsWith('uns:') && this.#unsV2AppDataSubject !== undefined) {
       headers[UNS_V2_APP_DATA_SUBJECT_HEADER] = this.#unsV2AppDataSubject;
     }
     if (options.lastEventId !== undefined) headers['Last-Event-ID'] = options.lastEventId;
-    if (key) {
-      headers.Authorization = `Bearer ${key}`;
-      headers['X-API-Key'] = key;
-    }
     const controller = new AbortController();
     const onAbort = () => controller.abort();
     const close = () => {
@@ -178,11 +177,25 @@ export class CloudTransport {
       controller.abort();
     };
     options.signal?.addEventListener('abort', onAbort, { once: true });
+    if (options.signal?.aborted) onAbort();
     let expired = false;
     const timer = setTimeout(() => { expired = true; controller.abort(); }, this.timeoutMs);
     const failure = (kind: Failure, status?: number) =>
       new CloudTransportError(expired ? 'TRANSPORT_TIMEOUT' : controller.signal.aborted ? 'TRANSPORT_ABORTED' : kind, status);
     let response: Response;
+    try {
+      const key = client.hasApiKeyProvider() ? await client.resolveApiKey(controller.signal) : staticKey;
+      if (controller.signal.aborted) throw failure('TRANSPORT_ABORTED');
+      if (key) {
+        headers.Authorization = `Bearer ${key}`;
+        headers['X-API-Key'] = key;
+      }
+    } catch (error) {
+      clearTimeout(timer);
+      close();
+      if (expired || options.signal?.aborted) throw failure('TRANSPORT_ABORTED');
+      throw error;
+    }
     try {
       response = await client.getFetch()(url, { method: 'GET', headers, redirect: 'manual', signal: controller.signal });
     } catch {
@@ -236,7 +249,8 @@ export class CloudTransport {
         else {
           const client = this.resolveClient();
           const url = `${client.getBaseURL()}${path}`;
-          const key = client.getApiKey();
+          const key = client.hasApiKeyProvider() ? await client.resolveApiKey(controller.signal) : client.getApiKey();
+          if (controller.signal.aborted) throw new CloudTransportError('TRANSPORT_ABORTED');
           const headers: Record<string, string> = { 'Content-Type': 'application/json' };
           if (key) {
             headers.Authorization = `Bearer ${key}`;

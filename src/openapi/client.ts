@@ -6,6 +6,8 @@ export interface ClientConfig {
   apiKey?: string;
   getApiHost?: () => string | undefined;
   getApiKey?: () => string | undefined;
+  /** Resolve an API key for each HTTP attempt. Failure never falls back to other credentials. */
+  apiKeyProvider?: (options: { signal: AbortSignal }) => Promise<string>;
   fetch?: typeof globalThis.fetch;
   transportTimeoutMs?: number;
 }
@@ -66,15 +68,33 @@ export class HttpClient {
     return url.href.replace(/\/+$/, '');
   }
   getApiKey(): string | undefined { return this.config.apiKey ?? this.config.getApiKey?.() ?? getEnvVar('TIER0_API_KEY'); }
+  hasApiKeyProvider(): boolean { return this.config.apiKeyProvider !== undefined; }
+  async resolveApiKey(signal: AbortSignal): Promise<string | undefined> {
+    const provider = this.config.apiKeyProvider;
+    if (provider === undefined) return this.getApiKey();
+    if (signal.aborted) throw new Error('Tier0 SDK: credential resolution aborted.');
+    return new Promise((resolve, reject) => {
+      const aborted = () => {
+        signal.removeEventListener('abort', aborted);
+        reject(new Error('Tier0 SDK: credential resolution aborted.'));
+      };
+      signal.addEventListener('abort', aborted, { once: true });
+      Promise.resolve().then(() => provider({ signal })).then(key => {
+        if (signal.aborted) return aborted();
+        if (typeof key !== 'string' || !/^[\x21-\x7e]+$/.test(key)) throw new Error();
+        resolve(key);
+      }).catch(() => reject(new Error('Tier0 SDK: credential provider failed.')))
+        .finally(() => signal.removeEventListener('abort', aborted));
+    });
+  }
   getFetch(): typeof globalThis.fetch { return this.config.fetch ?? globalThis.fetch; }
 
   private async exchange(path: string, init: RequestInit, options: RequestOptions, mutation: boolean): Promise<{ text: string; status: number; ok: boolean }> {
     if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\')) throw new TypeError('A relative API path is required');
     const url = this.getBaseURL() + path;
-    const key = this.getApiKey();
+    const staticKey = this.hasApiKeyProvider() ? undefined : this.getApiKey();
     const headers = new Headers(init.headers);
     headers.set('Content-Type', 'application/json');
-    if (key) { headers.set('X-API-Key', key); headers.set('Authorization', `Bearer ${key}`); }
     const controller = new AbortController();
     let expired = false;
     let started = false;
@@ -92,6 +112,9 @@ export class HttpClient {
     try {
       if (options.signal?.aborted) throw new TransportError('ABORTED', false);
       const request = async () => {
+        const key = this.hasApiKeyProvider() ? await this.resolveApiKey(controller.signal) : staticKey;
+        if (controller.signal.aborted) throw new TransportError(expired ? 'TIMEOUT' : 'ABORTED', false);
+        if (key) { headers.set('X-API-Key', key); headers.set('Authorization', `Bearer ${key}`); }
         started = true;
         try { response = await this.getFetch()(url, { ...init, headers, redirect: 'manual', signal: controller.signal }); }
         catch { throw new TransportError(expired ? 'TIMEOUT' : controller.signal.aborted ? 'ABORTED' : 'NETWORK', mutation, response?.status); }
