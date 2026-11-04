@@ -375,6 +375,36 @@ describe('Tier0MQClient', () => {
     client.disconnect();
   });
 
+  it('rolls back a synchronous transport throw before disconnect can change generation', async () => {
+    (mqtt.connect as any).mockImplementationOnce(() => { throw new Error('transport creation failed'); });
+    const client = new Tier0MQClient({ host: 'broker', password: 'sk-per-ws1_old' });
+    const failed = client.connect({ password: 'sk-per-ws2_new', username: '2&open' });
+    client.disconnect();
+    await expect(failed).rejects.toThrow('transport creation failed');
+    const retry = client.connect();
+    emit('connect');
+    await retry;
+    expect(mqtt.connect).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({
+      password: 'sk-per-ws1_old', username: '1&open',
+    }));
+    client.disconnect();
+  });
+
+  it('does not overwrite a newer connect after synchronous transport failure', async () => {
+    (mqtt.connect as any).mockImplementationOnce(() => { throw new Error('transport creation failed'); });
+    const client = new Tier0MQClient({ host: 'broker', password: 'sk-per-ws1_old' });
+    const failed = client.connect({ password: 'sk-per-ws2_new' });
+    client.disconnect();
+    const next = client.connect({ password: 'sk-per-ws3_new' });
+    emit('connect');
+    await next;
+    await expect(failed).rejects.toThrow('transport creation failed');
+    expect(mqtt.connect).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({
+      password: 'sk-per-ws3_new', username: '3&open',
+    }));
+    client.disconnect();
+  });
+
   it('removes a pending initial subscription if the connection fails', async () => {
     const transport = lifecycleClient();
     (mqtt.connect as any).mockReturnValue(transport);

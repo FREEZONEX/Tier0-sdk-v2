@@ -127,7 +127,7 @@ export class Tier0MQClient {
   }
 
   // 内部确保已连接（懒连接）
-  private async ensureConnected(): Promise<void> {
+  private async ensureConnected(onTransportCreationFailure?: () => void): Promise<void> {
     if (this._connected) return;
     if (this.connectingPromise) return this.connectingPromise;
     if (this.client) {
@@ -136,7 +136,7 @@ export class Tier0MQClient {
 
     this.validateConnectionConfig(this.config);
 
-    const pending = this.doConnect();
+    const pending = this.doConnect(onTransportCreationFailure);
     this.connectingPromise = pending;
     void pending.catch(() => {
       if (this.connectingPromise === pending) this.connectingPromise = null;
@@ -144,7 +144,7 @@ export class Tier0MQClient {
     return pending;
   }
 
-  private doConnect(): Promise<void> {
+  private doConnect(onTransportCreationFailure?: () => void): Promise<void> {
     return new Promise((resolve, reject) => {
       const generation = this.generation;
       this.rejectPendingConnect = reject;
@@ -163,6 +163,7 @@ export class Tier0MQClient {
         client = mqtt.connect(this.mqttUrlFor(this.config), options);
       } catch (err) {
         this.rejectPendingConnect = null;
+        onTransportCreationFailure?.();
         reject(err);
         return;
       }
@@ -299,16 +300,19 @@ export class Tier0MQClient {
     this.config = candidate;
     this.explicitClientId = explicitClientId;
     this.explicitUsername = explicitUsername;
-    try {
-      await this.ensureConnected();
-    } catch (err) {
-      // If no transport was created, the attempted settings have no owner.
-      // Do not roll back a newer generation or another caller's settings.
+    const rollbackBeforeTransport = () => {
       if (!this.client && this.generation === generation && this.config === candidate) {
         this.config = previousConfig;
         this.explicitClientId = previousExplicitClientId;
         this.explicitUsername = previousExplicitUsername;
       }
+    };
+    try {
+      await this.ensureConnected(rollbackBeforeTransport);
+    } catch (err) {
+      // If no transport was created, the attempted settings have no owner.
+      // Do not roll back a newer generation or another caller's settings.
+      rollbackBeforeTransport();
       throw err;
     }
     if (this.generation !== generation || !this.client || !this._connected) {
