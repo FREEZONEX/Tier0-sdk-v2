@@ -39,6 +39,8 @@ function generateRandomString(length = 8): string {
 interface Subscription {
   topic: string;
   handler: TopicHandler;
+  /** A new subscription awaiting the first successful connection. */
+  pendingConnect?: boolean;
   /** handler 连续返回 false（背压）的次数，正常返回时清零。 */
   backpressuredCount?: number;
 }
@@ -165,6 +167,7 @@ export class Tier0MQClient {
       client.on('connect', () => {
         if (this.client !== client || this.generation !== generation) return;
         this._connected = true;
+        for (const sub of this.subscriptions) sub.pendingConnect = false;
         this.connectingPromise = null;
         this.rejectPendingConnect = null;
         resolve();
@@ -175,6 +178,9 @@ export class Tier0MQClient {
 
       client.on('error', (err) => {
         if (this.client !== client || this.generation !== generation) return;
+        // Remove failed pending subscriptions before an error listener can
+        // synchronously cause this same client to reconnect and resubscribe.
+        this.subscriptions = this.subscriptions.filter((sub) => !sub.pendingConnect);
         this.connectingPromise = null;
         this.rejectPendingConnect = null;
         reject(err);
@@ -284,7 +290,7 @@ export class Tier0MQClient {
       return;
     }
 
-    const sub: Subscription = { topic, handler };
+    const sub: Subscription = { topic, handler, pendingConnect: !this._connected };
     this.subscriptions.push(sub);
     const generation = this.generation;
 
@@ -301,7 +307,7 @@ export class Tier0MQClient {
     } else {
       // 未连接时触发懒连接，连接成功后 resubscribeAll 会自动 subscribe
       this.ensureConnected().catch((err) => {
-        if (this.generation === generation) {
+        if (this.generation === generation && this.subscriptions.includes(sub)) {
           this.subscriptions = this.subscriptions.filter((item) => item !== sub);
           this.emit('error', err);
         }

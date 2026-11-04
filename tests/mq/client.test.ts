@@ -291,6 +291,22 @@ describe('Tier0MQClient', () => {
     client.disconnect();
   });
 
+  it('removes a pending subscription before an immediate reconnect in the error listener', async () => {
+    const transport = lifecycleClient();
+    (mqtt.connect as any).mockReturnValue(transport);
+    const client = new Tier0MQClient({ host: 'broker' });
+    const errors = vi.fn(() => transport.emit('connect'));
+    client.on('error', errors);
+    client.subscribe('pending', vi.fn());
+    transport.emit('error', new Error('broker unavailable'));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(errors).toHaveBeenCalledTimes(1);
+    expect(client.subscribedTopics).toEqual([]);
+    expect(transport.subscribe).not.toHaveBeenCalled();
+    client.disconnect();
+  });
+
   it('does not let retired subscription callbacks alter new subscriptions or report errors', async () => {
     const old = lifecycleClient();
     const nextClient = lifecycleClient();
