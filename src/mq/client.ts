@@ -137,6 +137,9 @@ export class Tier0MQClient {
     this.validateConnectionConfig(this.config);
 
     const pending = this.doConnect(onTransportCreationFailure);
+    // mqtt.connect may throw synchronously before creating a client. Do not
+    // retain that already-failed attempt until the rejection microtask runs.
+    if (!this.client) return pending;
     this.connectingPromise = pending;
     void pending.catch(() => {
       if (this.connectingPromise === pending) this.connectingPromise = null;

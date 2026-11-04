@@ -405,6 +405,21 @@ describe('Tier0MQClient', () => {
     client.disconnect();
   });
 
+  it('allows an immediate corrected retry after synchronous transport creation failure', async () => {
+    (mqtt.connect as any).mockImplementationOnce(() => { throw new Error('transport creation failed'); });
+    const client = new Tier0MQClient({ host: 'broker', password: 'sk-per-ws1_old' });
+    const failed = client.connect({ password: 'sk-per-ws2_new' });
+    const retry = client.connect({ password: 'sk-per-ws3_new' });
+    emit('connect');
+    await retry;
+    await expect(failed).rejects.toThrow('transport creation failed');
+    expect(mqtt.connect).toHaveBeenCalledTimes(2);
+    expect(mqtt.connect).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({
+      password: 'sk-per-ws3_new', username: '3&open',
+    }));
+    client.disconnect();
+  });
+
   it('removes a pending initial subscription if the connection fails', async () => {
     const transport = lifecycleClient();
     (mqtt.connect as any).mockReturnValue(transport);
