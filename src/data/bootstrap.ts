@@ -177,6 +177,7 @@ export function createBootstrap(config: BootstrapConfig) {
     next: number;
     operation: object;
     unknown: boolean;
+    committed: boolean;
     required: boolean;
     interrupted: boolean;
   };
@@ -209,10 +210,16 @@ export function createBootstrap(config: BootstrapConfig) {
         }, { seedOperation: progress.operation });
         assertNoWriteErrors(result, 'seed');
         progress.unknown = false;
+        progress.committed = false;
         return;
       } catch (error) {
         if (error instanceof DataError && error.outcomeUnknown) progress.unknown = true;
+        if (error instanceof DataError && error.execution === 'committed') progress.committed = true;
         if (error instanceof DataPrincipalError && progress.unknown) throw new DataPrincipalError({ idempotencyKey });
+        if (error instanceof DataPrincipalError && progress.committed) throw new DataError({
+          message: 'The seed write reported a committed outcome; verified recovery is required.', status: 503,
+          code: 'SEED_RECOVERY_REQUIRED', execution: 'committed', retry: { safe: false }, idempotencyKey,
+        });
         // An unknown chunk is never resent without the verified recovery hook
         // above; a stable key alone does not establish the server receipt scope.
         if (!(error instanceof DataError) || !(error.outcomeUnknown || error.retry.safe) || attempt >= SEED_ATTEMPTS) {
@@ -245,7 +252,7 @@ export function createBootstrap(config: BootstrapConfig) {
           chunks.push(documents.slice(start, start + MAX_ATOMIC_ITEMS));
         }
         pendingSeeds.set(alias, { alias: result.alias, appId, collectionId: result.collectionId, chunks, next: 0,
-          operation: {}, unknown: false, required: false, interrupted: false });
+          operation: {}, unknown: false, committed: false, required: false, interrupted: false });
       } catch (error) {
         logger.error(`[data] seed for new collection "${result.alias}" failed; it keeps the chunks written so far:`, error);
       }
@@ -257,7 +264,7 @@ export function createBootstrap(config: BootstrapConfig) {
         const idempotencyKey = seedChunkKey(progress.collectionId, progress.next);
         throw new DataError({ message: 'An unfinished seed belongs to a different or unavailable collection.', status: 503,
           code: progress.unknown ? 'OUTCOME_UNKNOWN' : 'SEED_RECOVERY_REQUIRED',
-          execution: progress.unknown ? 'unknown' : 'notStarted', retry: { safe: false }, idempotencyKey });
+          execution: progress.unknown ? 'unknown' : progress.committed ? 'committed' : 'notStarted', retry: { safe: false }, idempotencyKey });
       }
       try {
         while (progress.next < progress.chunks.length) {
@@ -273,12 +280,16 @@ export function createBootstrap(config: BootstrapConfig) {
       } catch (error) {
         if (error instanceof DataPrincipalError ||
           error instanceof DataError && (error.code === 'DATA_CREDENTIAL_CHANGED' || error.code === 'DATA_NOT_CONFIGURED') ||
-          progress.unknown || progress.required) {
+          progress.unknown || progress.committed || progress.required) {
           progress.interrupted = true;
-          // A local failure before the first dispatch is not an uncertain
-          // seed outcome. Still bind a later resume to the same App and ID.
-          const neverSent = error instanceof DataError && error.execution === 'notStarted' && error.attempts === 0;
-          progress.required ||= !neverSent;
+          // The transport retries only no-effect attempts. If credentials
+          // disappear before a retry, a confirmed rollback is also safe to
+          // resume; keep the App/collection binding and current chunk index.
+          const noEffect = error instanceof DataError && (
+            error.execution === 'notStarted' && error.attempts === 0 ||
+            error.code === 'DATA_NOT_CONFIGURED' && error.execution === 'rolledBack'
+          );
+          progress.required ||= !noEffect;
           throw error;
         }
         pendingSeeds.delete(alias);
@@ -386,9 +397,14 @@ export function createBootstrap(config: BootstrapConfig) {
         pending = null;
         // Even an unrelated ensure failure cannot establish the outcome of a
         // previously dispatched seed chunk.
-        const unresolved = [...pendingSeeds.values()].find(seed => seed.unknown);
+        const seeds = [...pendingSeeds.values()];
+        const unresolved = seeds.find(seed => seed.unknown) ?? seeds.find(seed => seed.committed);
         if (unresolved) {
           const idempotencyKey = seedChunkKey(unresolved.collectionId, unresolved.next);
+          if (unresolved.committed && !unresolved.unknown) throw new DataError({
+            message: 'The seed write reported a committed outcome; verified recovery is required.', status: 503,
+            code: 'SEED_RECOVERY_REQUIRED', execution: 'committed', retry: { safe: false }, idempotencyKey,
+          });
           if (error instanceof DataPrincipalError) throw new DataPrincipalError({ idempotencyKey });
           throw new DataError({ message: 'The seed write outcome remains unknown.', status: 503,
             code: 'OUTCOME_UNKNOWN', execution: 'unknown', retry: { safe: false }, idempotencyKey });
