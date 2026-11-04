@@ -2,6 +2,8 @@
 
 Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交互均使用 `@tier0/sdk-v2`。旧 SDK 不再作为依赖。
 
+`0.9.10` 补齐个人 Key 本地接入指南与非 JSON 网关错误提示，并同步 Namespace 回收、删除和恢复说明；保留现有权限、请求地址和重试规则。
+
 `0.9.9` 新增 `client.uns.metadataPurge`，通过明确的已归档 Collection ID 提交永久删除，返回 `accepted` / `jobId` 并通过现有 `jobs` 查询逐项完成结果；`dryRun` 可选。集合删除保留 Record/Sample，支持恢复或继续永久清理。
 
 本版同时补齐 Agent / App 凭证的查询说明及 App 读取示例：`namespace()` 仍走 OpenAPI，App Key 使用 `dataAppContext` 和集合数据接口，服务端授权规则保持不变。
@@ -29,7 +31,7 @@ Collection 声明必须同时提供业务名称 `name`（例如「生产工单�
 安装正式版本：
 
 ```sh
-npm install @tier0/sdk-v2@0.9.9
+npm install @tier0/sdk-v2@0.9.10
 ```
 
 维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。
