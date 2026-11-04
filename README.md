@@ -49,6 +49,8 @@ const tier0 = createClient();
 
 服务端底层 HTTP 客户端也可配置 `apiKeyProvider: async ({ signal }) => ...`，每次 HTTP 请求或 SSE 连接分别解析一次 API Key。provider 必须返回非空的可打印 ASCII 字符串；失败、取消或超时会终止该次请求，不回退到静态 Key 或环境变量。provider 应使用 `signal` 停止自己的异步工作。SDK 不缓存 provider 返回的 Key，也不会因此重放请求；调用者须确保重试期间身份和幂等作用域一致。`@tier0/sdk-v2/data` 的 `createDataClient` 暂不支持此配置，会直接拒绝。该接口只提供现有 API Key 的动态获取，并不表示服务端支持委托凭据。
 
+Data 客户端首次派发时固定地址和静态 Key 指纹，后续观察到变化则以 `DATA_CREDENTIAL_CHANGED` 失败；显式 `getApiKey` 返回空时不会回退到进程环境 Key。检查待处理结果后再创建客户端。此比较不是服务端身份验证：相同 Key 也可能有不同的有效员工、授权或回执作用域，进程重启后同一幂等键的安全恢复尚需服务端合同。
+
 Data 高层会跨请求复用 ensure 结果、重放带幂等键的 seed、恢复 stale 集合和续接 SSE。现有 whoami 不返回权威 App ID，同一工作空间和创建者的不同 App Key 可能具有相同的 workspace/user/type；名称、前缀或 provider 自报的身份不能证明不同 Key 属于同一主体。移除高层拒绝前，需要与实际请求凭据绑定、可验证且覆盖 App、员工委托及幂等作用域的服务端身份合同，并将这些跨请求状态隔离到已确认主体。`scripts/check-data-principal-boundary.mjs` 可在受控环境中用真实 Gateway 和两个不同 App 的临时 Key 验证此边界；脚本开头列出输入，Key 文件由调用方在验证后撤销和清理。
 
 内部主体围栏目前仅有模拟验证器测试，没有连接服务端，也不开放 Data provider。后端合同须让服务端在实际业务请求中验证与凭据、Workspace、有效主体和幂等作用域绑定的身份，避免预检后身份被切换；SDK 接入时还须在每次发送前及返回缓存结果前复核，并把 ensure、seed、stale 恢复和 SSE 续连绑定到相应主体。身份不能确认时停止相关操作，不能自动跨主体重放或返回旧主体结果。

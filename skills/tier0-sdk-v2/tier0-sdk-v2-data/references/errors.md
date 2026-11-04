@@ -13,7 +13,7 @@
 | `retry` | `{ safe, afterMs? }`：同一调用能否稍后再发、建议等待多久。数据层已经按它自动重试过（最多 2 次） |
 | `outcomeUnknown` | 即 `execution === 'unknown'`：写入可能已执行，先读回核对，再决定是否再写 |
 | `attempts` | 本次调用实际发出的请求数（含重试）；发送前就失败时为 0 |
-| `idempotencyKey` | 写入所用的幂等键（未显式传时为数据层生成的）；`outcomeUnknown` 时用同一个键重发同一写入不会重复生效 |
+| `idempotencyKey` | 写入所用的幂等键（未显式传时由数据层生成）；`outcomeUnknown` 时保留原键和载荷，只有确认服务端回执主体和保留期仍一致才能安全重放，换 Key ID 不能假定共享回执 |
 | `details` | UNS 错误体的 `data`（如 `conflicts`、`resource`、`missingPermission`），或数据层附带的详情 |
 | `cause` | 原始 `UnsV2Error` |
 
@@ -39,6 +39,7 @@ export function toResponse(error: unknown): Response {
 | code | 含义 |
 | --- | --- |
 | `DATA_NOT_CONFIGURED` (503) | 缺少 TIER0_API_HOST / TIER0_API_KEY（或 apiHost / apiKey） |
+| `DATA_CREDENTIAL_CHANGED` (409) | 同一 Data 客户端观察到地址或静态 Key 变化，已停止继续派发；先核对所有未决写入，再创建客户端。显式 getter 返回空时不会回退环境 Key |
 | `DATA_TIMEOUT` (503) | UNS 未在超时内应答（每次调用从开始算共 25 秒，含排队与重试，`transportTimeoutMs` 可调）；写入时 `outcomeUnknown` 为 true、不重试 |
 | `DATA_OVERLOADED` (503) | 本进程 6 个请求名额一直占满，调用在超时前没排到，**没有发出**（`execution: 'notStarted'`，`retry.safe`）；减少并发或合并读取 |
 | `DATA_ABORTED` (499) | 业务请求已中止（`runWithRequestContext(request, …)` 的 `request.signal`）：排队中的调用不再发出（`notStarted`），已发出的写入 `outcomeUnknown` |

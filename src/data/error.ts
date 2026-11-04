@@ -47,8 +47,9 @@ export class DataError extends Error {
   readonly attempts: number;
   /**
    * The idempotency key the write was sent with (generated unless the caller
-   * gave one). After `outcomeUnknown`, sending the same write with this key
-   * again cannot apply it twice.
+   * gave one). After `outcomeUnknown`, keep the original key and payload;
+   * replay is safe only within the server's verified receipt scope and
+   * retention window. A different API Key ID can have a different scope.
    */
   readonly idempotencyKey?: string;
   /** The `data` object of the UNS error envelope, or data-layer details. */
@@ -159,7 +160,7 @@ export function toDataError(error: UnsV2Error, attempts = 1, idempotencyKey?: st
     upstreamStatus: error.status,
     requestId: error.requestId,
     execution: error.execution,
-    retry: error.retry,
+    retry: error.execution === 'notStarted' || error.execution === 'rolledBack' ? error.retry : { safe: false },
     attempts,
     idempotencyKey,
     cause: error,

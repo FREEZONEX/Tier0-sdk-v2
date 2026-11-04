@@ -211,8 +211,8 @@ export function createBootstrap(config: BootstrapConfig) {
       } catch (error) {
         if (error instanceof DataError && error.outcomeUnknown) progress.unknown = true;
         if (error instanceof DataPrincipalError && progress.unknown) throw new DataPrincipalError({ idempotencyKey });
-        // The chunk key is stable, so replaying is safe even when the outcome is unknown: a chunk
-        // that did commit replays its receipt. Wait first, so a write still running can finish.
+        // An unknown chunk is never resent without the verified recovery hook
+        // above; a stable key alone does not establish the server receipt scope.
         if (!(error instanceof DataError) || !(error.outcomeUnknown || error.retry.safe) || attempt >= SEED_ATTEMPTS) {
           if (progress.unknown) throw new DataError({ message: 'The seed write outcome remains unknown.', status: 503,
             code: 'OUTCOME_UNKNOWN', execution: 'unknown', retry: { safe: false }, idempotencyKey });
@@ -268,7 +268,9 @@ export function createBootstrap(config: BootstrapConfig) {
         pendingSeeds.delete(alias);
         logger.info(`[data] seeded ${progress.chunks.reduce((n, items) => n + items.length, 0)} record(s) into "${progress.alias}"`);
       } catch (error) {
-        if (error instanceof DataPrincipalError || progress.unknown || progress.required) {
+        if (error instanceof DataPrincipalError ||
+          error instanceof DataError && (error.code === 'DATA_CREDENTIAL_CHANGED' || error.code === 'DATA_NOT_CONFIGURED') ||
+          progress.unknown || progress.required) {
           progress.required = true;
           throw error;
         }
