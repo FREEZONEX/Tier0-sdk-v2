@@ -47,7 +47,7 @@ export async function inspectConnection() {
 curl -sS -X POST "$TIER0_API_HOST/openapi/v2/info" -H 'X-Tier0-SDK: 1' -H 'Content-Type: application/json' -d '{}'
 ```
 
-代理只转发 `/openapi/v2/uns/**`、`assets/**`、`notifications/send`、`notifications/get`、`platform/getMembers`（`members.listWorkspace()`）、`info`。白名单外的接口（`system.whoami()`、`members.listApp()`、`mqttAuth`、`capabilities`、`agent`、`client.streams` 的 Stream 请求和消息）回 404 `sbx_proxy_not_found`；Source / Stream 管理接口虽在 `/openapi/v2/uns/**` 下会被转发，但 App 的 Key 无权调用，Backend 回 403。代理自己产生的错误带 `X-Tier0-Proxy: not-forwarded`，`code` 以 `sbx_proxy_` 开头，含义见 [错误码](tier0-sdk-v2-data/references/errors.md#节点代理错误)。平台权限和消息主题由工作区管理员在 App 设置里管理，改了立即生效；外部集合在发布时确认。
+代理只转发 `/openapi/v2/uns/**`、`assets/**`、`notifications/send`、`notifications/get`、`platform/getMembers`（`members.listWorkspace()`）、`apps/access-members/list`（`members.listApp()`）、`info`。白名单外的接口（`system.whoami()`、`mqttAuth`、`capabilities`、`agent`、`client.streams` 的 Stream 请求和消息）回 404 `sbx_proxy_not_found`；Source / Stream 管理接口虽在 `/openapi/v2/uns/**` 下会被转发，但 App 的 Key 无权调用，Backend 回 403。代理自己产生的错误带 `X-Tier0-Proxy: not-forwarded`，`code` 以 `sbx_proxy_` 开头，含义见 [错误码](tier0-sdk-v2-data/references/errors.md#节点代理错误)。平台权限和消息主题由工作区管理员在 App 设置里管理，改了立即生效；外部集合在发布时确认。
 
 不同身份使用独立实例。含员工数据委托时，每个入站请求新建实例，使用受信 App Gateway 提供的 `unsV2AppDataSubject`；它不是用户 ID，也不是 App 请求验签断言。不要从请求 JSON 拼造委托。身份验签流程见 [身份与框架集成](references/integration.md)。
 

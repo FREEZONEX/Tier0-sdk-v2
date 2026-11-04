@@ -1,11 +1,11 @@
 # Changelog
 
-## 0.10.0-aenv.5 (local aenv-next prerelease)
+## 0.10.0-aenv.6 (local aenv-next prerelease)
 
 - Merge base 0.9.8 into the aenv-next line: `metadataPurge`, `directoryPath` App collection declarations and the shorter Source lifecycle, on top of aenv-next's node-proxy credential model (no `TIER0_API_KEY` in the VM).
 - Pin every contract input to Backend `c63783eb485e99167fec3a1c6ffb034ada4170e1` (the merge of base into aenv-next). The App stream policy operations require `uns.write` there.
-- `members.listApp` stays unavailable through the node proxy.
-- Known gap: the Backend's `edgeNodesList` and `sourceDocumentStateUpdate` are not exposed yet, so four contract baseline tests fail until that is decided.
+- `members.listApp` is available through the node proxy again (the proxy allowlists `/openapi/v2/apps/access-members/list`); the Backend authorizes a hosted App key by the App's `platform.users.read` like `platform/getMembers` and omits `email` from the response.
+- The Backend's `edgeNodesList` and `sourceDocumentStateUpdate` stay in the raw operation table only; neither `client.source` nor `client.uns` exposes them. The four contract baseline tests (operation counts 84/97, the Namespace digest and the Source facade membership) are re-pinned to the current contract.
 
 This prerelease is built locally for the aenv-next scaffold and is not published to npm.
 

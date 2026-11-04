@@ -2,9 +2,9 @@
 
 Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交互均使用 `@tier0/sdk-v2`。旧 SDK 不再作为依赖。
 
-`0.10.0-aenv.5` 是 aenv-next 的本地预发布版本，基于 `0.9.8`（含 App 集合业务目录声明 `directoryPath`，以及 `0.9.7` 的 Source 生命周期简化），未发布到 npm；内容见下方「aenv-next 运行环境」。
+`0.10.0-aenv.6` 是 aenv-next 的本地预发布版本，基于 `0.9.8`（含 App 集合业务目录声明 `directoryPath`，以及 `0.9.7` 的 Source 生命周期简化），未发布到 npm；内容见下方「aenv-next 运行环境」。
 
-**`0.10.0-aenv.2` 起是破坏性变更**：`TIER0_CREDENTIALS_FILE` 不再读取，SDK 在平台里不持有、不发送任何凭据，由节点代理注入 App 的长期 Key；必须和新的 AgentENV（`sbx-api-proxy`）一起上线，在旧 VM 上请求会被拒绝。`0.10.0-aenv.3` 起 `TIER0_RUNTIME` 只接受 `deployed` / `preview`，其他非空值（且没有 Key）直接报配置错误。`0.10.0-aenv.4` 起 MQTT 改用 `<ws>&open` / `<ws>&h.<app>.<随机>`，预览和正式同一行为（种子不再等委托请求，`appCredentialRuntime()` 已删除）。`0.10.0-aenv.5` 合入 base 的 `0.9.7`、`0.9.8`。
+**`0.10.0-aenv.2` 起是破坏性变更**：`TIER0_CREDENTIALS_FILE` 不再读取，SDK 在平台里不持有、不发送任何凭据，由节点代理注入 App 的长期 Key；必须和新的 AgentENV（`sbx-api-proxy`）一起上线，在旧 VM 上请求会被拒绝。`0.10.0-aenv.3` 起 `TIER0_RUNTIME` 只接受 `deployed` / `preview`，其他非空值（且没有 Key）直接报配置错误。`0.10.0-aenv.4` 起 MQTT 改用 `<ws>&open` / `<ws>&h.<app>.<随机>`，预览和正式同一行为（种子不再等委托请求，`appCredentialRuntime()` 已删除）。`0.10.0-aenv.5` 合入 base 的 `0.9.7`、`0.9.8`。`0.10.0-aenv.6` 起 `members.listApp` 经节点代理可用（托管 Key 按 `platform.users.read`，响应不带邮箱）。
 
 `0.9.8` 新增 App 集合业务目录声明 `directoryPath`，按已知业务范围创建或复用目录，已有集合保持位置。保留 `0.9.7` 的 Source 生命周期简化：创建后可直接使用，删除后停止后续使用；移除 `client.source.state.update`、启停能力与 `desiredState`。名称和描述修改无需影响确认，连接配置变更或删除存在引用时仍须确认；运行中的 Stream 可直接删除。
 
@@ -26,13 +26,13 @@ Collection 声明必须同时提供业务名称 `name`（例如「生产工单�
 
 ## 安装与初始化
 
-维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。本分支的功能应使用检查通过的 `tier0-sdk-v2-0.10.0-aenv.5.tgz` 在业务项目中验证：
+维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。本分支的功能应使用检查通过的 `tier0-sdk-v2-0.10.0-aenv.6.tgz` 在业务项目中验证：
 
 ```sh
-npm install /path/to/tier0-sdk-v2-0.10.0-aenv.5.tgz
+npm install /path/to/tier0-sdk-v2-0.10.0-aenv.6.tgz
 ```
 
-`0.10.0-aenv.5` 正式发布后再使用 `npm install @tier0/sdk-v2@0.10.0-aenv.5`。发布前，npm 的既有版本和 `next` 标签不代表本分支的完整功能。
+`0.10.0-aenv.6` 正式发布后再使用 `npm install @tier0/sdk-v2@0.10.0-aenv.6`。发布前，npm 的既有版本和 `next` 标签不代表本分支的完整功能。
 
 ```ts
 import { createClient } from '@tier0/sdk-v2';
@@ -76,7 +76,7 @@ const user = await tier0.system.whoami();
 curl -sS -X POST "$TIER0_API_HOST/openapi/v2/info" -H 'X-Tier0-SDK: 1' -H 'Content-Type: application/json' -d '{}'
 ```
 
-代理只转发 `/openapi/v2/uns/**`、`assets/**`、`notifications/send`、`notifications/get`、`platform/getMembers`（`members.listWorkspace()`）、`info`。白名单外的接口（`system.whoami()`、`members.listApp()`、`mqttAuth`、`capabilities`、`agent`、`client.streams` 的 Stream 请求和消息）回 404 `sbx_proxy_not_found`；Source / Stream 管理接口虽在 `/openapi/v2/uns/**` 下会被转发，但 App 的 Key 无权调用，Backend 回 403。代理自己产生的错误带 `X-Tier0-Proxy: not-forwarded`，响应体 `{code, message, retry_after_ms?}`：
+代理只转发 `/openapi/v2/uns/**`、`assets/**`、`notifications/send`、`notifications/get`、`platform/getMembers`（`members.listWorkspace()`）、`apps/access-members/list`（`members.listApp()`）、`info`。白名单外的接口（`system.whoami()`、`mqttAuth`、`capabilities`、`agent`、`client.streams` 的 Stream 请求和消息）回 404 `sbx_proxy_not_found`；Source / Stream 管理接口虽在 `/openapi/v2/uns/**` 下会被转发，但 App 的 Key 无权调用，Backend 回 403。代理自己产生的错误带 `X-Tier0-Proxy: not-forwarded`，响应体 `{code, message, retry_after_ms?}`：
 
 | `code` | 状态 | 含义 |
 | --- | --- | --- |
@@ -110,7 +110,7 @@ curl -sS -X POST "$TIER0_API_HOST/openapi/v2/info" -H 'X-Tier0-SDK: 1' -H 'Conte
 | `tier0.streams` | App 请求、实时业务消息与独立交互能力发现 |
 | `tier0.uns` | 目录、Topic、Collection、Record、Sample、事务与 App 数据上下文 |
 | `tier0.system` | `whoami()`、`info()` |
-| `tier0.members` | `listWorkspace()` 用于 Workspace 级成员选择；`listApp({ appId })` 查询能使用指定 App 的成员（Builder 预览按草稿角色，部署后按线上版本，`scope` 由 SDK 自动带上）（Tier0 App 里经节点代理时当前不可用：代理不转发 `/openapi/v2/apps/access-members/list`，回 404 `sbx_proxy_not_found`；改用 `listWorkspace` 并告知用户） |
+| `tier0.members` | `listWorkspace()` 用于 Workspace 级成员选择；`listApp({ appId })` 查询能使用指定 App 的成员（Builder 预览按草稿角色，部署后按线上版本，`scope` 由 SDK 自动带上）（Tier0 App 里经节点代理可用；托管 App Key 按 App 的平台权限 `platform.users.read` 放行，响应不带邮箱，和 `listWorkspace` 同一套规则） |
 | `tier0.notifications` | `send()`、`get()` |
 | `tier0.files` | `upload()`、`uploadMultipart()`、`resumeMultipart()`、`url()`、`download()`、`delete()`、`multipart` 原子接口 |
 | `tier0.mqttAuth` | 创建、删除 MQTT 凭证 |

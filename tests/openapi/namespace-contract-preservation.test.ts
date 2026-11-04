@@ -94,5 +94,6 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
     reason === 'app_stream_ceiling' ? 'app_control_ceiling' : reason);
   const digest = createHash('sha256').update(JSON.stringify(canonical({ operations: baselineOperations, schemas: baselineSchemas }))).digest('hex');
   // Explicitly checked directory declarations above; unrelated Namespace operations stay pinned.
-  expect(digest).toBe('58ed03b8c6ef045be2c8a374875393ad993dec78371dec31de9ff3f1e84ac3b3');
+  // Re-pinned for Backend c63783eb4, which brings the base Edge operations (edgeNodesList, sourceDocumentStateUpdate) into the contract.
+  expect(digest).toBe('88c70daf588cfc32d0eb2fa3de9a70bb345fa90e12d31f366addf0362342a832');
 });
