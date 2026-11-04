@@ -53,6 +53,7 @@ export class Tier0MQClient {
   private connectingPromise: Promise<void> | null = null;
   private rejectPendingConnect: ((error: Error) => void) | null = null;
   private _connected = false;
+  private generation = 0;
 
   constructor(config?: MQTTConfig) {
     this.explicitClientId = config?.clientId !== undefined;
@@ -129,12 +130,17 @@ export class Tier0MQClient {
       throw new Error('Tier0 SDK v2: provide a workspace-encoded API key or explicit MQTT username, clientId and password.');
     }
 
-    this.connectingPromise = this.doConnect();
-    return this.connectingPromise;
+    const pending = this.doConnect();
+    this.connectingPromise = pending;
+    void pending.catch(() => {
+      if (this.connectingPromise === pending) this.connectingPromise = null;
+    });
+    return pending;
   }
 
   private doConnect(): Promise<void> {
     return new Promise((resolve, reject) => {
+      const generation = this.generation;
       this.rejectPendingConnect = reject;
       const options: IClientOptions = {
         clientId: this.config.clientId,
@@ -146,22 +152,29 @@ export class Tier0MQClient {
         clean: this.config.clean,
       };
 
-      const client = mqtt.connect(this.mqttUrl, options);
+      let client: MqttClient;
+      try {
+        client = mqtt.connect(this.mqttUrl, options);
+      } catch (err) {
+        this.rejectPendingConnect = null;
+        reject(err);
+        return;
+      }
       this.client = client;
 
       client.on('connect', () => {
-        if (this.client !== client) return;
+        if (this.client !== client || this.generation !== generation) return;
         this._connected = true;
         this.connectingPromise = null;
         this.rejectPendingConnect = null;
         resolve();
         this.emit('connect');
         // 断连重连后自动恢复所有订阅
-        if (this.client === client) this.resubscribeAll();
+        if (this.client === client && this.generation === generation) this.resubscribeAll();
       });
 
       client.on('error', (err) => {
-        if (this.client !== client) return;
+        if (this.client !== client || this.generation !== generation) return;
         this.connectingPromise = null;
         this.rejectPendingConnect = null;
         reject(err);
@@ -169,29 +182,31 @@ export class Tier0MQClient {
       });
 
       client.on('disconnect', () => {
-        if (this.client !== client) return;
+        if (this.client !== client || this.generation !== generation) return;
         this._connected = false;
         this.emit('disconnect');
       });
 
       client.on('close', () => {
-        if (this.client !== client) return;
+        if (this.client !== client || this.generation !== generation) return;
         this._connected = false;
       });
 
       client.on(
         'message',
         (topic: string, payload: Buffer, _packet: mqtt.IPublishPacket) => {
-          if (this.client !== client) return;
+          if (this.client !== client || this.generation !== generation) return;
           const payloadStr = payload.toString();
           // 复制一份快照：handler 触发背压自动退订时会重建 this.subscriptions
           this.subscriptions.slice().forEach((sub) => {
+            if (this.client !== client || this.generation !== generation || !this.subscriptions.includes(sub)) return;
             if (this.topicMatch(sub.topic, topic)) {
               try {
                 // 公开类型为 void 返回（兼容 async/简写 handler），运行时仅识别严格的 false
                 const accepted = (
                   sub.handler as (t: string, p: string) => unknown
                 )(topic, payloadStr);
+                if (this.client !== client || this.generation !== generation || !this.subscriptions.includes(sub)) return;
                 if (accepted === false) {
                   sub.backpressuredCount = (sub.backpressuredCount ?? 0) + 1;
                   const limit = this.config.maxBackpressuredDeliveries ?? 0;
@@ -206,7 +221,7 @@ export class Tier0MQClient {
                   sub.backpressuredCount = 0;
                 }
               } catch (e) {
-                this.emit('error', e as Error);
+                if (this.client === client && this.generation === generation) this.emit('error', e as Error);
               }
             }
           });
@@ -246,7 +261,11 @@ export class Tier0MQClient {
         if (!this.explicitUsername) this.config.username = workspaceID ? workspaceID + '&open' : undefined;
       }
     }
-    return this.ensureConnected();
+    const generation = this.generation;
+    await this.ensureConnected();
+    if (this.generation !== generation || !this.client || !this._connected) {
+      throw new Error('MQTT connection changed before connect completed');
+    }
   }
 
   // 订阅 topic，内部 qos 固定为 1，handler 接收 (topic, payload)
@@ -260,21 +279,25 @@ export class Tier0MQClient {
       return;
     }
 
-    this.subscriptions.push({ topic, handler });
+    const sub: Subscription = { topic, handler };
+    this.subscriptions.push(sub);
+    const generation = this.generation;
 
     if (this._connected && this.client) {
-      this.client.subscribe(topic, { qos: 1 as 0 | 1 | 2 }, (err) => {
+      const client = this.client;
+      client.subscribe(topic, { qos: 1 as 0 | 1 | 2 }, (err) => {
+        if (this.client !== client || this.generation !== generation) return;
         if (err) {
-          this.emit('error', err);
           // 订阅失败时回滚
-          this.subscriptions = this.subscriptions.filter(
-            (s) => !(s.topic === topic && s.handler === handler)
-          );
+          this.subscriptions = this.subscriptions.filter((s) => s !== sub);
+          this.emit('error', err);
         }
       });
     } else {
       // 未连接时触发懒连接，连接成功后 resubscribeAll 会自动 subscribe
-      this.ensureConnected().catch((err) => this.emit('error', err));
+      this.ensureConnected().catch((err) => {
+        if (this.generation === generation) this.emit('error', err);
+      });
     }
   }
 
@@ -289,11 +312,14 @@ export class Tier0MQClient {
     }
 
     if (!this.client) return;
+    const client = this.client;
+    const generation = this.generation;
 
     // 如果该 topic 下已无任何 handler，则向 broker 发送 unsubscribe
     const stillHasHandler = this.subscriptions.some((s) => s.topic === topic);
     if (!stillHasHandler) {
-      this.client.unsubscribe(topic, (err) => {
+      client.unsubscribe(topic, (err) => {
+        if (this.client !== client || this.generation !== generation) return;
         if (err) {
           this.emit('error', err);
         }
@@ -307,17 +333,22 @@ export class Tier0MQClient {
     payload: string | object,
     options?: { qos?: number; retain?: boolean }
   ): Promise<void> {
+    const generation = this.generation;
     await this.ensureConnected();
 
     const message =
       typeof payload === 'string' ? payload : JSON.stringify(payload);
-    this.client!.publish(topic, message, {
-      qos: (options?.qos ?? 0) as 0 | 1 | 2,
-      retain: options?.retain ?? false,
-    });
+    const qos = (options?.qos ?? 0) as 0 | 1 | 2;
+    const retain = options?.retain ?? false;
+    const client = this.client;
+    if (this.generation !== generation || !client || !this._connected) {
+      throw new Error('MQTT connection changed before publish; message was not submitted');
+    }
+    client.publish(topic, message, { qos, retain });
   }
 
   disconnect(): void {
+    const generation = ++this.generation;
     if (!this.client) return;
 
     const client = this.client;
@@ -329,7 +360,7 @@ export class Tier0MQClient {
     this.subscriptions = [];
     rejectPendingConnect?.(new Error('MQTT connection cancelled by disconnect'));
     client.end(true, () => {
-      if (!this.client) this.emit('disconnect');
+      if (!this.client && this.generation === generation) this.emit('disconnect');
     });
   }
 
@@ -361,13 +392,17 @@ export class Tier0MQClient {
   // 断连后自动重新订阅所有已注册的 topic
   private resubscribeAll(): void {
     if (!this.client) return;
+    const client = this.client;
+    const generation = this.generation;
 
     // 按 topic 去重，每个 topic 只订阅一次
     const uniqueTopics = Array.from(
       new Set(this.subscriptions.map((s) => s.topic))
     );
     uniqueTopics.forEach((topic) => {
-      this.client!.subscribe(topic, { qos: 1 as 0 | 1 | 2 }, (err) => {
+      if (this.client !== client || this.generation !== generation) return;
+      client.subscribe(topic, { qos: 1 as 0 | 1 | 2 }, (err) => {
+        if (this.client !== client || this.generation !== generation) return;
         if (err) {
           this.emit('error', err);
         }

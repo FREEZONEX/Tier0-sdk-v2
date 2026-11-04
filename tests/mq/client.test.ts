@@ -58,6 +58,20 @@ describe('Tier0MQClient', () => {
     handlers.forEach((h) => h(...args));
   }
 
+  function lifecycleClient() {
+    const handlers: Record<string, Function[]> = {};
+    const subscribeCallbacks: Function[] = [];
+    const unsubscribeCallbacks: Function[] = [];
+    return {
+      on: vi.fn((event: string, fn: Function) => { (handlers[event] ||= []).push(fn); }),
+      end: vi.fn(),
+      subscribe: vi.fn((_topic: string, _opts: unknown, cb: Function) => { subscribeCallbacks.push(cb); }),
+      unsubscribe: vi.fn((_topic: string, cb: Function) => { unsubscribeCallbacks.push(cb); }),
+      publish: vi.fn(), subscribeCallbacks, unsubscribeCallbacks,
+      emit(event: string, ...args: unknown[]) { (handlers[event] || []).forEach((fn) => fn(...args)); },
+    };
+  }
+
   it.each([
     [undefined, 'sk-per-ws1_test', '1'],
     ['sk-svc-ws2_old', 'sk-svc-ws10_test', '36'],
@@ -196,6 +210,91 @@ describe('Tier0MQClient', () => {
     client.disconnect();
     expect(old.end).toHaveBeenCalledTimes(1);
     expect(current.end).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects an in-flight publish when the client is replaced before dispatch', async () => {
+    const old = lifecycleClient();
+    const nextClient = lifecycleClient();
+    (mqtt.connect as any).mockReturnValueOnce(old).mockReturnValueOnce(nextClient);
+    const client = new Tier0MQClient({ host: 'broker', password: 'sk-per-ws1_old' });
+    const initial = client.connect();
+    old.emit('connect');
+    await initial;
+    const pendingPublish = client.publish('topic', 'old identity message');
+    client.disconnect();
+    const next = client.connect({ password: 'sk-per-ws2_new' });
+    nextClient.emit('connect');
+    await next;
+    await expect(pendingPublish).rejects.toThrow('connection changed before publish');
+    expect(old.publish).not.toHaveBeenCalled();
+    expect(nextClient.publish).not.toHaveBeenCalled();
+    await client.publish('topic', 'new identity message');
+    expect(nextClient.publish).toHaveBeenCalledTimes(1);
+    client.disconnect();
+  });
+
+  it('does not report an old connect as successful after replacement', async () => {
+    const old = lifecycleClient();
+    const nextClient = lifecycleClient();
+    (mqtt.connect as any).mockReturnValueOnce(old).mockReturnValueOnce(nextClient);
+    const client = new Tier0MQClient({ host: 'broker' });
+    const initial = client.connect();
+    old.emit('connect');
+    client.disconnect();
+    const next = client.connect({ password: 'sk-per-ws2_new' });
+    nextClient.emit('connect');
+    await next;
+    await expect(initial).rejects.toThrow('connection changed before connect completed');
+    client.disconnect();
+  });
+
+  it('does not let retired subscription callbacks alter new subscriptions or report errors', async () => {
+    const old = lifecycleClient();
+    const nextClient = lifecycleClient();
+    (mqtt.connect as any).mockReturnValueOnce(old).mockReturnValueOnce(nextClient);
+    const client = new Tier0MQClient({ host: 'broker' });
+    const errors = vi.fn();
+    const handler = vi.fn();
+    client.on('error', errors);
+    const initial = client.connect();
+    old.emit('connect');
+    await initial;
+    client.subscribe('topic', handler);
+    client.unsubscribe('another');
+    client.disconnect();
+    const next = client.connect({ password: 'sk-per-ws2_new' });
+    nextClient.emit('connect');
+    await next;
+    client.subscribe('topic', handler);
+    old.subscribeCallbacks[0](new Error('late subscribe failure'));
+    old.unsubscribeCallbacks[0](new Error('late unsubscribe failure'));
+    expect(client.subscribedTopics).toEqual(['topic']);
+    expect(errors).not.toHaveBeenCalled();
+    client.disconnect();
+  });
+
+  it('stops dispatching an old message after a handler replaces the client', async () => {
+    const old = lifecycleClient();
+    const nextClient = lifecycleClient();
+    (mqtt.connect as any).mockReturnValueOnce(old).mockReturnValueOnce(nextClient);
+    const client = new Tier0MQClient({ host: 'broker', maxBackpressuredDeliveries: 1 });
+    const initial = client.connect();
+    old.emit('connect');
+    await initial;
+    const second = vi.fn();
+    let next: Promise<void> | undefined;
+    client.subscribe('topic', (() => {
+      client.disconnect();
+      next = client.connect({ password: 'sk-per-ws2_new' });
+      return false;
+    }) as any);
+    client.subscribe('topic', second);
+    old.emit('message', 'topic', Buffer.from('payload'));
+    nextClient.emit('connect');
+    await next;
+    expect(second).not.toHaveBeenCalled();
+    expect(nextClient.unsubscribe).not.toHaveBeenCalled();
+    client.disconnect();
   });
 
   it.each([
