@@ -7,7 +7,9 @@ description: 使用 @tier0/sdk-v2 的 client.uns 完成新架构集合、Schema�
 
 UNS 管数据命名空间、集合、Record 和 Sample；外部连接与脚本分别用 [Source](../tier0-sdk-v2-source/SKILL.md)、[Stream](../tier0-sdk-v2-stream/SKILL.md)。服务端 `createClient()` 读取 TIER0_API_HOST / TIER0_API_KEY，或显式传 apiHost/apiKey。数据权限不自动授予管理权限：管理操作中 App 凭证只能调用本 App 集合的 appCollectionsEnsure / SchemaReplace / Archive / Restore；appDataPolicyGet/Update 的调用方必须是持有 uns.write 的登录会话、持有 uns.write 且 full_access、不绑定 App 的 personal / agent Key，或治理会话；运行时 App 凭证不能管理数据授权。
 
-工业场景创建目录或集合前，先按[命名空间指导](references/namespace.md)查询并复用已有 ISA-95 目录，只创建业务需要且缺失的层级，用现有 `parentId` 挂接；不要按 App 重建一套工厂目录。
+先按[命名空间指导](references/namespace.md)区分凭证：`namespace()` 走 OpenAPI，但当前不对 App Key 开放；App 查询可用集合走 `dataAppContext`，不能改用同样受限的 `appCollectionsList`。Agent / Personal Key 也须满足当前工作空间权限；不要从“使用 SDK / MCP”推定权限。
+
+工业场景中，有管理权限的调用方创建目录或集合前，先查询并复用已有 ISA-95 目录，只创建业务需要且缺失的层级，用现有 `parentId` 挂接；App Key 根据上下文和已知业务范围声明集合的 `directoryPath`。不要要求 App Key 先调用管理查询，也不要按 App 重建一套工厂目录。
 
 ## 按任务加载参考
 
