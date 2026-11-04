@@ -15163,6 +15163,268 @@
         "x-tier0-permission": "",
         "x-tier0-min-permission": 1
       }
+    },
+    "/uns/app/collections/seed:register": {
+      "post": {
+        "operationId": "UnsV2AppCollectionsSeedRegister",
+        "summary": "登记 App 集合种子计划",
+        "deprecated": false,
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "declaration": {
+                    "$ref": "#/components/schemas/CloudAppCollectionDeclaration"
+                  },
+                  "chunks": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 5,
+                    "items": {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 200,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "data": {
+                            "type": "object",
+                            "additionalProperties": true
+                          }
+                        },
+                        "required": [
+                          "data"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "declaration",
+                  "chunks"
+                ]
+              },
+              "example": {
+                "declaration": {
+                  "alias": "orders",
+                  "name": "Orders",
+                  "directoryPath": [
+                    "Factory"
+                  ],
+                  "recordSchema": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "title": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "title"
+                    ]
+                  }
+                },
+                "chunks": [
+                  [
+                    {
+                      "data": {
+                        "title": "Initial"
+                      }
+                    }
+                  ]
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "操作结果。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocUnsV2AppCollectionsSeedRegisterResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocCommonError"
+                },
+                "example": {
+                  "code": 422,
+                  "msg": "请求参数不合法",
+                  "requestId": "request-id",
+                  "data": null,
+                  "error": {
+                    "code": "INVALID_REQUEST",
+                    "reason": "filter.status must be a string",
+                    "details": [],
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "App 与授权"
+        ],
+        "description": "实验协议 app-seed/1，默认关闭。平台 App Key 提交声明和完整有界分块；集合与计划同事务创建。仅同一 Key 和当前集合写权限可恢复，旧集合无计划时失败关闭。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
+        "x-tier0-readonly": false,
+        "x-tier0-destructive": false
+      }
+    },
+    "/uns/app/collections/seed:apply": {
+      "post": {
+        "operationId": "UnsV2AppCollectionsSeedApply",
+        "summary": "执行 App 集合种子分块",
+        "deprecated": false,
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "collectionId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "planDigest": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4
+                  },
+                  "items": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 200,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "data": {
+                          "type": "object",
+                          "additionalProperties": true
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "collectionId",
+                  "planDigest",
+                  "index",
+                  "items"
+                ]
+              },
+              "example": {
+                "collectionId": "collection-id",
+                "planDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "index": 0,
+                "items": [
+                  {
+                    "data": {
+                      "title": "Initial"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "操作结果。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocUnsV2AppCollectionsSeedApplyResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocCommonError"
+                },
+                "example": {
+                  "code": 422,
+                  "msg": "请求参数不合法",
+                  "requestId": "request-id",
+                  "data": null,
+                  "error": {
+                    "code": "INVALID_REQUEST",
+                    "reason": "filter.status must be a string",
+                    "details": [],
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "App 与授权"
+        ],
+        "description": "实验协议 app-seed/1，默认关闭。提交登记计划返回的 collectionId、planDigest、分块序号及相同内容；服务端在同一事务中写入并推进进度，重试时复核当前权限。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
+        "x-tier0-readonly": false,
+        "x-tier0-destructive": false
+      }
     }
   },
   "components": {
@@ -35641,6 +35903,105 @@
             "type": "string"
           }
         }
+      },
+      "DocUnsV2AppCollectionsSeedRegisterResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "protocol": {
+                "type": "string",
+                "enum": [
+                  "app-seed/1"
+                ]
+              },
+              "collectionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "planDigest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "nextChunk": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 5
+              },
+              "chunkCount": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5
+              }
+            },
+            "required": [
+              "protocol",
+              "collectionId",
+              "planDigest",
+              "nextChunk",
+              "chunkCount"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "msg",
+          "requestId",
+          "data"
+        ]
+      },
+      "DocUnsV2AppCollectionsSeedApplyResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "protocol": {
+                "type": "string",
+                "enum": [
+                  "app-seed/1"
+                ]
+              },
+              "replayed": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "protocol",
+              "replayed"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "msg",
+          "requestId",
+          "data"
+        ]
       }
     }
   },
