@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.0-aenv.5 (local aenv-next prerelease)
+
+- Merge base 0.9.8 into the aenv-next line: `metadataPurge`, `directoryPath` App collection declarations and the shorter Source lifecycle, on top of aenv-next's node-proxy credential model (no `TIER0_API_KEY` in the VM).
+- Pin every contract input to Backend `c63783eb485e99167fec3a1c6ffb034ada4170e1` (the merge of base into aenv-next). The App stream policy operations require `uns.write` there.
+- `members.listApp` stays unavailable through the node proxy.
+- Known gap: the Backend's `edgeNodesList` and `sourceDocumentStateUpdate` are not exposed yet, so four contract baseline tests fail until that is decided.
+
+This prerelease is built locally for the aenv-next scaffold and is not published to npm.
+
 ## 0.9.8 (unreleased candidate)
 
 - Add `client.uns.metadataPurge` for explicit archived Collection IDs. Preserve the asynchronous `accepted` / `jobId` receipt; use `jobs` to inspect completion and per-item results. Preview remains optional.

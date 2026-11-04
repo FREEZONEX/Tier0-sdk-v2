@@ -110,7 +110,7 @@ curl -sS -X POST "$TIER0_API_HOST/openapi/v2/info" -H 'X-Tier0-SDK: 1' -H 'Conte
 | `tier0.streams` | App 请求、实时业务消息与独立交互能力发现 |
 | `tier0.uns` | 目录、Topic、Collection、Record、Sample、事务与 App 数据上下文 |
 | `tier0.system` | `whoami()`、`info()` |
-| `tier0.members` | `listWorkspace()` 用于 Workspace 级成员选择；`listApp({ appId })` 查询能使用指定 App 的成员（Builder 预览按草稿角色，部署后按线上版本，`scope` 由 SDK 自动带上） |
+| `tier0.members` | `listWorkspace()` 用于 Workspace 级成员选择；`listApp({ appId })` 查询能使用指定 App 的成员（Builder 预览按草稿角色，部署后按线上版本，`scope` 由 SDK 自动带上）（Tier0 App 里经节点代理时当前不可用：代理不转发 `/openapi/v2/apps/access-members/list`，回 404 `sbx_proxy_not_found`；改用 `listWorkspace` 并告知用户） |
 | `tier0.notifications` | `send()`、`get()` |
 | `tier0.files` | `upload()`、`uploadMultipart()`、`resumeMultipart()`、`url()`、`download()`、`delete()`、`multipart` 原子接口 |
 | `tier0.mqttAuth` | 创建、删除 MQTT 凭证 |
