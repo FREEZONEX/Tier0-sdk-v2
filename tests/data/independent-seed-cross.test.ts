@@ -74,3 +74,28 @@ it('does not resend unknown seed across later ensures', async () => {
  expect(second).toMatchObject({execution:'unknown',outcomeUnknown:true,idempotencyKey:first.idempotencyKey});
  expect(writes).toBe(1);
 });
+
+it('does not cache ensure success after a later seed chunk rolls back', async () => {
+ let ensures=0; const sizes:number[]=[];
+ const collection=defineCollection({alias:'orders',name:'Orders',schema:z.object({value:z.number()}),seed:Array.from({length:201},(_,i)=>({_id:`item-${i}`,value:i}))});
+ const envelope=(data:unknown)=>new Response(JSON.stringify({code:200,msg:'ok',requestId:'t',data}),{status:200});
+ const data=createDataClient({apiHost:'https://example.invalid',apiKey:'same-key',collections:[collection],fetch:async (url,init)=>{
+  if(new URL(String(url)).pathname.includes('ensure')) return envelope({appId:'app',results:[{alias:'orders',collectionId:'c1',revision:1,status:++ensures===1?'created':'unchanged'}]});
+  sizes.push(JSON.parse(String(init?.body)).operations.length);
+  if(sizes.length===2) return new Response(JSON.stringify({code:403,msg:'denied',requestId:'t',data:null,error:{code:'FORBIDDEN',details:[],execution:'rolledBack',retry:{safe:false}}}),{status:403});
+  return envelope({status:'committed',results:[]});
+ }});
+ await expect(data.ensure()).rejects.toMatchObject({code:'FORBIDDEN',execution:'rolledBack'});
+ await expect(data.ensure()).rejects.toMatchObject({code:'DATA_PRINCIPAL_UNCONFIRMED',retry:{safe:false}});
+ expect(ensures).toBe(2);
+ expect(sizes).toEqual([200,1]);
+});
+
+it('rejects an invalid seed before creating any collection', async () => {
+ const collection=defineCollection({alias:'orders',name:'Orders',schema:z.object({value:z.number()}),seed:[{_id:'one',value:'invalid' as unknown as number}]});
+ let sent=0;
+ const data=createDataClient({apiHost:'https://example.invalid',apiKey:'same-key',collections:[collection],fetch:async ()=>{sent++; throw new Error('unexpected request');}});
+ await expect(data.ensure()).rejects.toBeInstanceOf(z.ZodError);
+ await expect(data.ensure()).rejects.toBeInstanceOf(z.ZodError);
+ expect(sent).toBe(0);
+});
