@@ -3,16 +3,16 @@ import { createDataClient } from '../../src/data/index.js';
 import { defineCollection } from '../../src/data/define.js';
 import { z } from 'zod';
 
-it('resumes a rolled-back seed after a transient credential gap between retry attempts', async () => {
+it.each(['notStarted', 'rolledBack'] as const)('resumes a %s seed after a transient credential gap between retry attempts', async execution => {
  let gets=0, ensures=0, writes=0;
  const collection=defineCollection({alias:'orders',name:'Orders',schema:z.object({value:z.number()}),seed:[{_id:'one',value:1}]});
  const envelope=(data:unknown)=>new Response(JSON.stringify({code:200,msg:'ok',requestId:'t',data}),{status:200});
  const data=createDataClient({apiHost:'https://example.invalid',getApiKey:()=>++gets===3?undefined:'same-key',collections:[collection],fetch:async url=>{
    if(new URL(String(url)).pathname.includes('ensure')) return envelope({appId:'app',results:[{alias:'orders',collectionId:'c1',revision:1,status:++ensures===1?'created':'unchanged'}]});
-   if(++writes===1) return new Response(JSON.stringify({code:503,msg:'busy',requestId:'t',data:null,error:{code:'TEMPORARILY_UNAVAILABLE',details:[],execution:'rolledBack',retry:{safe:true,afterMs:0}}}),{status:503});
+   if(++writes===1) return new Response(JSON.stringify({code:503,msg:'busy',requestId:'t',data:null,error:{code:'TEMPORARILY_UNAVAILABLE',details:[],execution,retry:{safe:true,afterMs:0}}}),{status:503});
    return envelope({status:'committed',results:[]});
  }});
- await expect(data.ensure()).rejects.toMatchObject({code:'DATA_NOT_CONFIGURED',execution:'rolledBack',attempts:1});
+ await expect(data.ensure()).rejects.toMatchObject({code:'DATA_NOT_CONFIGURED',execution,attempts:1});
  await expect(data.ensure()).resolves.toBeDefined();
  expect(writes).toBe(2);
 });

@@ -287,7 +287,7 @@ export function createBootstrap(config: BootstrapConfig) {
           // resume; keep the App/collection binding and current chunk index.
           const noEffect = error instanceof DataError && (
             error.execution === 'notStarted' && error.attempts === 0 ||
-            error.code === 'DATA_NOT_CONFIGURED' && error.execution === 'rolledBack'
+            error.code === 'DATA_NOT_CONFIGURED' && (error.execution === 'notStarted' || error.execution === 'rolledBack')
           );
           progress.required ||= !noEffect;
           throw error;
