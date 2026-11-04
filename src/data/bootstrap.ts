@@ -108,6 +108,7 @@ export const REBUILD_INTERVAL_MS = 30_000;
 export function isStaleCollectionError(error: unknown): boolean {
   return (
     error instanceof DataError &&
+    (error.execution === 'notStarted' || error.execution === 'rolledBack') &&
     (error.reason === ACCESS_REASONS.notGranted || error.reason === ACCESS_REASONS.notFound)
   );
 }
@@ -177,6 +178,7 @@ export function createBootstrap(config: BootstrapConfig) {
     operation: object;
     unknown: boolean;
     required: boolean;
+    interrupted: boolean;
   };
   // In-memory only: a restart needs a durable server-side seed recovery contract.
   const pendingSeeds = new Map<string, SeedProgress>();
@@ -243,7 +245,7 @@ export function createBootstrap(config: BootstrapConfig) {
           chunks.push(documents.slice(start, start + MAX_ATOMIC_ITEMS));
         }
         pendingSeeds.set(alias, { alias: result.alias, appId, collectionId: result.collectionId, chunks, next: 0,
-          operation: {}, unknown: false, required: false });
+          operation: {}, unknown: false, required: false, interrupted: false });
       } catch (error) {
         logger.error(`[data] seed for new collection "${result.alias}" failed; it keeps the chunks written so far:`, error);
       }
@@ -251,7 +253,7 @@ export function createBootstrap(config: BootstrapConfig) {
     for (const [alias, progress] of pendingSeeds) {
       const result = results.find(item => item.alias.toLowerCase() === alias);
       if (!result || result.collectionId !== progress.collectionId ||
-        (progress.required && (!progress.appId || !appId || appId !== progress.appId))) {
+        (progress.interrupted && (!progress.appId || !appId || appId !== progress.appId))) {
         const idempotencyKey = seedChunkKey(progress.collectionId, progress.next);
         throw new DataError({ message: 'An unfinished seed belongs to a different or unavailable collection.', status: 503,
           code: progress.unknown ? 'OUTCOME_UNKNOWN' : 'SEED_RECOVERY_REQUIRED',
@@ -262,6 +264,7 @@ export function createBootstrap(config: BootstrapConfig) {
           await insertSeedChunk(progress);
           progress.next++;
           progress.required = false;
+          progress.interrupted = false;
           // The next chunk has its own principal and receipt scope.
           progress.operation = {};
         }
@@ -271,7 +274,11 @@ export function createBootstrap(config: BootstrapConfig) {
         if (error instanceof DataPrincipalError ||
           error instanceof DataError && (error.code === 'DATA_CREDENTIAL_CHANGED' || error.code === 'DATA_NOT_CONFIGURED') ||
           progress.unknown || progress.required) {
-          progress.required = true;
+          progress.interrupted = true;
+          // A local failure before the first dispatch is not an uncertain
+          // seed outcome. Still bind a later resume to the same App and ID.
+          const neverSent = error instanceof DataError && error.execution === 'notStarted' && error.attempts === 0;
+          progress.required ||= !neverSent;
           throw error;
         }
         pendingSeeds.delete(alias);
