@@ -50,6 +50,8 @@ export interface CallOptions {
   signal?: AbortSignal;
   /** Internal identity anchor shared by every attempt of one seed chunk. */
   seedOperation?: object;
+  /** Internal validation for a successful response whose write may already have committed. */
+  validateWriteResponse?: { check: (data: unknown) => boolean; message: string };
 }
 
 /** Sends one operation and resolves with the envelope's `data`. */
@@ -223,10 +225,14 @@ export function createDataTransport(config: ClientConfig): { call: DataCall; ope
             // In flight, only the business request's abort cancels; the transport deadline covers the time.
             return core.call(operation, body as UnsV2Request<typeof operation>, { signal: options.signal });
           }, stop.signal);
+          if (options.validateWriteResponse && !options.validateWriteResponse.check(response.data)) {
+            throw new DataError({ message: options.validateWriteResponse.message, status: 502, code: 'DATA_BAD_RESPONSE',
+              upstreamStatus: 200, execution: 'unknown', retry: { safe: false }, attempts: attempt, idempotencyKey: key });
+          }
           return response.data as T;
         } catch (error) {
           if (error instanceof Abandoned) throw notSent(attempt - 1);
-          if (error instanceof DataError && previous) {
+          if (error instanceof DataError && previous && error.execution !== 'unknown') {
             throw new DataError({ message: error.message, status: error.status, code: error.code,
               execution: previous.execution, retry: { safe: false }, attempts: attempt - 1, idempotencyKey: key });
           }

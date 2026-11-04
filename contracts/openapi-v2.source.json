@@ -35903,6 +35903,105 @@
             "type": "string"
           }
         }
+      },
+      "DocUnsV2AppCollectionsSeedRegisterResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "protocol": {
+                "type": "string",
+                "enum": [
+                  "app-seed/1"
+                ]
+              },
+              "collectionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "planDigest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "nextChunk": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 5
+              },
+              "chunkCount": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5
+              }
+            },
+            "required": [
+              "protocol",
+              "collectionId",
+              "planDigest",
+              "nextChunk",
+              "chunkCount"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "msg",
+          "requestId",
+          "data"
+        ]
+      },
+      "DocUnsV2AppCollectionsSeedApplyResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "protocol": {
+                "type": "string",
+                "enum": [
+                  "app-seed/1"
+                ]
+              },
+              "replayed": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "protocol",
+              "replayed"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "msg",
+          "requestId",
+          "data"
+        ]
       }
     }
   },

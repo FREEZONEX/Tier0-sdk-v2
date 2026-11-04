@@ -313,24 +313,27 @@ export function createBootstrap(config: BootstrapConfig) {
         const chunks: { id?: string; data: Record<string, unknown> }[][] = [];
         for (let start = 0; start < documents.length; start += MAX_ATOMIC_ITEMS) chunks.push(documents.slice(start, start + MAX_ATOMIC_ITEMS));
         if (chunks.length > 5) throw new RangeError('Tier0 SDK: durable seed supports at most 1000 records per collection.');
-        const result = await call<unknown>('appCollectionsSeedRegister', { declaration, chunks });
-        if (!result || typeof result !== 'object') throw new Error('Tier0 SDK: invalid durable seed registration response.');
-        const plan = result as Record<string, unknown>;
-        if (plan.protocol !== 'app-seed/1' || typeof plan.collectionId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(plan.collectionId) ||
+        const result = await call<unknown>('appCollectionsSeedRegister', { declaration, chunks }, { validateWriteResponse: {
+          message: 'Tier0 SDK: invalid durable seed registration response.',
+          check: result => {
+            if (!result || typeof result !== 'object') return false;
+            const plan = result as Record<string, unknown>;
+            return !(plan.protocol !== 'app-seed/1' || typeof plan.collectionId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(plan.collectionId) ||
             typeof plan.planDigest !== 'string' || !/^[a-f0-9]{64}$/.test(plan.planDigest) ||
             !Number.isInteger(plan.nextChunk) || !Number.isInteger(plan.chunkCount) || plan.chunkCount !== chunks.length ||
-            (plan.nextChunk as number) < 0 || (plan.nextChunk as number) > chunks.length) {
-          throw new Error('Tier0 SDK: invalid durable seed registration response.');
-        }
+            (plan.nextChunk as number) < 0 || (plan.nextChunk as number) > chunks.length);
+          },
+        }});
+        const plan = result as { collectionId: string; planDigest: string; nextChunk: number };
         durableSeedIds.set(declaration.alias.toLowerCase(), plan.collectionId);
         for (let index = plan.nextChunk as number; index < chunks.length; index++) {
-          const applied = await call<unknown>('appCollectionsSeedApply', {
+          await call<unknown>('appCollectionsSeedApply', {
             collectionId: plan.collectionId, planDigest: plan.planDigest, index, items: chunks[index],
-          });
-          if (!applied || typeof applied !== 'object' || (applied as Record<string, unknown>).protocol !== 'app-seed/1' ||
-              typeof (applied as Record<string, unknown>).replayed !== 'boolean') {
-            throw new Error('Tier0 SDK: invalid durable seed apply response.');
-          }
+          }, { validateWriteResponse: {
+            message: 'Tier0 SDK: invalid durable seed apply response.',
+            check: applied => !!applied && typeof applied === 'object' && (applied as Record<string, unknown>).protocol === 'app-seed/1' &&
+              typeof (applied as Record<string, unknown>).replayed === 'boolean',
+          }});
         }
       }
     }

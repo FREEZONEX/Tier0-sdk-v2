@@ -44,6 +44,53 @@ describe('experimental durable seed protocol', () => {
     await expect(data.ensure()).rejects.toThrow(/invalid durable seed registration response/);
     expect(paths).toHaveLength(1);
   });
+
+  it.each(['register', 'apply'] as const)('reports unknown after committed %s returns malformed success and recovers from server progress', async (malformed) => {
+    let registered = false;
+    let next = 0;
+    let applyCount = 0;
+    let inject = true;
+    const paths: string[] = [];
+    const fetcher: typeof fetch = async url => {
+      const path = new URL(String(url)).pathname;
+      paths.push(path);
+      if (path.endsWith('/seed:register')) {
+        registered = true; // fixture simulates a committed server transaction
+        if (malformed === 'register' && inject) { inject = false; return ok({protocol: 'invalid'}); }
+        return ok({protocol:'app-seed/1', collectionId:'c1', planDigest:digest, nextChunk:next, chunkCount:1});
+      }
+      if (path.endsWith('/seed:apply')) {
+        expect(registered).toBe(true);
+        applyCount++;
+        next = 1; // fixture simulates a committed chunk before the bad response
+        if (malformed === 'apply' && inject) { inject = false; return ok({protocol:'app-seed/1'}); }
+        return ok({protocol:'app-seed/1', replayed:false});
+      }
+      if (path.endsWith('/ensure')) return ok({appId:'a',results:[{alias:'orders',collectionId:'c1',revision:1,status:'unchanged'}]});
+      throw new Error(`unexpected path ${path}`);
+    };
+    const options = {apiHost:'https://example.invalid', apiKey:'same-key', collections:[definition], seedRecovery:'app-seed/1' as const, fetch:fetcher};
+    await expect(createDataClient(options).ensure()).rejects.toMatchObject({
+      code:'DATA_BAD_RESPONSE', execution:'unknown', outcomeUnknown:true, retry:{safe:false}, attempts:1,
+    });
+    expect(paths.some(path => path.endsWith('/ensure'))).toBe(false);
+    expect(applyCount).toBe(malformed === 'apply' ? 1 : 0);
+    await expect(createDataClient(options).ensure()).resolves.toBeDefined();
+    expect(applyCount).toBe(1);
+  });
+
+  it('keeps unknown and the actual attempt count when a safe rollback precedes malformed success', async () => {
+    let attempts = 0;
+    const data = createDataClient({apiHost:'https://example.invalid', apiKey:'key', collections:[definition], seedRecovery:'app-seed/1',
+      fetch: async () => {
+        attempts++;
+        if (attempts === 1) return new Response(JSON.stringify({code:503,msg:'retry',requestId:'r',data:null,
+          error:{code:'TEMPORARILY_UNAVAILABLE',details:[],execution:'rolledBack',retry:{safe:true,afterMs:0}}}), {status:503});
+        return ok({protocol:'invalid'});
+      }});
+    await expect(data.ensure()).rejects.toMatchObject({code:'DATA_BAD_RESPONSE',execution:'unknown',retry:{safe:false},attempts:2});
+    expect(attempts).toBe(2);
+  });
 });
 
 it('does not claim success if ensure returns a different collection after seed completion', async () => {

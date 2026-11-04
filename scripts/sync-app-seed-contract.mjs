@@ -44,6 +44,26 @@ for (const [path, upstream] of [['contracts/uns-v2/manifest.json',sourceManifest
  const current=JSON.parse(before);
  assert.deepEqual(current.components.schemas.CloudAppCollectionDeclaration,sourceSwagger.components.schemas.CloudAppCollectionDeclaration,'OpenAPI declaration dependency changed');
  for(const name of paths) { assert.ok(!current.paths[name] && sourceSwagger.paths[name],name); current.paths[name]=sourceSwagger.paths[name]; }
+ // Copy the transitive schema closure, and reject changed shared definitions.
+ const seen = new Set();
+ function includeRefs(value) {
+  if (!value || typeof value !== 'object') return;
+  if (typeof value.$ref === 'string') {
+   const match = /^#\/components\/schemas\/([^/]+)$/.exec(value.$ref);
+   assert.ok(match, `unsupported seed reference ${value.$ref}`);
+   const name = match[1];
+   if (!seen.has(name)) {
+    seen.add(name);
+    const schema = sourceSwagger.components.schemas[name];
+    assert.ok(schema, `missing upstream schema ${name}`);
+    if (current.components.schemas[name]) assert.deepEqual(current.components.schemas[name], schema, `changed shared schema ${name}`);
+    else current.components.schemas[name] = schema;
+    includeRefs(schema);
+   }
+  }
+  for (const child of Object.values(value)) includeRefs(child);
+ }
+ for (const name of paths) includeRefs(current.paths[name]);
  outputs.set(path,pretty(current));
 }
 {

@@ -3871,7 +3871,7 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
           "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
           "sourceSHA256": "ca5a9e5b5b57d97c2bcb8db16550fc22d25bcdc4f08afa44f8d6afda5b449911",
           "baseSHA256": "0465c386808fcc0c09968f7c653cabc6330c0704b1dffae4ca8f91dcad0a22a0",
-          "resultSHA256": "81ca994cd1d2b789287307a079987d6ceef73440cb7a46e88161fb1e909ff8d5"
+          "resultSHA256": "ae5a83f1f07887f9ae79007f1de3eaeb65b47652a2a5bc0f8530d60a948d3f79"
         },
         "contracts/uns-v2/registry_generated.go": {
           "path": "share/unscontract/registry_generated.go",
@@ -3887,7 +3887,7 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
     "contract": "3cb7cca3909374b9b261fd6a78c8967597fba1786d54c861cd798fd0a7abcd61",
     "cloudSupport": "be5abb42f3b5410d6bea564e7280b22af221b3987f8773f7ddba228e5685e0b4",
     "manifest": "ca2e51d7ac9c6d299e6df40beba3cfe529f870696f55964b942137fd97ef7eff",
-    "provenance": "7681c44c4f744a0463df6131fcc8490dcf2861a0ef7217b433d3482c5375904d",
+    "provenance": "741337c66ef2832d21dabe56478f3441b0c1f93cdc0c7527deeab00e2adbb16c",
     "registry": "5894f0ea26ea44ea516372d6bf4b0f0323abe5ace77090063ec3696068e99c95"
   },
   "publicOperationCount": 84,
