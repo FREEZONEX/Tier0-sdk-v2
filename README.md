@@ -2,7 +2,13 @@
 
 Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交互均使用 `@tier0/sdk-v2`。旧 SDK 不再作为依赖。
 
-`0.9.8` 候选版新增 App 集合业务目录声明 `directoryPath`，按已知业务范围创建或复用目录，已有集合保持位置。保留 `0.9.7` 的 Source 生命周期简化：创建后可直接使用，删除后停止后续使用；移除 `client.source.state.update`、启停能力与 `desiredState`。名称和描述修改无需影响确认，连接配置变更或删除存在引用时仍须确认；运行中的 Stream 可直接删除。该版本尚未发布 npm，验收使用下方安装包。
+`0.9.10` 补齐个人 Key 本地接入指南与非 JSON 网关错误提示，并同步 Namespace 回收、删除和恢复说明；保留现有权限、请求地址和重试规则。
+
+`0.9.9` 新增 `client.uns.metadataPurge`，通过明确的已归档 Collection ID 提交永久删除，返回 `accepted` / `jobId` 并通过现有 `jobs` 查询逐项完成结果；`dryRun` 可选。集合删除保留 Record/Sample，支持恢复或继续永久清理。
+
+本版同时补齐 Agent / App 凭证的查询说明及 App 读取示例：`namespace()` 仍走 OpenAPI，App Key 使用 `dataAppContext` 和集合数据接口，服务端授权规则保持不变。
+
+保留 `0.9.8` 的 App 集合业务目录声明 `directoryPath`，按已知业务范围创建或复用目录，已有集合保持位置。Source 创建后可直接使用，删除后停止后续使用；不再提供 `client.source.state.update`、启停能力与 `desiredState`。名称和描述修改无需影响确认，连接配置变更或删除存在引用时仍须确认；运行中的 Stream 可直接删除。
 
 `0.9.3` 同步集合授权合同：授予既有集合访问权限时无需提供别名，并更新生成类型与使用说明。集合声明的 `name` / `alias` 要求保持不变。
 
@@ -22,21 +28,21 @@ Collection 声明必须同时提供业务名称 `name`（例如「生产工单�
 
 ## 安装与初始化
 
-维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。本分支的功能应使用检查通过的 `tier0-sdk-v2-0.9.8.tgz` 在业务项目中验证：
+安装正式版本：
 
 ```sh
-npm install /path/to/tier0-sdk-v2-0.9.8.tgz
+npm install @tier0/sdk-v2@0.9.10
 ```
 
-`0.9.8` 正式发布后再使用 `npm install @tier0/sdk-v2@0.9.8`。发布前，npm 的既有版本和 `next` 标签不代表本分支的完整功能。
+维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。
+
+个人 Key 可直接读取已有集合，无需创建平台 App；网关配置、运行示例与排错见[本地连接指南](skills/tier0-sdk-v2/references/local-connection.md)。
 
 ```ts
 import { createClient } from '@tier0/sdk-v2';
 
 // 服务端环境注入 TIER0_API_HOST 和 TIER0_API_KEY。
 const tier0 = createClient();
-// 首次接入时确认身份与 Workspace；不需要在每次业务操作前重复调用。
-const user = await tier0.system.whoami();
 ```
 
 也可显式配置 `{ apiHost, apiKey, transportTimeoutMs, fetch }`，或提供 `getApiHost` / `getApiKey` 回调。裸域名默认使用 HTTPS；本地 HTTP 测试请显式写 `http://127.0.0.1:端口`。不自动向浏览器注入或读取 `VITE_` API Key。
@@ -73,6 +79,12 @@ const user = await tier0.system.whoami();
 集合声明必须分别提供稳定程序标识 `alias` 和业务名称 `name`，例如 `alias: 'production_orders'`、`name: '生产工单'`。目录、数据和引用直接用 name 展示，不提供 displayName 或名称回退；name 为 1–63 个 Unicode 字符，无首尾空白，不含 `/` 或空字符。ensure 按 alias 关联集合，仅首次创建设置 name，不覆盖用户改名。名称冲突时选择有区分度的业务名称，不拼随机后缀。
 
 不保留 UNS v1、旧 Flow、`getCurrentProjectId()`、project 成员查询或 `/gw/reload`。Workspace 成员不等于能使用某个 App 的成员，不可用前者在客户端猜测 App 权限。
+
+## SDK 方法与凭证权限
+
+同一 SDK 支持工作空间集成和 App 运行时，方法存在不代表当前凭证可调用。`client.uns.namespace()` 调用的是 `POST /openapi/v2/uns/namespace/query`，属于 OpenAPI；有相应权限且未绑定 App 的 Agent / Personal Key 可以使用，App Key 当前不能使用。App 已知集合 ID 时可直接用 `recordFind` 读取记录；需要发现可访问集合及结构时使用 `client.uns.dataAppContext({})`。`appCollectionsList` 也是管理接口，不能作为 App Key 的替代入口。
+
+SDK 不从 Key 前缀推断权限，也不在 403 后换凭证或回退内部接口。Agent 程序、SDK、MCP 都不能扩大所持凭证的权限。身份区别和排错见[命名空间查询与凭证](skills/tier0-sdk-v2/tier0-sdk-v2-uns/references/namespace.md)，App 读取示例见[查询集合与记录](skills/tier0-sdk-v2/tier0-sdk-v2-uns/references/read.md)。
 
 ## 本次接口退役
 

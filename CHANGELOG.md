@@ -1,14 +1,24 @@
 # Changelog
 
-## 0.9.8 (unreleased candidate)
+## 0.9.10 (2026-11-04)
+
+- Add a local connection guide for Personal keys, explicit OpenAPI gateway configuration and reading existing collections without a platform App.
+- Explain non-JSON route, authentication, permission and service errors without exposing credentials or changing error types, execution/retry semantics or request destinations.
+- Align Namespace trash, delete and restore guidance: retained data remains readable, archived targets reject writes, and the legacy record restoration limit does not apply to current collection archive / restore.
+
+## 0.9.9 (2026-11-04)
+
+- Clarify workspace Agent/Personal versus App credential query permissions. Keep `namespace()` on OpenAPI; document `dataAppContext` followed by `recordFind` for App keys, with a typed example and 403 troubleshooting. No runtime authorization changes.
 
 - Add `client.uns.metadataPurge` for explicit archived Collection IDs. Preserve the asynchronous `accepted` / `jobId` receipt; use `jobs` to inspect completion and per-item results. Preview remains optional.
 - Document Collection deletion with retained records/samples and configuration references, followed by restore or permanent deletion.
+- Preserve App collection directories and Source lifecycle behavior, and pin the combined contract to Backend commit `064cdcdb688b18fb73295ac986380d84daa08188`.
+
+## 0.9.8 (2026-11-02)
+
 - Add `directoryPath` to App collection declarations and preserve it through compilation and first-use ensure. New collections use actual business directories; existing aliases retain their location.
 - Validate and freeze paths, and document known ISA-95 scopes, shared ancestors, and App/module directories within those scopes without forcing five levels.
-- Preserve the Source lifecycle changes from 0.9.7 and pin their combined contract with App collection directories and permanent deletion to Backend commit `064cdcdb688b18fb73295ac986380d84daa08188`.
-
-This candidate is not published to npm; install the verified tarball for integration testing against that backend contract.
+- Preserve the Source lifecycle changes from the unpublished 0.9.7 candidate and pin their combined contract with App collection directories to Backend commit `5c77d6f21e6332cb09e3212df9203eb01bf7f129`.
 
 ## 0.9.7 (unreleased candidate)
 

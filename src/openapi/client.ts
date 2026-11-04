@@ -1,4 +1,5 @@
 import { getEnvVar } from '../runtime-env.js';
+import { invalidResponseHint } from '../connection-diagnostics.js';
 import { decodeUnsV2JSON, encodeUnsV2JSON } from '../uns-v2/codec.js';
 
 export interface ClientConfig {
@@ -160,7 +161,7 @@ export class HttpClient {
     let value: unknown;
     try { value = decodeUnsV2JSON(response.text, operation.responseSchema); }
     catch {
-      if (!response.ok) throw new ApiError(response.status, 0, 'Non-JSON API error');
+      if (!response.ok) throw new ApiError(response.status, 0, `Non-JSON API error. ${invalidResponseHint(response.status)}`);
       throw new TransportError('PROTOCOL', !operation.readonly, response.status);
     }
     if (!response.ok) throw responseError(response.status, value);
@@ -177,7 +178,7 @@ export class HttpClient {
     const response = await this.exchange(path, { method, body: body === undefined ? undefined : encodeUnsV2JSON(body, 'V1_Empty') }, options, method !== 'GET');
     let value: unknown;
     try { value = decodeUnsV2JSON(response.text, 'V1_Empty'); }
-    catch { throw new ApiError(response.status, 0, 'Invalid API response'); }
+    catch { throw new ApiError(response.status, 0, `Invalid API response. ${invalidResponseHint(response.status)}`); }
     if (!response.ok || (record(value) && typeof value.code === 'number' && value.code !== 200)) throw responseError(response.status, value);
     return value as T;
   }
