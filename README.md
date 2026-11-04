@@ -34,6 +34,8 @@ npm install @tier0/sdk-v2@0.9.9
 
 维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。
 
+本地脚本可直接用个人 Key 读取已有 collection，无需先创建 App。`TIER0_API_HOST` 必须是 **OpenAPI 网关基础地址**，不是平台网页或 MCP 地址，也不附加 `/openapi/v2`。阿里云 ACK 开发环境的网页是 `https://dev.tier0.cn`，网关是 `https://api-dev.tier0.cn`；其他环境向部署指南或管理员确认，不能按域名猜测。完整的地址获取、个人 Key 示例和错误排查见[本地连接指南](skills/tier0-sdk-v2/references/local-connection.md)。
+
 ```ts
 import { createClient } from '@tier0/sdk-v2';
 

@@ -27,6 +27,8 @@ description: 使用 @tier0/sdk-v2 开发或迁移 Tier0 云端 TypeScript/JavaSc
 
 ## 初始化与身份
 
+本地个人 Key 脚本无需创建平台 App。先按[本地连接指南](references/local-connection.md)确定 OpenAPI 网关地址，再读取已有 collection；不要把平台网页或 MCP URL 填入 `TIER0_API_HOST`。指南包含可运行的个人 Key 示例和 HTML 404、401、403、服务不可用的排查步骤。
+
 ```ts
 import { createClient } from '@tier0/sdk-v2';
 
