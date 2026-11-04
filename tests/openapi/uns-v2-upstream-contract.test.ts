@@ -26,16 +26,16 @@ const operation = (name: string) => manifest.operations.find(item => item.name =
 
 describe('Backend App UNS access contract without generic record audit', () => {
   it('pins the exact upstream commit and all generator inputs', () => {
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('c63783eb485e99167fec3a1c6ffb034ada4170e1');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('8780ce2d6c07b6afee96409795c098e330c214dd');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     for (const [key, file] of Object.entries({ contract: 'contract.json', cloudSupport: 'cloud-support.json', manifest: 'manifest.json', provenance: 'provenance.json', registry: 'registry_generated.go' })) {
       expect(UNS_V2_CONTRACT_PROVENANCE.hashes[key as keyof typeof UNS_V2_CONTRACT_PROVENANCE.hashes]).toBe(
         createHash('sha256').update(read(file)).digest('hex')
       );
     }
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(84);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(87);
     expect(UNS_V2_CONTRACT_PROVENANCE.streamOperationCount).toBe(1);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(97);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(100);
     // Error envelopes are decoded by every operation, although success DTOs do not reference them.
     expect(Object.hasOwn(UNS_V2_CODEC_SCHEMAS, 'UnsV2ErrorResponse')).toBe(true);
     expect(Object.hasOwn(manifest.schemas, 'UnsV2ErrorResponse')).toBe(true);

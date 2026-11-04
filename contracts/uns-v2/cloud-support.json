@@ -1,5 +1,8 @@
 {
   "operations": [
+    {"name":"sourceResourceScan","permission":"uns.source.view","scope":"source:read","minPermission":1},
+    {"name":"sourceResourceCatalog","permission":"uns.source.view","scope":"source:read","minPermission":1},
+    {"name":"sourceResourceRead","permission":"uns.source.view","scope":"source:read","minPermission":1},
     {
       "name": "sourceDocumentStateUpdate",
       "permission": "uns.source.manage",

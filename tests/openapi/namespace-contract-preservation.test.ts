@@ -97,5 +97,7 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
   // Re-pinned for Backend c63783eb4. The digest covers the Namespace operations and their reachable schemas only (the two Edge
   // operations are not part of it); what moved is the base merge: reworded appCollectionsArchive/Restore and metadataDelete*/Restore/
   // BulkWrite descriptions, and name, directoryPath (required), description and ownerAppId on the appCollectionsList item.
-  expect(digest).toBe('88c70daf588cfc32d0eb2fa3de9a70bb345fa90e12d31f366addf0362342a832');
+  // Re-pinned again for Backend 8780ce2d6 (base 2f79a4f87): the only reachable change is three more ensure schema-note reasons
+  // (DIRECTORY_PATH_NOT_APPLIED, TTL_RETAINED, OWNER_APP_TRASHED on CloudAppCollectionSchemaNote, Backend 5d6ae2834).
+  expect(digest).toBe('224928eea6c848bb86b214133113c06ad64aa153303159fb4770bcd4f1cbb567');
 });

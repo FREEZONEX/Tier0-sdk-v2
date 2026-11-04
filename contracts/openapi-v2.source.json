@@ -526,7 +526,7 @@
           "元数据管理"
         ],
         "summary": "查询资源引用",
-        "description": "按 targets 查询资源引用。Collection 的 App 引用附带本集合的授权与策略状态；Stream 引用只统计当前发布版本的冻结依赖或直接声明，返回访问方式，不统计草稿与历史版本。可用 kinds 选择 app/stream/source/topic，status=active 排除已停用配置；筛选先于权限过滤和分页。依赖不代表授权，停用配置不代表当前可访问。结果按 kind、id 稳定排序，无法查看的引用仅通过 hasHiddenReferences 标记。",
+        "description": "按 targets 查询资源引用。Collection 的 App 引用附带本集合的授权与策略状态；Stream 引用只统计当前生效发布的冻结依赖，relationship.access 表示对本次 target 的读写关系，data.sourceIds 表示同一生效发布绑定的 Source ID（去重、排序）。有 Source 读取权限且无绑定时返回空数组，无权限时省略字段，原有 Stream 关联仍返回；字段缺省不能解释成无绑定。不统计草稿、历史发布或已停用 Stream，不提供版本选择。可用 kinds 选择 app/stream/source/topic，status=active 排除已停用配置；筛选先于权限过滤和分页。依赖不代表正在写入或逐条数据来源。每个 target 独立分页，按 kind、id 稳定排序；仅对 hasMore 的目标按 nextPage 续页。整次请求最多返回 2000 行预算，size=20 时最多批量查询 100 个目标。无法查看的引用项仍仅通过 hasHiddenReferences 标记。",
         "requestBody": {
           "required": true,
           "content": {
@@ -7456,7 +7456,7 @@
         "tags": [
           "App 与授权"
         ],
-        "description": "仅平台签发的 App Key（app/internal/full_access，非 MCP、无员工委托）可用。批量声明本 App 的集合：不存在则在 App 专属目录下创建并同事务授予 record:read/write（Key 有 uns.delete 时加 record:delete）；已存在时按 join 只加宽、永不收窄，索引取并集；不写注解（title/description/unit 与集合说明只在创建时写入，之后用 schema:replace 修改）。指向本 App 已归档 / 已硬删集合的失效授权在同一事务内替换。整批一个事务，任一类型冲突、join 结果不能加宽当前结构、或加宽会破坏员工数据规则字段时整批不改并返回 409 SCHEMA_CONFLICT（data.conflicts）。管理员撤销授权后返回 403 APP_GRANT_REVOKED，不自动补回。超出每 App 配额（集合 64、索引 64）返回 409 APP_QUOTA_EXCEEDED，超出工作空间索引配额（按物理存在、未退休的索引计）返回 409 INDEX_QUOTA_EXCEEDED。平台正在回收（App 删除）或清空（预览重置）本 App 的集合时，新建、加宽或清理失效授权返回可重试的 503 TEMPORARILY_UNAVAILABLE（data.reason=COLLECTION_TEARDOWN_IN_PROGRESS，data.operation=reclaim/purge），全部 unchanged 时仍正常返回。本 App 没有该 alias 的自有集合、但恰好一条授权的 alias 相同且指向未归档的非自有集合时按借用解析：声明被已存储的结构与索引覆盖时返回该 collectionId 与 status=unchanged；需要加宽结构、新增索引或加大 TTL 时返回 409 SCHEMA_CONFLICT（reason=SHARED_SCHEMA_READONLY），类型冲突仍报 TYPE_CONFLICT，缩短 TTL 报 TTL_REQUIRES_REPLACE。借用的集合不加宽、不建索引，也不计入本 App 配额。授权带员工数据规则等 dataAppContext 不展示该集合时，结果不透出字段：indexStatus 为空，带字段路径的说明不返回，带路径的冲突统一报 SHARED_SCHEMA_READONLY 且不带路径与类型。dryRun=true 只计算。",
+        "description": "仅平台签发的 App Key（app/internal/full_access，非 MCP、无员工委托）可用。批量声明本 App 的集合：不存在则在 App 专属目录下创建并同事务授予 record:read/write（Key 有 uns.delete 时加 record:delete）；已存在时按 join 只加宽、永不收窄，索引取并集；不写注解（title/description/unit 与集合说明只在创建时写入，之后用 schema:replace 修改）。指向本 App 已归档 / 已硬删集合的失效授权在同一事务内替换。整批一个事务，任一类型冲突、join 结果不能加宽当前结构、或加宽会破坏员工数据规则字段时整批不改并返回 409 SCHEMA_CONFLICT（data.conflicts）。管理员撤销授权后返回 403 APP_GRANT_REVOKED，不自动补回。超出每 App 配额（集合 64、索引 64）返回 409 APP_QUOTA_EXCEEDED，超出工作空间索引配额（按物理存在、未退休的索引计）返回 409 INDEX_QUOTA_EXCEEDED。平台正在回收（App 删除）或清空（预览重置）本 App 的集合时，新建、加宽或清理失效授权返回可重试的 503 TEMPORARILY_UNAVAILABLE（data.reason=COLLECTION_TEARDOWN_IN_PROGRESS，data.operation=reclaim/purge），全部 unchanged 时仍正常返回。本 App 没有该 alias 的自有集合、但恰好一条授权的 alias 相同且指向未归档的非自有集合时按借用解析：声明被已存储的结构与索引覆盖时返回该 collectionId 与 status=unchanged；需要加宽结构、新增索引或加大 TTL 时返回 409 SCHEMA_CONFLICT（reason=SHARED_SCHEMA_READONLY），类型冲突仍报 TYPE_CONFLICT，缩短 TTL 报 TTL_REQUIRES_REPLACE。借用的集合不加宽、不建索引，也不计入本 App 配额。所属 App 在回收站期间集合只读，回收前未归档的仍可借用：不比较声明，固定返回 status=unchanged，并在 ignored 带 reason=OWNER_APP_TRASHED。授权带员工数据规则等 dataAppContext 不展示该集合时，结果不透出字段：indexStatus 为空，带字段路径的说明不返回，带路径的冲突统一报 SHARED_SCHEMA_READONLY 且不带路径与类型。dryRun=true 只计算。",
         "x-tier0-audience": "app",
         "x-tier0-starter": true,
         "x-tier0-readonly": false,
@@ -11354,7 +11354,7 @@
     "/uns/metadata:purge": {
       "post": {
         "operationId": "UnsV2MetadataPurge",
-        "summary": "永久删除回收站中的集合",
+        "summary": "永久删除回收站中的目录、引用或集合",
         "deprecated": false,
         "security": [
           {
@@ -11372,6 +11372,8 @@
                   "kind": {
                     "type": "string",
                     "enum": [
+                      "directory",
+                      "topic",
                       "collection"
                     ]
                   },
@@ -11473,7 +11475,7 @@
         "tags": [
           "元数据管理"
         ],
-        "description": "仅接受当前工作空间回收站中的 Collection 明确 ID，最多 200 项；一项与批量共用同一操作。正式调用返回 accepted/jobId，由 jobs 查询逐项完成结果；accepted 不代表已永久删除。各集合独立清理，单项失败不回滚已完成项目。删除全部 Record（含已软删除记录）、Sample、集合元数据并撤销指向集合的 App 授权，索引由后台继续回收。保留 Topic/Source/Stream 等引用方，引用是影响而不是阻止条件，其数据访问返回目标不存在。清理开始后不可恢复；任务中断可续做，同键重试不重新选择已完成目标。dryRun 可选，只验证目标，不创建任务或删除数据；不需要前置预检、force 或确认凭证。清空已删除集合时先固定当前目标 ID，再分批调用，不包含 Directory/Topic。",
+        "description": "仅接受当前工作空间回收站中的 Directory/Topic/Collection 明确 ID，最多 200 项；一项与批量共用同一操作。正式调用返回 accepted/jobId，由 jobs 查询逐项完成结果；accepted 不代表已永久删除。各目标独立清理，单项失败不回滚已完成项目。Collection 删除全部 Record（含已软删除记录）、Sample、集合元数据并撤销指向集合的 App 授权，索引由后台继续回收。保留 Topic/Source/Stream 等引用方，引用是影响而不是阻止条件，其数据访问返回目标不存在。清理开始后不可恢复；任务中断可续做，同键重试不重新选择已完成目标。dryRun 可选，只验证目标，不创建任务或删除数据；不需要前置预检、force 或确认凭证。目录包含整棵已回收子树（含此前独立回收的后代），存在有效后代则整体拒绝；先清理后代再删除空目录。Topic 仅删除引用元数据，保留引用指向的集合及其 Record/Sample。清空回收站时固定当前目标 ID，按 kind 分批调用，选中目录时不重复提交其后代。随 App 回收的项目及其子项不允许单独永久删除，须在 App 回收站随 App 恢复或永久删除；目录包含此类项目时整体拒绝。",
         "x-tier0-audience": "builder",
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
@@ -11877,7 +11879,420 @@
         "tags": [
           "接口能力"
         ],
-        "description": "中心只读接口，不携带 X-Fleet-Node-Id。按 page/size 分页，可按 keyword、status 过滤。仅返回节点 ID、名称、说明及基础设施状态，不返回凭据、会话或宿主机信息。普通具有 uns.read 的工作区身份可发现；App 绑定身份不可用。使用 X-Fleet-Node-Id 读取目标 catalog、Source、Stream、Collection 和业务数据。云端 Stream 通过 protocol=edge 引用原生 Source：Modbus TCP 支持按需读取，MQTT 和 OPC UA 支持 Edge 自主持续采集及 source-event 订阅。绑定声明采集需求，连接凭据留在 Edge；相同需求共享 Watch，各消费者独立取消。runtime.edgeSubscriptions 区分采集、连接和数据状态；lastCloudDataAt 表示持久 capture，不等于 Collection 提交。短时恢复受 120 秒租约、每消费者 256 条/1 MiB 内存缓存限制，满后丢最旧事件并报告 dropped，不保证进程重启补传或端到端恰好一次。接入保留 Source、Stream 权限、资源授权和配置版本校验，不要求业务读取消费额外拥有 Fleet 运维权限。",
+        "description": "中心只读接口，不携带 X-Fleet-Node-Id。按 page/size 分页，可按 keyword、status 过滤。仅返回节点 ID、名称、说明及基础设施状态，不返回凭据、会话或宿主机信息。普通具有 uns.read 的工作区身份可发现；App 绑定身份不可用。使用 X-Fleet-Node-Id 读取目标 catalog、Source、Stream、Collection 和业务数据。云端 Stream 通过 protocol=edge 引用原生 Source。Modbus TCP 支持按需读取和 Edge 周期轮询，source-event 入口声明 ranges 和可选 pollIntervalMs（100 至 3600000 毫秒，省略时沿用 Edge Source 周期），按 modbus:<rangeId> 接收 values、unitId、table 和 address。MQTT、OPC UA 和 USB HID 也支持 Edge 持续采集。绑定声明采集需求，连接凭据留在 Edge；相同需求共享 Watch，各消费者独立取消。runtime.edgeSubscriptions 区分采集、连接和数据状态；lastCloudDataAt 表示持久 capture，不等于 Collection 提交。短时恢复受 120 秒租约、每消费者 256 条/1 MiB 内存缓存限制，满后丢最旧事件并报告 dropped，不保证进程重启补传或端到端恰好一次。接入保留 Source、Stream 权限、资源授权和配置版本校验，不要求业务读取消费额外拥有 Fleet 运维权限。",
+        "x-tier0-readonly": true,
+        "x-tier0-destructive": false
+      }
+    },
+    "/uns/sources/resources/catalog": {
+      "post": {
+        "operationId": "UnsV2SourceResourceCatalog",
+        "summary": "查看 Edge Source 资源目录",
+        "deprecated": false,
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$",
+                    "maxLength": 19
+                  },
+                  "configRevision": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "id"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "查询结果。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocUnsV2SourceResourceCatalogResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocCommonError"
+                },
+                "example": {
+                  "code": 422,
+                  "msg": "请求参数不合法",
+                  "requestId": "request-id",
+                  "data": null,
+                  "error": {
+                    "code": "INVALID_REQUEST",
+                    "reason": "filter.status must be a string",
+                    "details": [],
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "数据源"
+        ],
+        "description": "按 Source ID 返回声明的资源标识、支持模式、输入输出结构及配置版本。携带 X-Fleet-Node-Id 时使用目标节点的原生 Source ID，否则使用云端 Edge 引用 ID。",
+        "x-tier0-readonly": true,
+        "x-tier0-destructive": false
+      }
+    },
+    "/uns/sources/resources/preview": {
+      "post": {
+        "operationId": "UnsV2SourceResourceRead",
+        "summary": "预览 Edge Source 资源",
+        "deprecated": false,
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$",
+                    "maxLength": 19
+                  },
+                  "configRevision": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "resourceRef": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1029
+                  },
+                  "params": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100
+                      },
+                      "createdDateTimeBegin": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "Resource-specific UTC window start. Supply both bounds."
+                      },
+                      "createdDateTimeEnd": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "Resource-specific UTC window end."
+                      },
+                      "material": {
+                        "type": "string",
+                        "pattern": "^[0-9]{18}$"
+                      },
+                      "baseUnit": {
+                        "type": "string",
+                        "pattern": "^[A-Z0-9]{1,8}$"
+                      },
+                      "selectFields": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 3,
+                        "uniqueItems": true,
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "Material",
+                            "Description",
+                            "BaseUnit"
+                          ]
+                        }
+                      },
+                      "order": {
+                        "type": "string",
+                        "enum": [
+                          "materialAsc",
+                          "materialDesc"
+                        ]
+                      },
+                      "jobId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "beginDate": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "endDate": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "startTime": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "endTime": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "itemId": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+                        "description": "Exact item ID for a discovered Teamcenter saved query."
+                      },
+                      "matnr": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9]{1,18}$"
+                      },
+                      "since": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    },
+                    "required": []
+                  },
+                  "timeoutMs": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 10000
+                  }
+                },
+                "required": [
+                  "id",
+                  "configRevision",
+                  "resourceRef"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "查询结果。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocUnsV2SourceResourceReadResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocCommonError"
+                },
+                "example": {
+                  "code": 422,
+                  "msg": "请求参数不合法",
+                  "requestId": "request-id",
+                  "data": null,
+                  "error": {
+                    "code": "INVALID_REQUEST",
+                    "reason": "filter.status must be a string",
+                    "details": [],
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "数据源"
+        ],
+        "description": "使用目录中的配置版本及 resourceRef，经目标 Edge 读取有界样本。凭据保存在 Edge。只能读取已声明资源；不能覆盖设备地址、认证或厂商请求路径。",
+        "x-tier0-readonly": true,
+        "x-tier0-destructive": false
+      }
+    },
+    "/uns/sources/resources/scan": {
+      "post": {
+        "operationId": "UnsV2SourceResourceScan",
+        "summary": "Read an Edge Source resource page",
+        "deprecated": false,
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$",
+                    "maxLength": 19
+                  },
+                  "configRevision": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "resourceRef": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1029
+                  },
+                  "cursor": {
+                    "type": "string",
+                    "maxLength": 8192
+                  },
+                  "params": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "maxItems": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10000
+                      },
+                      "createdDateTimeBegin": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "Resource-specific UTC window start. Supply both bounds."
+                      },
+                      "createdDateTimeEnd": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "Resource-specific UTC window end."
+                      },
+                      "material": {
+                        "type": "string",
+                        "pattern": "^[0-9]{18}$"
+                      },
+                      "baseUnit": {
+                        "type": "string",
+                        "pattern": "^[A-Z0-9]{1,8}$"
+                      },
+                      "selectFields": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 3,
+                        "uniqueItems": true,
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "Material",
+                            "Description",
+                            "BaseUnit"
+                          ]
+                        }
+                      },
+                      "order": {
+                        "type": "string",
+                        "enum": [
+                          "materialAsc",
+                          "materialDesc"
+                        ]
+                      }
+                    },
+                    "required": []
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200,
+                    "description": "Use the resource catalog bounds. Only Salesforce supports a native page of 200."
+                  },
+                  "timeoutMs": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 10000
+                  }
+                },
+                "required": [
+                  "id",
+                  "configRevision",
+                  "resourceRef",
+                  "limit"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "查询结果。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocUnsV2SourceResourceScanResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocCommonError"
+                },
+                "example": {
+                  "code": 422,
+                  "msg": "请求参数不合法",
+                  "requestId": "request-id",
+                  "data": null,
+                  "error": {
+                    "code": "INVALID_REQUEST",
+                    "reason": "filter.status must be a string",
+                    "details": [],
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "数据源"
+        ],
+        "description": "Read a bounded page using an opaque cursor issued for the same Source configuration and resource. Only advance the consumer checkpoint after the returned records are durably written.",
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -22322,7 +22737,10 @@
               "WIDER_TYPE",
               "WIDER_BOUNDS",
               "UNDECLARED_INDEX",
-              "ANNOTATION_NOT_APPLIED"
+              "ANNOTATION_NOT_APPLIED",
+              "DIRECTORY_PATH_NOT_APPLIED",
+              "TTL_RETAINED",
+              "OWNER_APP_TRASHED"
             ]
           },
           "message": {
@@ -26069,6 +26487,211 @@
         ],
         "additionalProperties": false
       },
+      "DocStreamReference": {
+        "additionalProperties": true,
+        "properties": {
+          "createdAt": {
+            "type": "integer"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "active"
+                ]
+              },
+              "sourceIds": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "uniqueItems": true,
+                "description": "当前生效发布绑定的 Source ID，去重并排序。有 Source 读取权限且无绑定时为空数组；无该权限时省略。缺省不等于无绑定。"
+              }
+            },
+            "required": [
+              "name",
+              "status"
+            ],
+            "additionalProperties": false
+          },
+          "deletedAt": {
+            "type": "integer"
+          },
+          "id": {
+            "type": "string",
+            "description": "对象 ID（字符串），从发现或读取接口取得；不要把名称当成 ID。"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "stream"
+            ]
+          },
+          "launch": {
+            "additionalProperties": true,
+            "properties": {
+              "status": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "status"
+            ],
+            "type": "object"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "updatedAt": {
+            "type": "integer"
+          },
+          "relationship": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "dependency"
+                ]
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "published"
+                ]
+              },
+              "access": {
+                "type": "array",
+                "uniqueItems": true,
+                "maxItems": 2,
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "read",
+                    "write"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "kind",
+              "status",
+              "access"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "revision",
+          "data"
+        ],
+        "type": "object"
+      },
+      "DocOtherReference": {
+        "additionalProperties": true,
+        "properties": {
+          "createdAt": {
+            "type": "integer"
+          },
+          "data": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "deletedAt": {
+            "type": "integer"
+          },
+          "id": {
+            "type": "string",
+            "description": "对象 ID（字符串），从发现或读取接口取得；不要把名称当成 ID。"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "app",
+              "source",
+              "topic"
+            ]
+          },
+          "launch": {
+            "additionalProperties": true,
+            "properties": {
+              "status": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "status"
+            ],
+            "type": "object"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "updatedAt": {
+            "type": "integer"
+          },
+          "relationship": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "status"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "grant",
+                  "dependency"
+                ]
+              },
+              "status": {
+                "type": "string"
+              },
+              "alias": {
+                "type": "string"
+              },
+              "permissions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "access": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "read",
+                    "write"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "revision",
+          "data"
+        ],
+        "type": "object"
+      },
       "DocReferencesQueryResult": {
         "type": "object",
         "properties": {
@@ -26102,7 +26725,14 @@
                     "list": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/DocMetadataRow"
+                        "oneOf": [
+                          {
+                            "$ref": "#/components/schemas/DocStreamReference"
+                          },
+                          {
+                            "$ref": "#/components/schemas/DocOtherReference"
+                          }
+                        ]
                       }
                     },
                     "total": {
@@ -26863,6 +27493,148 @@
                       "required": [
                         "status"
                       ]
+                    }
+                  },
+                  "bindings": {
+                    "type": "array",
+                    "maxItems": 100,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "streamId": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]*$",
+                          "maxLength": 19
+                        },
+                        "release": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "alias": {
+                          "type": "string"
+                        },
+                        "configRevision": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "currentConfigRevision": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "sourceRevisionState": {
+                          "type": "string",
+                          "enum": [
+                            "current",
+                            "stale"
+                          ]
+                        },
+                        "observationWindowHours": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "programAttribution": {
+                          "type": "string",
+                          "enum": [
+                            "singleSource",
+                            "multipleSources"
+                          ]
+                        },
+                        "lastCollectionCommitAt": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "lastSourceCallAt": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "sourceReportedCollectedAt": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "lastRunError": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "entryId": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string"
+                            },
+                            "at": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "error": {
+                              "type": "object"
+                            }
+                          },
+                          "required": [
+                            "entryId",
+                            "status",
+                            "at",
+                            "error"
+                          ]
+                        },
+                        "checkpoints": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                              "entryId": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "type": "string"
+                              },
+                              "revision": {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              "updatedAt": {
+                                "type": "integer",
+                                "minimum": 0
+                              }
+                            },
+                            "required": [
+                              "entryId",
+                              "kind",
+                              "revision",
+                              "updatedAt"
+                            ]
+                          }
+                        },
+                        "edgeSubscriptions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          }
+                        }
+                      },
+                      "required": [
+                        "streamId",
+                        "release",
+                        "configRevision",
+                        "currentConfigRevision",
+                        "sourceRevisionState",
+                        "programAttribution",
+                        "observationWindowHours"
+                      ],
+                      "description": "Active immutable release. configRevision is the frozen cloud Source revision. sourceRevisionState compares it to currentConfigRevision; a stale binding remains visible until redeployed. Times are Unix milliseconds. Collection commit and run error summarize terminal program tasks in the last 24 hours. Only completed transactions with Collection writes count. Multiple-source programs omit output, checkpoint and run error attribution. lastSourceCallAt is successful host-call completion. sourceReportedCollectedAt is optional and comes from a Source read result. Checkpoints show current durable metadata without state values. edgeSubscriptions includes Edge watch acquisition, ACK and fault status."
+                    }
+                  },
+                  "bindingsTruncated": {
+                    "type": "boolean"
+                  },
+                  "runtimeState": {
+                    "type": "string"
+                  },
+                  "edgeSubscriptions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
                     }
                   }
                 },
@@ -31715,6 +32487,201 @@
             }
           }
         }
+      },
+      "DocUnsV2SourceResourceCatalogResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$",
+                "maxLength": 19
+              },
+              "configRevision": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "protocol": {
+                "type": "string"
+              },
+              "sourceType": {
+                "type": "string"
+              },
+              "resources": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "resourceRef": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1029
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "modes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "inputSchema": {
+                      "type": "object"
+                    },
+                    "outputSchema": {
+                      "type": "object"
+                    },
+                    "permission": {
+                      "type": "string"
+                    },
+                    "requiredPermissions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "configRevision": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "metadata": {
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "resourceRef",
+                    "name",
+                    "modes",
+                    "inputSchema",
+                    "outputSchema",
+                    "permission",
+                    "configRevision"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "id",
+              "configRevision",
+              "protocol",
+              "resources"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "msg",
+          "requestId",
+          "data"
+        ]
+      },
+      "DocUnsV2SourceResourceReadResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "resourceRef",
+              "configRevision",
+              "collectedAt"
+            ],
+            "description": "Bounded native result. Interpret fields using the selected resource output schema."
+          }
+        },
+        "required": [
+          "code",
+          "msg",
+          "requestId",
+          "data"
+        ]
+      },
+      "DocUnsV2SourceResourceScanResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "resourceRef": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1029
+              },
+              "configRevision": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              },
+              "nextCursor": {
+                "type": "string"
+              },
+              "hasMore": {
+                "type": "boolean"
+              },
+              "collectedAt": {
+                "type": "integer"
+              },
+              "checkpoint": {
+                "type": "string",
+                "maxLength": 8192,
+                "description": "Optional incremental watermark. Commit it after writing every row, including on the final page. Pass it as cursor on the next scan."
+              }
+            },
+            "required": [
+              "resourceRef",
+              "configRevision",
+              "items",
+              "hasMore",
+              "collectedAt"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "msg",
+          "requestId",
+          "data"
+        ]
       },
       "DocUnsV2SourceDocumentStateUpdateResponse": {
         "type": "object",
