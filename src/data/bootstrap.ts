@@ -7,18 +7,18 @@
  *   built from edited declarations ensures again.
  *   Failures are not memoized: a later call retries (an imported App may
  *   answer "hosted App is not ready").
- * - Seed documents are inserted only for collections ensure reports as
- *   `created`: fixed `_id`s, atomic chunks of 200 with a stable idempotency
- *   key per chunk, so a failed chunk (outcome unknown, or marked safe to
- *   resend) is replayed after a short wait instead of duplicated. Seed writes
- *   never carry a data subject.
+ * - Validate seeds before ensure; newly created collections seed in atomic
+ *   chunks of 200. Failure keeps in-memory progress and fails ensure; unknown
+ *   or committed outcomes need verified recovery. A stable idempotency key
+ *   alone does not prove safe replay. Seed writes never carry a data subject.
  * - Preview throws on SCHEMA_CONFLICT and warnings so the worker sees them;
  *   a deployment logs them and keeps serving with the IDs it has.
  * - Self-healing: a Preview reset hard-deletes collections, and a worker or
  *   admin may archive one, while this process still holds the old IDs. A
  *   record call that fails with `data.reason` COLLECTION_NOT_FOUND or
  *   COLLECTION_NOT_GRANTED drops the memo, ensures again (seeding what is created)
- *   and retries the call once, but only when a collection ID actually
+ *   and retries the call once, but only when the failed operation did not
+ *   take effect and a collection ID actually
  *   changed. Rebuilds are limited to one per REBUILD_INTERVAL_MS per client;
  *   APP_GRANT_REVOKED is never retried (ensure itself reports it).
  * - `ignored` notes never fail a request. ensure never writes annotations, so
@@ -232,7 +232,7 @@ export function createBootstrap(config: BootstrapConfig) {
     }
   }
 
-  async function writeSeeds(results: EnsureResult[], appId?: string) {
+  async function writeSeeds(results: EnsureResult[], prepared: Map<string, { id?: string; data: Record<string, unknown> }[]>, appId?: string) {
     // Register all created collections before sending: a later failure must not
     // erase chunks that the next ensure will report as unchanged.
     for (const result of results) {
@@ -240,22 +240,16 @@ export function createBootstrap(config: BootstrapConfig) {
       const definition = collections.find((candidate) => candidate.alias.toLowerCase() === result.alias.toLowerCase());
       const seed = definition?.seed;
       if (!definition || !seed || seed.length === 0) continue;
-      try {
-        const alias = result.alias.toLowerCase();
-        if (pendingSeeds.has(alias)) continue;
-        const documents = seed.map((document) => {
-          const { id, data } = validateDocument(definition, document as Record<string, unknown>);
-          return { id, data };
-        });
-        const chunks: SeedProgress['chunks'] = [];
-        for (let start = 0; start < documents.length; start += MAX_ATOMIC_ITEMS) {
-          chunks.push(documents.slice(start, start + MAX_ATOMIC_ITEMS));
-        }
-        pendingSeeds.set(alias, { alias: result.alias, appId, collectionId: result.collectionId, chunks, next: 0,
-          operation: {}, unknown: false, committed: false, required: false, interrupted: false });
-      } catch (error) {
-        logger.error(`[data] seed for new collection "${result.alias}" failed; it keeps the chunks written so far:`, error);
+      const alias = result.alias.toLowerCase();
+      if (pendingSeeds.has(alias)) continue;
+      const documents = prepared.get(alias);
+      if (!documents) throw new Error('Tier0 SDK: seed preparation is missing.');
+      const chunks: SeedProgress['chunks'] = [];
+      for (let start = 0; start < documents.length; start += MAX_ATOMIC_ITEMS) {
+        chunks.push(documents.slice(start, start + MAX_ATOMIC_ITEMS));
       }
+      pendingSeeds.set(alias, { alias: result.alias, appId, collectionId: result.collectionId, chunks, next: 0,
+        operation: {}, unknown: false, committed: false, required: false, interrupted: false });
     }
     for (const [alias, progress] of pendingSeeds) {
       const result = results.find(item => item.alias.toLowerCase() === alias);
@@ -278,27 +272,31 @@ export function createBootstrap(config: BootstrapConfig) {
         pendingSeeds.delete(alias);
         logger.info(`[data] seeded ${progress.chunks.reduce((n, items) => n + items.length, 0)} record(s) into "${progress.alias}"`);
       } catch (error) {
-        if (error instanceof DataPrincipalError ||
-          error instanceof DataError && (error.code === 'DATA_CREDENTIAL_CHANGED' || error.code === 'DATA_NOT_CONFIGURED') ||
-          progress.unknown || progress.committed || progress.required) {
-          progress.interrupted = true;
-          // The transport retries only no-effect attempts. If credentials
-          // disappear before a retry, a confirmed rollback is also safe to
-          // resume; keep the App/collection binding and current chunk index.
-          const noEffect = error instanceof DataError && (
-            error.execution === 'notStarted' && error.attempts === 0 ||
-            error.code === 'DATA_NOT_CONFIGURED' && (error.execution === 'notStarted' || error.execution === 'rolledBack')
-          );
-          progress.required ||= !noEffect;
-          throw error;
-        }
-        pendingSeeds.delete(alias);
-        logger.error(`[data] seed for new collection "${progress.alias}" failed; it keeps the chunks written so far:`, error);
+        progress.interrupted = true;
+        // Local credential gaps after no-effect attempts can be resumed in
+        // this client. All other failures retain the chunk for verified recovery.
+        const noEffect = error instanceof DataError && (
+          error.execution === 'notStarted' && error.attempts === 0 ||
+          error.code === 'DATA_NOT_CONFIGURED' && (error.execution === 'notStarted' || error.execution === 'rolledBack')
+        );
+        progress.required ||= !noEffect;
+        throw error;
       }
     }
   }
 
   async function run(payload: CompiledCollection[]): Promise<EnsureState> {
+    // Validate and snapshot seed documents before collection creation. If
+    // validation fails, the server must not first commit a collection whose
+    // next ensure would otherwise say unchanged with no seed progress.
+    const prepared = new Map<string, { id?: string; data: Record<string, unknown> }[]>();
+    for (const definition of collections) {
+      if (!definition.seed?.length) continue;
+      prepared.set(definition.alias.toLowerCase(), definition.seed.map((document) => {
+        const { id, data } = validateDocument(definition, document as Record<string, unknown>);
+        return { id, data };
+      }));
+    }
     const conflicts: EnsureConflict[] = [];
     let remaining = payload;
     let response: { appId?: string; results: EnsureResult[] } = { results: [] };
@@ -366,7 +364,7 @@ export function createBootstrap(config: BootstrapConfig) {
       }
     }
 
-    await writeSeeds(results, response.appId);
+    await writeSeeds(results, prepared, response.appId);
 
     const warnings = describeWarnings(results);
     if (warnings) {

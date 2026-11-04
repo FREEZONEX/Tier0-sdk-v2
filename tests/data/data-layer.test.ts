@@ -536,28 +536,26 @@ describe('bootstrap', () => {
     expect(mock.calls('/uns/collections/c-orders/records:bulkWrite')).toHaveLength(1);
   });
 
-  it('logs a failed seed and keeps serving', async () => {
-    const errors: unknown[] = [];
+  it('fails ensure when a seed fails and does not start later seeds', async () => {
     const mock = mockUns({
       [ENSURE]: ensured({ alias: 'orders', collectionId: 'c-orders', status: 'created' }, { alias: 'lines', collectionId: 'c-lines', status: 'created' }),
       '/uns/collections/c-orders/records:bulkWrite': fail(409, 'DUPLICATE_KEY'),
       '/uns/collections/c-lines/records:bulkWrite': ok({ insertedCount: 1, insertedIds: { 0: 'l-1' } }),
     });
-    const state = await client(mock, { logger: { ...silent, error: (...args: unknown[]) => errors.push(args) } }).ensure();
-    expect(state.collectionIds.get('lines')).toBe('c-lines');
-    expect(errors).toHaveLength(1);
-    expect(mock.calls('/uns/collections/c-lines/records:bulkWrite')).toHaveLength(1);
+    const data = client(mock);
+    await expect(data.ensure()).rejects.toMatchObject({ code: 'DUPLICATE_KEY', execution: 'rolledBack' });
+    await expect(data.ensure()).rejects.toMatchObject({ code: 'DATA_PRINCIPAL_UNCONFIRMED' });
+    expect(mock.calls('/uns/collections/c-lines/records:bulkWrite')).toHaveLength(0);
   });
 
-  it('logs atomic seed writeErrors instead of reporting a failed bulk receipt as seeded', async () => {
-    const errors: unknown[] = [];
+  it('fails ensure on atomic seed writeErrors rather than reporting success', async () => {
     const infos: unknown[] = [];
     const mock = mockUns({
       [ENSURE]: ensured({ alias: 'orders', collectionId: 'c-orders', status: 'created' }, { alias: 'lines', collectionId: 'c-lines' }),
       '/uns/collections/c-orders/records:bulkWrite': ok({ status: 'failed', insertedCount: 0, writeErrors: [{ index: 1, code: 'DUPLICATE_KEY' }] }),
     });
-    await client(mock, { logger: { ...silent, info: (...args: unknown[]) => infos.push(args), error: (...args: unknown[]) => errors.push(args) } }).ensure();
-    expect(errors).toHaveLength(1);
+    await expect(client(mock, { logger: { ...silent, info: (...args: unknown[]) => infos.push(args) } }).ensure())
+      .rejects.toMatchObject({ code: 'WRITE_ERRORS', execution: 'rolledBack' });
     expect(infos.some(info => String(info).includes('seeded'))).toBe(false);
     expect(mock.calls('/uns/collections/c-orders/records:bulkWrite')).toHaveLength(1);
   });
