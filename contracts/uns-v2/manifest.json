@@ -1,6 +1,6 @@
 {
   "version": "5.0.0",
-  "cloudContractRevision": "cloud-source-impact/2+source-vendor/2+app-create-capability/1+data/3+record-reads/1+stream-receipt/1+stream-run-error/1+stream-deploy-guard/1+collection-namespace/1+business-name/1+http-acquisition/2+http-source-role/1+http-source-request/1+sql-inline-credentials/1+app-collection/2+collection-ownership/1+metadata/1+collection-purge/1+app-context/4+collection-ttl/1+error-model/1+crud-consolidation/1+record-insert-return/1+lifecycle-consolidation/1+mutation-defaults/1+api-surface/2+source-stream-single-model+source-lifecycle/2+edge-discovery/1+app-data/3+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/2+http-in/1+app-resource-access/2+stream-control-probe-retirement/1+http-push-retirement/1",
+  "cloudContractRevision": "cloud-source-impact/2+source-vendor/2+app-create-capability/1+data/3+record-reads/1+stream-receipt/1+stream-run-error/1+stream-deploy-guard/1+collection-namespace/1+business-name/1+http-acquisition/2+http-source-role/1+http-source-request/1+sql-inline-credentials/1+app-collection/2+collection-ownership/1+metadata/1+collection-purge/1+namespace-purge/1+app-context/4+collection-ttl/1+error-model/1+crud-consolidation/1+record-insert-return/1+lifecycle-consolidation/1+mutation-defaults/1+api-surface/2+source-stream-single-model+source-lifecycle/2+edge-discovery/1+edge-binding-status/1+edge-resource-discovery/1+app-data/3+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/2+http-in/1+app-resource-access/2+stream-control-probe-retirement/1+http-push-retirement/1",
   "operations": [
     {
       "name": "dataDiscover",
@@ -3768,8 +3768,8 @@
       "permission": "uns.write",
       "destructive": true,
       "appAllowed": false,
-      "summary": "永久删除回收站中的集合",
-      "description": "仅接受当前工作空间回收站中的 Collection 明确 ID，最多 200 项；一项与批量共用同一操作。正式调用返回 accepted/jobId，由 jobs 查询逐项完成结果；accepted 不代表已永久删除。各集合独立清理，单项失败不回滚已完成项目。删除全部 Record（含已软删除记录）、Sample、集合元数据并撤销指向集合的 App 授权，索引由后台继续回收。保留 Topic/Source/Stream 等引用方，引用是影响而不是阻止条件，其数据访问返回目标不存在。清理开始后不可恢复；任务中断可续做，同键重试不重新选择已完成目标。dryRun 可选，只验证目标，不创建任务或删除数据；不需要前置预检、force 或确认凭证。清空已删除集合时先固定当前目标 ID，再分批调用，不包含 Directory/Topic。",
+      "summary": "永久删除回收站中的目录、引用或集合",
+      "description": "仅接受当前工作空间回收站中的 Directory/Topic/Collection 明确 ID，最多 200 项；一项与批量共用同一操作。正式调用返回 accepted/jobId，由 jobs 查询逐项完成结果；accepted 不代表已永久删除。各目标独立清理，单项失败不回滚已完成项目。Collection 删除全部 Record（含已软删除记录）、Sample、集合元数据并撤销指向集合的 App 授权，索引由后台继续回收。保留 Topic/Source/Stream 等引用方，引用是影响而不是阻止条件，其数据访问返回目标不存在。清理开始后不可恢复；任务中断可续做，同键重试不重新选择已完成目标。dryRun 可选，只验证目标，不创建任务或删除数据；不需要前置预检、force 或确认凭证。目录包含整棵已回收子树（含此前独立回收的后代），存在有效后代则整体拒绝；先清理后代再删除空目录。Topic 仅删除引用元数据，保留引用指向的集合及其 Record/Sample。清空回收站时固定当前目标 ID，按 kind 分批调用，选中目录时不重复提交其后代。随 App 回收的项目及其子项不允许单独永久删除，须在 App 回收站随 App 恢复或永久删除；目录包含此类项目时整体拒绝。",
       "example": {
         "kind": "collection",
         "ids": [
@@ -3923,7 +3923,7 @@
       "appAllowed": false,
       "resourceId": 3390,
       "summary": "List registered Edges in the current workspace",
-      "description": "Center-only business discovery; do not set X-Fleet-Node-Id. Returns minimal inventory, not management credentials. Status is infrastructure state, not a guarantee of business reachability. Use each returned ID with native target catalog, Source documents, Stream programs and Collection APIs. Cloud Streams reference Edge Sources through protocol edge: Modbus supports on-demand reads; MQTT and OPC UA support Edge-owned continuous collection through source-event entries. Configure acquisition requirements on Stream bindings; device connection credentials stay on Edge. Identical demands share a Watch with independent consumers. Inspect Source runtime edgeSubscriptions separately for collection and delivery state; lastCloudDataAt is durable capture, not Collection commit. Replay is bounded by a 120-second lease and per-consumer 256-event/1-MiB memory buffer, and does not survive an Edge process restart. No end-to-end exactly-once guarantee.",
+      "description": "Center-only business discovery; do not set X-Fleet-Node-Id. Returns minimal inventory, not management credentials. Status is infrastructure state, not a guarantee of business reachability. Use each returned ID with native target catalog, Source documents, Stream programs and Collection APIs. Cloud Streams reference Edge Sources through protocol edge: Modbus supports on-demand reads and periodic polling at the Edge. For source-event entries, bind ranges and optional pollIntervalMs (100 to 3600000 ms, defaults to the Edge Source interval) and receive values, unitId, table and address for each modbus:<rangeId>. MQTT, OPC UA and USB HID also support Edge-owned continuous collection. Configure acquisition requirements on Stream bindings; device connection credentials stay on Edge. Identical demands share a Watch with independent consumers. Inspect Source runtime edgeSubscriptions separately for collection and delivery state; lastCloudDataAt is durable capture, not Collection commit. Replay is bounded by a 120-second lease and per-consumer 256-event/1-MiB memory buffer, and does not survive an Edge process restart. No end-to-end exactly-once guarantee.",
       "method": "POST",
       "permissionAnyOf": [],
       "readOnly": true,
@@ -3938,6 +3938,102 @@
       },
       "responseSchema": {
         "$ref": "#/components/schemas/CloudEdgeNodesListResponse"
+      }
+    },
+    {
+      "name": "sourceResourceCatalog",
+      "suffix": "/uns/sources/resources/catalog",
+      "handler": "UnsV2SourceResourceCatalog",
+      "request": "CloudSourceResourceCatalogReq",
+      "response": "CloudSourceResourceCatalogResponse",
+      "resource": "source",
+      "permission": "uns.source.view",
+      "scope": "source:read",
+      "minPermission": 1,
+      "mutation": "",
+      "runtime": true,
+      "appAllowed": false,
+      "resourceId": 3392,
+      "summary": "List declared Edge Source resources",
+      "description": "Resolve the selected Source and return its versioned read capabilities. With X-Fleet-Node-Id use a native Source ID; otherwise use a cloud Edge reference ID.",
+      "method": "POST",
+      "permissionAnyOf": [],
+      "readOnly": true,
+      "tags": [
+        "数据源"
+      ],
+      "operation": "sourceResourceCatalog",
+      "path": "/uns/sources/resources/catalog",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/CloudSourceResourceCatalogReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/CloudSourceResourceCatalogResponse"
+      }
+    },
+    {
+      "name": "sourceResourceRead",
+      "suffix": "/uns/sources/resources/preview",
+      "handler": "UnsV2SourceResourceRead",
+      "request": "CloudSourceResourceReadReq",
+      "response": "CloudSourceResourceReadResponse",
+      "resource": "source",
+      "permission": "uns.source.view",
+      "scope": "source:read",
+      "minPermission": 1,
+      "mutation": "",
+      "runtime": true,
+      "appAllowed": false,
+      "resourceId": 3393,
+      "summary": "Preview a declared Edge Source resource",
+      "description": "Read a bounded sample before publishing a Stream. Supply the revision and resourceRef from the catalog. Connection details, credentials, arbitrary URLs and write operations are not accepted.",
+      "method": "POST",
+      "permissionAnyOf": [],
+      "readOnly": true,
+      "tags": [
+        "数据源"
+      ],
+      "operation": "sourceResourceRead",
+      "path": "/uns/sources/resources/preview",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/CloudSourceResourceReadReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/CloudSourceResourceReadResponse"
+      }
+    },
+    {
+      "name": "sourceResourceScan",
+      "suffix": "/uns/sources/resources/scan",
+      "handler": "UnsV2SourceResourceScan",
+      "request": "CloudSourceResourceScanReq",
+      "response": "CloudSourceResourceScanResponse",
+      "resource": "source",
+      "permission": "uns.source.view",
+      "scope": "source:read",
+      "minPermission": 1,
+      "mutation": "",
+      "runtime": true,
+      "appAllowed": false,
+      "resourceId": 3394,
+      "summary": "Read a page from a declared Edge Source resource",
+      "description": "Use the cursor returned for this binding to continue a bounded read.",
+      "method": "POST",
+      "permissionAnyOf": [],
+      "readOnly": true,
+      "tags": [
+        "数据源"
+      ],
+      "operation": "sourceResourceScan",
+      "path": "/uns/sources/resources/scan",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/CloudSourceResourceScanReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/CloudSourceResourceScanResponse"
       }
     },
     {
@@ -6061,6 +6157,148 @@
                     "required": [
                       "status"
                     ]
+                  }
+                },
+                "bindings": {
+                  "type": "array",
+                  "maxItems": 100,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "streamId": {
+                        "type": "string",
+                        "pattern": "^[1-9][0-9]*$",
+                        "maxLength": 19
+                      },
+                      "release": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "alias": {
+                        "type": "string"
+                      },
+                      "configRevision": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "currentConfigRevision": {
+                        "type": "integer",
+                        "minimum": 1
+                      },
+                      "sourceRevisionState": {
+                        "type": "string",
+                        "enum": [
+                          "current",
+                          "stale"
+                        ]
+                      },
+                      "observationWindowHours": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "programAttribution": {
+                        "type": "string",
+                        "enum": [
+                          "singleSource",
+                          "multipleSources"
+                        ]
+                      },
+                      "lastCollectionCommitAt": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "lastSourceCallAt": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "sourceReportedCollectedAt": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "lastRunError": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "entryId": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "at": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "error": {
+                            "type": "object"
+                          }
+                        },
+                        "required": [
+                          "entryId",
+                          "status",
+                          "at",
+                          "error"
+                        ]
+                      },
+                      "checkpoints": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "entryId": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string"
+                            },
+                            "revision": {
+                              "type": "integer",
+                              "minimum": 1
+                            },
+                            "updatedAt": {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          },
+                          "required": [
+                            "entryId",
+                            "kind",
+                            "revision",
+                            "updatedAt"
+                          ]
+                        }
+                      },
+                      "edgeSubscriptions": {
+                        "type": "array",
+                        "items": {
+                          "type": "object"
+                        }
+                      }
+                    },
+                    "required": [
+                      "streamId",
+                      "release",
+                      "configRevision",
+                      "currentConfigRevision",
+                      "sourceRevisionState",
+                      "programAttribution",
+                      "observationWindowHours"
+                    ],
+                    "description": "Active immutable release. configRevision is the frozen cloud Source revision. sourceRevisionState compares it to currentConfigRevision; a stale binding remains visible until redeployed. Times are Unix milliseconds. Collection commit and run error summarize terminal program tasks in the last 24 hours. Only completed transactions with Collection writes count. Multiple-source programs omit output, checkpoint and run error attribution. lastSourceCallAt is successful host-call completion. sourceReportedCollectedAt is optional and comes from a Source read result. Checkpoints show current durable metadata without state values. edgeSubscriptions includes Edge watch acquisition, ACK and fault status."
+                  }
+                },
+                "bindingsTruncated": {
+                  "type": "boolean"
+                },
+                "runtimeState": {
+                  "type": "string"
+                },
+                "edgeSubscriptions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
                   }
                 }
               },
@@ -20406,7 +20644,10 @@
             "WIDER_TYPE",
             "WIDER_BOUNDS",
             "UNDECLARED_INDEX",
-            "ANNOTATION_NOT_APPLIED"
+            "ANNOTATION_NOT_APPLIED",
+            "DIRECTORY_PATH_NOT_APPLIED",
+            "TTL_RETAINED",
+            "OWNER_APP_TRASHED"
           ]
         },
         "message": {
@@ -25736,6 +25977,8 @@
         "kind": {
           "type": "string",
           "enum": [
+            "directory",
+            "topic",
             "collection"
           ]
         },
@@ -27538,6 +27781,425 @@
           }
         }
       }
+    },
+    "CloudSourceResourceCatalogReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$",
+          "maxLength": 19
+        },
+        "configRevision": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "id"
+      ]
+    },
+    "CloudSourceResourceCatalogResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "maxLength": 19
+            },
+            "configRevision": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "protocol": {
+              "type": "string"
+            },
+            "sourceType": {
+              "type": "string"
+            },
+            "resources": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "resourceRef": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1029
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "modes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "inputSchema": {
+                    "type": "object"
+                  },
+                  "outputSchema": {
+                    "type": "object"
+                  },
+                  "permission": {
+                    "type": "string"
+                  },
+                  "requiredPermissions": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "configRevision": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "metadata": {
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "resourceRef",
+                  "name",
+                  "modes",
+                  "inputSchema",
+                  "outputSchema",
+                  "permission",
+                  "configRevision"
+                ]
+              }
+            }
+          },
+          "required": [
+            "id",
+            "configRevision",
+            "protocol",
+            "resources"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
+    },
+    "CloudSourceResourceReadReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$",
+          "maxLength": 19
+        },
+        "configRevision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "resourceRef": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1029
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "createdDateTimeBegin": {
+              "type": "string",
+              "format": "date-time",
+              "description": "Resource-specific UTC window start. Supply both bounds."
+            },
+            "createdDateTimeEnd": {
+              "type": "string",
+              "format": "date-time",
+              "description": "Resource-specific UTC window end."
+            },
+            "material": {
+              "type": "string",
+              "pattern": "^[0-9]{18}$"
+            },
+            "baseUnit": {
+              "type": "string",
+              "pattern": "^[A-Z0-9]{1,8}$"
+            },
+            "selectFields": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 3,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "Material",
+                  "Description",
+                  "BaseUnit"
+                ]
+              }
+            },
+            "order": {
+              "type": "string",
+              "enum": [
+                "materialAsc",
+                "materialDesc"
+              ]
+            },
+            "jobId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "beginDate": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "endDate": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "startTime": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "endTime": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "itemId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+              "description": "Exact item ID for a discovered Teamcenter saved query."
+            },
+            "matnr": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9]{1,18}$"
+            },
+            "since": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": []
+        },
+        "timeoutMs": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 10000
+        }
+      },
+      "required": [
+        "id",
+        "configRevision",
+        "resourceRef"
+      ]
+    },
+    "CloudSourceResourceReadResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "required": [
+            "resourceRef",
+            "configRevision",
+            "collectedAt"
+          ],
+          "description": "Bounded native result. Interpret fields using the selected resource output schema."
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
+    },
+    "CloudSourceResourceScanReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$",
+          "maxLength": 19
+        },
+        "configRevision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "resourceRef": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1029
+        },
+        "cursor": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maxItems": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000
+            },
+            "createdDateTimeBegin": {
+              "type": "string",
+              "format": "date-time",
+              "description": "Resource-specific UTC window start. Supply both bounds."
+            },
+            "createdDateTimeEnd": {
+              "type": "string",
+              "format": "date-time",
+              "description": "Resource-specific UTC window end."
+            },
+            "material": {
+              "type": "string",
+              "pattern": "^[0-9]{18}$"
+            },
+            "baseUnit": {
+              "type": "string",
+              "pattern": "^[A-Z0-9]{1,8}$"
+            },
+            "selectFields": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 3,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "Material",
+                  "Description",
+                  "BaseUnit"
+                ]
+              }
+            },
+            "order": {
+              "type": "string",
+              "enum": [
+                "materialAsc",
+                "materialDesc"
+              ]
+            }
+          },
+          "required": []
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200,
+          "description": "Use the resource catalog bounds. Only Salesforce supports a native page of 200."
+        },
+        "timeoutMs": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 10000
+        }
+      },
+      "required": [
+        "id",
+        "configRevision",
+        "resourceRef",
+        "limit"
+      ]
+    },
+    "CloudSourceResourceScanResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "resourceRef": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1029
+            },
+            "configRevision": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object"
+              }
+            },
+            "nextCursor": {
+              "type": "string"
+            },
+            "hasMore": {
+              "type": "boolean"
+            },
+            "collectedAt": {
+              "type": "integer"
+            },
+            "checkpoint": {
+              "type": "string",
+              "maxLength": 8192,
+              "description": "Optional incremental watermark. Commit it after writing every row, including on the final page. Pass it as cursor on the next scan."
+            }
+          },
+          "required": [
+            "resourceRef",
+            "configRevision",
+            "items",
+            "hasMore",
+            "collectedAt"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
     }
   }
 }

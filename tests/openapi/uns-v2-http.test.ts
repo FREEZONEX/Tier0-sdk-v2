@@ -383,11 +383,11 @@ describe('UNS v2 localhost HTTP fixture', () => {
       'record-reads/1', 'app-context/4', 'collection-ttl/1', 'error-model/1', 'record-insert-return/1', 'stream-run-error/1',
       'source-lifecycle/2', 'app-collections/2',
     ]));
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('c63783eb485e99167fec3a1c6ffb034ada4170e1');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('8780ce2d6c07b6afee96409795c098e330c214dd');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(UNS_V2_CONTRACT_PROVENANCE.sourceDerivedContractSHA256).toBe(UNS_V2_CONTRACT_PROVENANCE.hashes.contract);
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(84);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(97);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(87);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(100);
     expect(received.slice(start)).toHaveLength(1);
   });
 

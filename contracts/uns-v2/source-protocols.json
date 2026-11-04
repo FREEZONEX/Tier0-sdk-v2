@@ -1196,6 +1196,12 @@
             "type": "array",
             "uniqueItems": true
           },
+          "pollIntervalMs": {
+            "description": "Modbus polling interval in milliseconds. Omit to use the Edge Source interval.",
+            "maximum": 3600000,
+            "minimum": 100,
+            "type": "integer"
+          },
           "qos": {
             "default": 0,
             "maximum": 2,
@@ -1285,6 +1291,16 @@
             "minItems": 1,
             "type": "array"
           },
+          "resourceRefs": {
+            "items": {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
           "samplingIntervalMs": {
             "maximum": 60000,
             "minimum": 100,
@@ -1324,8 +1340,17 @@
                 "enum": [
                   "modbus",
                   "mqtt",
-                  "opcua"
+                  "opcua",
+                  "usb-hid",
+                  "http-api",
+                  "oauth2",
+                  "edge-sql",
+                  "file-read"
                 ],
+                "type": "string"
+              },
+              "sourceType": {
+                "description": "Registered native Edge vendor profile; discover mode support on the specific source and resource.",
                 "type": "string"
               }
             },
@@ -1340,7 +1365,30 @@
           "endpoint",
           "options"
         ],
-        "type": "object"
+        "type": "object",
+        "x-tier0-edge-protocol-operations": {
+          "edge-sql": [
+            "read",
+            "scan"
+          ],
+          "file-read": [
+            "read",
+            "scan"
+          ],
+          "modbus": [
+            "read",
+            "receive"
+          ],
+          "mqtt": [
+            "receive"
+          ],
+          "opcua": [
+            "receive"
+          ],
+          "usb-hid": [
+            "receive"
+          ]
+        }
       },
       "credentialKinds": [],
       "name": "Edge Source",
