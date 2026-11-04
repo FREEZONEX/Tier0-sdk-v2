@@ -30,3 +30,12 @@ test('the proxy path list names apps/access-members/list as forwarded, not refus
     assert.doesNotMatch(refused, /members\.listApp/, file);
   }
 });
+
+test('every allowlist sentence that names platform/getMembers also names apps/access-members/list', () => {
+  for (const file of files) {
+    for (const line of readFileSync(file, 'utf8').split('\n')) {
+      if (!/只转发/.test(line) || !line.includes('platform/getMembers')) continue;
+      assert.match(line, /apps\/access-members\/list/, `${file}: ${line}`);
+    }
+  }
+});
