@@ -74,6 +74,12 @@ const user = await tier0.system.whoami();
 
 不保留 UNS v1、旧 Flow、`getCurrentProjectId()`、project 成员查询或 `/gw/reload`。Workspace 成员不等于能使用某个 App 的成员，不可用前者在客户端猜测 App 权限。
 
+## SDK 方法与凭证权限
+
+同一 SDK 支持工作空间集成和 App 运行时，方法存在不代表当前凭证可调用。`client.uns.namespace()` 调用的是 `POST /openapi/v2/uns/namespace/query`，属于 OpenAPI；有相应权限且未绑定 App 的 Agent / Personal Key 可以使用，App Key 当前不能使用。App 应通过 `client.uns.dataAppContext({})` 获取可访问集合及结构，再用 `recordFind` 读取记录。`appCollectionsList` 也是管理接口，不能作为 App Key 的替代入口。
+
+SDK 不从 Key 前缀推断权限，也不在 403 后换凭证或回退内部接口。Agent 程序、SDK、MCP 都不能扩大所持凭证的权限。身份区别和排错见[命名空间查询与凭证](skills/tier0-sdk-v2/tier0-sdk-v2-uns/references/namespace.md)，App 读取示例见[查询集合与记录](skills/tier0-sdk-v2/tier0-sdk-v2-uns/references/read.md)。
+
 ## 本次接口退役
 
 HTTP 调用统一使用 `/openapi/v2`。21 个重复 UNS 公共入口及生成方法直接移除，没有旧路由回退；升级 SDK 时需同时部署对应后端。
