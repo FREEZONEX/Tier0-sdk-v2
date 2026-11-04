@@ -40,3 +40,20 @@ test('预览能验证但不能发布，变更快照后必须重新同步', () =>
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('a later recorded projection preserves acquisition verification while unrecorded edits fail', () => {
+  const root = mkdtempSync(resolve(tmpdir(), 'tier0-acquisition-projection-'));
+  try {
+    mkdirSync(resolve(root, 'contracts/uns-v2'), { recursive: true });
+    const path = 'contracts/uns-v2/manifest.json';
+    const digest = data => createHash('sha256').update(data).digest('hex');
+    const acquisition = { scope:'source-stream-acquisition', revision:'a'.repeat(40), sourceKind:'committed', schemas:acquisitionSchemas,
+      sourceSHA256:'b'.repeat(64), inputs:{ [path]:{resultSHA256:digest('before')} } };
+    const seed = { scope:'app-seed/1', revision:'c'.repeat(40), sourceKind:'committed', inputs:{ [path]:{resultSHA256:digest('after')} } };
+    writeFileSync(resolve(root,'contracts/uns-v2/provenance.json'), JSON.stringify({schemaUpdates:[acquisition,seed]}));
+    writeFileSync(resolve(root,path),'after');
+    assert.deepEqual(verifyAcquisition(root,true),acquisition);
+    writeFileSync(resolve(root,path),'tampered');
+    assert.throws(()=>verifyAcquisition(root,true), /changed without sync/);
+  } finally { rmSync(root,{recursive:true,force:true}); }
+});

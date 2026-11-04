@@ -3907,6 +3907,120 @@
       "responseSchema": {
         "$ref": "#/components/schemas/UnsV2MetadataTransactResponse"
       }
+    },
+    {
+      "name": "appCollectionsSeedRegister",
+      "suffix": "/uns/app/collections/seed:register",
+      "handler": "UnsV2AppCollectionsSeedRegister",
+      "request": "CloudAppSeedRegisterReq",
+      "response": "CloudAppSeedRegisterResponse",
+      "mutation": "meta.create",
+      "resource": "appCollection",
+      "openapiOnly": true,
+      "mcp": false,
+      "permission": "uns.write",
+      "scope": "uns:update",
+      "minPermission": 3,
+      "resourceId": 214,
+      "summary": "登记 App 集合种子计划",
+      "description": "Experimental app-seed/1 protocol; disabled by default. Requires platform App key and current collection write grant. No cross-Key recovery.",
+      "example": {
+        "declaration": {
+          "alias": "orders",
+          "name": "Orders",
+          "directoryPath": [
+            "Factory"
+          ],
+          "recordSchema": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "title": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "title"
+            ]
+          }
+        },
+        "chunks": [
+          [
+            {
+              "data": {
+                "title": "Initial"
+              }
+            }
+          ]
+        ]
+      },
+      "cloudExtension": true,
+      "appAllowed": true,
+      "audience": "builder",
+      "starter": false,
+      "method": "POST",
+      "permissionAnyOf": [],
+      "readOnly": false,
+      "tags": [
+        "App 与授权"
+      ],
+      "operation": "appCollectionsSeedRegister",
+      "path": "/uns/app/collections/seed:register",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/CloudAppSeedRegisterReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/CloudAppSeedRegisterResponse"
+      }
+    },
+    {
+      "name": "appCollectionsSeedApply",
+      "suffix": "/uns/app/collections/seed:apply",
+      "handler": "UnsV2AppCollectionsSeedApply",
+      "request": "CloudAppSeedApplyReq",
+      "response": "CloudAppSeedApplyResponse",
+      "mutation": "meta.create",
+      "resource": "appCollection",
+      "openapiOnly": true,
+      "mcp": false,
+      "permission": "uns.write",
+      "scope": "uns:update",
+      "minPermission": 3,
+      "resourceId": 214,
+      "summary": "原子执行 App 集合种子分块",
+      "description": "Experimental app-seed/1 protocol; disabled by default. Requires platform App key and current collection write grant. No cross-Key recovery.",
+      "example": {
+        "collectionId": "collection-id",
+        "planDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "index": 0,
+        "items": [
+          {
+            "data": {
+              "title": "Initial"
+            }
+          }
+        ]
+      },
+      "cloudExtension": true,
+      "appAllowed": true,
+      "audience": "builder",
+      "starter": false,
+      "method": "POST",
+      "permissionAnyOf": [],
+      "readOnly": false,
+      "tags": [
+        "App 与授权"
+      ],
+      "operation": "appCollectionsSeedApply",
+      "path": "/uns/app/collections/seed:apply",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/CloudAppSeedApplyReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/CloudAppSeedApplyResponse"
+      }
     }
   ],
   "schemas": {
@@ -27251,6 +27365,195 @@
           "minimum": 0
         }
       }
+    },
+    "CloudAppSeedRegisterReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "declaration": {
+          "$ref": "#/components/schemas/CloudAppCollectionDeclaration"
+        },
+        "chunks": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 200,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "data": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              },
+              "required": [
+                "data"
+              ]
+            }
+          }
+        }
+      },
+      "required": [
+        "declaration",
+        "chunks"
+      ]
+    },
+    "CloudAppSeedRegisterResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "protocol": {
+              "type": "string",
+              "enum": [
+                "app-seed/1"
+              ]
+            },
+            "collectionId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "planDigest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "nextChunk": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 5
+            },
+            "chunkCount": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5
+            }
+          },
+          "required": [
+            "protocol",
+            "collectionId",
+            "planDigest",
+            "nextChunk",
+            "chunkCount"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
+    },
+    "CloudAppSeedApplyReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "collectionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "planDigest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 200,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "data": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "required": [
+              "data"
+            ]
+          }
+        }
+      },
+      "required": [
+        "collectionId",
+        "planDigest",
+        "index",
+        "items"
+      ]
+    },
+    "CloudAppSeedApplyResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "protocol": {
+              "type": "string",
+              "enum": [
+                "app-seed/1"
+              ]
+            },
+            "replayed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "protocol",
+            "replayed"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
     }
   }
 }

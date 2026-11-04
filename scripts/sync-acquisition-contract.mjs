@@ -55,7 +55,9 @@ export function verifyAcquisition(repository, committed = false) {
   assert.match(update.sourceSHA256, /^[a-f0-9]{64}$/);
   if (committed) assert.notEqual(update.sourceKind, 'working-tree-preview', 'Acquisition contract is a working-tree preview; sync its committed Backend revision before publishing.');
   for (const [path, input] of Object.entries(update.inputs)) {
-    assert.equal(sha(readFileSync(resolve(repository, path))), input.resultSHA256, `Acquisition snapshot changed without sync: ${path}`);
+    // Later explicitly recorded projections may change the same snapshot.
+    const latest = [...updates].reverse().find(value => value.inputs?.[path]);
+    assert.equal(sha(readFileSync(resolve(repository, path))), latest?.inputs[path]?.resultSHA256 ?? input.resultSHA256, `Acquisition snapshot changed without sync: ${path}`);
   }
   return update;
 }

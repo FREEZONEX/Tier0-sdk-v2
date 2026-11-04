@@ -33,9 +33,9 @@ describe('Backend App UNS access contract without generic record audit', () => {
         createHash('sha256').update(read(file)).digest('hex')
       );
     }
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(82);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(84);
     expect(UNS_V2_CONTRACT_PROVENANCE.streamOperationCount).toBe(1);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(95);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(97);
     // Error envelopes are decoded by every operation, although success DTOs do not reference them.
     expect(Object.hasOwn(UNS_V2_CODEC_SCHEMAS, 'UnsV2ErrorResponse')).toBe(true);
     expect(Object.hasOwn(manifest.schemas, 'UnsV2ErrorResponse')).toBe(true);
@@ -59,6 +59,9 @@ describe('Backend App UNS access contract without generic record audit', () => {
     expect(acquisition.revision).toBe(upstream.revision);
     expect(acquisition.sourceKind).toBe(upstream.sourceKind ?? 'committed');
     expect(capability.sourceKind).toBe(upstream.sourceKind ?? 'committed');
+    const seed = upstream.schemaUpdates.find((update: { scope: string }) => update.scope === 'app-seed/1');
+    expect(seed).toMatchObject({ revision: 'fe944eebb5bbd6a84a527896131ad527c1aa21c8', sourceKind: 'committed',
+      operations: ['appCollectionsSeedRegister', 'appCollectionsSeedApply'] });
     for (const input of Object.values(acquisition.inputs) as { baseSHA256: string; resultSHA256: string }[]) {
       expect(input.resultSHA256).toBe(input.baseSHA256);
     }
@@ -157,11 +160,11 @@ describe('Backend App UNS access contract without generic record audit', () => {
   });
 
   it('keeps App credentials outside generic management while preserving owned-collection lifecycle and Core-only boundaries', () => {
-    const appCollectionLifecycle = ['appCollectionsArchive', 'appCollectionsEnsure', 'appCollectionsRestore', 'appCollectionsSchemaReplace'];
+    const appCollectionLifecycle = ['appCollectionsArchive', 'appCollectionsEnsure', 'appCollectionsRestore', 'appCollectionsSchemaReplace', 'appCollectionsSeedApply', 'appCollectionsSeedRegister'];
     const management = manifest.operations.filter(item => item.minPermission >= 3 || item.permission.includes('manage'));
     expect(management.filter(item => item.appAllowed).map(item => item.name).sort()).toEqual(appCollectionLifecycle);
     for (const item of management) {
-      expect(item.appAllowed, item.name).toBe(['appCollectionsEnsure', 'appCollectionsSchemaReplace', 'appCollectionsArchive', 'appCollectionsRestore'].includes(item.name));
+      expect(item.appAllowed, item.name).toBe(appCollectionLifecycle.includes(item.name));
       expect(item.permissionAnyOf.some(permission => permission.includes('manage')), item.name).toBe(false);
     }
     for (const name of appCollectionLifecycle) {
