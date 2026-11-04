@@ -51,6 +51,7 @@ export class Tier0MQClient {
   private listeners: { [K in keyof MQTTEventMap]?: Array<MQTTEventMap[K]> } = {};
   private subscriptions: Subscription[] = [];
   private connectingPromise: Promise<void> | null = null;
+  private rejectPendingConnect: ((error: Error) => void) | null = null;
   private _connected = false;
 
   constructor(config?: MQTTConfig) {
@@ -119,6 +120,9 @@ export class Tier0MQClient {
   private async ensureConnected(): Promise<void> {
     if (this._connected) return;
     if (this.connectingPromise) return this.connectingPromise;
+    if (this.client) {
+      throw new Error('MQTT client is disconnected or reconnecting; wait for reconnect, or disconnect and create a new client');
+    }
 
     void this.mqttUrl;
     if (!this.config.password || !this.config.username || !this.config.clientId) {
@@ -131,6 +135,7 @@ export class Tier0MQClient {
 
   private doConnect(): Promise<void> {
     return new Promise((resolve, reject) => {
+      this.rejectPendingConnect = reject;
       const options: IClientOptions = {
         clientId: this.config.clientId,
         username: this.config.username,
@@ -141,35 +146,43 @@ export class Tier0MQClient {
         clean: this.config.clean,
       };
 
-      this.client = mqtt.connect(this.mqttUrl, options);
+      const client = mqtt.connect(this.mqttUrl, options);
+      this.client = client;
 
-      this.client.on('connect', () => {
+      client.on('connect', () => {
+        if (this.client !== client) return;
         this._connected = true;
         this.connectingPromise = null;
+        this.rejectPendingConnect = null;
+        resolve();
         this.emit('connect');
         // 断连重连后自动恢复所有订阅
-        this.resubscribeAll();
-        resolve();
+        if (this.client === client) this.resubscribeAll();
       });
 
-      this.client.on('error', (err) => {
-        this.emit('error', err);
+      client.on('error', (err) => {
+        if (this.client !== client) return;
         this.connectingPromise = null;
+        this.rejectPendingConnect = null;
         reject(err);
+        this.emit('error', err);
       });
 
-      this.client.on('disconnect', () => {
+      client.on('disconnect', () => {
+        if (this.client !== client) return;
         this._connected = false;
         this.emit('disconnect');
       });
 
-      this.client.on('close', () => {
+      client.on('close', () => {
+        if (this.client !== client) return;
         this._connected = false;
       });
 
-      this.client.on(
+      client.on(
         'message',
         (topic: string, payload: Buffer, _packet: mqtt.IPublishPacket) => {
+          if (this.client !== client) return;
           const payloadStr = payload.toString();
           // 复制一份快照：handler 触发背压自动退订时会重建 this.subscriptions
           this.subscriptions.slice().forEach((sub) => {
@@ -205,6 +218,8 @@ export class Tier0MQClient {
   // 显式连接（需要等待连接完成时使用）
   async connect(config?: MQTTConfig): Promise<void> {
     if (config) {
+      // Undefined fields mean no override, not a request to erase settings.
+      const update = Object.fromEntries(Object.entries(config).filter(([, value]) => value !== undefined)) as MQTTConfig;
       // mqtt.js snapshots its connection options. Changing our config while a
       // client exists would leave the old credentials in use, including on
       // automatic reconnect. Refuse the change before mutating anything.
@@ -213,18 +228,18 @@ export class Tier0MQClient {
         'keepAlive', 'reconnectPeriod', 'connectTimeout', 'clean',
       ];
       if (this.client && connectionFields.some((field) =>
-        config[field] !== undefined && config[field] !== this.config[field]
+        update[field] !== undefined && update[field] !== this.config[field]
       )) {
         throw new Error('MQTT connection settings cannot change while a client exists; disconnect and create a new client');
       }
       const previousPassword = this.config.password;
-      this.config = { ...this.config, ...config };
-      if (config.clientId !== undefined) this.explicitClientId = true;
-      if (config.username !== undefined) this.explicitUsername = true;
+      this.config = { ...this.config, ...update };
+      if (update.clientId !== undefined) this.explicitClientId = true;
+      if (update.username !== undefined) this.explicitUsername = true;
       // A connect-time key may belong to a different workspace. Preserve only
       // caller-supplied identity fields, not values derived from the previous key.
-      if (config.password !== undefined && config.password !== previousPassword) {
-        const workspaceID = parseWorkspaceIDFromApiKey(config.password);
+      if (update.password !== undefined && update.password !== previousPassword) {
+        const workspaceID = parseWorkspaceIDFromApiKey(update.password);
         if (!this.explicitClientId) {
           this.config.clientId = workspaceID ? workspaceID + '&' + generateRandomString(8) : undefined;
         }
@@ -305,13 +320,17 @@ export class Tier0MQClient {
   disconnect(): void {
     if (!this.client) return;
 
-    this.client.end(true, () => {
-      this.emit('disconnect');
-    });
+    const client = this.client;
     this.client = null;
     this._connected = false;
     this.connectingPromise = null;
+    const rejectPendingConnect = this.rejectPendingConnect;
+    this.rejectPendingConnect = null;
     this.subscriptions = [];
+    rejectPendingConnect?.(new Error('MQTT connection cancelled by disconnect'));
+    client.end(true, () => {
+      if (!this.client) this.emit('disconnect');
+    });
   }
 
   on<K extends keyof MQTTEventMap>(event: K, handler: MQTTEventMap[K]): void {

@@ -140,6 +140,64 @@ describe('Tier0MQClient', () => {
     client.disconnect();
   });
 
+  it('does not replace a reconnecting client after an initial error', async () => {
+    const client = new Tier0MQClient({ host: 'broker', reconnectPeriod: 1000 });
+    const first = client.connect();
+    emit('error', new Error('broker unavailable'));
+    await expect(first).rejects.toThrow('broker unavailable');
+    await expect(client.connect()).rejects.toThrow('disconnect and create a new client');
+    expect(mqtt.connect).toHaveBeenCalledTimes(1);
+    client.disconnect();
+    expect(mockMqttClient.end).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not erase a saved password when the override is undefined', async () => {
+    const client = new Tier0MQClient({ host: 'broker', password: 'sk-per-ws1_original' });
+    let connecting = client.connect();
+    emit('connect');
+    await connecting;
+    await client.connect({ password: undefined });
+    client.disconnect();
+    connecting = client.connect();
+    emit('connect');
+    await connecting;
+    expect(mqtt.connect).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({
+      password: 'sk-per-ws1_original', username: '1&open',
+    }));
+    client.disconnect();
+  });
+
+  it('rejects a cancelled connection and ignores events from the retired client', async () => {
+    function fake() {
+      const handlers: Record<string, Function[]> = {};
+      return {
+        handlers,
+        on: vi.fn((event: string, handler: Function) => { (handlers[event] ||= []).push(handler); }),
+        end: vi.fn(), subscribe: vi.fn(), publish: vi.fn(), unsubscribe: vi.fn(),
+        emit(event: string, ...args: unknown[]) { (handlers[event] || []).forEach((fn) => fn(...args)); },
+      };
+    }
+    const old = fake();
+    const current = fake();
+    (mqtt.connect as any).mockReturnValueOnce(old).mockReturnValueOnce(current);
+    const client = new Tier0MQClient({ host: 'broker' });
+    const first = client.connect();
+    client.disconnect();
+    await expect(first).rejects.toThrow('cancelled by disconnect');
+    const next = client.connect();
+    old.emit('connect');
+    old.emit('close');
+    old.emit('error', new Error('late error'));
+    expect(client.isConnected).toBe(false);
+    current.emit('connect');
+    await next;
+    old.emit('close');
+    expect(client.isConnected).toBe(true);
+    client.disconnect();
+    expect(old.end).toHaveBeenCalledTimes(1);
+    expect(current.end).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     ['broker:8083', undefined, 'ws://broker:8083/mqtt'],
     ['broker:8084', undefined, 'wss://broker:8084/mqtt'],
