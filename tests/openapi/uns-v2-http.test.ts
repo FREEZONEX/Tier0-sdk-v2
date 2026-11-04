@@ -39,6 +39,38 @@ const rawClient = (overrides: Parameters<typeof createClient>[0] = {}) => {
 };
 
 describe('UNS v2 localhost HTTP fixture', () => {
+  it('submits a collection purge once and preserves the async receipt', async () => {
+    const start = received.length;
+    respond = (_req, res) => send(res, { code: 200, msg: '', requestId: 'purge-request',
+      data: { status: 'accepted', jobId: 'purge-job', replayed: false, results: [] } });
+    const body = { kind: 'collection' as const, ids: ['old-orders', 'old-events'], idempotencyKey: 'purge-once' };
+    const result = await client().uns.metadataPurge(body);
+    expect(received.slice(start)).toHaveLength(1);
+    expect(received.at(-1)?.path).toBe('/openapi/v2/uns/metadata:purge');
+    expect(JSON.parse(received.at(-1)!.body)).toEqual(body);
+    expect(result.data.status).toBe('accepted');
+    expect(result.data.jobId).toBe('purge-job');
+    expect(result.data.results).toEqual([]);
+  });
+
+  it('keeps purge dryRun optional and carries the intent key on an explicit retry', async () => {
+    const start = received.length;
+    const caller = client();
+    respond = (_req, res) => send(res, { code: 200, msg: '', requestId: 'purge-preview',
+      data: { status: 'validated', replayed: false, results: [] } });
+    const preview = await caller.uns.metadataPurge({ kind: 'collection', ids: ['old-orders'], dryRun: true });
+    expect(preview.data.status).toBe('validated');
+    expect(preview.data.jobId).toBeUndefined();
+    respond = (_req, res) => send(res, { code: 200, msg: '', requestId: 'purge-replay',
+      data: { status: 'accepted', jobId: 'purge-job', replayed: true, results: [] } });
+    const request = { kind: 'collection' as const, ids: ['old-orders'], idempotencyKey: 'same-intent' };
+    await caller.uns.metadataPurge(request);
+    const replay = await caller.uns.metadataPurge(request);
+    expect(received.slice(start)).toHaveLength(3);
+    expect(received.slice(-2).map(row => JSON.parse(row.body))).toEqual([request, request]);
+    expect(replay.data).toMatchObject({ status: 'accepted', jobId: 'purge-job', replayed: true });
+  });
+
   it('carries the insert snapshot and exact revision in one request', async () => {
     const start = received.length;
     respond = (_req, res) => {
@@ -348,9 +380,10 @@ describe('UNS v2 localhost HTTP fixture', () => {
       'cloud-source-impact/2', 'app-create-capability/1', 'data/3', 'collection-namespace/1', 'http-acquisition/2',
       'app-collection/2', 'metadata/1', 'app-data/3', 'hosted-control/1', 'source-bindings/1',
       'record-notifications/1', 'record-delete-samples/1', 'stream-history/1',
-      'record-reads/1', 'app-context/3', 'collection-ttl/1', 'error-model/1', 'record-insert-return/1', 'stream-run-error/1',
+      'record-reads/1', 'app-context/4', 'collection-ttl/1', 'error-model/1', 'record-insert-return/1', 'stream-run-error/1',
+      'source-lifecycle/2', 'app-collections/2',
     ]));
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('0d8cb6dd7c72fb794dd1d63f5c7efb5017804545');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('c63783eb485e99167fec3a1c6ffb034ada4170e1');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(UNS_V2_CONTRACT_PROVENANCE.sourceDerivedContractSHA256).toBe(UNS_V2_CONTRACT_PROVENANCE.hashes.contract);
     expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(82);
@@ -398,7 +431,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
     respond = (req, res) => {
       if (req.url === '/openapi/v2/uns/sources/impact') {
         return send(res, { code: 200, msg: 'ok', requestId: 'impact', data: {
-          impactRevision: 'reviewed-token', sourceID: '101', sourceRevision: 2, action: 'disable', complete: 1,
+          impactRevision: 'reviewed-token', sourceID: '101', sourceRevision: 2, action: 'delete', complete: 1,
           counts: { draft: 1, activeRelease: 1, historicalRelease: 0 }, restrictedCount: 0, references: [], nextOffset: 0, expiresAt: 2_000_000_000_000,
         } });
       }
@@ -410,14 +443,14 @@ describe('UNS v2 localhost HTTP fixture', () => {
       return send(res, { code: 409, msg: 'SOURCE_IMPACT_CHANGED', requestId: 'conflict' }, 409);
     };
     const api = client();
-    const review = await api.source.impact({ id: '101', expectedRevision: 2, action: 'disable', size: 20 });
+    const review = await api.source.impact({ id: '101', expectedRevision: 2, action: 'delete', size: 20 });
     expect(review.data.impactRevision).toBe('reviewed-token');
     expect(received.length - start).toBe(1);
     expect(received[start].path).toBe('/openapi/v2/uns/sources/impact');
     const history = await api.source.history({ id: '101', size: 20 });
     expect(history.data.sourceID).toBe('101');
-    await expect(api.source.state.update({ dryRun: false, items: [{
-      id: '101', expectedRevision: 2, desiredState: 'disabled', confirmedImpactRevision: review.data.impactRevision,
+    await expect(api.source.delete({ dryRun: false, items: [{
+      id: '101', expectedRevision: 2, confirmedImpactRevision: review.data.impactRevision,
     }] })).rejects.toBeInstanceOf(UnsV2Error);
     expect(received.length - start).toBe(3);
     expect(JSON.parse(received[start + 2].body).items[0].confirmedImpactRevision).toBe('reviewed-token');
@@ -603,21 +636,12 @@ describe('UNS v2 localhost HTTP fixture', () => {
     expect(JSON.parse(received[start].body).assertLocks).toEqual([{ collectionId: 'stock', id: 'part-1', token: 'lease' }]);
   });
 
-  it('exposes Source state update and keeps the mutation single-shot', async () => {
+  it('does not expose retired Source state through either facade or raw dispatch', async () => {
     const start = received.length;
-    respond = (_req, res) => send(res, {
-      code: 200, msg: 'updated', requestId: 'req-source-state',
-      data: { status: 'committed', replayed: false, results: [] },
-    });
-    await client().source.state.update({
-      dryRun: false, idempotencyKey: 'source-state-1',
-      items: [{ id: 'source-1', expectedRevision: 2, desiredState: 'enabled', confirmedImpactRevision: 'reviewed-confirmation' }],
-    });
-    expect(received[start]).toMatchObject({
-      path: '/openapi/v2/uns/sources/state/update',
-      body: '{"dryRun":false,"idempotencyKey":"source-state-1","items":[{"id":"source-1","expectedRevision":2,"desiredState":"enabled","confirmedImpactRevision":"reviewed-confirmation"}]}',
-    });
-    expect(received.length - start).toBe(1);
+    expect(client().source).not.toHaveProperty('state');
+    const core = rawClient() as unknown as { call(name: unknown, request: unknown): Promise<unknown> };
+    await expect(core.call('sourceStateUpdate', {})).rejects.toThrow('unknown UNS v2 operation');
+    expect(received.length).toBe(start);
   });
 
   it('preserves Resource4 references in Stream document validation', async () => {

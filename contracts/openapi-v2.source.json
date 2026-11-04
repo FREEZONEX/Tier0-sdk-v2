@@ -758,169 +758,6 @@
         "x-tier0-destructive": false
       }
     },
-    "/uns/sources/state/update": {
-      "post": {
-        "operationId": "UnsV2SourceStateUpdate",
-        "tags": [
-          "数据源"
-        ],
-        "summary": "更新数据源启停状态",
-        "description": "更新数据源期望状态，需提供当前 expectedRevision；没有任何 Stream 引用时可直接提交，存在引用时需提供与本次变更一致的 confirmedImpactRevision；dryRun=true 仅校验。",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "idempotencyKey": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 128,
-                    "description": "可选幂等键；重试同一请求时复用，相同键不得用于不同请求。"
-                  },
-                  "dryRun": {
-                    "type": "boolean",
-                    "description": "true 仅校验；false 执行写入。",
-                    "default": false
-                  },
-                  "allowPartial": {
-                    "type": "boolean",
-                    "enum": [
-                      false
-                    ],
-                    "default": false,
-                    "description": "默认 false，整批回滚；true 逐项提交，失败信息见 results[].error。"
-                  },
-                  "mode": {
-                    "type": "string",
-                    "enum": [
-                      "auto",
-                      "sync"
-                    ]
-                  },
-                  "items": {
-                    "type": "array",
-                    "minItems": 1,
-                    "maxItems": 200,
-                    "items": {
-                      "type": "object",
-                      "additionalProperties": false,
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "pattern": "^[1-9][0-9]*$",
-                          "maxLength": 19
-                        },
-                        "expectedRevision": {
-                          "type": "integer",
-                          "minimum": 1,
-                          "description": "Cloud source-impact/2: explicit positive revision is required."
-                        },
-                        "desiredState": {
-                          "type": "string",
-                          "enum": [
-                            "enabled",
-                            "disabled"
-                          ]
-                        },
-                        "confirmedImpactRevision": {
-                          "type": "string",
-                          "pattern": "^si1_[A-Za-z0-9_-]{43}$",
-                          "minLength": 47,
-                          "maxLength": 47,
-                          "description": "无任何 Stream 引用时可省略；存在引用时先评估本次变更的影响，使用实际确认版本。任何已提供的确认值都必须有效。"
-                        }
-                      },
-                      "required": [
-                        "id",
-                        "desiredState",
-                        "expectedRevision"
-                      ]
-                    }
-                  }
-                },
-                "required": [
-                  "items"
-                ]
-              },
-              "example": {
-                "dryRun": true,
-                "items": [
-                  {
-                    "id": "example-id",
-                    "desiredState": "disabled",
-                    "expectedRevision": 1
-                  }
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "操作结果。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocUnsV2SourceStateUpdateResponse"
-                },
-                "example": {
-                  "code": 200,
-                  "msg": "success",
-                  "requestId": "request-id",
-                  "data": {
-                    "status": "committed",
-                    "replayed": false,
-                    "results": [
-                      {
-                        "opId": "item-0",
-                        "action": "meta.resourcePatch",
-                        "kind": "source",
-                        "id": "example-id",
-                        "revision": 1,
-                        "status": "updated"
-                      }
-                    ]
-                  }
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocCommonError"
-                },
-                "example": {
-                  "code": 422,
-                  "msg": "请求参数不合法",
-                  "requestId": "request-id",
-                  "data": null,
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "reason": "filter.status must be a string",
-                    "details": [],
-                    "execution": "notStarted",
-                    "retry": {
-                      "safe": false
-                    },
-                    "path": "filter.status"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-tier0-audience": "builder",
-        "x-tier0-starter": false,
-        "x-tier0-readonly": false,
-        "x-tier0-destructive": false
-      }
-    },
     "/uns/sources/runtime/get": {
       "post": {
         "operationId": "UnsV2SourceRuntimeGet",
@@ -4807,7 +4644,7 @@
         "tags": [
           "数据源"
         ],
-        "description": "按 items 删除数据源，需提交当前版本且数据源已停用；没有任何 Stream 引用时可直接提交，存在引用时仍需影响确认。dryRun=true 仅校验；云端数据源生命周期操作整批原子执行。",
+        "description": "按 items 删除数据源，需提交当前版本，删除后停止后续使用，无需先停用；没有任何 Stream 引用时可直接提交，存在引用时仍需影响确认。dryRun=true 仅校验；云端数据源生命周期操作整批原子执行。",
         "x-tier0-audience": "builder",
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
@@ -5001,7 +4838,7 @@
         "tags": [
           "处理流"
         ],
-        "description": "按 id 删除处理流程序，可用 expectedRevision 检查并发修改；dryRun=true 仅校验。",
+        "description": "按 id 删除处理流程序，运行中的程序也可直接删除并撤销后续执行准入，无需先停用；可用 expectedRevision 检查并发修改，dryRun=true 仅校验。",
         "x-tier0-audience": "builder",
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
@@ -5608,7 +5445,7 @@
         "tags": [
           "数据源"
         ],
-        "description": "使用 document 或 patch 更新指定数据源，必须提供当前 expectedRevision；没有任何 Stream 引用时可直接提交，存在引用时需提供与本次变更一致的 confirmedImpactRevision。提交返回完整 Source，无需再次读取；dryRun=true 仅校验。",
+        "description": "使用 document 或 patch 更新指定数据源，必须提供当前 expectedRevision；仅修改名称、描述可直接提交，连接配置变更在没有任何 Stream 引用时也可直接提交，否则需提供与本次变更一致的 confirmedImpactRevision。提交返回完整 Source，无需再次读取；dryRun=true 仅校验。",
         "x-tier0-audience": "builder",
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
@@ -6018,13 +5855,6 @@
                       "edge"
                     ]
                   },
-                  "desiredState": {
-                    "type": "string",
-                    "enum": [
-                      "enabled",
-                      "disabled"
-                    ]
-                  },
                   "health": {
                     "type": "string"
                   },
@@ -6083,7 +5913,7 @@
         "tags": [
           "数据源"
         ],
-        "description": "分页列出数据源，支持 protocol、desiredState、health 等筛选。默认返回安全摘要；includeDocument=true 需要管理权限并返回完整原生配置。",
+        "description": "分页列出数据源，支持 protocol、health 等筛选。默认返回安全摘要；includeDocument=true 需要管理权限并返回完整原生配置。",
         "x-tier0-audience": "builder",
         "x-tier0-starter": false,
         "x-tier0-readonly": true,
@@ -6344,8 +6174,6 @@
                     "type": "string",
                     "enum": [
                       "update",
-                      "enable",
-                      "disable",
                       "delete"
                     ]
                   },
@@ -6421,8 +6249,6 @@
                     "properties": {
                       "action": {
                         "enum": [
-                          "enable",
-                          "disable",
                           "delete"
                         ]
                       }
@@ -7248,7 +7074,7 @@
         "tags": [
           "App 与授权"
         ],
-        "description": "仅当前受管理 App 凭证可用；返回真实 App 名称和当前授权集合与 Key 权限的交集。新 App 尚无数据策略时正常返回 dataState=uninitialized、revision=0 和空集合，不创建策略或授予数据权限；按实际集合声明调用 appCollectionsEnsure 后为 ready。已有策略被管理员停用时返回 403，reason=APP_DATA_POLICY_DISABLED，不自动恢复。collections[] 含集合定义版本 revision、recordSchema、indexes、indexStatus（索引就绪状态）与 ttl；App 读取集合结构只用此接口。collections[].createCapability 按当前员工的真实新增规则给出 allowed、独立可写输入 schema 和版本绑定；不能用通用 record:write 或 read schema 猜测新增。limits 给出 count、总数、queryBatch、get、订阅、TTL、并发名额与幂等窗口等边界，供客户端自适应。提示不是授权凭证，写入与 replay 仍实时校验。身份只取自服务端认证，不接受 App ID 或发行人用户参数，不返回凭据。",
+        "description": "仅当前受管理 App 凭证可用；返回真实 App 名称和当前授权集合与 Key 权限的交集。新 App 尚无数据策略时正常返回 dataState=uninitialized、revision=0 和空集合，不创建策略或授予数据权限；按实际集合声明调用 appCollectionsEnsure 后为 ready。已有策略被管理员停用时返回 403，reason=APP_DATA_POLICY_DISABLED，不自动恢复。collections[] 含集合定义版本 revision、recordSchema、indexes、indexStatus（索引就绪状态）与 ttl；自有与授权来的集合都给出 ownerAppId（工作区集合省略）、name、description 与 directoryPath（自工作区根开始的目录名，与 appCollectionsEnsure 同形）；App 读取集合结构只用此接口。collections[].createCapability 按当前员工的真实新增规则给出 allowed、独立可写输入 schema 和版本绑定；不能用通用 record:write 或 read schema 猜测新增。limits 给出 count、总数、queryBatch、get、订阅、TTL、并发名额与幂等窗口等边界，供客户端自适应。提示不是授权凭证，写入与 replay 仍实时校验。身份只取自服务端认证，不接受 App ID 或发行人用户参数，不返回凭据。",
         "x-tier0-audience": "app",
         "x-tier0-starter": true,
         "x-tier0-readonly": true,
@@ -7384,11 +7210,19 @@
                   },
                   "platformPermissions": {
                     "type": "array",
-                    "maxItems": 5,
+                    "maxItems": 12,
                     "uniqueItems": true,
+                    "description": "Hosted App platform permissions: the App definition allowlist (openapi.base, platform.users.read, notifications.*, asset.file.*, stream.requests.*) plus stream.messages.* for messageTopics. Additions only change the draft; Owner/Admin approval decides what App credentials can use.",
                     "items": {
                       "type": "string",
                       "enum": [
+                        "openapi.base",
+                        "platform.users.read",
+                        "notifications.send",
+                        "notifications.read",
+                        "asset.file.upload",
+                        "asset.file.download",
+                        "asset.file.delete",
                         "stream.requests.read",
                         "stream.requests.invoke",
                         "stream.requests.write",
@@ -7551,7 +7385,11 @@
                         "path": "status"
                       }
                     ],
-                    "name": "生产工单"
+                    "name": "生产工单",
+                    "directoryPath": [
+                      "示例工厂",
+                      "生产车间"
+                    ]
                   }
                 ]
               }
@@ -7618,7 +7456,7 @@
         "tags": [
           "App 与授权"
         ],
-        "description": "仅平台签发的 App Key（app/internal/full_access，非 MCP、无员工委托）可用。批量声明本 App 的集合：不存在则在 App 专属目录下创建并同事务授予 record:read/write（Key 有 uns.delete 时加 record:delete）；已存在时按 join 只加宽、永不收窄，索引取并集；不写注解（title/description/unit 与集合说明只在创建时写入，之后用 schema:replace 修改）。指向本 App 已归档 / 已硬删集合的失效授权在同一事务内替换。整批一个事务，任一类型冲突、join 结果不能加宽当前结构、或加宽会破坏员工数据规则字段时整批不改并返回 409 SCHEMA_CONFLICT（data.conflicts）。管理员撤销授权后返回 403 APP_GRANT_REVOKED，不自动补回。超出每 App 配额（集合 64、索引 64）返回 409 APP_QUOTA_EXCEEDED，超出工作空间索引配额（按物理存在、未退休的索引计）返回 409 INDEX_QUOTA_EXCEEDED。平台正在回收（App 删除）或清空（预览重置）本 App 的集合时，新建、加宽或清理失效授权返回可重试的 503 TEMPORARILY_UNAVAILABLE（data.reason=COLLECTION_TEARDOWN_IN_PROGRESS，data.operation=reclaim/purge），全部 unchanged 时仍正常返回。dryRun=true 只计算。",
+        "description": "仅平台签发的 App Key（app/internal/full_access，非 MCP、无员工委托）可用。批量声明本 App 的集合：不存在则在 App 专属目录下创建并同事务授予 record:read/write（Key 有 uns.delete 时加 record:delete）；已存在时按 join 只加宽、永不收窄，索引取并集；不写注解（title/description/unit 与集合说明只在创建时写入，之后用 schema:replace 修改）。指向本 App 已归档 / 已硬删集合的失效授权在同一事务内替换。整批一个事务，任一类型冲突、join 结果不能加宽当前结构、或加宽会破坏员工数据规则字段时整批不改并返回 409 SCHEMA_CONFLICT（data.conflicts）。管理员撤销授权后返回 403 APP_GRANT_REVOKED，不自动补回。超出每 App 配额（集合 64、索引 64）返回 409 APP_QUOTA_EXCEEDED，超出工作空间索引配额（按物理存在、未退休的索引计）返回 409 INDEX_QUOTA_EXCEEDED。平台正在回收（App 删除）或清空（预览重置）本 App 的集合时，新建、加宽或清理失效授权返回可重试的 503 TEMPORARILY_UNAVAILABLE（data.reason=COLLECTION_TEARDOWN_IN_PROGRESS，data.operation=reclaim/purge），全部 unchanged 时仍正常返回。本 App 没有该 alias 的自有集合、但恰好一条授权的 alias 相同且指向未归档的非自有集合时按借用解析：声明被已存储的结构与索引覆盖时返回该 collectionId 与 status=unchanged；需要加宽结构、新增索引或加大 TTL 时返回 409 SCHEMA_CONFLICT（reason=SHARED_SCHEMA_READONLY），类型冲突仍报 TYPE_CONFLICT，缩短 TTL 报 TTL_REQUIRES_REPLACE。借用的集合不加宽、不建索引，也不计入本 App 配额。授权带员工数据规则等 dataAppContext 不展示该集合时，结果不透出字段：indexStatus 为空，带字段路径的说明不返回，带路径的冲突统一报 SHARED_SCHEMA_READONLY 且不带路径与类型。dryRun=true 只计算。",
         "x-tier0-audience": "app",
         "x-tier0-starter": true,
         "x-tier0-readonly": false,
@@ -7825,7 +7663,7 @@
         "tags": [
           "App 与授权"
         ],
-        "description": "仅平台签发的 App Key 可用，只作用于本 App 自有（ownerAppId）的集合：同事务给未删除记录打归档墓碑、归档集合、删除 App 授权并退休非唯一索引（唯一索引保留，恢复时约束始终有效）。单次最多 2000 条未删除记录，超过返回 409 COLLECTION_TOO_LARGE；每 App 最多保留 64 个已归档集合，超过返回 409 APP_QUOTA_EXCEEDED。被 Topic、Source / Stream 当前配置或生效 Stream 的执行 / 采集计划引用时返回 409 REFERENCED。平台正在回收（App 删除）或清空（预览重置）本 App 的集合时返回可重试的 503 TEMPORARILY_UNAVAILABLE（data.reason=COLLECTION_TEARDOWN_IN_PROGRESS，data.operation=reclaim/purge）。记录保留，可用 restore 恢复。",
+        "description": "仅平台签发的 App Key 可用，只作用于本 App 自有（ownerAppId）的集合：同事务归档集合并删除调用 App 的集合授权，保留 Record/Sample 与查询索引，不逐条打墓碑。新归档不受记录数上限限制；每 App 最多保留 64 个已归档集合，超过返回 409 APP_QUOTA_EXCEEDED。Topic、Source / Stream 等引用不阻止归档，引用方配置保留；未撤销的既有授权可读历史，写入拒绝。平台正在回收（App 删除）或清空（预览重置）本 App 的集合时返回可重试的 503 TEMPORARILY_UNAVAILABLE（data.reason=COLLECTION_TEARDOWN_IN_PROGRESS，data.operation=reclaim/purge）。restore 恢复集合状态；此前独立删除的记录保持原状态。",
         "x-tier0-audience": "platform",
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
@@ -7907,7 +7745,7 @@
         "tags": [
           "App 与授权"
         ],
-        "description": "仅平台签发的 App Key 可用：恢复该 alias 最近归档的本 App 集合及其归档那批记录（最多 2000 条，超过 409 COLLECTION_TOO_LARGE），重新授权（复用仍指向它的授权）并调度索引；唯一约束冲突时整体回滚返回 409 DUPLICATE_KEY。同名集合已被 ensure 重建时返回 409 DUPLICATE（data.activeCollectionId），需先归档当前集合。平台正在回收（App 删除）或清空（预览重置）本 App 的集合时返回可重试的 503 TEMPORARILY_UNAVAILABLE（data.reason=COLLECTION_TEARDOWN_IN_PROGRESS，data.operation=reclaim/purge）。",
+        "description": "仅平台签发的 App Key 可用：恢复该 alias 最近归档的本 App 集合，重新授权（复用仍指向它的授权）并复用保留的索引，不重写记录。仅旧 recordsArchivedAt 墓碑按原批次恢复记录（最多 2000 条，超过 409 COLLECTION_TOO_LARGE）；唯一约束冲突时整体回滚返回 409 DUPLICATE_KEY。同名集合已被 ensure 重建时返回 409 DUPLICATE（data.activeCollectionId），需先归档当前集合。平台正在回收（App 删除）或清空（预览重置）本 App 的集合时返回可重试的 503 TEMPORARILY_UNAVAILABLE（data.reason=COLLECTION_TEARDOWN_IN_PROGRESS，data.operation=reclaim/purge）。",
         "x-tier0-audience": "platform",
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
@@ -11102,7 +10940,7 @@
         "tags": [
           "元数据管理"
         ],
-        "description": "软删除有效对象，执行引用和子节点校验，不级联清除 Record/Sample。",
+        "description": "软删除将对象移入回收站；删除目录时原子回收整棵有效子树。引用不阻止删除，引用方配置和 Record/Sample 保留；回收期间历史数据按既有授权可读，禁止写入。",
         "x-tier0-audience": "builder",
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
@@ -11379,7 +11217,7 @@
         "tags": [
           "元数据管理"
         ],
-        "description": "显式 kind 内条件批量操作。整批原子；匹配数超过 maxDocs 整体拒绝。不同对象需要独立 revision 时使用 bulkWrite。",
+        "description": "显式 kind 内条件批量操作。整批原子；匹配数超过 maxDocs 整体拒绝。不同对象需要独立 revision 时使用 bulkWrite。软删除将对象移入回收站；删除目录时原子回收整棵有效子树。引用不阻止删除，引用方配置和 Record/Sample 保留；回收期间历史数据按既有授权可读，禁止写入。",
         "x-tier0-audience": "builder",
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
@@ -11506,11 +11344,140 @@
         "tags": [
           "元数据管理"
         ],
-        "description": "整批原子恢复，复验当前名称、父目录和引用，revision 递增；不隐式恢复依赖。",
+        "description": "整批原子恢复，复验当前名称、父目录和引用，revision 递增；恢复目录时仅恢复同一删除批次的子树，批次子节点需随目录恢复；不隐式恢复其他依赖。",
         "x-tier0-audience": "builder",
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
+      }
+    },
+    "/uns/metadata:purge": {
+      "post": {
+        "operationId": "UnsV2MetadataPurge",
+        "summary": "永久删除回收站中的集合",
+        "deprecated": false,
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "collection"
+                    ]
+                  },
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "minItems": 1,
+                    "maxItems": 200,
+                    "uniqueItems": true
+                  },
+                  "dryRun": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "true 仅校验；false 执行写入。"
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "可选幂等键；重试同一请求时复用，相同键不得用于不同请求。"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "ids"
+                ]
+              },
+              "example": {
+                "kind": "collection",
+                "ids": [
+                  "retired-work-orders"
+                ],
+                "idempotencyKey": "purge-retired-work-orders"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "操作结果。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocUnsV2MetadataPurgeResponse"
+                },
+                "example": {
+                  "code": 200,
+                  "msg": "success",
+                  "requestId": "request-id",
+                  "data": {
+                    "status": "committed",
+                    "replayed": false,
+                    "results": [
+                      {
+                        "opId": "item-0",
+                        "action": "meta.purge",
+                        "kind": "metadata",
+                        "id": "example-id",
+                        "revision": 1,
+                        "status": "updated"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocCommonError"
+                },
+                "example": {
+                  "code": 422,
+                  "msg": "请求参数不合法",
+                  "requestId": "request-id",
+                  "data": null,
+                  "error": {
+                    "code": "INVALID_REQUEST",
+                    "reason": "filter.status must be a string",
+                    "details": [],
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "元数据管理"
+        ],
+        "description": "仅接受当前工作空间回收站中的 Collection 明确 ID，最多 200 项；一项与批量共用同一操作。正式调用返回 accepted/jobId，由 jobs 查询逐项完成结果；accepted 不代表已永久删除。各集合独立清理，单项失败不回滚已完成项目。删除全部 Record（含已软删除记录）、Sample、集合元数据并撤销指向集合的 App 授权，索引由后台继续回收。保留 Topic/Source/Stream 等引用方，引用是影响而不是阻止条件，其数据访问返回目标不存在。清理开始后不可恢复；任务中断可续做，同键重试不重新选择已完成目标。dryRun 可选，只验证目标，不创建任务或删除数据；不需要前置预检、force 或确认凭证。清空已删除集合时先固定当前目标 ID，再分批调用，不包含 Directory/Topic。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
+        "x-tier0-readonly": false,
+        "x-tier0-destructive": true
       }
     },
     "/uns/metadata:bulkWrite": {
@@ -11820,6 +11787,204 @@
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": true
+      }
+    },
+    "/uns/edges/list": {
+      "post": {
+        "operationId": "UnsV2EdgeNodesList",
+        "summary": "发现当前工作区的 Edge",
+        "deprecated": false,
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "page": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000,
+                    "default": 1
+                  },
+                  "size": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "default": 20
+                  },
+                  "keyword": {
+                    "type": "string",
+                    "maxLength": 128
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "unjoined",
+                      "online",
+                      "offline"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "查询结果。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocUnsV2EdgeNodesListResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocCommonError"
+                },
+                "example": {
+                  "code": 422,
+                  "msg": "请求参数不合法",
+                  "requestId": "request-id",
+                  "data": null,
+                  "error": {
+                    "code": "INVALID_REQUEST",
+                    "reason": "filter.status must be a string",
+                    "details": [],
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "接口能力"
+        ],
+        "description": "中心只读接口，不携带 X-Fleet-Node-Id。按 page/size 分页，可按 keyword、status 过滤。仅返回节点 ID、名称、说明及基础设施状态，不返回凭据、会话或宿主机信息。普通具有 uns.read 的工作区身份可发现；App 绑定身份不可用。使用 X-Fleet-Node-Id 读取目标 catalog、Source、Stream、Collection 和业务数据。云端 Stream 通过 protocol=edge 引用原生 Source：Modbus TCP 支持按需读取，MQTT 和 OPC UA 支持 Edge 自主持续采集及 source-event 订阅。绑定声明采集需求，连接凭据留在 Edge；相同需求共享 Watch，各消费者独立取消。runtime.edgeSubscriptions 区分采集、连接和数据状态；lastCloudDataAt 表示持久 capture，不等于 Collection 提交。短时恢复受 120 秒租约、每消费者 256 条/1 MiB 内存缓存限制，满后丢最旧事件并报告 dropped，不保证进程重启补传或端到端恰好一次。接入保留 Source、Stream 权限、资源授权和配置版本校验，不要求业务读取消费额外拥有 Fleet 运维权限。",
+        "x-tier0-readonly": true,
+        "x-tier0-destructive": false
+      }
+    },
+    "/uns/sources/documents/state/update": {
+      "post": {
+        "operationId": "UnsV2SourceDocumentStateUpdate",
+        "summary": "Update native Edge Source enabled state",
+        "deprecated": false,
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "dryRun",
+                  "id",
+                  "expectedRevision",
+                  "desiredState"
+                ],
+                "properties": {
+                  "dryRun": {
+                    "type": "boolean",
+                    "description": "true 仅校验；false 执行写入。"
+                  },
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$",
+                    "maxLength": 19
+                  },
+                  "expectedRevision": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "desiredState": {
+                    "type": "string",
+                    "enum": [
+                      "enabled",
+                      "disabled"
+                    ]
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "可选幂等键；重试同一请求时复用，相同键不得用于不同请求。"
+                  },
+                  "confirmedImpactRevision": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "操作结果。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocUnsV2SourceDocumentStateUpdateResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocCommonError"
+                },
+                "example": {
+                  "code": 422,
+                  "msg": "请求参数不合法",
+                  "requestId": "request-id",
+                  "data": null,
+                  "error": {
+                    "code": "INVALID_REQUEST",
+                    "reason": "filter.status must be a string",
+                    "details": [],
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "数据源"
+        ],
+        "description": "Requires X-Fleet-Node-Id and Source management permission. Read the target Source revision first; submit dryRun, id, expectedRevision and desiredState (enabled or disabled). Keep any required dependency impact confirmation and a stable idempotency key. The Edge performs final permission and version checks. Requests without a target fail before dispatch; this does not modify center Sources.",
+        "x-tier0-readonly": false,
+        "x-tier0-destructive": false
       }
     },
     "/info": {
@@ -15536,6 +15701,25 @@
             ],
             "nullable": true,
             "description": "集合的 TTL 规则；没有时为 null。"
+          },
+          "ownerAppId": {
+            "type": "string",
+            "description": "集合所属 App；与当前 appId 相同为自有集合，不同为其他 App 授权来的集合；工作区集合省略。"
+          },
+          "name": {
+            "type": "string",
+            "description": "集合业务名称。"
+          },
+          "description": {
+            "type": "string",
+            "description": "集合说明；为空时省略。"
+          },
+          "directoryPath": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "集合所在目录自工作区根开始的目录名，与 appCollectionsEnsure 的 directoryPath 同形；集合在根下时为 []。"
           }
         },
         "required": [
@@ -15545,7 +15729,9 @@
           "recordSchema",
           "revision",
           "indexStatus",
-          "ttl"
+          "ttl",
+          "name",
+          "directoryPath"
         ],
         "type": "object"
       },
@@ -20066,7 +20252,7 @@
           "name": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 63
           },
           "description": {
             "type": "string",
@@ -21466,9 +21652,6 @@
           "document": {
             "$ref": "#/components/schemas/CloudSourceDocument"
           },
-          "desiredState": {
-            "type": "string"
-          },
           "runtimeState": {
             "type": "string"
           },
@@ -21490,7 +21673,6 @@
           "id",
           "revision",
           "document",
-          "desiredState",
           "runtimeState",
           "health",
           "createdAt",
@@ -21589,9 +21771,6 @@
           "protocol": {
             "type": "string"
           },
-          "desiredState": {
-            "type": "string"
-          },
           "runtimeState": {
             "type": "string"
           },
@@ -21621,7 +21800,6 @@
           "name",
           "description",
           "protocol",
-          "desiredState",
           "runtimeState",
           "health",
           "createdAt",
@@ -21896,11 +22074,19 @@
           },
           "platformPermissions": {
             "type": "array",
-            "maxItems": 5,
+            "maxItems": 12,
             "uniqueItems": true,
+            "description": "Hosted App platform permissions: the App definition allowlist (openapi.base, platform.users.read, notifications.*, asset.file.*, stream.requests.*) plus stream.messages.* for messageTopics. Additions only change the draft; Owner/Admin approval decides what App credentials can use.",
             "items": {
               "type": "string",
               "enum": [
+                "openapi.base",
+                "platform.users.read",
+                "notifications.send",
+                "notifications.read",
+                "asset.file.upload",
+                "asset.file.download",
+                "asset.file.delete",
                 "stream.requests.read",
                 "stream.requests.invoke",
                 "stream.requests.write",
@@ -22099,6 +22285,17 @@
             "type": "string",
             "maxLength": 512,
             "description": "集合说明，只在创建时写入；之后修改须用 schema:replace（ensure 不写注解，差异以 ANNOTATION_NOT_APPLIED 列在 ignored）。"
+          },
+          "directoryPath": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 16,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 63
+            },
+            "description": "从 Workspace 根开始的真实业务目录名称路径。新 alias 必填；既有 alias 可省略，声明路径变化只返回 ignored，不移动集合。按父目录和名称逐级复用存活目录，缺失则原子创建；归档或非目录同名冲突拒绝，不恢复目录、不更改额外权限。工业数据优先按 ISA-95 Enterprise → Site → Area → Work Center → Work Unit，只声明业务已知且有意义的层级，可跳过不适用层级；非工业业务使用真实业务层级，不机械补齐五级。允许在真实设备作用范围下增加 MES、App 或业务模块目录，例如 工厂/产线/MES/工单；禁止的是把不同设备范围的数据统一放进根目录 App 容器。"
           }
         },
         "required": [
@@ -25324,7 +25521,7 @@
           "name": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 128
+            "maxLength": 63
           },
           "description": {
             "type": "string",
@@ -25373,9 +25570,6 @@
           "protocol": {
             "type": "string"
           },
-          "desiredState": {
-            "type": "string"
-          },
           "runtimeState": {
             "type": "string"
           },
@@ -25396,7 +25590,6 @@
           "updatedAt",
           "redacted",
           "protocol",
-          "desiredState",
           "runtimeState",
           "health"
         ]
@@ -26563,108 +26756,6 @@
           "data"
         ]
       },
-      "DocUnsV2SourceStateUpdateResult": {
-        "additionalProperties": false,
-        "properties": {
-          "opId": {
-            "type": "string",
-            "description": "输入项标识，用于关联原请求。"
-          },
-          "action": {
-            "type": "string",
-            "enum": [
-              "meta.resourcePatch"
-            ]
-          },
-          "id": {
-            "type": "string",
-            "description": "对象 ID（字符串），从发现或读取接口取得；不要把名称当成 ID。"
-          },
-          "status": {
-            "description": "该输入项的执行状态。",
-            "type": "string"
-          },
-          "kind": {
-            "type": "string"
-          },
-          "revision": {
-            "type": "integer"
-          },
-          "error": {
-            "$ref": "#/components/schemas/DocItemFault"
-          }
-        },
-        "required": [
-          "opId",
-          "action",
-          "id",
-          "status"
-        ],
-        "type": "object"
-      },
-      "DocUnsV2SourceStateUpdateOutcome": {
-        "additionalProperties": false,
-        "properties": {
-          "jobId": {
-            "type": "string"
-          },
-          "replayed": {
-            "type": "boolean"
-          },
-          "results": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DocUnsV2SourceStateUpdateResult"
-            }
-          },
-          "status": {
-            "description": "本次操作的执行状态。",
-            "enum": [
-              "committed",
-              "validated",
-              "accepted",
-              "partiallyCommitted",
-              "failed",
-              "unknown",
-              "validationFailed"
-            ],
-            "type": "string"
-          },
-          "summary": {
-            "$ref": "#/components/schemas/OutcomeSummary",
-            "description": "仅部分提交时返回的逐项执行汇总。"
-          }
-        },
-        "required": [
-          "status",
-          "replayed"
-        ],
-        "type": "object"
-      },
-      "DocUnsV2SourceStateUpdateResponse": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "code": {
-            "type": "integer"
-          },
-          "msg": {
-            "type": "string"
-          },
-          "requestId": {
-            "type": "string"
-          },
-          "data": {
-            "$ref": "#/components/schemas/DocUnsV2SourceStateUpdateOutcome"
-          }
-        },
-        "required": [
-          "code",
-          "msg",
-          "requestId",
-          "data"
-        ]
-      },
       "DocUnsV2SourceRuntimeGetResponse": {
         "type": "object",
         "additionalProperties": false,
@@ -26689,13 +26780,6 @@
               },
               "revision": {
                 "type": "integer"
-              },
-              "desiredState": {
-                "type": "string",
-                "enum": [
-                  "enabled",
-                  "disabled"
-                ]
               },
               "state": {
                 "type": "object",
@@ -26790,7 +26874,6 @@
             "required": [
               "sourceId",
               "revision",
-              "desiredState",
               "state"
             ]
           }
@@ -28976,8 +29059,6 @@
                 "type": "string",
                 "enum": [
                   "update",
-                  "enable",
-                  "disable",
                   "delete"
                 ]
               },
@@ -31075,6 +31156,108 @@
           "data"
         ]
       },
+      "DocUnsV2MetadataPurgeResult": {
+        "additionalProperties": false,
+        "properties": {
+          "opId": {
+            "type": "string",
+            "description": "输入项标识，用于关联原请求。"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "meta.purge"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "description": "对象 ID（字符串），从发现或读取接口取得；不要把名称当成 ID。"
+          },
+          "status": {
+            "description": "该输入项的执行状态。",
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "error": {
+            "$ref": "#/components/schemas/DocItemFault"
+          }
+        },
+        "required": [
+          "opId",
+          "action",
+          "id",
+          "status"
+        ],
+        "type": "object"
+      },
+      "DocUnsV2MetadataPurgeOutcome": {
+        "additionalProperties": false,
+        "properties": {
+          "jobId": {
+            "type": "string"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DocUnsV2MetadataPurgeResult"
+            }
+          },
+          "status": {
+            "description": "本次操作的执行状态。",
+            "enum": [
+              "committed",
+              "validated",
+              "accepted",
+              "partiallyCommitted",
+              "failed",
+              "unknown",
+              "validationFailed"
+            ],
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/OutcomeSummary",
+            "description": "仅部分提交时返回的逐项执行汇总。"
+          }
+        },
+        "required": [
+          "status",
+          "replayed"
+        ],
+        "type": "object"
+      },
+      "DocUnsV2MetadataPurgeResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DocUnsV2MetadataPurgeOutcome"
+          }
+        },
+        "required": [
+          "code",
+          "msg",
+          "requestId",
+          "data"
+        ]
+      },
       "DocUnsV2MetadataBulkWriteResponse": {
         "type": "object",
         "additionalProperties": false,
@@ -31442,6 +31625,122 @@
           "requestId",
           "data"
         ]
+      },
+      "DocUnsV2EdgeNodesListResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "msg",
+          "requestId",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "list",
+              "total",
+              "page",
+              "size"
+            ],
+            "properties": {
+              "list": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "fleetNodeId",
+                    "name",
+                    "description",
+                    "status",
+                    "lastOnlineAt",
+                    "lastOfflineAt"
+                  ],
+                  "properties": {
+                    "fleetNodeId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "description": "Use this exact string as X-Fleet-Node-Id for native UNS calls."
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "unjoined",
+                        "online",
+                        "offline"
+                      ]
+                    },
+                    "lastOnlineAt": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "lastOfflineAt": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                }
+              },
+              "total": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "page": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "size": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          }
+        }
+      },
+      "DocUnsV2SourceDocumentStateUpdateResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "msg",
+          "requestId",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Native Edge Source result; inspect the target catalog for its exact versioned response."
+          }
+        }
       },
       "PlatformAgentAnalysisDispatchReq": {
         "properties": {
@@ -32652,6 +32951,10 @@
             },
             "type": "array"
           },
+          "scope": {
+            "description": "draft：按草稿角色计算；production 或不传：按线上版本计算",
+            "type": "string"
+          },
           "size": {
             "type": "integer"
           }
@@ -33340,6 +33643,77 @@
             }
           }
         },
+        "allOf": [
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "product": {
+                          "enum": [
+                            "cloud"
+                          ]
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  {
+                    "properties": {
+                      "capabilities": {
+                        "items": {
+                          "allOf": [
+                            {
+                              "anyOf": [
+                                {
+                                  "not": {
+                                    "properties": {
+                                      "code": {
+                                        "enum": [
+                                          "source"
+                                        ]
+                                      }
+                                    },
+                                    "type": "object"
+                                  }
+                                },
+                                {
+                                  "properties": {
+                                    "operations": {
+                                      "items": {
+                                        "properties": {
+                                          "operation": {
+                                            "not": {
+                                              "enum": [
+                                                "enable",
+                                                "disable"
+                                              ]
+                                            }
+                                          }
+                                        },
+                                        "type": "object"
+                                      },
+                                      "type": "array"
+                                    }
+                                  },
+                                  "type": "object"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "type": "object"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
         "description": "OpenAPI 3.0 wire schema. Array contains/cardinality annotations and cross-field proof ordering require the shared JSON Schema plus SDK semantic checks; this projection alone is not full contract acceptance.",
         "x-tier0-json-schema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -34133,7 +34507,58 @@
               ],
               "description": "State reports publication and assessed prerequisites only; ready never grants resource access or confirms an actual execution."
             }
-          }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "product": {
+                    "const": "cloud"
+                  }
+                },
+                "type": "object"
+              },
+              "then": {
+                "properties": {
+                  "capabilities": {
+                    "items": {
+                      "if": {
+                        "properties": {
+                          "code": {
+                            "const": "source"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "then": {
+                        "properties": {
+                          "operations": {
+                            "items": {
+                              "properties": {
+                                "operation": {
+                                  "not": {
+                                    "enum": [
+                                      "enable",
+                                      "disable"
+                                    ]
+                                  }
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "type": "object"
+                      }
+                    },
+                    "type": "array"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          ]
         }
       },
       "PlatformCapabilityErrorResp": {
@@ -34166,6 +34591,12 @@
       },
       "PlatformGetNotificationResp": {
         "properties": {
+          "channels": {
+            "items": {
+              "$ref": "#/components/schemas/PlatformNotificationChannelResult"
+            },
+            "type": "array"
+          },
           "completedAt": {
             "type": "string"
           },
@@ -34192,7 +34623,8 @@
           "messageId",
           "type",
           "status",
-          "createdAt"
+          "createdAt",
+          "channels"
         ],
         "type": "object"
       },
@@ -34293,6 +34725,40 @@
         ],
         "type": "object"
       },
+      "PlatformNotificationChannelResult": {
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "errorCode": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "status": {
+            "description": "sent / failed / no_device / not_configured / accepted / pending；accepted 仅 inbox（站内信已受理，仍在处理）；pending 表示请求了该渠道但推送还在处理中，尚无最终结果",
+            "type": "string"
+          },
+          "successCount": {
+            "type": "integer"
+          },
+          "targetCount": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "channel",
+          "platform",
+          "status",
+          "targetCount",
+          "successCount"
+        ],
+        "type": "object"
+      },
       "PlatformNotificationSender": {
         "properties": {
           "id": {
@@ -34311,7 +34777,7 @@
             "type": "string"
           },
           "type": {
-            "description": "枚举 app/other/system，缺省 other；system=平台内部服务，仅 usage_type=internal 的 API key 可用（否则 400），建信归 workspace 分组（System tab）",
+            "description": "枚举 app/other/system，缺省 other；system 仅平台内部发送方（如 UNS Agent）可用；App 凭证不能使用 system，sender.type=app 时 sender.id 以凭证绑定的 App 为准；只有 App 绑定凭证或平台 App 凭证发出的 type=app 才会作为 App 展示，其他 Key 自报 type=app 会被降级为 other，接口照常返回成功；建信归 workspace 分组（System tab）",
             "type": "string",
             "enum": [
               "app",
@@ -34502,6 +34968,7 @@
             "type": "array"
           },
           "content": {
+            "description": "纯文本，含 HTML 标签会被拒绝（400）",
             "type": "string"
           },
           "idempotencyKey": {
@@ -34524,6 +34991,7 @@
             "type": "string"
           },
           "title": {
+            "description": "纯文本，含 HTML 标签会被拒绝（400）",
             "type": "string"
           },
           "type": {

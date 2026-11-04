@@ -1185,6 +1185,23 @@
       "acquisitionSchema": {
         "additionalProperties": false,
         "properties": {
+          "nodeIds": {
+            "items": {
+              "maxLength": 1023,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "qos": {
+            "default": 0,
+            "maximum": 2,
+            "minimum": 0,
+            "type": "integer"
+          },
           "ranges": {
             "items": {
               "additionalProperties": false,
@@ -1267,11 +1284,24 @@
             "maxItems": 128,
             "minItems": 1,
             "type": "array"
+          },
+          "samplingIntervalMs": {
+            "maximum": 60000,
+            "minimum": 100,
+            "type": "integer"
+          },
+          "topicFilters": {
+            "items": {
+              "maxLength": 1024,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
           }
         },
-        "required": [
-          "ranges"
-        ],
         "type": "object"
       },
       "configSchema": {
@@ -1291,8 +1321,11 @@
                 "type": "integer"
               },
               "protocol": {
-                "const": "modbus",
-                "default": "modbus",
+                "enum": [
+                  "modbus",
+                  "mqtt",
+                  "opcua"
+                ],
                 "type": "string"
               }
             },
@@ -1310,9 +1343,10 @@
         "type": "object"
       },
       "credentialKinds": [],
-      "name": "Edge Source (Modbus TCP)",
+      "name": "Edge Source",
       "operations": [
-        "read"
+        "read",
+        "receive"
       ],
       "protocol": "edge"
     }

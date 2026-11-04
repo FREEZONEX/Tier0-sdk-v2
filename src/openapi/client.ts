@@ -239,6 +239,12 @@ export class HttpClient {
       if (!Array.isArray(channels) || channels.some(c => c !== 'web' && c !== 'mobile')) throw new TypeError('Notification channels must be web or mobile');
       body = { ...body, channels: [...new Set(channels)] };
     }
+    if (path === '/openapi/v2/apps/access-members/list' && record(body) && body.scope === undefined) {
+      // The platform injects TIER0_RUNTIME: a Builder preview lists the draft roles, a deployment the production version.
+      const runtime = getEnvVar('TIER0_RUNTIME');
+      const scope = runtime === 'preview' ? 'draft' : runtime === 'deployed' ? 'production' : undefined;
+      if (scope) body = { ...body, scope };
+    }
     const serialized = operation.method === 'GET' ? undefined : encodeUnsV2JSON(body, operation.requestSchema ?? 'V1_Empty');
     const response = await this.exchange(path, { method: operation.method, body: serialized }, options, !operation.readonly);
     let value: unknown;

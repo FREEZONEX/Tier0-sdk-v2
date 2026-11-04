@@ -1,13 +1,13 @@
 {
   "operations": [
     {
-      "name": "sourceMqttAuthCreate",
+      "name": "sourceDocumentStateUpdate",
       "permission": "uns.source.manage",
       "scope": "source:manage",
       "minPermission": 3
     },
     {
-      "name": "sourceStateUpdate",
+      "name": "sourceMqttAuthCreate",
       "permission": "uns.source.manage",
       "scope": "source:manage",
       "minPermission": 3
@@ -236,14 +236,14 @@
     },
     {
       "name": "appStreamPolicyGet",
-      "permission": "stream.requests.manage",
-      "scope": "stream.requests:manage",
+      "permission": "uns.write",
+      "scope": "uns:update",
       "minPermission": 3
     },
     {
       "name": "appStreamPolicyUpdate",
-      "permission": "stream.requests.manage",
-      "scope": "stream.requests:manage",
+      "permission": "uns.write",
+      "scope": "uns:update",
       "minPermission": 3
     },
     {

@@ -6,16 +6,19 @@
 
 目录、集合和主题使用现有 name 填写易读的真实业务名称，语言遵循用户偏好和已有术语；不要用程序 alias、随机串或 ID 代替名称，不提供 displayName 或名称回退。name 为 1–63 个 Unicode 字符，无首尾空白，不含 `/` 或空字符；同目录重名时选择明确的业务名称，不自动拼接随机后缀。工业目录按[命名空间](namespace.md)指导复用已有 ISA-95 设备层级，只创建业务已知的层级，非工业业务不强套工厂结构；修改既有名称须有用户授权，不借整理名称改写 ID、alias、权限或移动数据。
 
+下例传入已查询确认的父目录 ID；只有业务位置确实在根目录时才传 `null`。
+
 ```ts
 import { createClient, type Tier0Client, type UnsV2Request } from '@tier0/sdk-v2';
 
 export async function createDeviceCollection(
-  collectionId: string, name: string, intentKey: string, client: Tier0Client = createClient(),
+  collectionId: string, name: string, parentId: string | null,
+  intentKey: string, client: Tier0Client = createClient(),
 ) {
   const request: UnsV2Request<'metadataInsertOne'> = {
     kind: 'collection', id: collectionId,
     data: {
-      name, parentId: null,
+      name, parentId,
       recordSchema: {
         type: 'object', additionalProperties: false, required: ['name', 'enabled'],
         properties: { name: { type: 'string' }, enabled: { type: 'boolean' } },

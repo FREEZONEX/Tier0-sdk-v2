@@ -1069,6 +1069,77 @@
             }
           }
         },
+        "allOf": [
+          {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "not": {
+                      "properties": {
+                        "product": {
+                          "enum": [
+                            "cloud"
+                          ]
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  {
+                    "properties": {
+                      "capabilities": {
+                        "items": {
+                          "allOf": [
+                            {
+                              "anyOf": [
+                                {
+                                  "not": {
+                                    "properties": {
+                                      "code": {
+                                        "enum": [
+                                          "source"
+                                        ]
+                                      }
+                                    },
+                                    "type": "object"
+                                  }
+                                },
+                                {
+                                  "properties": {
+                                    "operations": {
+                                      "items": {
+                                        "properties": {
+                                          "operation": {
+                                            "not": {
+                                              "enum": [
+                                                "enable",
+                                                "disable"
+                                              ]
+                                            }
+                                          }
+                                        },
+                                        "type": "object"
+                                      },
+                                      "type": "array"
+                                    }
+                                  },
+                                  "type": "object"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "type": "array"
+                      }
+                    },
+                    "type": "object"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
         "description": "OpenAPI 3.0 wire schema. Array contains/cardinality annotations and cross-field proof ordering require the shared JSON Schema plus SDK semantic checks; this projection alone is not full contract acceptance.",
         "x-tier0-json-schema": {
           "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -1862,7 +1933,58 @@
               ],
               "description": "State reports publication and assessed prerequisites only; ready never grants resource access or confirms an actual execution."
             }
-          }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "product": {
+                    "const": "cloud"
+                  }
+                },
+                "type": "object"
+              },
+              "then": {
+                "properties": {
+                  "capabilities": {
+                    "items": {
+                      "if": {
+                        "properties": {
+                          "code": {
+                            "const": "source"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "then": {
+                        "properties": {
+                          "operations": {
+                            "items": {
+                              "properties": {
+                                "operation": {
+                                  "not": {
+                                    "enum": [
+                                      "enable",
+                                      "disable"
+                                    ]
+                                  }
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "type": "object"
+                      }
+                    },
+                    "type": "array"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          ]
         }
       },
       "CapabilityDiscoverycapability": {
