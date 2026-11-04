@@ -87,6 +87,8 @@ export interface DataClientConfig extends ClientConfig {
   /** Defaults to "deployed" when NODE_ENV is production, otherwise "preview". */
   environment?: DataEnvironment;
   logger?: Logger;
+  /** Experimental server-backed seed recovery; requires Backend app-seed/1 support. */
+  seedRecovery?: 'app-seed/1';
 }
 
 export interface DataClient {
@@ -131,6 +133,9 @@ export interface DataClient {
 }
 
 export function createDataClient(config: DataClientConfig): DataClient {
+  if (config.seedRecovery !== undefined && config.seedRecovery !== 'app-seed/1') {
+    throw new TypeError('Tier0 SDK: unsupported seed recovery protocol.');
+  }
   if (config.apiKeyProvider !== undefined) {
     throw new TypeError('Tier0 SDK: apiKeyProvider is not supported by createDataClient.');
   }
@@ -147,7 +152,7 @@ export function createDataClient(config: DataClientConfig): DataClient {
     seen.add(key);
   }
 
-  const bootstrap = createBootstrap({ call, collections: declared, environment, logger: config.logger ?? console });
+  const bootstrap = createBootstrap({ call, collections: declared, environment, logger: config.logger ?? console, seedRecovery: config.seedRecovery });
   const runtime = {
     call,
     resolve: async (target: CollectionTarget | string) => {

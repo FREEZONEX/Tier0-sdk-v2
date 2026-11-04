@@ -87,6 +87,8 @@ export interface BootstrapConfig {
   collections: readonly CollectionDefinition[];
   environment: DataEnvironment;
   logger: Logger;
+  /** Explicit experimental durable seed protocol; absence keeps the existing behavior. */
+  seedRecovery?: 'app-seed/1';
   /** Internal only: prepare a server-bound retry for this exact seed operation. */
   prepareSeedRecovery?: (operation: object) => Promise<void>;
 }
@@ -297,6 +299,41 @@ export function createBootstrap(config: BootstrapConfig) {
         return { id, data };
       }));
     }
+    const durableSeedIds = new Map<string, string>();
+    if (config.seedRecovery === 'app-seed/1') {
+      if ([...prepared.values()].some(documents => documents.length > 5 * MAX_ATOMIC_ITEMS)) {
+        throw new RangeError('Tier0 SDK: durable seed supports at most 1000 records per collection.');
+      }
+      // Register before the ordinary ensure creates an untracked collection.
+      // The server binds plans to the authenticated Key and fails closed for
+      // old collections or changed declarations; never fall back to old writes.
+      for (const declaration of payload) {
+        const documents = prepared.get(declaration.alias.toLowerCase());
+        if (!documents?.length) continue;
+        const chunks: { id?: string; data: Record<string, unknown> }[][] = [];
+        for (let start = 0; start < documents.length; start += MAX_ATOMIC_ITEMS) chunks.push(documents.slice(start, start + MAX_ATOMIC_ITEMS));
+        if (chunks.length > 5) throw new RangeError('Tier0 SDK: durable seed supports at most 1000 records per collection.');
+        const result = await call<unknown>('appCollectionsSeedRegister', { declaration, chunks });
+        if (!result || typeof result !== 'object') throw new Error('Tier0 SDK: invalid durable seed registration response.');
+        const plan = result as Record<string, unknown>;
+        if (plan.protocol !== 'app-seed/1' || typeof plan.collectionId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(plan.collectionId) ||
+            typeof plan.planDigest !== 'string' || !/^[a-f0-9]{64}$/.test(plan.planDigest) ||
+            !Number.isInteger(plan.nextChunk) || !Number.isInteger(plan.chunkCount) || plan.chunkCount !== chunks.length ||
+            (plan.nextChunk as number) < 0 || (plan.nextChunk as number) > chunks.length) {
+          throw new Error('Tier0 SDK: invalid durable seed registration response.');
+        }
+        durableSeedIds.set(declaration.alias.toLowerCase(), plan.collectionId);
+        for (let index = plan.nextChunk as number; index < chunks.length; index++) {
+          const applied = await call<unknown>('appCollectionsSeedApply', {
+            collectionId: plan.collectionId, planDigest: plan.planDigest, index, items: chunks[index],
+          });
+          if (!applied || typeof applied !== 'object' || (applied as Record<string, unknown>).protocol !== 'app-seed/1' ||
+              typeof (applied as Record<string, unknown>).replayed !== 'boolean') {
+            throw new Error('Tier0 SDK: invalid durable seed apply response.');
+          }
+        }
+      }
+    }
     const conflicts: EnsureConflict[] = [];
     let remaining = payload;
     let response: { appId?: string; results: EnsureResult[] } = { results: [] };
@@ -333,6 +370,13 @@ export function createBootstrap(config: BootstrapConfig) {
     }
 
     const results = response.results ?? [];
+    for (const [alias, id] of durableSeedIds) {
+      const result = results.find(item => item.alias.toLowerCase() === alias);
+      if (!result || result.collectionId !== id || result.status === 'created') {
+        throw new DataError({ message: 'The seeded collection changed while ensuring declarations.', status: 409,
+          code: 'SEED_RECOVERY_REQUIRED', execution: 'unknown', retry: { safe: false } });
+      }
+    }
     const collectionIds = new Map<string, string>();
     for (const conflict of conflicts) {
       if (conflict.collectionId) collectionIds.set(conflict.alias.toLowerCase(), conflict.collectionId);
@@ -364,7 +408,7 @@ export function createBootstrap(config: BootstrapConfig) {
       }
     }
 
-    await writeSeeds(results, prepared, response.appId);
+    if (config.seedRecovery !== 'app-seed/1') await writeSeeds(results, prepared, response.appId);
 
     const warnings = describeWarnings(results);
     if (warnings) {
