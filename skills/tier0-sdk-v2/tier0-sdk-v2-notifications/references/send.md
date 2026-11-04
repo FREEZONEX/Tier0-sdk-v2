@@ -9,7 +9,7 @@
 | title | string | 是 | 1–50 字符 |
 | content | string | 是 | 1–800 字符 |
 | idempotencyKey | string | 是 | 最多 128 字符；同一次业务事件固定 |
-| mode | test/live | 否 | 不传；平台按来源判定，请求值不生效 |
+| mode | test/live | 否 | 已废弃，不传；平台按来源判定 |
 | channels | array | 否 | SDK 省略补 web+mobile；[] 仅站内信 |
 | sender | object | 否 | app/other；system 仅平台内部服务 Key |
 | link | string | 否 | https:// 或单斜杠开头，最多 500 字符 |
@@ -69,4 +69,4 @@ other 发送者应给人读名称，如 `{type:'other',name:'库存同步服务'
 | 422 CONTENT_LIMIT_EXCEEDED | 缩短内容 |
 | 429 NOTIFICATION_RATE_LIMITED | 有界退避；保留原键，不自动广播重发 |
 
-link 拒绝 //host、反斜杠、Unicode 空白/控制/不可见格式字符。省略 link 不保证无按钮，实际导航还取决于发送者与目标前端。
+link 拒绝 //host、反斜杠、Unicode 空白/控制/不可见格式字符。省略 link 时点开消息不跳转；是否另有打开发送 App 的按钮取决于发送者与目标前端。
