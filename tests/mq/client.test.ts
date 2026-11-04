@@ -307,6 +307,33 @@ describe('Tier0MQClient', () => {
     client.disconnect();
   });
 
+  it.each(['host', 'credential'] as const)(
+    'disconnect clears pending subscriptions after missing %s preflight failure', async (missing) => {
+      if (missing === 'credential') vi.stubEnv('TIER0_API_KEY', undefined);
+      const client = new Tier0MQClient(missing === 'host' ? {} : { host: 'broker' });
+      const errors = vi.fn();
+      const handler = vi.fn();
+      client.on('error', errors);
+      client.subscribe('cancelled', handler);
+      client.unsubscribe('cancelled', handler);
+      client.subscribe('stale', handler);
+      client.disconnect();
+      expect(client.subscribedTopics).toEqual([]);
+
+      const next = client.connect(missing === 'host'
+        ? { host: 'broker' }
+        : { password: 'sk-per-ws1_fixture' });
+      emit('connect');
+      await next;
+      await Promise.resolve();
+      expect(mockMqttClient.subscribe).not.toHaveBeenCalled();
+      expect(errors).not.toHaveBeenCalled();
+      client.subscribe('fresh', handler);
+      expect(mockMqttClient.subscribe).toHaveBeenCalledTimes(1);
+      client.disconnect();
+    },
+  );
+
   it('does not let retired subscription callbacks alter new subscriptions or report errors', async () => {
     const old = lifecycleClient();
     const nextClient = lifecycleClient();

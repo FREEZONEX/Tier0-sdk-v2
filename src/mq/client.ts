@@ -363,8 +363,6 @@ export class Tier0MQClient {
 
   disconnect(): void {
     const generation = ++this.generation;
-    if (!this.client) return;
-
     const client = this.client;
     this.client = null;
     this._connected = false;
@@ -373,6 +371,7 @@ export class Tier0MQClient {
     this.rejectPendingConnect = null;
     this.subscriptions = [];
     rejectPendingConnect?.(new Error('MQTT connection cancelled by disconnect'));
+    if (!client) return;
     client.end(true, () => {
       if (!this.client && this.generation === generation) this.emit('disconnect');
     });
