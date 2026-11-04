@@ -2,7 +2,7 @@
 
 方法：`members.listApp(body)`；POST /openapi/v2/apps/access-members/list。
 
-> 注意：Tier0 App 里经节点代理时当前不可用：代理不转发 `/openapi/v2/apps/access-members/list`，回 404 `sbx_proxy_not_found`；改用 `listWorkspace` 并告知用户。
+> Tier0 App 里经节点代理可用，和 `listWorkspace` 同一套规则：App 的平台权限里要有 `platform.users.read`，没有时回 403（报告配置问题，不改用 Workspace 成员列表代替）；托管 App Key 的响应不带邮箱（`email` 为空字符串），展示用 `userName`。
 
 返回能使用该 App 的有效成员：在 Builder 预览里按当前草稿的角色计算（从没发布过的 App 也一样），部署后按线上版本计算。口径由请求的 `scope` 决定，SDK 按平台注入的 `TIER0_RUNTIME` 自动带上（`preview` → `draft`，`deployed` → `production`）；App 代码不要传 `scope`，也不要在 `.env` 或 `artifact.toml` 里设置 `TIER0_RUNTIME`。`appId` 必填且由调用方显式传入，SDK 不隐式读取 `APP_ID`；查询当前 App 时传 `getCurrentAppId()`。接口只接受 API Key，登录会话不能调用；绑定 App 的凭证只能查自己的 appId，查其他 App 返回 403。
 

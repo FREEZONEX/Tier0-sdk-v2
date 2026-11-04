@@ -33,9 +33,9 @@ describe('Backend App UNS access contract without generic record audit', () => {
         createHash('sha256').update(read(file)).digest('hex')
       );
     }
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(82);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(84);
     expect(UNS_V2_CONTRACT_PROVENANCE.streamOperationCount).toBe(1);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(95);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(97);
     // Error envelopes are decoded by every operation, although success DTOs do not reference them.
     expect(Object.hasOwn(UNS_V2_CODEC_SCHEMAS, 'UnsV2ErrorResponse')).toBe(true);
     expect(Object.hasOwn(manifest.schemas, 'UnsV2ErrorResponse')).toBe(true);

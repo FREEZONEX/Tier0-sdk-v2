@@ -7,7 +7,7 @@ description: 使用 @tier0/sdk-v2 查询 Tier0 Workspace 成员、搜索用户�
 
 参数表、成员选择和有界增量分页见 [Workspace 成员](references/platform-members.md)。v1 的项目成员接口未迁入 v2，不能用 Workspace 列表代替 App 授权名单。
 
-公开入口有两个：`client.members.listWorkspace` 只用于 Workspace 级的成员选择；需要能使用某个 App 的成员时用 `client.members.listApp`。Tier0 App 里（经节点代理）`listApp`（`/openapi/v2/apps/access-members/list`）当前不可用，回 404 `sbx_proxy_not_found`；`listWorkspace`（`/openapi/v2/platform/getMembers`）可用。App 成员由服务端授权决定。使用服务端 API Key；平台授权决定可查询范围。
+公开入口有两个：`client.members.listWorkspace` 只用于 Workspace 级的成员选择；需要能使用某个 App 的成员时用 `client.members.listApp`。Tier0 App 里（经节点代理）两者都可用：`listApp`（`/openapi/v2/apps/access-members/list`）和 `listWorkspace`（`/openapi/v2/platform/getMembers`）都按 App 的平台权限 `platform.users.read` 放行，App 没有这项权限时回 403；托管 App Key 的 `listApp` 响应不带邮箱（`email` 为空字符串，`userName` 和角色保留）。App 成员由服务端授权决定。使用服务端 API Key；平台授权决定可查询范围。
 
 ## 搜索与展示候选人
 
@@ -43,13 +43,13 @@ export async function searchMembers(keyword: string, page = 1) {
 
 1. 确定查询的是当前 Workspace，按姓名/邮箱等输入取得候选人。
 2. 使用选定的 userId 调用通知，展示名只用于 UI。
-3. 需要“这个 App 的所有用户”时用 `listApp` 取访问名单，不能直接遍历 Workspace 成员群发（Tier0 App 里经节点代理时当前不可用：代理不转发 `/openapi/v2/apps/access-members/list`，回 404 `sbx_proxy_not_found`；改用 `listWorkspace` 并告知用户）。
+3. 需要“这个 App 的所有用户”时用 `listApp` 取访问名单，不能直接遍历 Workspace 成员群发。
 
 [通知 Skill](../tier0-sdk-v2-notifications/SKILL.md)说明渠道与幂等。成员查询不会替你建立 App 访问权限，也不能证明收件人可以打开通知里的业务页面。
 
 ## App 可用成员
 
-能使用某个 App 的成员用 `members.listApp`（Tier0 App 里经节点代理时当前不可用：代理不转发 `/openapi/v2/apps/access-members/list`，回 404 `sbx_proxy_not_found`；改用 `listWorkspace` 并告知用户），参数、示例与错误处理见 [App 可用成员](references/app-members.md)。`appId` 必须显式传入，SDK 不隐式读取 `APP_ID`；查询当前 App 时传 `getCurrentAppId()`。Builder 预览里查到的是当前草稿角色的成员，部署后是线上版本的成员；这个 `scope` 由 SDK 自动带上，App 代码不要传。接口只接受 API Key，登录会话不能调用；绑定 App 的凭证只能查自己的 appId，查其他 App 返回 403。3003016 / 3003017 都是 HTTP 503，表示访问名单暂时无法给出，不是空名单：按 `ApiError.code` 分支，不匹配 message 文本；3003016 需要重新部署 App，3003017 可稍后重试。
+能使用某个 App 的成员用 `members.listApp`（Tier0 App 里经节点代理可用，需要 App 的平台权限 `platform.users.read`），参数、示例与错误处理见 [App 可用成员](references/app-members.md)。`appId` 必须显式传入，SDK 不隐式读取 `APP_ID`；查询当前 App 时传 `getCurrentAppId()`。Builder 预览里查到的是当前草稿角色的成员，部署后是线上版本的成员；这个 `scope` 由 SDK 自动带上，App 代码不要传。接口只接受 API Key，登录会话不能调用；绑定 App 的凭证只能查自己的 appId，查其他 App 返回 403。3003016 / 3003017 都是 HTTP 503，表示访问名单暂时无法给出，不是空名单：按 `ApiError.code` 分支，不匹配 message 文本；3003016 需要重新部署 App，3003017 可稍后重试。
 
 ## 当前边界
 

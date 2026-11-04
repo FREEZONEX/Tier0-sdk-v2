@@ -98,6 +98,6 @@ Tier0 预览和部署里，平台请求经过节点代理（`sbx-api-proxy`）�
 | `sbx_proxy_unbound` (403) | 这台 VM 当前没有绑定：实例正在启动、停止或被替换，等平台恢复 |
 | `sbx_proxy_bad_request` (400) | 请求格式被拒：absolute-form、`CONNECT`、`Upgrade`、路径含 `.` / `..` / `//` / `%2f` / `%2e` / `%5c` / `;`、多个 `X-Tier0-Delegation`、请求头超过 32 KiB 或 100 个 |
 | `sbx_proxy_forbidden` (403) | 缺 `X-Tier0-SDK: 1`，或带了 `Forwarded` / `X-Forwarded-*` / `X-Real-IP`。直接用 `fetch` / `curl` 时自己加 `X-Tier0-SDK: 1` |
-| `sbx_proxy_not_found` (404) | 路径不在代理白名单里：只转发 `/openapi/v2/uns/**`、`assets/**`、`notifications/send`、`notifications/get`、`platform/getMembers`、`info`（白名单内但 App 的 Key 无权的接口，如 Source / Stream 管理，由 Backend 回 403） |
+| `sbx_proxy_not_found` (404) | 路径不在代理白名单里：只转发 `/openapi/v2/uns/**`、`assets/**`、`notifications/send`、`notifications/get`、`platform/getMembers`、`apps/access-members/list`、`info`（白名单内但 App 的 Key 无权的接口，如 Source / Stream 管理，由 Backend 回 403） |
 
 只有带 `X-Tier0-Proxy: not-forwarded` 的 `503` / `429` 会被 SDK 自动重试；平台返回的 5xx 不重试。
