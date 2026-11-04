@@ -55,3 +55,9 @@ export async function listCollections(page = 1, client: Tier0Client = createClie
 按 pageInfo.hasMore/nextPage 继续元数据分页；不要把第一页当全量。recordFind 的游标循环见[数据工作流](data-workflows.md)。sort 是数组元组。
 
 以上 metadataFind 示例用于 Workspace 集成（会话、personal / agent Key）。App 凭证不能调用 metadataFind：用 dataAppContext 精确选择授权 alias，集合的 revision、indexStatus、ttl 也在其中。数据授权不等于元数据管理授权。网络/权限错误必须传播，不能用空数组掩盖错误。
+
+## 回收集合的历史读取
+
+按原 collectionId 读取 Record、Sample、count 或 aggregate；既有授权、员工行规则和字段权限仍生效。活跃 Topic 可继续读取其引用的回收集合。活跃 App 的 dataAppContext 保留仍可读的回收集合，但不授予新增能力；回收中的 App 自身不能运行。
+
+已知 ID 直接读取，不必先恢复集合或查询元数据。数据层也可用 `data.collection({ collectionId })`，不会 ensure、写种子或补授权。只有 Workspace 集成确需回收对象定义时，才用 metadataFind 的 state=deleted 或 all；App Key 仍不调用该接口。[回收规则](delete.md#回收规则)说明写入和恢复边界。

@@ -471,18 +471,11 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
         kind: 'collection', filter: { _id: 'devices' }, expectedRevision: 2,
         update: { $set: { name: 'renamed' } }, returnDocument: 'after', upsert: false,
       }), data: { ...outcome(), value: { ...collection(3), data: { ...collection().data, name: 'renamed' } } } },
-      { path: 'collections/devices/records:find', data: records(record(2, 'pump-2')) },
       { path: 'collections/devices/records:deleteOne', check: b => expect(b.expectedRevision).toBe(2),
         data: { status: 'committed', deletedCount: 1, replayed: false } },
-      { path: 'collections/devices/records:find', data: records() },
       { path: 'collections/devices/records:restore', data: { status: 'committed', restoredCount: 1, restoredIds: ['device-1'], replayed: false } },
-      { path: 'collections/devices/records:find', data: records(record(4, 'pump-2')) },
-      { path: 'metadata:find', data: { items: [collection(3)] } },
       { path: 'metadata:deleteOne', check: b => expect(b.expectedRevision).toBe(3), data: { ...outcome(), deletedCount: 1 } },
-      { path: 'metadata:find', check: b => expect(b.state).toBe('deleted'), data: { items: [{ ...collection(4), deletedAt: 1 }] } },
-      { path: 'metadata:find', check: b => expect(b.state).toBe('deleted'), data: { items: [{ ...collection(4), deletedAt: 1 }] } },
       { path: 'metadata:restore', check: b => expect(b.items[0].expectedRevision).toBe(4), data: { ...outcome(), restoredCount: 1 } },
-      { path: 'metadata:find', data: { items: [collection(5)] } },
     ];
     await example('uns', 'create').createDeviceCollection('devices', 'devices', 'workshop-1', 'create-collection', client);
     const inserted = await example('uns', 'create', 1).insertDevice('devices', 'device-1', 'pump', 'insert-record', client);
@@ -491,10 +484,50 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     const schema = { ...collection().data.recordSchema, properties: { ...collection().data.recordSchema.properties, location: { type: 'string' } } };
     await example('uns', 'update', 1).replaceRecordSchema('devices', schema, 'schema-change', client);
     await example('uns', 'update').renameCollection('devices', 'renamed', 'rename-collection', client);
-    await example('uns', 'delete').deleteDevice('devices', 'device-1', 'delete-record', client);
-    await example('uns', 'restore').restoreDevice('devices', 'device-1', 'restore-record', client);
-    await example('uns', 'delete', 1).deleteCollection('devices', 'delete-collection', client);
-    await example('uns', 'restore').restoreCollection('devices', 'restore-collection', client);
+    const beforeDelete = calls.length;
+    expect((await example('uns', 'delete').deleteDevice('devices', 'device-1', 2, 'delete-record', client)).state).toBe('committed');
+    expect((await example('uns', 'restore').restoreDevice('devices', 'device-1', 'restore-record', client)).state).toBe('committed');
+    expect((await example('uns', 'delete', 1).deleteCollection('devices', 3, 'delete-collection', client)).state).toBe('deleted');
+    expect((await example('uns', 'restore').restoreCollection('devices', 4, 'restore-collection', client)).state).toBe('committed');
+    expect(calls.length - beforeDelete).toBe(4);
+    finished();
+  });
+
+  it.each([
+    { file: 'delete', index: 0, method: 'deleteDevice', args: ['devices', 'device-1', 2, 'delete-record'],
+      path: 'collections/devices/records:deleteOne', data: { ...outcome(), deletedCount: 0 } },
+    { file: 'delete', index: 1, method: 'deleteCollection', args: ['devices', 3, 'delete-collection'],
+      path: 'metadata:deleteOne', data: { ...outcome(), deletedCount: 0 } },
+    { file: 'restore', index: 0, method: 'restoreDevice', args: ['devices', 'device-1', 'restore-record'],
+      path: 'collections/devices/records:restore', data: { ...outcome(), restoredCount: 0, restoredIds: [] } },
+    { file: 'restore', index: 0, method: 'restoreCollection', args: ['devices', 4, 'restore-collection'],
+      path: 'metadata:restore', data: { ...outcome(), restoredCount: 0, items: [] } },
+  ])('does not report $method success when its target was not changed', async test => {
+    steps = [{ path: test.path, data: test.data }];
+    const result = await example('uns', test.file, test.index)[test.method](...test.args, client);
+    expect(result.state).toBe('unconfirmed');
+    expect(calls).toHaveLength(1);
+    finished();
+  });
+
+  it('preserves the caller revision and propagates a collection deletion conflict', async () => {
+    steps = [{ path: 'metadata:deleteOne', check: body => expect(body).toMatchObject({
+      filter: { _id: 'devices' }, expectedRevision: 3, idempotencyKey: 'stale-delete',
+    }), status: 409, raw: JSON.stringify({ code: 409, msg: 'changed', requestId: 'delete-conflict', data: null,
+      error: { code: 'VERSION_CONFLICT', details: [], execution: 'notStarted', retry: { safe: false } } }) }];
+    await expect(example('uns', 'delete', 1).deleteCollection('devices', 3, 'stale-delete', client))
+      .rejects.toMatchObject({ code: 'VERSION_CONFLICT', requestId: 'delete-conflict' });
+    expect(calls).toHaveLength(1);
+    finished();
+  });
+
+  it('leaves an unknown restore outcome for caller reconciliation without readback or replay', async () => {
+    steps = [{ path: 'metadata:restore', check: body => expect(body).toMatchObject({
+      items: [{ id: 'devices', expectedRevision: 4 }], idempotencyKey: 'restore-unknown',
+    }), raw: 'truncated response' }];
+    await expect(example('uns', 'restore').restoreCollection('devices', 4, 'restore-unknown', client))
+      .rejects.toBeInstanceOf(sdk.UnsV2OutcomeUnknownError);
+    expect(calls).toHaveLength(1);
     finished();
   });
 
