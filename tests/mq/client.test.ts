@@ -276,6 +276,53 @@ describe('Tier0MQClient', () => {
     client.disconnect();
   });
 
+  it('does not apply settings or mark derived identity explicit when connect fails during reconnect', async () => {
+    const old = lifecycleClient();
+    const nextClient = lifecycleClient();
+    (mqtt.connect as any).mockReturnValueOnce(old).mockReturnValueOnce(nextClient);
+    const client = new Tier0MQClient({ host: 'broker', password: 'sk-per-ws1_old', maxBackpressuredDeliveries: 2 });
+    const initial = client.connect();
+    old.emit('connect');
+    await initial;
+    client.subscribe('topic', (() => false) as any);
+    old.emit('close');
+    await expect(client.connect({ username: '1&open', maxBackpressuredDeliveries: 1 })).rejects.toThrow('reconnecting');
+    old.emit('connect');
+    old.emit('message', 'topic', Buffer.from('one'));
+    expect(client.subscribedTopics).toEqual(['topic']);
+    expect(old.unsubscribe).not.toHaveBeenCalled();
+
+    client.disconnect();
+    const next = client.connect({ password: 'sk-per-ws2_new' });
+    nextClient.emit('connect');
+    await next;
+    expect(mqtt.connect).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({
+      username: '2&open', password: 'sk-per-ws2_new',
+    }));
+    client.disconnect();
+  });
+
+  it('does not commit settings when an in-flight connect is replaced', async () => {
+    const old = lifecycleClient();
+    const nextClient = lifecycleClient();
+    (mqtt.connect as any).mockReturnValueOnce(old).mockReturnValueOnce(nextClient);
+    const client = new Tier0MQClient({ host: 'broker', password: 'sk-per-ws1_old', maxBackpressuredDeliveries: 2 });
+    const initial = client.connect();
+    const pending = client.connect({ username: '1&open', maxBackpressuredDeliveries: 1 });
+    old.emit('connect');
+    client.disconnect();
+    const next = client.connect({ password: 'sk-per-ws2_new' });
+    nextClient.emit('connect');
+    await next;
+    await expect(initial).rejects.toThrow('connection changed');
+    await expect(pending).rejects.toThrow('connection changed');
+    expect(mqtt.connect).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({ username: '2&open' }));
+    client.subscribe('topic', (() => false) as any);
+    nextClient.emit('message', 'topic', Buffer.from('one'));
+    expect(client.subscribedTopics).toEqual(['topic']);
+    client.disconnect();
+  });
+
   it('removes a pending initial subscription if the connection fails', async () => {
     const transport = lifecycleClient();
     (mqtt.connect as any).mockReturnValue(transport);

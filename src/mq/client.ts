@@ -238,9 +238,16 @@ export class Tier0MQClient {
 
   // 显式连接（需要等待连接完成时使用）
   async connect(config?: MQTTConfig): Promise<void> {
-    if (config) {
-      // Undefined fields mean no override, not a request to erase settings.
-      const update = Object.fromEntries(Object.entries(config).filter(([, value]) => value !== undefined)) as MQTTConfig;
+    // Undefined fields mean no override, not a request to erase settings.
+    const update = config
+      ? Object.fromEntries(Object.entries(config).filter(([, value]) => value !== undefined)) as MQTTConfig
+      : undefined;
+    // A reconnecting mqtt.js client owns its existing settings. Reject before
+    // applying even non-connection fields or recording explicit identity.
+    if (this.client && !this._connected && !this.connectingPromise) {
+      throw new Error('MQTT client is disconnected or reconnecting; wait for reconnect, or disconnect and create a new client');
+    }
+    if (this.client) {
       // mqtt.js snapshots its connection options. Changing our config while a
       // client exists would leave the old credentials in use, including on
       // automatic reconnect. Refuse the change before mutating anything.
@@ -248,11 +255,24 @@ export class Tier0MQClient {
         'host', 'port', 'secure', 'clientId', 'username', 'password',
         'keepAlive', 'reconnectPeriod', 'connectTimeout', 'clean',
       ];
-      if (this.client && connectionFields.some((field) =>
+      if (update && connectionFields.some((field) =>
         update[field] !== undefined && update[field] !== this.config[field]
       )) {
         throw new Error('MQTT connection settings cannot change while a client exists; disconnect and create a new client');
       }
+      const generation = this.generation;
+      await this.ensureConnected();
+      if (this.generation !== generation || !this.client || !this._connected) {
+        throw new Error('MQTT connection changed before connect completed');
+      }
+      if (update) {
+        this.config = { ...this.config, ...update };
+        if (update.clientId !== undefined) this.explicitClientId = true;
+        if (update.username !== undefined) this.explicitUsername = true;
+      }
+      return;
+    }
+    if (update) {
       const previousPassword = this.config.password;
       this.config = { ...this.config, ...update };
       if (update.clientId !== undefined) this.explicitClientId = true;
