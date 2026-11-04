@@ -24,7 +24,7 @@ TIER0_API_KEY=填入该环境的个人Key
 TIER0_COLLECTION_ID=填入已有collection的ID
 ```
 
-将以下代码保存为 `read-records.mjs`。`whoami` 用于首次确认连接身份及 Workspace；后续业务查询不必每次调用。先核对输出的 Workspace 与目标集合一致。
+将以下代码保存为 `read-records.mjs`，按已知集合 ID 直接读取。
 
 ```ts
 import { createClient } from '@tier0/sdk-v2';
@@ -32,8 +32,6 @@ import { createClient } from '@tier0/sdk-v2';
 const collectionId = process.env.TIER0_COLLECTION_ID;
 if (!collectionId) throw new Error('请设置 TIER0_COLLECTION_ID');
 const client = createClient();
-const identity = await client.system.whoami();
-console.log('Workspace:', identity.workspaceID);
 const result = await client.uns.recordFind({ collectionId, limit: 20 });
 console.dir(result.data, { depth: null });
 ```
@@ -43,6 +41,8 @@ node --env-file=.env.local read-records.mjs
 ```
 
 示例只读第一页，后续按 `pageInfo` 分页；不会创建集合、修改 Schema 或写入种子数据。collection 由 MCP、页面或其他应用创建不影响此调用方式，知道 ID 不代表取得权限。长期团队应用使用独立 App 身份，避免依赖某个员工的个人 Key。
+
+个人 Key 也可通过数据层的 `data.collection({ collectionId })` 引用已有集合、跳过 ensure（见[已有集合用法](../tier0-sdk-v2-data/references/modeling.md)）；`defineCollection` 声明集合的自动 ensure 需要平台签发的 App Key。
 
 ## 按响应排错
 
@@ -56,4 +56,6 @@ node --env-file=.env.local read-records.mjs
 | 网络错误或超时 | 检查 DNS、网络接入、TLS 和服务连通性；不能仅据此判断凭证无效。 |
 | 正常 JSON 业务错误 | 按服务端错误码、权限信息和请求 ID 排查；JSON 404 也可能表示业务资源不存在。 |
 
-无密钥请求返回 401 只证明已到达认证入口，不能证明某个 Key 有权读取目标集合。验证顺序是确认地址、`whoami` 核对 Workspace、按 collection ID 读取。错误提示不回显 Key、配置 URL 或原始 HTML；SDK 保留原有错误类型、HTTP 状态和执行/重试语义，不自动更换凭证或重试。
+身份或 Workspace 不明确时，可单独调用 `client.system.whoami()` 核对返回的 `workspaceID`；它不是读取记录的前置步骤。无密钥请求返回 401 只证明已到达认证入口，不能证明某个 Key 有权读取目标集合。
+
+错误提示不回显 Key、配置 URL 或原始 HTML；SDK 保留原有错误类型、HTTP 状态和执行/重试语义，不自动更换凭证或重试。

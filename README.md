@@ -34,15 +34,13 @@ npm install @tier0/sdk-v2@0.9.9
 
 维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。
 
-本地脚本可直接用个人 Key 读取已有 collection，无需先创建 App。`TIER0_API_HOST` 必须是 **OpenAPI 网关基础地址**，不是平台网页或 MCP 地址，也不附加 `/openapi/v2`。阿里云 ACK 开发环境的网页是 `https://dev.tier0.cn`，网关是 `https://api-dev.tier0.cn`；其他环境向部署指南或管理员确认，不能按域名猜测。完整的地址获取、个人 Key 示例和错误排查见[本地连接指南](skills/tier0-sdk-v2/references/local-connection.md)。
+个人 Key 可直接读取已有集合，无需创建平台 App；网关配置、运行示例与排错见[本地连接指南](skills/tier0-sdk-v2/references/local-connection.md)。
 
 ```ts
 import { createClient } from '@tier0/sdk-v2';
 
 // 服务端环境注入 TIER0_API_HOST 和 TIER0_API_KEY。
 const tier0 = createClient();
-// 首次接入时确认身份与 Workspace；不需要在每次业务操作前重复调用。
-const user = await tier0.system.whoami();
 ```
 
 也可显式配置 `{ apiHost, apiKey, transportTimeoutMs, fetch }`，或提供 `getApiHost` / `getApiKey` 回调。裸域名默认使用 HTTPS；本地 HTTP 测试请显式写 `http://127.0.0.1:端口`。不自动向浏览器注入或读取 `VITE_` API Key。
@@ -82,7 +80,7 @@ const user = await tier0.system.whoami();
 
 ## SDK 方法与凭证权限
 
-同一 SDK 支持工作空间集成和 App 运行时，方法存在不代表当前凭证可调用。`client.uns.namespace()` 调用的是 `POST /openapi/v2/uns/namespace/query`，属于 OpenAPI；有相应权限且未绑定 App 的 Agent / Personal Key 可以使用，App Key 当前不能使用。App 应通过 `client.uns.dataAppContext({})` 获取可访问集合及结构，再用 `recordFind` 读取记录。`appCollectionsList` 也是管理接口，不能作为 App Key 的替代入口。
+同一 SDK 支持工作空间集成和 App 运行时，方法存在不代表当前凭证可调用。`client.uns.namespace()` 调用的是 `POST /openapi/v2/uns/namespace/query`，属于 OpenAPI；有相应权限且未绑定 App 的 Agent / Personal Key 可以使用，App Key 当前不能使用。App 已知集合 ID 时可直接用 `recordFind` 读取记录；需要发现可访问集合及结构时使用 `client.uns.dataAppContext({})`。`appCollectionsList` 也是管理接口，不能作为 App Key 的替代入口。
 
 SDK 不从 Key 前缀推断权限，也不在 403 后换凭证或回退内部接口。Agent 程序、SDK、MCP 都不能扩大所持凭证的权限。身份区别和排错见[命名空间查询与凭证](skills/tier0-sdk-v2/tier0-sdk-v2-uns/references/namespace.md)，App 读取示例见[查询集合与记录](skills/tier0-sdk-v2/tier0-sdk-v2-uns/references/read.md)。
 

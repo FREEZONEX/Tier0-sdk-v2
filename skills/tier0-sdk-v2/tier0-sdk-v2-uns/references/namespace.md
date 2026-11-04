@@ -6,8 +6,8 @@
 
 | 凭证 | Namespace / metadata 查询 | 发现并读取集合 |
 | --- | --- | --- |
-| 未绑定 App 的 Agent / Personal Key | 有当前工作空间权限及 Key scope 时可用；Agent Key 还会复核真实负责人的状态和权限 | 按当前工作空间授权查询，再调用 `recordFind` |
-| App Key | 当前不开放；`appCollectionsList` 也不能调用 | `dataAppContext({})` 返回自有及已授权集合、目录路径、结构和有效权限，再按集合 ID 调 `recordFind` |
+| 未绑定 App 的 Agent / Personal Key | 有当前工作空间权限及 Key scope 时可用；Agent Key 还会复核真实负责人的状态和权限 | 已知集合 ID 时直接调用 `recordFind`；需要发现集合时按工作空间权限查询元数据 |
+| App Key | 当前不开放；`appCollectionsList` 也不能调用 | 已知集合 ID 时直接调用 `recordFind`；需要发现集合及结构时使用 `dataAppContext({})` |
 | 平台系统 Service Key | 按实际系统凭证授权，不按“Agent 正在调用”推定权限 | 带 Builder 目标时，指定 App 操作可使用目标 App 视角；不代表所有查询都变成 App 视角 |
 
 目录位置不产生数据授权。App 自有集合的正常创建流程提供相应授权，但读取仍受凭证权限、App 状态及数据策略约束；不能仅凭 `ownerAppId` 推定任何接口都可调用。SDK 和 MCP 使用相同凭证时仍受服务端授权约束。
