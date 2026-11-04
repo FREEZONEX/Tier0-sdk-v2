@@ -2,7 +2,7 @@
 
 ## App Key：从授权上下文读取
 
-App Key 使用 `dataAppContext`，不调用 `namespace`、`metadataFind` 或 `appCollectionsList`。上下文包含可访问集合的名称、目录路径、Schema 和有效权限；按已配置 alias 精确定位，不能随意选择列表第一项。已知集合 ID 时可直接调用 `recordFind`，不要求每次预先加载上下文。
+App Key 已知集合 ID 时直接调用 `recordFind`；需要发现集合时使用 `dataAppContext`，不调用 `namespace`、`metadataFind` 或 `appCollectionsList`。上下文包含可访问集合的名称、目录路径、Schema 和有效权限；按已配置 alias 精确定位，不能随意选择列表第一项。
 
 ```ts
 import { createClient, type Tier0Client } from '@tier0/sdk-v2';
