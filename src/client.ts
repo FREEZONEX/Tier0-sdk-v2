@@ -14,8 +14,7 @@ import type { CloudTransportConfig } from './cloud-transport.js';
 
 export interface Tier0ClientConfig extends ClientConfig, CloudTransportConfig {}
 /** Use a fresh instance per incoming request when supplying employee data delegation. */
-function assemble(resolve: () => HttpClient, snapshot: Tier0ClientConfig) {
-  const http = resolve();
+function assemble(resolve: () => HttpClient, snapshot: Tier0ClientConfig, http = resolve()) {
   const api = createOpenAPI(http);
   const transport = new StreamTransport(resolve, snapshot);
   const messages = new StreamMessagesClient(transport);
@@ -54,4 +53,4 @@ const defaultHttp = new Proxy(new HttpClient(), {
   },
 });
 /** App 默认交互客户端在调用时解析宿主，无需在浏览器配置密钥。 */
-export const client = assemble(() => defaultHttp, {});
+export const client = assemble(getClient, {}, defaultHttp);
