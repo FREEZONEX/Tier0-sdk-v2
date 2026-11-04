@@ -36,6 +36,21 @@ export function runWithRequestContext<T>(request: Request | Headers, fn: () => T
 }
 
 /**
+ * For employee-only request handlers. Reject before running the handler if the
+ * gateway assertion is absent or malformed. This checks syntax only: the
+ * receiving Gateway must authenticate the assertion and authorize each call.
+ * It does not turn ensure/seed or an explicit runAsApp into employee work.
+ */
+export function runWithRequiredEmployeeContext<T>(request: Request | Headers, fn: () => T): T {
+  const headers = request instanceof Headers ? request : request.headers;
+  const subject = headers.get(UNS_V2_APP_DATA_SUBJECT_HEADER)?.trim();
+  if (!subject || subject.length > 8192 || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(subject)) {
+    throw new TypeError('Tier0 SDK: a validly formatted employee data subject is required.');
+  }
+  return runWithRequestContext(request, fn);
+}
+
+/**
  * Runs `fn` as the App itself, outside any employee's request: use it for
  * work that outlives or is detached from the request (timers, queues, fire-
  * and-forget follow-ups). Its data calls carry no data subject.

@@ -13,7 +13,7 @@
 | `retry` | `{ safe, afterMs? }`：同一调用能否稍后再发、建议等待多久。数据层已经按它自动重试过（最多 2 次） |
 | `outcomeUnknown` | 即 `execution === 'unknown'`：写入可能已执行，先读回核对，再决定是否再写 |
 | `attempts` | 本次调用实际发出的请求数（含重试）；发送前就失败时为 0 |
-| `idempotencyKey` | 写入所用的幂等键（未显式传时为数据层生成的）；`outcomeUnknown` 时用同一个键重发同一写入不会重复生效 |
+| `idempotencyKey` | 写入所用的幂等键（未显式传时由数据层生成）；`outcomeUnknown` 时保留原键和载荷，只有确认服务端回执主体和保留期仍一致才能安全重放，换 Key ID 不能假定共享回执 |
 | `details` | UNS 错误体的 `data`（如 `conflicts`、`resource`、`missingPermission`），或数据层附带的详情 |
 | `cause` | 原始 `UnsV2Error` |
 
@@ -39,6 +39,7 @@ export function toResponse(error: unknown): Response {
 | code | 含义 |
 | --- | --- |
 | `DATA_NOT_CONFIGURED` (503) | 缺少 TIER0_API_HOST / TIER0_API_KEY（或 apiHost / apiKey） |
+| `DATA_CREDENTIAL_CHANGED` (409) | 同一 Data 客户端观察到地址或静态 Key 变化，已停止继续派发；先核对所有未决写入，再创建客户端。显式 getter 返回空时不会回退环境 Key |
 | `DATA_TIMEOUT` (503) | UNS 未在超时内应答（每次调用从开始算共 25 秒，含排队与重试，`transportTimeoutMs` 可调）；写入时 `outcomeUnknown` 为 true、不重试 |
 | `DATA_OVERLOADED` (503) | 本进程 6 个请求名额一直占满，调用在超时前没排到，**没有发出**（`execution: 'notStarted'`，`retry.safe`）；减少并发或合并读取 |
 | `DATA_ABORTED` (499) | 业务请求已中止（`runWithRequestContext(request, …)` 的 `request.signal`）：排队中的调用不再发出（`notStarted`），已发出的写入 `outcomeUnknown` |
@@ -80,7 +81,9 @@ export function toResponse(error: unknown): Response {
 | `APP_GRANT_REVOKED` (403) | 管理员撤销了本 App 对集合的授权；ensure 不会自动恢复，请管理员处理 |
 | `APP_QUOTA_EXCEEDED` (409) | `data.resource` 指出触达的每 App 上限（64）：`collections` → 归档不用的集合；`indexes` → 从声明删索引并 `schema:replace`；`archivedCollections` → 恢复一个或请管理员清理 |
 | `INDEX_QUOTA_EXCEEDED` (409) | Workspace 实际存在的索引已达 200；删除不用的索引 |
-| `COLLECTION_TOO_LARGE` (409) | archive / restore 最多处理 2000 条记录（`data.maxRecords`）；不要归档大集合 |
+| `COLLECTION_TOO_LARGE` (409) | 仅旧 recordsArchivedAt 墓碑恢复有 2000 条上限（`data.maxRecords`）；当前 archive / restore 保留记录，不受该上限限制 |
+| `OWNER_APP_TRASHED`（`data.reason`） | 所属 App 在回收站；恢复 App 后再写入，不触发自动重建 |
+| `DIRECTORY_IN_TRASH`（`data.reason`） | 子项随目录回收，需恢复原目录；不逐个恢复子项 |
 | `FORBIDDEN` (403) | Key 不能做该操作（其他 App 或共享集合），或 Key 已吊销 |
 
-记录调用上的 `data.reason`：`COLLECTION_NOT_GRANTED`（403，授权不覆盖该集合或操作）与 `COLLECTION_NOT_FOUND`（403/404，已归档或删除）会触发数据层重新 ensure；`APP_PERMISSION_MISSING`（403，`data.missingPermission`）表示 Key 缺少权限，例如删除记录需要 `uns.delete`——业务记录通常以状态结束（`CANCELLED`、`ARCHIVED`）而不是删除。
+记录调用上的 `data.reason`：`COLLECTION_NOT_GRANTED`（403，授权不覆盖该集合或操作）与 `COLLECTION_NOT_FOUND`（403/404，集合不存在或写入目标已回收）仅对声明集合触发[自愈](consistency.md#首次访问与自愈)，已有 ID 引用直接报告错误；回收不使已有授权的历史读取失效。`APP_PERMISSION_MISSING`（403，`data.missingPermission`）表示 Key 缺少权限，例如删除记录需要 `uns.delete`——业务记录通常以状态结束（`CANCELLED`、`ARCHIVED`）而不是删除。
