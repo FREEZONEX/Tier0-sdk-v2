@@ -13,7 +13,7 @@
 | allowPartial | false | 否 | 不支持部分提交 |
 | idempotencyKey | string | 否 | 最多 128 字符 |
 
-Source 必须已停用。没有任何 Stream 引用时，直接用已有 ID 和 revision 提交；有引用时先 impact(action=delete) 并[遍历和评估影响](changes.md)，再显式传入回执。服务端在同一事务中检查依赖和修订，不自动删除或停用依赖流。
+Source 可直接删除，无需先停用；删除后停止后续采集和入站接入。没有任何 Stream 引用时，直接用已有 ID 和 revision 提交；有引用时先 impact(action=delete) 并[遍历和评估影响](changes.md)，再显式传入回执。服务端在同一事务中检查依赖和修订，不自动删除或停用依赖流。
 
 ```ts
 import { createClient, type Tier0Client, type UnsV2Request } from '@tier0/sdk-v2';

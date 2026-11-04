@@ -10,7 +10,6 @@ export function bindSourceClient(raw: UnsV2Client) {
     discover: raw.sourceDiscover,
     impact: raw.sourceImpact, history: raw.sourceHistory,
     protocols: Object.freeze({ list: raw.sourceProtocolsList }),
-    state: Object.freeze({ update: raw.sourceStateUpdate }),
     runtime: Object.freeze({ get: raw.sourceRuntimeGet }),
     observations: Object.freeze({ get: raw.sourceObservationsGet }),
     documents: Object.freeze({

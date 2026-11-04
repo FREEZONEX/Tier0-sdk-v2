@@ -1,6 +1,6 @@
 # 声明集合与建模
 
-`defineCollection({ alias, name, schema, indexes?, description?, seed? })` 返回冻结的声明；全部声明放进一个数组传给 `createDataClient({ collections })`。声明文件从 `@tier0/sdk-v2/data/define` 导入：它不含数据运行时，组件和 route 也能引用这些声明与 `Doc` 类型。alias 在 App 内唯一、不区分大小写，匹配 `^[A-Za-z][A-Za-z0-9_-]{0,62}$`。
+`defineCollection({ alias, name, directoryPath, schema, indexes?, description?, seed? })` 返回冻结的声明；全部声明放进一个数组传给 `createDataClient({ collections })`。声明文件从 `@tier0/sdk-v2/data/define` 导入：它不含数据运行时，组件和 route 也能引用这些声明与 `Doc` 类型。alias 在 App 内唯一、不区分大小写，匹配 `^[A-Za-z][A-Za-z0-9_-]{0,62}$`。
 
 `name` 是必填的业务名称，界面直接展示，例如“生产工单”；1–63 个 Unicode 字符，无首尾空白，不含 `/` 或空字符。`alias` 是独立、稳定的程序标识，例如 `production_orders`，改业务名称不改 alias 或集合 ID。名称应表达实际用途，语言遵循用户偏好和已有业务术语，不附加无业务含义的随机串、时间戳或 ID。没有 displayName，也不从 alias 回退生成名称。ensure 只在首次创建时写入 name；命中已有 alias 时保留用户当前名称，显式改名走 MCP 元数据更新。
 
@@ -27,6 +27,7 @@ import { defineCollection, type Doc } from '@tier0/sdk-v2/data/define';
 export const customers = defineCollection({
   alias: 'customers',
   name: '客户',
+  directoryPath: ['销售管理'],
   schema: z.object({ name: z.string(), tier: z.enum(['A', 'B', 'C']) }),
   indexes: [{ path: 'name' }],
   seed: [
@@ -38,6 +39,7 @@ export const customers = defineCollection({
 export const salesOrders = defineCollection({
   alias: 'sales_orders',
   name: '销售订单',
+  directoryPath: ['销售管理', '订单履约'],
   description: 'Customer sales orders',
   schema: z.object({
     code: z.string(),
@@ -62,6 +64,34 @@ export const createSalesOrderInput = salesOrders.schema
   .omit({ status: true, confirmedAt: true })
   .extend({ code: z.string().trim().min(1).max(32) });
 ```
+
+## 按实际业务范围声明目录
+
+新建集合必须提供 `directoryPath`，类型保留可选仅为兼容已经存在的 alias。路径从 Workspace 根开始，包含 1–16 个名称；每段 1–63 个 Unicode 字符，无首尾空白、`/` 或空字符。SDK 校验后复制并冻结数组，按原样发送，不自动追加 App 名称或补层级。已知业务范围下可以显式声明 App 或业务模块目录，例如 `directoryPath: ['工厂', '产线', 'MES']` 后放“工单”集合；不应仅用根级 App 名称代替已知工厂和产线范围。
+
+工业场景按实际 ISA-95 设备层级组织：企业 → 工厂/站点 → 区域/车间 → 工作中心（产线等）→ 工作单元。先通过元数据查询确认已有目录、名称与父子关系，复用完整已知路径。只保留业务实际需要且已知的层级，不要求五层齐全；跨产线共享集合放在共同祖先，不为每个集合重复建一套树。非工业业务按真实业务目录组织。
+
+例如业务已明确“苏州工厂”的“装配一线”及 MES 应用，产线工单放在 MES 下，工厂共享物料仍放在工厂下；无需编造企业或车间：
+
+```ts
+import { z } from 'zod';
+import { defineCollection } from '@tier0/sdk-v2/data/define';
+
+export const lineOrders = defineCollection({
+  alias: 'line_orders', name: '产线工单',
+  directoryPath: ['苏州工厂', '装配一线', 'MES'],
+  schema: z.object({ code: z.string() }),
+});
+export const siteMaterials = defineCollection({
+  alias: 'site_materials', name: '工厂物料',
+  directoryPath: ['苏州工厂'],
+  schema: z.object({ code: z.string() }),
+});
+```
+
+后端在同一事务中逐级复用或创建活动目录，再创建集合；已归档目录或同名非目录对象会明确报冲突，不自动恢复或追加随机后缀。目录位置不代表数据授权或 App 所属关系；共享目录不会成为某个 App 的专属资源。
+
+目录声明只决定首次创建位置。ensure 找到已有 alias 时保留集合 ID、现有目录和用户改名；不同路径返回 `DIRECTORY_PATH_NOT_APPLIED`，不移动已有集合，也不为了被忽略的路径创建目录。要整理存量数据，需要明确迁移授权后用元数据接口操作。不要通过改 alias 复制集合来绕过这一规则。
 
 ## 可存储的 Zod 子集
 
@@ -111,6 +141,7 @@ import { defineCollection } from '@tier0/sdk-v2/data/define';
 export const loginCodes = defineCollection({
   alias: 'login_codes',
   name: '登录验证码',
+  directoryPath: ['账号管理', '登录验证'],
   schema: z.object({ phone: z.string(), code: z.string(), issuedAt: z.number().int().meta({ format: 'int32' }) }),
   // issuedAt 存 Date.now()；签发 5 分钟后删除。
   indexes: [{ path: 'phone' }, { path: 'issuedAt', expireAfterSeconds: 300 }],

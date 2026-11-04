@@ -64,6 +64,24 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
   delete baselineAppContext.properties.dataState;
   baselineAppContext.required = baselineAppContext.required.filter(name => name !== 'dataState');
   const baselineOperations = structuredClone(operations);
+  const declaration = baselineSchemas.CloudAppCollectionDeclaration as {
+    properties: Record<string, unknown>; required: string[];
+  };
+  expect(declaration.properties.directoryPath).toMatchObject({
+    type: 'array', minItems: 1, maxItems: 16,
+    items: { type: 'string', minLength: 1, maxLength: 63 },
+  });
+  expect(declaration.required).not.toContain('directoryPath');
+  delete declaration.properties.directoryPath;
+  const ensure = baselineOperations.appCollectionsEnsure;
+  expect(ensure.description).toContain('New aliases require directoryPath:');
+  expect(ensure.description).toContain('Existing aliases keep their current location');
+  expect(ensure.description).toContain('never invent a hierarchy');
+  ensure.description = ensure.description.split(' New aliases require directoryPath:')[0];
+  expect(ensure.example.collections[0].directoryPath).toEqual(['示例工厂', '生产车间']);
+  delete ensure.example.collections[0].directoryPath;
+  expect(baselineOperations.metadataDeleteOne.description).toBe('软删除将对象移入回收站；删除目录时原子回收整棵有效子树。引用不阻止删除，引用方配置和 Record/Sample 保留；回收期间历史数据按既有授权可读，禁止写入。');
+  baselineOperations.metadataDeleteOne.description = '软删除有效对象，执行引用和子节点校验，不级联清除 Record/Sample。';
   expect(baselineOperations.appStreamAccessList.resource).toBe('stream');
   baselineOperations.appStreamAccessList.resource = 'control';
   const access = baselineSchemas.CloudAppStreamAccessItem as {
@@ -75,6 +93,6 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
   access.properties.blockedReasons.items.enum = reasons.map(reason =>
     reason === 'app_stream_ceiling' ? 'app_control_ceiling' : reason);
   const digest = createHash('sha256').update(JSON.stringify(canonical({ operations: baselineOperations, schemas: baselineSchemas }))).digest('hex');
-  // Reviewed delta: grant aliases are optional and an empty alias clears the convenience name.
+  // Explicitly checked directory declarations above; unrelated Namespace operations stay pinned.
   expect(digest).toBe('58ed03b8c6ef045be2c8a374875393ad993dec78371dec31de9ff3f1e84ac3b3');
 });

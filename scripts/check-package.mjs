@@ -51,7 +51,7 @@ run(['--input-type=module', '-e', `
   const raw = createUnsV2Client();
   if (${JSON.stringify(retiredControlOperations)}.some(name => name in raw || name in UNS_V2_OPERATIONS)) throw new Error('Retired Controls raw operation leaked');
   if (operations.length !== UNS_V2_CONTRACT_PROVENANCE.publicOperationCount || operations.some(name => typeof raw[name] !== 'function')) throw new Error('Missing generated operations');
-  if (typeof client.uns.metadataFind !== 'function' || typeof client.uns.metadataBulkWrite !== 'function') throw new Error('Missing metadata operations');
+  if (typeof client.uns.metadataFind !== 'function' || typeof client.uns.metadataBulkWrite !== 'function' || typeof client.uns.metadataPurge !== 'function') throw new Error('Missing metadata operations');
   if ('collectionCreate' in client.uns || 'metaBatchExecute' in client.uns) throw new Error('Retired metadata routes leaked');
   if ('sourceList' in client.uns || 'streamProgramDeploy' in client.uns || 'controlInvoke' in client.uns) throw new Error('Mixed domain entrypoints');
   if ('list' in client.source || 'get' in client.stream.programs || 'nodes' in client.agent || 'controls' in client.api || 'controls' in client || 'ControlError' in sdk || 'ControlResultUnknownError' in sdk) throw new Error('Retired facade aliases leaked');

@@ -2,7 +2,7 @@
 
 | 方法 | POST 路径 | 输入 | data |
 | --- | --- | --- | --- |
-| source.documents.list | /openapi/v2/uns/sources/documents/list | page、size、search、protocol、desiredState、health、archived、includeDocument | list、total、page、hasMore、nextPage |
+| source.documents.list | /openapi/v2/uns/sources/documents/list | page、size、search、protocol、health、archived、includeDocument | list、total、page、hasMore、nextPage |
 | source.documents.get | /openapi/v2/uns/sources/documents/get | id（必填）、view:'summary' 或 'full' | id、revision、状态；full 才包含完整 document |
 | source.runtime.get | /openapi/v2/uns/sources/runtime/get | id（必填） | 运行状态 |
 | source.observations.get | /openapi/v2/uns/sources/observations/get | items：id、expectedRevision | 指定源和修订的观测 |

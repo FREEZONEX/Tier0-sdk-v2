@@ -64,7 +64,7 @@ const page = (list: unknown[]) => ({ list, total: list.length, page: 1, size: 20
 const source = (revision = 1, name = 'orders') => ({
   id: '9007199254740993', revision, document: { name, protocol: 'http-api', description: '订单系统 HTTP 接入',
     config: { role: 'client', endpoint: 'https://fixture.invalid', options: {} } },
-  desiredState: 'disabled', runtimeState: 'stopped', health: 'unknown', createdAt: 1, updatedAt: 1,
+  runtimeState: 'stopped', health: 'unknown', createdAt: 1, updatedAt: 1,
 });
 const token = 'si1_' + 'a'.repeat(43); // Fixture-only server-issued confirmation.
 const impact = (action = 'update', revision = 1) => ({
@@ -185,35 +185,26 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     finished();
   });
 
-  it('keeps Source impact review separate from explicitly confirming a referenced rename', async () => {
+  it('keeps Source impact review separate from explicitly confirming a referenced connection change', async () => {
+    const config = { role: 'client', endpoint: 'https://changed.invalid', options: {} };
     steps = [{ path: 'sources/impact', check: b => expect(b).toMatchObject({
-      id: source().id, expectedRevision: 1, action: 'update', patch: { name: 'renamed' },
+      id: source().id, expectedRevision: 1, action: 'update', patch: { config },
     }), data: { ...impact(), counts: { draft: 1, activeRelease: 0, historicalRelease: 0 } } }];
     const workflow = example('source', 'update', 1);
-    const plan = await workflow.prepareSourceRename(source().id, 1, 'renamed', client);
+    const plan = await workflow.prepareSourceConfigUpdate(source().id, 1, config, client);
     expect(plan.impact.counts.draft).toBe(1);
     expect(calls).toHaveLength(1);
     finished();
     steps = [{ path: 'sources/documents/update', check: b => expect(b).toEqual({
-      id: source().id, expectedRevision: 1, patch: { name: 'renamed' },
-      confirmedImpactRevision: token, dryRun: false, idempotencyKey: 'reviewed-rename',
-    }), data: source(2, 'renamed') }];
-    const changed = await workflow.commitSourceRename(plan, 'reviewed-rename', client);
-    expect(changed.current).toEqual(source(2, 'renamed'));
+      id: source().id, expectedRevision: 1, patch: { config },
+      confirmedImpactRevision: token, dryRun: false, idempotencyKey: 'reviewed-config-change',
+    }), data: { ...source(2), document: { ...source(2).document, config } } }];
+    const changed = await workflow.commitSourceConfigUpdate(plan, 'reviewed-config-change', client);
+    expect(changed.current).toEqual({ ...source(2), document: { ...source(2).document, config } });
     expect(calls).toHaveLength(2);
     finished();
   });
 
-  it('sets an unreferenced Source desired state in one request without asserting runtime health', async () => {
-    steps = [{ path: 'sources/state/update', check: b => expect(b.items).toEqual([
-      { id: source().id, expectedRevision: 1, desiredState: 'enabled' },
-    ]), data: outcome() }];
-    const changed = await example('source', 'state').setSourceState(source().id, 1, 'enabled', 'enable-source', client);
-    expect(changed.state).toBe('committed');
-    expect(changed).not.toHaveProperty('current');
-    expect(calls).toHaveLength(1);
-    finished();
-  });
 
   it('keeps the same confirmation and intent while traversing Source impact pages', async () => {
     const ref = { kind: 'draft', streamID: stream().id, streamRevision: 1, release: 0,
@@ -442,10 +433,24 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     finished();
   });
 
+  it('submits the documented collection purge without claiming completion', async () => {
+    steps = [{ path: 'metadata:purge', check: body => expect(body).toEqual({
+      kind: 'collection', ids: ['devices'], idempotencyKey: 'purge-devices',
+    }), data: { status: 'accepted', jobId: 'purge-job', replayed: false, results: [] } }];
+    const result = await example('uns', 'delete', 2).purgeCollections(['devices'], 'purge-devices', client);
+    expect(result.state).toBe('submitted');
+    expect(result.receipt.data).toMatchObject({ status: 'accepted', jobId: 'purge-job' });
+    expect(calls).toHaveLength(1);
+    finished();
+  });
+
   it('executes metadata and Record CRUD, Schema replacement, soft delete and restore', async () => {
     steps = [
-      { path: 'metadata', data: outcome('validated') },
-      { path: 'metadata', check: b => expect(b.data.recordSchema.required).toEqual(['name', 'enabled']), data: outcome() },
+      { path: 'metadata', check: b => expect(b).toMatchObject({ dryRun: true, data: { parentId: 'workshop-1' } }), data: outcome('validated') },
+      { path: 'metadata', check: b => {
+        expect(b).toMatchObject({ dryRun: false, idempotencyKey: 'create-collection', data: { parentId: 'workshop-1' } });
+        expect(b.data.recordSchema.required).toEqual(['name', 'enabled']);
+      }, data: outcome() },
       { path: 'metadata:find', data: { items: [collection()] } },
       { path: 'collections/devices/records', check: b => expect(b.returnDocument).toBe('after'),
         data: { insertedId: 'device-1', value: record(), status: 'committed', replayed: false } },
@@ -479,7 +484,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
       { path: 'metadata:restore', check: b => expect(b.items[0].expectedRevision).toBe(4), data: { ...outcome(), restoredCount: 1 } },
       { path: 'metadata:find', data: { items: [collection(5)] } },
     ];
-    await example('uns', 'create').createDeviceCollection('devices', 'devices', 'create-collection', client);
+    await example('uns', 'create').createDeviceCollection('devices', 'devices', 'workshop-1', 'create-collection', client);
     const inserted = await example('uns', 'create', 1).insertDevice('devices', 'device-1', 'pump', 'insert-record', client);
     expect(inserted.created).toEqual(record());
     await example('uns', 'update', 2).renameDevice('devices', 'device-1', 'pump-2', 'update-record', client);
@@ -495,10 +500,10 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
 
   it('does not treat an unconfirmed metadata mutation as committed or perform dependent reads', async () => {
     steps = [
-      { path: 'metadata', data: outcome('validated') },
-      { path: 'metadata', data: outcome('unconfirmed') },
+      { path: 'metadata', check: b => expect(b.data.parentId).toBeNull(), data: outcome('validated') },
+      { path: 'metadata', check: b => expect(b.data.parentId).toBeNull(), data: outcome('unconfirmed') },
     ];
-    const result = await example('uns', 'create').createDeviceCollection('devices', 'devices', 'create', client);
+    const result = await example('uns', 'create').createDeviceCollection('devices', 'devices', null, 'create', client);
     expect(result.state).toBe('unconfirmed');
     expect(result.receipt.data.status).toBe('unconfirmed');
     finished();

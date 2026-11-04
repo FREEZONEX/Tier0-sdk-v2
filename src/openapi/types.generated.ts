@@ -999,6 +999,7 @@ export interface components {
         };
         SendNotificationReq: {
             channels?: ("web" | "mobile")[];
+            /** @description 纯文本，含 HTML 标签会被拒绝（400） */
             content: string;
             idempotencyKey: string;
             link?: string;
@@ -1007,6 +1008,7 @@ export interface components {
             sender?: components["schemas"]["NotificationSender"];
             /** @description 已废弃：过渡期作 sender.name 别名（sender.name 优先），后续移除 */
             source?: string;
+            /** @description 纯文本，含 HTML 标签会被拒绝（400） */
             title: string;
             type: string;
         };
@@ -1020,7 +1022,7 @@ export interface components {
             /** @description 人读显示名（接替废弃的 source），≤100字符 */
             name?: string;
             /**
-             * @description 枚举 app/other/system，缺省 other；system=平台内部服务，仅 usage_type=internal 的 API key 可用（否则 400），建信归 workspace 分组（System tab）
+             * @description 枚举 app/other/system，缺省 other；system 仅平台内部发送方（如 UNS Agent）可用；App 凭证不能使用 system，sender.type=app 时 sender.id 以凭证绑定的 App 为准；只有 App 绑定凭证或平台 App 凭证发出的 type=app 才会作为 App 展示，其他 Key 自报 type=app 会被降级为 other，接口照常返回成功；建信归 workspace 分组（System tab）
              * @default other
              * @enum {string}
              */
@@ -1039,6 +1041,7 @@ export interface components {
             messageId: string;
         };
         GetNotificationResp: {
+            channels: components["schemas"]["NotificationChannelResult"][];
             completedAt?: string;
             createdAt: string;
             errorCode?: string;
@@ -1046,6 +1049,16 @@ export interface components {
             messageId: string;
             status: string;
             type: string;
+        };
+        NotificationChannelResult: {
+            channel: string;
+            errorCode?: string;
+            message?: string;
+            platform: string;
+            /** @description sent / failed / no_device / not_configured / accepted / pending；accepted 仅 inbox（站内信已受理，仍在处理）；pending 表示请求了该渠道但推送还在处理中，尚无最终结果 */
+            status: string;
+            successCount: number | bigint;
+            targetCount: number | bigint;
         };
         PlatformGetMembersReq: {
             keyword?: string;
@@ -1087,6 +1100,8 @@ export interface components {
             page?: number | bigint;
             /** @description 任一命中即可，大小写不敏感 */
             roleKeys?: string[];
+            /** @description draft：按草稿角色计算；production 或不传：按线上版本计算 */
+            scope?: string;
             size?: number | bigint;
         };
         AppAccessMembersListResp: {
@@ -1168,7 +1183,13 @@ export interface components {
                 replacement?: string;
                 sunsetAt?: string;
             }[];
-        };
+        } & (unknown | {
+            capabilities?: (unknown | {
+                operations?: {
+                    operation?: unknown;
+                }[];
+            })[];
+        });
         /** @description Unknown capability codes are ignored; only recognized codes use the frozen assessment contract. */
         CapabilityDiscoverycapability: {
             code: string;

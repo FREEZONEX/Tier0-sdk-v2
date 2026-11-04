@@ -2,9 +2,11 @@
 
 Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交互均使用 `@tier0/sdk-v2`。旧 SDK 不再作为依赖。
 
-`0.10.0-aenv.4` 是 aenv-next 的本地预发布版本，基于 `0.9.4`，未发布到 npm；内容见下方「aenv-next 运行环境」。
+`0.10.0-aenv.5` 是 aenv-next 的本地预发布版本，基于 `0.9.8`（含 App 集合业务目录声明 `directoryPath`，以及 `0.9.7` 的 Source 生命周期简化），未发布到 npm；内容见下方「aenv-next 运行环境」。
 
-**`0.10.0-aenv.2` 起是破坏性变更**：`TIER0_CREDENTIALS_FILE` 不再读取，SDK 在平台里不持有、不发送任何凭据，由节点代理注入 App 的长期 Key；必须和新的 AgentENV（`sbx-api-proxy`）一起上线，在旧 VM 上请求会被拒绝。`0.10.0-aenv.3` 起 `TIER0_RUNTIME` 只接受 `deployed` / `preview`，其他非空值（且没有 Key）直接报配置错误。`0.10.0-aenv.4` 起 MQTT 改用 `<ws>&open` / `<ws>&h.<app>.<随机>`，预览和正式同一行为（种子不再等委托请求，`appCredentialRuntime()` 已删除）。
+**`0.10.0-aenv.2` 起是破坏性变更**：`TIER0_CREDENTIALS_FILE` 不再读取，SDK 在平台里不持有、不发送任何凭据，由节点代理注入 App 的长期 Key；必须和新的 AgentENV（`sbx-api-proxy`）一起上线，在旧 VM 上请求会被拒绝。`0.10.0-aenv.3` 起 `TIER0_RUNTIME` 只接受 `deployed` / `preview`，其他非空值（且没有 Key）直接报配置错误。`0.10.0-aenv.4` 起 MQTT 改用 `<ws>&open` / `<ws>&h.<app>.<随机>`，预览和正式同一行为（种子不再等委托请求，`appCredentialRuntime()` 已删除）。`0.10.0-aenv.5` 合入 base 的 `0.9.7`、`0.9.8`。
+
+`0.9.8` 新增 App 集合业务目录声明 `directoryPath`，按已知业务范围创建或复用目录，已有集合保持位置。保留 `0.9.7` 的 Source 生命周期简化：创建后可直接使用，删除后停止后续使用；移除 `client.source.state.update`、启停能力与 `desiredState`。名称和描述修改无需影响确认，连接配置变更或删除存在引用时仍须确认；运行中的 Stream 可直接删除。
 
 `0.9.3` 同步集合授权合同：授予既有集合访问权限时无需提供别名，并更新生成类型与使用说明。集合声明的 `name` / `alias` 要求保持不变。
 
@@ -24,13 +26,13 @@ Collection 声明必须同时提供业务名称 `name`（例如「生产工单�
 
 ## 安装与初始化
 
-维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。本分支的功能应使用检查通过的 `tier0-sdk-v2-0.10.0-aenv.4.tgz` 在业务项目中验证：
+维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。本分支的功能应使用检查通过的 `tier0-sdk-v2-0.10.0-aenv.5.tgz` 在业务项目中验证：
 
 ```sh
-npm install /path/to/tier0-sdk-v2-0.10.0-aenv.4.tgz
+npm install /path/to/tier0-sdk-v2-0.10.0-aenv.5.tgz
 ```
 
-`0.10.0-aenv.4` 正式发布后再使用 `npm install @tier0/sdk-v2@0.10.0-aenv.4`。发布前，npm 的既有版本和 `next` 标签不代表本分支的完整功能。
+`0.10.0-aenv.5` 正式发布后再使用 `npm install @tier0/sdk-v2@0.10.0-aenv.5`。发布前，npm 的既有版本和 `next` 标签不代表本分支的完整功能。
 
 ```ts
 import { createClient } from '@tier0/sdk-v2';
@@ -108,7 +110,7 @@ curl -sS -X POST "$TIER0_API_HOST/openapi/v2/info" -H 'X-Tier0-SDK: 1' -H 'Conte
 | `tier0.streams` | App 请求、实时业务消息与独立交互能力发现 |
 | `tier0.uns` | 目录、Topic、Collection、Record、Sample、事务与 App 数据上下文 |
 | `tier0.system` | `whoami()`、`info()` |
-| `tier0.members` | `listWorkspace()` 用于 Workspace 级成员选择；`listApp({ appId })` 查询能使用指定 App 的成员 |
+| `tier0.members` | `listWorkspace()` 用于 Workspace 级成员选择；`listApp({ appId })` 查询能使用指定 App 的成员（Builder 预览按草稿角色，部署后按线上版本，`scope` 由 SDK 自动带上） |
 | `tier0.notifications` | `send()`、`get()` |
 | `tier0.files` | `upload()`、`uploadMultipart()`、`resumeMultipart()`、`url()`、`download()`、`delete()`、`multipart` 原子接口 |
 | `tier0.mqttAuth` | 创建、删除 MQTT 凭证 |
@@ -166,7 +168,7 @@ Source/Stream 仍保留 `{ code, msg, requestId, data }` 响应以及 `UnsV2Erro
 
 ## UNS 数据访问
 
-创建本 App 集合使用 `defineCollection` / `appCollectionsEnsure`，`ownerAppId` 表示唯一所属 App。使用已有或其他 App 共享的集合，可用 `data.collection({ collectionId })` 获取数据层句柄，也可向 `tier0.uns.recordFind`、`recordInsertOne` 等接口传入实际 `collectionId`；无需新增声明或配置服务端 alias，也不改变集合归属。引用已有集合跳过 ensure、schema 修改和种子写入；可选的 `schema` 仅用于本地写入校验。App Key 仍须已有覆盖该集合及操作的授权，知道 ID 不代表获得权限。
+创建本 App 集合使用 `defineCollection` / `appCollectionsEnsure`，新建必须声明 `directoryPath`（从 Workspace 根开始的实际业务名称数组）。工业数据按业务已知的 ISA-95 层级逐级复用或创建目录，不强行补满五层、不统一放入缺少业务范围的根级 App 目录；允许在已知工厂、产线下声明 MES 等 App 或业务模块目录，例如“工厂 / 产线 / MES / 工单”。共享数据放在适合其范围的共同祖先。已有 alias 的位置不会因声明变化自动移动。`ownerAppId` 表示唯一所属 App。使用已有或其他 App 共享的集合，可用 `data.collection({ collectionId })` 获取数据层句柄，也可向 `tier0.uns.recordFind`、`recordInsertOne` 等接口传入实际 `collectionId`；无需新增声明或配置服务端 alias，也不改变集合归属。引用已有集合跳过 ensure、schema 修改和种子写入；可选的 `schema` 仅用于本地写入校验。App Key 仍须已有覆盖该集合及操作的授权，知道 ID 不代表获得权限。
 
 新建 Schema 的数值字段使用明确格式：整数为 `type: 'integer', format: 'int32'`，小数为 `type: 'number', format: 'double'`，明确需要单精度时指定 `format: 'float'`。App 数据层编译 Zod 声明时，会递归为未指定格式的 integer/number 补齐 int32/double，并保留显式格式；直接调用 UNS/MCP 时由调用方提供 format。这些是类型注解，不新增数值范围或舍入规则；ensure 不改写已有字段注解，已有 legacy 字段需通过 schema:replace 单独迁移。
 
@@ -299,7 +301,7 @@ node scripts/check-live-workflows.mjs <consumer> <workspaceId> .tmp/live-workflo
 node scripts/check-live-transports.mjs <consumer> <workspaceId> .tmp/live-transports.json --write-test-fixtures
 ```
 
-写入验收不发布 Stream、不启用 Source、不发送通知。归档资源保留正常产品恢复能力；报告区分通过、服务端拒绝和未验证范围。分片上传失败会保留错误原因，确认尚未尝试 complete 时清理本次会话；完成结果未知时先对账。
+写入验收不发布 Stream、不发送通知。归档资源保留正常产品恢复能力；报告区分通过、服务端拒绝和未验证范围。分片上传失败会保留错误原因，确认尚未尝试 complete 时清理本次会话；完成结果未知时先对账。
 
 Stream 发布和实际运行使用单独的验收脚本，同样只在明确授权的测试 Workspace 执行；按脚本报告区分已测和未测的生命周期阶段：
 
