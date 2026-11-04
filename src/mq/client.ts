@@ -205,6 +205,18 @@ export class Tier0MQClient {
   // 显式连接（需要等待连接完成时使用）
   async connect(config?: MQTTConfig): Promise<void> {
     if (config) {
+      // mqtt.js snapshots its connection options. Changing our config while a
+      // client exists would leave the old credentials in use, including on
+      // automatic reconnect. Refuse the change before mutating anything.
+      const connectionFields: (keyof MQTTConfig)[] = [
+        'host', 'port', 'secure', 'clientId', 'username', 'password',
+        'keepAlive', 'reconnectPeriod', 'connectTimeout', 'clean',
+      ];
+      if (this.client && connectionFields.some((field) =>
+        config[field] !== undefined && config[field] !== this.config[field]
+      )) {
+        throw new Error('MQTT connection settings cannot change while a client exists; disconnect and create a new client');
+      }
       const previousPassword = this.config.password;
       this.config = { ...this.config, ...config };
       if (config.clientId !== undefined) this.explicitClientId = true;

@@ -105,6 +105,41 @@ describe('Tier0MQClient', () => {
     }));
   });
 
+  it.each(['connecting', 'connected', 'reconnecting'] as const)(
+    'rejects a credential change while %s without changing the active client', async (state) => {
+      const client = new Tier0MQClient({ host: 'broker', password: 'sk-per-ws1_original' });
+      const first = client.connect();
+      if (state !== 'connecting') {
+        emit('connect');
+        await first;
+      }
+      if (state === 'reconnecting') emit('close');
+
+      await expect(client.connect({ password: 'sk-per-ws2_replacement' })).rejects.toThrow(
+        'disconnect and create a new client',
+      );
+      expect(mqtt.connect).toHaveBeenCalledTimes(1);
+      if (state === 'connecting') {
+        emit('connect');
+        await first;
+      }
+      expect(mqtt.connect).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
+        password: 'sk-per-ws1_original', username: '1&open',
+      }));
+      client.disconnect();
+    },
+  );
+
+  it('permits idempotent connect with the same credentials', async () => {
+    const client = new Tier0MQClient({ host: 'broker', password: 'sk-per-ws1_original' });
+    const first = client.connect();
+    emit('connect');
+    await first;
+    await client.connect({ password: 'sk-per-ws1_original' });
+    expect(mqtt.connect).toHaveBeenCalledTimes(1);
+    client.disconnect();
+  });
+
   it.each([
     ['broker:8083', undefined, 'ws://broker:8083/mqtt'],
     ['broker:8084', undefined, 'wss://broker:8084/mqtt'],
