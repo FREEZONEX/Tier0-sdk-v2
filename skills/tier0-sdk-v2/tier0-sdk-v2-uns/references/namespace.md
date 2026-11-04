@@ -1,5 +1,21 @@
 # 目录、Topic 与元数据事务
 
+## 先确定凭证与查询目的
+
+`client.uns.namespace()` 对应 `POST /openapi/v2/uns/namespace/query`，不是内部接口。SDK 保留该方法供有权限的工作空间调用方使用；SDK 方法目录不是当前凭证的授权清单。
+
+| 凭证 | Namespace / metadata 查询 | 发现并读取集合 |
+| --- | --- | --- |
+| 未绑定 App 的 Agent / Personal Key | 有当前工作空间权限及 Key scope 时可用；Agent Key 还会复核真实负责人的状态和权限 | 按当前工作空间授权查询，再调用 `recordFind` |
+| App Key | 当前不开放；`appCollectionsList` 也不能调用 | `dataAppContext({})` 返回自有及已授权集合、目录路径、结构和有效权限，再按集合 ID 调 `recordFind` |
+| 平台系统 Service Key | 按实际系统凭证授权，不按“Agent 正在调用”推定权限 | 带 Builder 目标时，指定 App 操作可使用目标 App 视角；不代表所有查询都变成 App 视角 |
+
+目录位置不产生数据授权。App 自有集合的正常创建流程提供相应授权，但读取仍受凭证权限、App 状态及数据策略约束；不能仅凭 `ownerAppId` 推定任何接口都可调用。SDK 和 MCP 使用相同凭证时仍受服务端授权约束。
+
+收到 `403 FORBIDDEN` 且原因为 `operation is not available to App credentials` 时，先核对调用接口与服务端确认的凭证身份。这是操作准入拒绝，不能据此认定 Collection 不可读或没有数据。App 的正确流程见[读取示例](read.md)；不要重试同一不允许的操作、改走内部接口或自动换成权限更大的 Key。记录 `requestId`；错误文案仅供诊断，不在程序中匹配文案作权限判断。
+
+## 工作空间目录管理
+
 目录、Topic、Collection 使用同一套 metadata* 方法，通过 kind 指定类型。Source/Stream 的启停、连接和发布仍使用各自专用生命周期接口；不允许把系统任务、凭据或发布历史当作普通元数据修改。
 
 目录、Collection 和 Topic 直接以 name 展示业务名称，不提供 displayName。系统引用用 ID，App 程序标识用独立 alias；名称改动不影响它们。不要用随机串、时间戳或 ID 拼接名称，也不自动用无意义后缀解决重名。

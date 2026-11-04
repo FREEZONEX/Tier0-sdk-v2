@@ -1,5 +1,27 @@
 # 查询集合与记录
 
+## App Key：从授权上下文读取
+
+App Key 使用 `dataAppContext`，不调用 `namespace`、`metadataFind` 或 `appCollectionsList`。上下文包含可访问集合的名称、目录路径、Schema 和有效权限；按已配置 alias 精确定位，不能随意选择列表第一项。已知集合 ID 时可直接调用 `recordFind`，不要求每次预先加载上下文。
+
+```ts
+import { createClient, type Tier0Client } from '@tier0/sdk-v2';
+
+// 在服务端使用 App Key；alias 是应用配置中的稳定集合别名。
+export async function readAppRecords(alias: string, client: Tier0Client = createClient()) {
+  const context = await client.uns.dataAppContext({});
+  const collection = context.data.collections.find(item => item.alias === alias);
+  if (!collection || !collection.permissions.includes('record:read')) {
+    throw new Error('当前 App 上下文没有该别名的可读集合，请核对别名、授权和凭证');
+  }
+  return client.uns.recordFind({ collectionId: collection.collectionId, limit: 20 });
+}
+```
+
+未找到别名不等于集合不存在；共享授权可能没有 alias，应使用明确配置的集合 ID。上下文只是发现结果，后续请求仍由服务端重新检查权限。网络或权限错误应传播，不转换成“零条记录”。此例只读取第一页，后续按返回的 `pageInfo` 继续查询。
+
+## 工作空间凭证：查询元数据与记录
+
 | 方法 | 必要输入 | 返回 data |
 | --- | --- | --- |
 | metadataFind | kinds；可选 filter、sort、projection、page、state | items、pageInfo |
