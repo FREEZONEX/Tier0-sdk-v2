@@ -60,4 +60,4 @@ export async function createDirectoryAndTopic(
 
 transact 始终原子，结果通过 opId 对应输入；dryRun=true 校验，不预留 ID 或名称。正式执行仍重新检查。创建结果引用仅用于契约支持的关系字段，不能把任意字符串或脚本当引用。
 
-名称、父目录、Schema、引用与权限由服务端校验。移动不改变对象 ID；删除目录不隐式清空后代；删除 Topic 不删除所引用的 Collection。引用查询仍使用 references 专用方法。
+名称、父目录、Schema、引用与权限由服务端校验。移动不改变对象 ID；删除目录原子回收有效子树，删除 Topic 不删除所引用的 Collection。外部引用不阻止回收；范围、授权和恢复规则见[删除](delete.md#回收规则)与[恢复](restore.md)。引用查询仍使用 references 专用方法。

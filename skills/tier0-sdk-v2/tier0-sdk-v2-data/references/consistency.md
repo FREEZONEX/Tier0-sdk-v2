@@ -63,8 +63,8 @@ export function servingEmployee(): boolean {
 
 ## 首次访问与自愈
 
-进程内第一次数据访问会一次性 ensure 全部声明：缺失的集合会被创建（随后写入种子），更宽的声明会放宽存储，存储永远不会被收窄。ensure 失败不缓存，下一次请求会重试（刚导入的 App 可能短暂返回 `APP_NOT_READY`，数据层先自动重试，仍失败时按 503 回答）。
+进程内第一次访问声明集合时一次性 ensure 全部声明：缺失的集合会被创建（随后写入种子），更宽的声明会放宽存储，存储永远不会被收窄。ensure 失败不缓存，下一次请求会重试（刚导入的 App 可能短暂返回 `APP_NOT_READY`，数据层先自动重试，仍失败时按 503 回答）。已有 ID 引用 `data.collection({ collectionId })` 跳过 ensure，可按原授权[读取回收集合历史](../../tier0-sdk-v2-uns/references/read.md#回收集合的历史读取)。
 
-运行中的进程在所用集合消失时会自愈（Preview 重置会删除集合，worker 或管理员可能归档集合）：UNS 以 `data.reason` 为 `COLLECTION_NOT_FOUND` 或 `COLLECTION_NOT_GRANTED` 拒绝调用时，数据层重新 ensure（重建并重新写入种子），并在集合 ID 确实变化时把该调用重试一次。每个 client 每 30 秒最多重建一次；`APP_GRANT_REVOKED`（管理员决定）从不重试。延续旧集合游标的分页、`updateMany` / `deleteMany` 的续写直接失败，不会重试。
+声明集合的调用被 `COLLECTION_NOT_FOUND` 或 `COLLECTION_NOT_GRANTED` 拒绝时，数据层重新 ensure（重建并重新写入种子），并在集合 ID 确实变化时把该调用重试一次。每个 client 每 30 秒最多重建一次；已有 ID 引用不触发重建。历史读取成功、`APP_GRANT_REVOKED` 或 `OWNER_APP_TRASHED` 均不触发自愈。延续旧集合游标的分页、`updateMany` / `deleteMany` 的续写直接失败，不会重试。
 
 Preview（`environment: 'preview'`，`NODE_ENV` 不是 production 时的默认值）下，Schema 冲突或 ensure 警告会让请求失败并带上详情；部署环境只记录日志、继续服务。`ignored` 提示从不让请求失败：存储比声明更宽的部分记为 info，`ANNOTATION_NOT_APPLIED`（ensure 不会改写的描述）记为指向 `schema:replace` 的 warning。

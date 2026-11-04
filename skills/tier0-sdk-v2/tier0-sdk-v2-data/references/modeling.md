@@ -150,8 +150,10 @@ export const loginCodes = defineCollection({
 
 - 字段声明为 `z.number().int()`，存 Unix 毫秒（通常是 `Date.now()`）；记录在该时刻再过 `expireAfterSeconds`（60–31536000 秒）后被删除。删除有分钟级延迟，读取时仍要自己比较时间。
 - 每个集合最多 1 个 TTL 索引，只能是单个 `path`、不能 `unique`。缺这个字段的记录不会过期。
-- 过期删除是**物理删除**，不能 restore；软删除的记录同样按 TTL 清理。
+- 过期删除是**物理删除**，不能 restore；集合有效时，软删除的记录同样按 TTL 清理，集合回收后停止 TTL 清理。
 - ensure 只能新增 TTL 或把时间加长；缩短或去掉要通过 tier0 MCP 的 `schema:replace`。
+
+集合软删除和 App 回收保留查询索引，物理索引仍占配额；归档不释放索引空间，见[回收规则](../../tier0-sdk-v2-uns/references/delete.md#回收规则)。
 
 ## 种子数据
 
