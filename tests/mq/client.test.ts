@@ -248,6 +248,49 @@ describe('Tier0MQClient', () => {
     client.disconnect();
   });
 
+  it('rejects new subscriptions during reconnect without retaining them, then allows retry', async () => {
+    const transport = lifecycleClient();
+    (mqtt.connect as any).mockReturnValue(transport);
+    const client = new Tier0MQClient({ host: 'broker' });
+    const errors = vi.fn();
+    const handler = vi.fn();
+    client.on('error', errors);
+    const initial = client.connect();
+    transport.emit('connect');
+    await initial;
+    transport.emit('close');
+
+    client.subscribe('retry', handler);
+    await Promise.resolve();
+    expect(errors).toHaveBeenCalledTimes(1);
+    expect(client.subscribedTopics).toEqual([]);
+    expect(transport.subscribe).not.toHaveBeenCalled();
+
+    transport.emit('connect');
+    expect(transport.subscribe).not.toHaveBeenCalled();
+    client.subscribe('retry', handler);
+    expect(transport.subscribe).toHaveBeenCalledTimes(1);
+    expect(transport.subscribe).toHaveBeenCalledWith('retry', expect.anything(), expect.any(Function));
+    client.unsubscribe('retry', handler);
+    expect(client.subscribedTopics).toEqual([]);
+    client.disconnect();
+  });
+
+  it('removes a pending initial subscription if the connection fails', async () => {
+    const transport = lifecycleClient();
+    (mqtt.connect as any).mockReturnValue(transport);
+    const client = new Tier0MQClient({ host: 'broker' });
+    const errors = vi.fn();
+    client.on('error', errors);
+    client.subscribe('pending', vi.fn());
+    transport.emit('error', new Error('broker unavailable'));
+    await vi.waitFor(() => expect(client.subscribedTopics).toEqual([]));
+    expect(errors).toHaveBeenCalled();
+    transport.emit('connect');
+    expect(transport.subscribe).not.toHaveBeenCalled();
+    client.disconnect();
+  });
+
   it('does not let retired subscription callbacks alter new subscriptions or report errors', async () => {
     const old = lifecycleClient();
     const nextClient = lifecycleClient();

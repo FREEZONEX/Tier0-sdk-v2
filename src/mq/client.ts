@@ -279,6 +279,11 @@ export class Tier0MQClient {
       return;
     }
 
+    if (this.client && !this._connected && !this.connectingPromise) {
+      this.emit('error', new Error('MQTT client is reconnecting; retry subscription after reconnect'));
+      return;
+    }
+
     const sub: Subscription = { topic, handler };
     this.subscriptions.push(sub);
     const generation = this.generation;
@@ -296,7 +301,10 @@ export class Tier0MQClient {
     } else {
       // 未连接时触发懒连接，连接成功后 resubscribeAll 会自动 subscribe
       this.ensureConnected().catch((err) => {
-        if (this.generation === generation) this.emit('error', err);
+        if (this.generation === generation) {
+          this.subscriptions = this.subscriptions.filter((item) => item !== sub);
+          this.emit('error', err);
+        }
       });
     }
   }
