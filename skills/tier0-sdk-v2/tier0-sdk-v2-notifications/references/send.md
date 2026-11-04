@@ -9,7 +9,7 @@
 | title | string | 是 | 1–50 字符 |
 | content | string | 是 | 1–800 字符 |
 | idempotencyKey | string | 是 | 最多 128 字符；同一次业务事件固定 |
-| mode | test/live | 否 | 根据实际发布环境显式选择；省略服务端默认 live |
+| mode | test/live | 否 | 不传；平台按来源判定，请求值不生效 |
 | channels | array | 否 | SDK 省略补 web+mobile；[] 仅站内信 |
 | sender | object | 否 | app/other；system 仅平台内部服务 Key |
 | link | string | 否 | https:// 或单斜杠开头，最多 500 字符 |
@@ -22,13 +22,13 @@
 import { createClient, getCurrentAppId, type Tier0Client } from '@tier0/sdk-v2';
 
 export async function sendCompletedOrder(
-  recipientUserId: string, orderId: string, intentKey: string, mode: 'test' | 'live',
+  recipientUserId: string, orderId: string, intentKey: string,
   client: Tier0Client = createClient(),
 ) {
   return client.notifications.send({
     recipientUserId, type: 'inbox', title: '工单已完成',
     content: '工单 ' + orderId + ' 已完成，请查看处理结果。',
-    idempotencyKey: intentKey, mode, channels: ['web', 'mobile'],
+    idempotencyKey: intentKey, channels: ['web', 'mobile'],
     sender: { type: 'app', id: getCurrentAppId() },
   });
 }
@@ -48,7 +48,7 @@ other 发送者应给人读名称，如 `{type:'other',name:'库存同步服务'
 | [] | 只建站内信 |
 | 重复项 | SDK 去重 |
 
-没有 desktop 渠道。不要将 SDK 默认值与裸后端省略渠道的静默语义混淆。test 也会创建测试消息，不是 dryRun；仅因 NODE_ENV=production 不能证明 App 已发布。
+没有 desktop 渠道。不要将 SDK 默认值与裸后端省略渠道的静默语义混淆。mode 由平台判定：预览和沙箱发出的是 test，只进该 App 的预览铃铛；线上 App 发出的是 live。test 也是真实消息，不是 dryRun。
 
 同键同内容用于重放原意图；同键改内容产生冲突。新事件/不同收件人使用不同键。SDK 不自动重试，结果未知先对账；已有 messageId 用 get，没有按意图键查询的 SDK 方法。
 
