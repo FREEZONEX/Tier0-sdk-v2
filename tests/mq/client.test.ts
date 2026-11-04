@@ -323,6 +323,58 @@ describe('Tier0MQClient', () => {
     client.disconnect();
   });
 
+  it('preserves the original identity when local host preflight fails', async () => {
+    const client = new Tier0MQClient({ password: 'sk-per-ws1_old' });
+    await expect(client.connect({ password: 'sk-per-ws2_new', username: '2&open' })).rejects.toThrow('MQTT host is required');
+    expect(mqtt.connect).not.toHaveBeenCalled();
+    const connecting = client.connect({ host: 'broker' });
+    emit('connect');
+    await connecting;
+    expect(mqtt.connect).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
+      password: 'sk-per-ws1_old', username: '1&open',
+    }));
+    client.disconnect();
+  });
+
+  it('does not retain an explicit username after credential preflight fails', async () => {
+    vi.stubEnv('TIER0_API_KEY', undefined);
+    const client = new Tier0MQClient({ host: 'broker' });
+    await expect(client.connect({ username: 'custom-user' })).rejects.toThrow('provide a workspace-encoded API key');
+    const connecting = client.connect({ password: 'sk-per-ws2_new' });
+    emit('connect');
+    await connecting;
+    expect(mqtt.connect).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ username: '2&open' }));
+    client.disconnect();
+  });
+
+  it('keeps transport settings after a started client reports a connection failure', async () => {
+    const client = new Tier0MQClient({ host: 'broker', password: 'sk-per-ws1_old' });
+    const failed = client.connect({ password: 'sk-per-ws2_new' });
+    emit('error', new Error('broker rejected connection'));
+    await expect(failed).rejects.toThrow('broker rejected connection');
+    client.disconnect();
+    const retry = client.connect();
+    emit('connect');
+    await retry;
+    expect(mqtt.connect).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({
+      password: 'sk-per-ws2_new', username: '2&open',
+    }));
+    client.disconnect();
+  });
+
+  it('restores settings if transport creation throws before returning a client', async () => {
+    (mqtt.connect as any).mockImplementationOnce(() => { throw new Error('transport creation failed'); });
+    const client = new Tier0MQClient({ host: 'broker', password: 'sk-per-ws1_old' });
+    await expect(client.connect({ password: 'sk-per-ws2_new' })).rejects.toThrow('transport creation failed');
+    const retry = client.connect();
+    emit('connect');
+    await retry;
+    expect(mqtt.connect).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({
+      password: 'sk-per-ws1_old', username: '1&open',
+    }));
+    client.disconnect();
+  });
+
   it('removes a pending initial subscription if the connection fails', async () => {
     const transport = lifecycleClient();
     (mqtt.connect as any).mockReturnValue(transport);

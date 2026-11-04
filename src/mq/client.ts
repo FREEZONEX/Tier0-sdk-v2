@@ -93,8 +93,8 @@ export class Tier0MQClient {
     };
   }
 
-  private get mqttUrl(): string {
-    const { host, port, secure } = this.config;
+  private mqttUrlFor(config: MQTTConfig): string {
+    const { host, port, secure } = config;
     if (!host) {
       throw new Error(
         'MQTT host is required. Provide it via MQTTConfig or TIER0_MQTT_HOST environment variable.'
@@ -119,6 +119,13 @@ export class Tier0MQClient {
     return `${useSecure ? 'wss' : 'ws'}://${hostname}:${effectivePort}/mqtt`;
   }
 
+  private validateConnectionConfig(config: MQTTConfig): void {
+    void this.mqttUrlFor(config);
+    if (!config.password || !config.username || !config.clientId) {
+      throw new Error('Tier0 SDK v2: provide a workspace-encoded API key or explicit MQTT username, clientId and password.');
+    }
+  }
+
   // 内部确保已连接（懒连接）
   private async ensureConnected(): Promise<void> {
     if (this._connected) return;
@@ -127,10 +134,7 @@ export class Tier0MQClient {
       throw new Error('MQTT client is disconnected or reconnecting; wait for reconnect, or disconnect and create a new client');
     }
 
-    void this.mqttUrl;
-    if (!this.config.password || !this.config.username || !this.config.clientId) {
-      throw new Error('Tier0 SDK v2: provide a workspace-encoded API key or explicit MQTT username, clientId and password.');
-    }
+    this.validateConnectionConfig(this.config);
 
     const pending = this.doConnect();
     this.connectingPromise = pending;
@@ -156,7 +160,7 @@ export class Tier0MQClient {
 
       let client: MqttClient;
       try {
-        client = mqtt.connect(this.mqttUrl, options);
+        client = mqtt.connect(this.mqttUrlFor(this.config), options);
       } catch (err) {
         this.rejectPendingConnect = null;
         reject(err);
@@ -272,23 +276,41 @@ export class Tier0MQClient {
       }
       return;
     }
+    const previousConfig = this.config;
+    const previousExplicitClientId = this.explicitClientId;
+    const previousExplicitUsername = this.explicitUsername;
+    const candidate = update ? { ...previousConfig, ...update } : previousConfig;
+    const explicitClientId = previousExplicitClientId || update?.clientId !== undefined;
+    const explicitUsername = previousExplicitUsername || update?.username !== undefined;
     if (update) {
-      const previousPassword = this.config.password;
-      this.config = { ...this.config, ...update };
-      if (update.clientId !== undefined) this.explicitClientId = true;
-      if (update.username !== undefined) this.explicitUsername = true;
+      const previousPassword = previousConfig.password;
       // A connect-time key may belong to a different workspace. Preserve only
       // caller-supplied identity fields, not values derived from the previous key.
       if (update.password !== undefined && update.password !== previousPassword) {
         const workspaceID = parseWorkspaceIDFromApiKey(update.password);
-        if (!this.explicitClientId) {
-          this.config.clientId = workspaceID ? workspaceID + '&' + generateRandomString(8) : undefined;
+        if (!explicitClientId) {
+          candidate.clientId = workspaceID ? workspaceID + '&' + generateRandomString(8) : undefined;
         }
-        if (!this.explicitUsername) this.config.username = workspaceID ? workspaceID + '&open' : undefined;
+        if (!explicitUsername) candidate.username = workspaceID ? workspaceID + '&open' : undefined;
       }
     }
+    this.validateConnectionConfig(candidate);
     const generation = this.generation;
-    await this.ensureConnected();
+    this.config = candidate;
+    this.explicitClientId = explicitClientId;
+    this.explicitUsername = explicitUsername;
+    try {
+      await this.ensureConnected();
+    } catch (err) {
+      // If no transport was created, the attempted settings have no owner.
+      // Do not roll back a newer generation or another caller's settings.
+      if (!this.client && this.generation === generation && this.config === candidate) {
+        this.config = previousConfig;
+        this.explicitClientId = previousExplicitClientId;
+        this.explicitUsername = previousExplicitUsername;
+      }
+      throw err;
+    }
     if (this.generation !== generation || !this.client || !this._connected) {
       throw new Error('MQTT connection changed before connect completed');
     }
