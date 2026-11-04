@@ -1,6 +1,8 @@
 # Changelog
 
-## 0.9.9 (2026-11-02)
+## 0.9.9 (2026-11-04)
+
+- Clarify workspace Agent/Personal versus App credential query permissions. Keep `namespace()` on OpenAPI; document `dataAppContext` followed by `recordFind` for App keys, with a typed example and 403 troubleshooting. No runtime authorization changes.
 
 - Add `client.uns.metadataPurge` for explicit archived Collection IDs. Preserve the asynchronous `accepted` / `jobId` receipt; use `jobs` to inspect completion and per-item results. Preview remains optional.
 - Document Collection deletion with retained records/samples and configuration references, followed by restore or permanent deletion.
