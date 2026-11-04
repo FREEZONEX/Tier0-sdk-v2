@@ -5,6 +5,7 @@ import {
   type CloudTransportConfig,
 } from '../cloud-transport.js';
 import { getClient, type HttpClient, type RequestOptions } from '../openapi/client.js';
+import { invalidResponseHint } from '../connection-diagnostics.js';
 import { decodeUnsV2JSON, encodeUnsV2JSON } from './codec.js';
 import { parseServerSentEvents, ServerSentEventsError } from './sse.js';
 import {
@@ -306,7 +307,7 @@ export class UnsV2ClientCore {
     try {
       value = decodeUnsV2JSON(response.text, response.status === 200 ? operation.response : 'UnsV2ErrorResponse');
     } catch {
-      throw invalid('Invalid UNS v2 response.', false);
+      throw invalid(`Invalid UNS v2 response. ${invalidResponseHint(response.status)}`, false);
     }
 
     if (response.status !== 200) {
@@ -360,7 +361,7 @@ export class UnsV2ClientCore {
     }
     if ('text' in opened) {
       const unavailable = opened.status === 502 || opened.status === 503 || opened.status === 504;
-      const invalid = (enveloped: boolean) => localError('Invalid UNS v2 event stream response.', name, false, 'UNS_V2_PROTOCOL_ERROR', opened.status, unavailable, {
+      const invalid = (enveloped: boolean) => localError(`Invalid UNS v2 event stream response. ${invalidResponseHint(opened.status)}`, name, false, 'UNS_V2_PROTOCOL_ERROR', opened.status, unavailable, {
         notStarted: !enveloped && rejectedBeforeUns(opened.status),
       });
       let value: unknown;

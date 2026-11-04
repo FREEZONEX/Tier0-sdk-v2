@@ -17,7 +17,7 @@ import type { UnsV2Error, UnsV2Execution, UnsV2Retry } from '../uns-v2/client.js
 export const ACCESS_REASONS = {
   /** 403: the collection exists, but this App's grant does not cover it or the operation. */
   notGranted: 'COLLECTION_NOT_GRANTED',
-  /** 403 or 404: the collection is gone (hard-deleted or archived). */
+  /** 403 or 404: the collection is missing, or the write target is archived. */
   notFound: 'COLLECTION_NOT_FOUND',
   /** 403: the grant covers the operation, the App key lacks `data.missingPermission`. */
   permissionMissing: 'APP_PERMISSION_MISSING',
@@ -47,8 +47,9 @@ export class DataError extends Error {
   readonly attempts: number;
   /**
    * The idempotency key the write was sent with (generated unless the caller
-   * gave one). After `outcomeUnknown`, sending the same write with this key
-   * again cannot apply it twice.
+   * gave one). After `outcomeUnknown`, keep the original key and payload;
+   * replay is safe only within the server's verified receipt scope and
+   * retention window. A different API Key ID can have a different scope.
    */
   readonly idempotencyKey?: string;
   /** The `data` object of the UNS error envelope, or data-layer details. */
@@ -116,7 +117,7 @@ const CODE_HINTS: Record<string, string> = {
   INDEX_QUOTA_EXCEEDED:
     'The workspace index quota (200, counting every index that physically exists) is exhausted. Remove unused indexes through the tier0 MCP.',
   COLLECTION_TOO_LARGE:
-    'archive / restore handle at most 2000 records; stop using a large collection in code instead of archiving it.',
+    'Legacy recordsArchivedAt restoration handles at most 2000 records; current collection archive / restore retains records without that limit.',
   OVERLOADED:
     "This workspace's data requests are over their concurrency share; the data layer already waited and retried. Batch page reads with data.queryBatch and avoid per-record loops.",
   APP_NOT_READY: 'The platform is still preparing this App (e.g. right after an import); retry shortly.',
@@ -159,7 +160,7 @@ export function toDataError(error: UnsV2Error, attempts = 1, idempotencyKey?: st
     upstreamStatus: error.status,
     requestId: error.requestId,
     execution: error.execution,
-    retry: error.retry,
+    retry: error.execution === 'notStarted' || error.execution === 'rolledBack' ? error.retry : { safe: false },
     attempts,
     idempotencyKey,
     cause: error,

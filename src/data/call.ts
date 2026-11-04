@@ -22,7 +22,7 @@
  * `openStream` opens one `records:subscribe` event stream for `data.subscribe`,
  * which owns reconnects.
  */
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { HttpClient, type ClientConfig } from '../openapi/client.js';
 import {
   UnsV2ClientCore,
@@ -48,6 +48,8 @@ export interface CallOptions {
   dataSubject?: string;
   /** Abort of the current business request: a queued call leaves the queue, an in-flight one is cancelled. */
   signal?: AbortSignal;
+  /** Internal identity anchor shared by every attempt of one seed chunk. */
+  seedOperation?: object;
 }
 
 /** Sends one operation and resolves with the envelope's `data`. */
@@ -112,7 +114,9 @@ const gate = (globalGate[GATE_KEY] ??= new Gate(MAX_CONCURRENT_CALLS));
 
 /** Wait before resend `attempt` (1-based), or undefined when the error must surface. */
 export function retryDelay(error: UnsV2Error, attempt: number): number | undefined {
-  if (!error.retry.safe || attempt > MAX_RETRIES) return undefined;
+  // An upstream safe hint alone cannot prove that an unknown write can be
+  // replayed under the same server receipt principal and retention window.
+  if ((error.execution !== 'notStarted' && error.execution !== 'rolledBack') || !error.retry.safe || attempt > MAX_RETRIES) return undefined;
   if (error.retry.afterMs !== undefined) return error.retry.afterMs <= MAX_RETRY_WAIT_MS ? error.retry.afterMs : undefined;
   const ceiling = Math.min(MAX_RETRY_WAIT_MS, BACKOFF_BASE_MS * 2 ** (attempt - 1));
   return ceiling / 2 + Math.random() * (ceiling / 2);
@@ -133,35 +137,54 @@ function pause(ms: number, signal: AbortSignal): Promise<boolean> {
 }
 
 export function createDataTransport(config: ClientConfig): { call: DataCall; openStream: DataOpenStream } {
-  const http = new HttpClient(config);
-  const resolve = () => http;
-  const timeoutMs = config.transportTimeoutMs ?? DEFAULT_DATA_TIMEOUT_MS;
-  const transport = { transportTimeoutMs: timeoutMs };
-  const app = new UnsV2ClientCore(resolve, transport);
-
-  function assertConfigured() {
-    let problem: string | undefined;
+  const source = Object.freeze({ ...config });
+  const http = new HttpClient(source);
+  // This is a conservative byte-level fence, not server identity verification.
+  // Pin across the client lifetime, including ensure caches, retries and SSE reconnects.
+  let binding: { host: string; keyDigest: string } | undefined;
+  let changed = false;
+  const resolve = () => {
+    if (changed) throw credentialChanged();
+    let host: string;
+    let credential: string | undefined;
     try {
-      http.getBaseURL();
-      if (!http.getApiKey()?.trim()) problem = 'TIER0_API_KEY is not set';
-    } catch (error) {
-      problem = error instanceof Error ? error.message : String(error);
-    }
-    if (problem) {
+      host = http.getBaseURL();
+      // An explicitly configured getter is an authority boundary: an empty
+      // result must never select the process-wide environment credential.
+      credential = source.apiKey !== undefined ? source.apiKey
+        : source.getApiKey !== undefined ? source.getApiKey() : http.getApiKey();
+      if (!credential?.trim()) throw new Error();
+    } catch {
       throw new DataError({
-        message: `${problem}. The platform injects TIER0_API_HOST and TIER0_API_KEY in Preview and deployments; for local development set them before starting the App.`,
-        status: 503,
-        code: 'DATA_NOT_CONFIGURED',
+        message: 'Tier0 data credentials or host are unavailable. Check the server runtime configuration.',
+        status: 503, code: 'DATA_NOT_CONFIGURED', execution: 'notStarted', retry: { safe: false },
       });
     }
+    const keyDigest = createHash('sha256').update(credential).digest('hex');
+    if (binding && (binding.host !== host || binding.keyDigest !== keyDigest)) {
+      changed = true;
+      throw credentialChanged();
+    }
+    binding ??= { host, keyDigest };
+    // Freeze the exact values that were compared, so the transport cannot
+    // invoke mutable getters a second time between the check and dispatch.
+    return new HttpClient({ ...source, apiHost: host, apiKey: credential, getApiHost: undefined, getApiKey: undefined });
+  };
+  function credentialChanged() {
+    return new DataError({
+      message: 'Tier0 data credentials or host changed; create a new client after reviewing pending operations.',
+      status: 409, code: 'DATA_CREDENTIAL_CHANGED', execution: 'notStarted', retry: { safe: false },
+    });
   }
+  const timeoutMs = source.transportTimeoutMs ?? DEFAULT_DATA_TIMEOUT_MS;
+  const transport = { transportTimeoutMs: timeoutMs };
+  const app = new UnsV2ClientCore(resolve, transport);
 
   // The SDK binds a data subject to one client; App-level calls use the shared one without it.
   const coreFor = (dataSubject: string | undefined) =>
     dataSubject ? new UnsV2ClientCore(resolve, { ...transport, unsV2AppDataSubject: dataSubject }) : app;
 
   async function call<T>(operation: UnsV2OperationName, request: Record<string, unknown>, options: CallOptions = {}): Promise<T> {
-    assertConfigured();
     const key = UNS_V2_OPERATIONS[operation].idempotencyKey
       ? (typeof request.idempotencyKey === 'string' ? request.idempotencyKey : randomUUID())
       : undefined;
@@ -186,6 +209,7 @@ export function createDataTransport(config: ClientConfig): { call: DataCall; ope
       attempts,
       idempotencyKey: key,
     });
+    let previous: UnsV2Error | undefined;
     try {
       for (let attempt = 1; ; attempt += 1) {
         try {
@@ -202,11 +226,16 @@ export function createDataTransport(config: ClientConfig): { call: DataCall; ope
           return response.data as T;
         } catch (error) {
           if (error instanceof Abandoned) throw notSent(attempt - 1);
+          if (error instanceof DataError && previous) {
+            throw new DataError({ message: error.message, status: error.status, code: error.code,
+              execution: previous.execution, retry: { safe: false }, attempts: attempt - 1, idempotencyKey: key });
+          }
           if (!(error instanceof UnsV2Error)) throw error;
           const delay = retryDelay(error, attempt);
           if (delay === undefined || Date.now() + delay >= deadline || !(await pause(delay, stop.signal))) {
             throw toDataError(error, attempt, key);
           }
+          previous = error;
         }
       }
     } finally {
@@ -219,7 +248,6 @@ export function createDataTransport(config: ClientConfig): { call: DataCall; ope
     request: UnsV2RecordSubscribeRequest,
     options: CallOptions & { lastEventId?: string; signal: AbortSignal },
   ): AsyncGenerator<UnsV2SubscriptionEvent> {
-    assertConfigured();
     try {
       yield* coreFor(options.dataSubject).subscribeRecords(request, options);
     } catch (error) {

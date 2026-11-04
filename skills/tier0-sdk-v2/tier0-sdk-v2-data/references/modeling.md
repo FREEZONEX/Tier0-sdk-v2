@@ -150,12 +150,14 @@ export const loginCodes = defineCollection({
 
 - 字段声明为 `z.number().int()`，存 Unix 毫秒（通常是 `Date.now()`）；记录在该时刻再过 `expireAfterSeconds`（60–31536000 秒）后被删除。删除有分钟级延迟，读取时仍要自己比较时间。
 - 每个集合最多 1 个 TTL 索引，只能是单个 `path`、不能 `unique`。缺这个字段的记录不会过期。
-- 过期删除是**物理删除**，不能 restore；软删除的记录同样按 TTL 清理。
+- 过期删除是**物理删除**，不能 restore；集合有效时，软删除的记录同样按 TTL 清理，集合回收后停止 TTL 清理。
 - ensure 只能新增 TTL 或把时间加长；缩短或去掉要通过 tier0 MCP 的 `schema:replace`。
+
+集合软删除和 App 回收保留查询索引，物理索引仍占配额；归档不释放索引空间，见[回收规则](../../tier0-sdk-v2-uns/references/delete.md#回收规则)。
 
 ## 种子数据
 
-种子是基线记录：固定 `_id`，各生命周期状态自洽，相互引用用这些 ID；每个集合最多 1000 条。只在 ensure 报告集合为 `created` 时写入一次（每 200 条一个原子分块，分块带固定幂等键，重试安全）；修改 `seed` 不会改动已存在的集合。不要在服务启动或列表为空时从代码插入基线数据。构建期可以对每条种子调用 `validateDocument(definition, document)` 校验。
+种子是基线记录：固定 `_id`，各生命周期状态自洽，相互引用用这些 ID；每个集合最多 1000 条。ensure 报告集合为 `created` 时开始写入，每 200 条一个原子分块。固定幂等键本身不能证明跨 Key 的回执作用域一致；结果未知时，在获得可信恢复合同前不自动重放。进程重启后的持久种子恢复尚未解决。修改 `seed` 不会改动已存在的集合。不要在服务启动或列表为空时从代码插入基线数据。构建期可以对每条种子调用 `validateDocument(definition, document)` 校验。
 
 ## 按文档建模，而不是按表
 
