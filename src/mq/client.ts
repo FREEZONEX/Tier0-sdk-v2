@@ -78,9 +78,17 @@ function generateRandomString(length = 8): string {
 interface Subscription {
   topic: string;
   handler: TopicHandler;
+  /** A new subscription awaiting the first successful connection. */
+  pendingConnect?: boolean;
   /** handler 连续返回 false（背压）的次数，正常返回时清零。 */
   backpressuredCount?: number;
 }
+
+interface TopicSubscriptionAttempt {
+  invalidSuback?: boolean;
+}
+
+const CANCELLED_BY_DISCONNECT = 'MQTT connection cancelled by disconnect';
 
 export class Tier0MQClient {
   private client: MqttClient | null = null;
@@ -89,8 +97,15 @@ export class Tier0MQClient {
   private explicitUsername: boolean;
   private listeners: { [K in keyof MQTTEventMap]?: Array<MQTTEventMap[K]> } = {};
   private subscriptions: Subscription[] = [];
+  // One broker subscription (including its pending SUBACK) per topic.
+  private topicSubscriptions = new Map<string, TopicSubscriptionAttempt>();
+  private pendingTopicPackets = new Map<string, TopicSubscriptionAttempt[]>();
+  private sentTopicPackets = new Map<number, TopicSubscriptionAttempt>();
   private connectingPromise: Promise<void> | null = null;
+  private rejectPendingConnect: ((error: Error) => void) | null = null;
   private _connected = false;
+  /** Bumped by disconnect(); callbacks of an older generation are ignored. */
+  private generation = 0;
   /** Random clientId segment; a persistent session is found again through it. */
   private readonly clientSuffix = generateRandomString(16);
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -139,8 +154,8 @@ export class Tier0MQClient {
     };
   }
 
-  private get mqttUrl(): string {
-    const { host, port, secure } = this.config;
+  private mqttUrlFor(config: MQTTConfig): string {
+    const { host, port, secure } = config;
     if (!host) {
       throw new Error(
         'MQTT host is required. Provide it via MQTTConfig or TIER0_MQTT_HOST environment variable.'
@@ -170,10 +185,19 @@ export class Tier0MQClient {
    * `proxy`: platform proxy mode, the node proxy puts in the App's key and
    * the SDK sends none.
    */
-  private tokenSource(): 'browser' | 'proxy' | undefined {
-    if (this.config?.password) return undefined;
+  private tokenSource(config: MQTTConfig | undefined = this.config): 'browser' | 'proxy' | undefined {
+    if (config?.password) return undefined;
     if (getPageRuntime()) return 'browser';
     return platformProxyMode() ? 'proxy' : undefined;
+  }
+
+  /**
+   * Local preflight before a transport exists: address and credentials must
+   * be usable. A browser token is fetched per attempt, so nothing to check.
+   */
+  private validateConnectionConfig(config: MQTTConfig): void {
+    if (this.tokenSource(config) === 'browser') return;
+    void this.connectionParams(config);
   }
 
   /**
@@ -182,8 +206,8 @@ export class Tier0MQClient {
    * (PoC-11). Through the node proxy the same identity reconnects, and the
    * proxy puts in the App's current key.
    */
-  private connectionParams(): ConnectionParams | Promise<ConnectionParams> {
-    const source = this.tokenSource();
+  private connectionParams(config: MQTTConfig = this.config): ConnectionParams | Promise<ConnectionParams> {
+    const source = this.tokenSource(config);
     if (source === 'browser') {
       // After a refusal the cached token is the likely culprit.
       return getPageRuntime()!.getMqttToken(this.authRefusals > 0 ? { fresh: true } : undefined).then((issued) => ({
@@ -197,16 +221,16 @@ export class Tier0MQClient {
       }
       // Only `mqtt://` from the platform goes over TCP to the proxy; an explicit host means WebSocket.
       const envUrl = getEnvVar('TIER0_MQTT_URL')?.trim();
-      const tcp = envUrl !== undefined && /^mqtt:\/\//i.test(envUrl) && this.config.host === envUrl;
+      const tcp = envUrl !== undefined && /^mqtt:\/\//i.test(envUrl) && config.host === envUrl;
       // The proxy accepts only `<ws>&open` and `<ws>&h.<app>.<random>`, and puts the App's key in as the password.
       return {
-        url: tcp ? envUrl : this.mqttUrl,
-        username: this.config.username ?? `${identity.ws}&open`,
-        clientId: this.config.clientId ?? `${identity.ws}&h.${identity.app}.${this.clientSuffix}`,
+        url: tcp ? envUrl : this.mqttUrlFor(config),
+        username: config.username ?? `${identity.ws}&open`,
+        clientId: config.clientId ?? `${identity.ws}&h.${identity.app}.${this.clientSuffix}`,
       };
     }
-    const { username, clientId, password } = this.config;
-    const url = this.mqttUrl;
+    const { username, clientId, password } = config;
+    const url = this.mqttUrlFor(config);
     if (!password || !username || !clientId) {
       throw new Error('Tier0 SDK v2: provide a workspace-encoded API key or explicit MQTT username, clientId and password.');
     }
@@ -215,7 +239,7 @@ export class Tier0MQClient {
 
   // 内部确保已连接（懒连接）。已有客户端时只等它重连，绝不另建：
   // 同一 clientId 的新旧客户端会互相顶掉。
-  private async ensureConnected(): Promise<void> {
+  private async ensureConnected(onTransportCreationFailure?: () => void): Promise<void> {
     if (this._connected) return;
     if (this.stopped) throw this.stopped;
     if (this.connectingPromise) return this.connectingPromise;
@@ -224,9 +248,25 @@ export class Tier0MQClient {
     }
 
     this.watchRuntime();
+    const generation = this.generation;
     // Synchronous unless a browser token has to be fetched.
     const params = this.connectionParams();
-    const connecting = params instanceof Promise ? params.then((value) => this.doConnect(value)) : this.doConnect(params);
+    if (!(params instanceof Promise)) {
+      const pending = this.doConnect(params, onTransportCreationFailure);
+      // mqtt.connect may throw synchronously before creating a client. Do not
+      // retain that already-failed attempt until the rejection microtask runs.
+      if (!this.client) return pending;
+      this.connectingPromise = pending;
+      void pending.catch(() => {
+        if (this.connectingPromise === pending) this.connectingPromise = null;
+      });
+      return pending;
+    }
+    const connecting = params.then((value) => {
+      // disconnect() while the token was being fetched: do not start a transport for it.
+      if (this.generation !== generation) throw new Error(CANCELLED_BY_DISCONNECT);
+      return this.doConnect(value, onTransportCreationFailure);
+    });
     this.connectingPromise = connecting;
     return connecting.catch((error: unknown) => {
       if (this.connectingPromise === connecting) this.connectingPromise = null;
@@ -300,17 +340,19 @@ export class Tier0MQClient {
   private async reconnect(): Promise<void> {
     const client = this.client;
     if (!client) return;
+    const generation = this.generation;
     let params: ConnectionParams;
     try {
       params = await this.connectionParams();
     } catch (error) {
+      if (client !== this.client || this.generation !== generation) return;
       this.emit('error', error as Error);
       const code = tokenAuthCode(error);
       if (code && this.tokenSource() === 'browser') this.stop(code);
       else this.scheduleReconnect();
       return;
     }
-    if (client !== this.client || this._connected || this.paused || this.stopped) return;
+    if (client !== this.client || this.generation !== generation || this._connected || this.paused || this.stopped) return;
     client.options.username = params.username;
     client.options.clientId = params.clientId;
     if (params.password === undefined) delete client.options.password;
@@ -318,8 +360,10 @@ export class Tier0MQClient {
     client.reconnect();
   }
 
-  private doConnect(params: ConnectionParams): Promise<void> {
+  private doConnect(params: ConnectionParams, onTransportCreationFailure?: () => void): Promise<void> {
     return new Promise((resolve, reject) => {
+      const generation = this.generation;
+      this.rejectPendingConnect = reject;
       const options: IClientOptions = {
         clientId: params.clientId,
         username: params.username,
@@ -331,57 +375,109 @@ export class Tier0MQClient {
         reconnectOnConnackError: true,
         connectTimeout: this.config.connectTimeout,
         clean: this.config.clean,
+        // The SDK owns resubscription so every SUBACK reaches its callback.
+        resubscribe: false,
       };
 
-      const client = mqtt.connect(params.url, options);
+      let client: MqttClient;
+      try {
+        client = mqtt.connect(params.url, options);
+      } catch (err) {
+        this.rejectPendingConnect = null;
+        onTransportCreationFailure?.();
+        reject(err);
+        return;
+      }
       this.client = client;
+      const current = () => this.client === client && this.generation === generation;
+
+      // mqtt.js 5.3 synthesizes the requested QoS if a malformed SUBACK has
+      // no grants, and can throw when it contains too many. Track wire packet
+      // ids so malformed acknowledgements never become apparent success.
+      client.on('packetsend', (packet) => {
+        if (!current() || packet.cmd !== 'subscribe' || packet.subscriptions.length !== 1) return;
+        const topic = packet.subscriptions[0]?.topic;
+        if (!topic || typeof packet.messageId !== 'number') return;
+        const queue = this.pendingTopicPackets.get(topic);
+        const attempt = queue?.shift();
+        if (queue?.length === 0) this.pendingTopicPackets.delete(topic);
+        if (attempt) this.sentTopicPackets.set(packet.messageId, attempt);
+      });
+      client.on('packetreceive', (packet) => {
+        if (!current() || packet.cmd !== 'suback' || typeof packet.messageId !== 'number') return;
+        const attempt = this.sentTopicPackets.get(packet.messageId);
+        this.sentTopicPackets.delete(packet.messageId);
+        if (!attempt) return;
+        if (!Array.isArray(packet.granted) || packet.granted.length !== 1 ||
+            (packet.granted[0] !== 0 && packet.granted[0] !== 1)) {
+          attempt.invalidSuback = true;
+          // Keep old mqtt.js from indexing past its single requested topic.
+          packet.granted = [128];
+        }
+      });
 
       client.on('connect', () => {
+        if (!current()) return;
         this._connected = true;
+        this.clearTopicState();
+        for (const sub of this.subscriptions) sub.pendingConnect = false;
         this.connectingPromise = null;
+        this.rejectPendingConnect = null;
         this.clearReconnect();
         this.reconnectAttempts = 0;
         this.authRefusals = 0;
+        resolve();
         this.emit('connect');
         // 断连重连后自动恢复所有订阅
-        this.resubscribeAll();
-        resolve();
+        if (current()) this.resubscribeAll();
         const waiters = this.connectWaiters;
         this.connectWaiters = [];
         waiters.forEach((waiter) => waiter.resolve());
       });
 
       client.on('error', (err) => {
-        this.emit('error', err);
+        if (!current()) return;
+        // Remove failed pending subscriptions before an error listener can
+        // synchronously cause this same client to reconnect and resubscribe.
+        this.subscriptions = this.subscriptions.filter((sub) => !sub.pendingConnect);
         this.connectingPromise = null;
+        this.rejectPendingConnect = null;
         reject(err);
+        this.emit('error', err);
         if (!AUTH_REFUSED_CODES.has((err as { code?: unknown }).code)) return;
         this.authRefusals += 1;
         if (this.tokenSource() === 'browser' && this.authRefusals >= MAX_AUTH_REFUSALS) this.stop();
       });
 
       client.on('disconnect', () => {
+        if (!current()) return;
         this._connected = false;
+        this.clearTopicState();
         this.emit('disconnect');
       });
 
       client.on('close', () => {
+        if (!current()) return;
         this._connected = false;
-        if (client === this.client) this.scheduleReconnect();
+        this.clearTopicState();
+        this.scheduleReconnect();
       });
 
       client.on(
         'message',
         (topic: string, payload: Buffer, _packet: mqtt.IPublishPacket) => {
+          if (!current()) return;
           const payloadStr = payload.toString();
           // 复制一份快照：handler 触发背压自动退订时会重建 this.subscriptions
           this.subscriptions.slice().forEach((sub) => {
+            if (!current() || !this.subscriptions.includes(sub)) return;
             if (this.topicMatch(sub.topic, topic)) {
               try {
                 // 公开类型为 void 返回（兼容 async/简写 handler），运行时仅识别严格的 false
                 const accepted = (
                   sub.handler as (t: string, p: string) => unknown
                 )(topic, payloadStr);
+                if (!current() || !this.subscriptions.includes(sub)) return;
                 if (accepted === false) {
                   sub.backpressuredCount = (sub.backpressuredCount ?? 0) + 1;
                   const limit = this.config.maxBackpressuredDeliveries ?? 0;
@@ -396,7 +492,7 @@ export class Tier0MQClient {
                   sub.backpressuredCount = 0;
                 }
               } catch (e) {
-                this.emit('error', e as Error);
+                if (current()) this.emit('error', e as Error);
               }
             }
           });
@@ -407,22 +503,78 @@ export class Tier0MQClient {
 
   // 显式连接（需要等待连接完成时使用）
   async connect(config?: MQTTConfig): Promise<void> {
-    if (config) {
-      const previousPassword = this.config.password;
-      this.config = { ...this.config, ...config };
-      if (config.clientId !== undefined) this.explicitClientId = true;
-      if (config.username !== undefined) this.explicitUsername = true;
+    // Undefined fields mean no override, not a request to erase settings.
+    const update = config
+      ? Object.fromEntries(Object.entries(config).filter(([, value]) => value !== undefined)) as MQTTConfig
+      : undefined;
+    if (this.client || this.connectingPromise) {
+      // mqtt.js snapshots its connection options. Changing our config while a
+      // client exists (connecting, connected or reconnecting) would leave the
+      // old credentials in use, including on reconnect. Refuse the change
+      // before mutating anything.
+      const connectionFields: (keyof MQTTConfig)[] = [
+        'host', 'port', 'secure', 'clientId', 'username', 'password',
+        'keepAlive', 'reconnectPeriod', 'connectTimeout', 'clean',
+      ];
+      if (update && connectionFields.some((field) =>
+        update[field] !== undefined && update[field] !== this.config[field]
+      )) {
+        throw new Error('MQTT connection settings cannot change while a client exists; disconnect and create a new client');
+      }
+      const generation = this.generation;
+      // A reconnecting client is waited for, never replaced: the SDK keeps reconnecting it.
+      await this.ensureConnected();
+      if (this.generation !== generation || !this.client || !this._connected) {
+        throw new Error('MQTT connection changed before connect completed');
+      }
+      if (update) {
+        this.config = { ...this.config, ...update };
+        if (update.clientId !== undefined) this.explicitClientId = true;
+        if (update.username !== undefined) this.explicitUsername = true;
+      }
+      return;
+    }
+    const previousConfig = this.config;
+    const previousExplicitClientId = this.explicitClientId;
+    const previousExplicitUsername = this.explicitUsername;
+    const candidate = update ? { ...previousConfig, ...update } : previousConfig;
+    const explicitClientId = previousExplicitClientId || update?.clientId !== undefined;
+    const explicitUsername = previousExplicitUsername || update?.username !== undefined;
+    if (update) {
+      const previousPassword = previousConfig.password;
       // A connect-time key may belong to a different workspace. Preserve only
       // caller-supplied identity fields, not values derived from the previous key.
-      if (config.password !== undefined && config.password !== previousPassword) {
-        const workspaceID = parseWorkspaceIDFromApiKey(config.password);
-        if (!this.explicitClientId) {
-          this.config.clientId = workspaceID ? workspaceID + '&' + generateRandomString(8) : undefined;
+      if (update.password !== undefined && update.password !== previousPassword) {
+        const workspaceID = parseWorkspaceIDFromApiKey(update.password);
+        if (!explicitClientId) {
+          candidate.clientId = workspaceID ? workspaceID + '&' + generateRandomString(8) : undefined;
         }
-        if (!this.explicitUsername) this.config.username = workspaceID ? workspaceID + '&open' : undefined;
+        if (!explicitUsername) candidate.username = workspaceID ? workspaceID + '&open' : undefined;
       }
     }
-    return this.ensureConnected();
+    this.validateConnectionConfig(candidate);
+    const generation = this.generation;
+    this.config = candidate;
+    this.explicitClientId = explicitClientId;
+    this.explicitUsername = explicitUsername;
+    const rollbackBeforeTransport = () => {
+      if (!this.client && this.generation === generation && this.config === candidate) {
+        this.config = previousConfig;
+        this.explicitClientId = previousExplicitClientId;
+        this.explicitUsername = previousExplicitUsername;
+      }
+    };
+    try {
+      await this.ensureConnected(rollbackBeforeTransport);
+    } catch (err) {
+      // If no transport was created, the attempted settings have no owner.
+      // Do not roll back a newer generation or another caller's settings.
+      rollbackBeforeTransport();
+      throw err;
+    }
+    if (this.generation !== generation || !this.client || !this._connected) {
+      throw new Error('MQTT connection changed before connect completed');
+    }
   }
 
   // 订阅 topic，内部 qos 固定为 1，handler 接收 (topic, payload)
@@ -436,21 +588,24 @@ export class Tier0MQClient {
       return;
     }
 
-    this.subscriptions.push({ topic, handler });
+    // Only a subscription made before the first connection completes is
+    // undone when that connection fails. One made while the SDK reconnects
+    // an existing client is kept and restored after the reconnect.
+    const pendingConnect = !this._connected && (!this.client || this.connectingPromise !== null);
+    const sub: Subscription = { topic, handler, pendingConnect };
+    this.subscriptions.push(sub);
+    const generation = this.generation;
 
     if (this._connected && this.client) {
-      this.client.subscribe(topic, { qos: 1 as 0 | 1 | 2 }, (err) => {
-        if (err) {
+      this.subscribeTopic(topic, this.client, generation);
+    } else {
+      // 未连接时触发懒连接（已有客户端时等待它重连），连接成功后 resubscribeAll 会自动 subscribe
+      this.ensureConnected().catch((err) => {
+        if (this.generation === generation && this.subscriptions.includes(sub)) {
+          this.subscriptions = this.subscriptions.filter((item) => item !== sub);
           this.emit('error', err);
-          // 订阅失败时回滚
-          this.subscriptions = this.subscriptions.filter(
-            (s) => !(s.topic === topic && s.handler === handler)
-          );
         }
       });
-    } else {
-      // 未连接时触发懒连接，连接成功后 resubscribeAll 会自动 subscribe
-      this.ensureConnected().catch((err) => this.emit('error', err));
     }
   }
 
@@ -465,11 +620,15 @@ export class Tier0MQClient {
     }
 
     if (!this.client) return;
+    const client = this.client;
+    const generation = this.generation;
 
     // 如果该 topic 下已无任何 handler，则向 broker 发送 unsubscribe
     const stillHasHandler = this.subscriptions.some((s) => s.topic === topic);
     if (!stillHasHandler) {
-      this.client.unsubscribe(topic, (err) => {
+      this.topicSubscriptions.delete(topic);
+      client.unsubscribe(topic, (err) => {
+        if (this.client !== client || this.generation !== generation) return;
         if (err) {
           this.emit('error', err);
         }
@@ -483,31 +642,44 @@ export class Tier0MQClient {
     payload: string | object,
     options?: { qos?: number; retain?: boolean }
   ): Promise<void> {
-    // A disconnected client queues the message and sends it after reconnecting.
     if (this.stopped) throw this.stopped;
+    const generation = this.generation;
+    // A disconnected client queues the message and sends it after reconnecting.
     if (!this.client) await this.ensureConnected();
 
     const message =
       typeof payload === 'string' ? payload : JSON.stringify(payload);
-    this.client!.publish(topic, message, {
-      qos: (options?.qos ?? 0) as 0 | 1 | 2,
-      retain: options?.retain ?? false,
-    });
+    const qos = (options?.qos ?? 0) as 0 | 1 | 2;
+    const retain = options?.retain ?? false;
+    const client = this.client;
+    if (this.generation !== generation || !client) {
+      throw new Error('MQTT connection changed before publish; message was not submitted');
+    }
+    client.publish(topic, message, { qos, retain });
   }
 
   disconnect(): void {
     this.clearReconnect();
     this.offRuntime.forEach((off) => off());
     this.offRuntime = [];
-    if (!this.client) return;
-
-    this.client.end(true, () => {
-      this.emit('disconnect');
-    });
+    const generation = ++this.generation;
+    const client = this.client;
     this.client = null;
     this._connected = false;
     this.connectingPromise = null;
+    const rejectPendingConnect = this.rejectPendingConnect;
+    this.rejectPendingConnect = null;
+    const waiters = this.connectWaiters;
+    this.connectWaiters = [];
     this.subscriptions = [];
+    this.clearTopicState();
+    const cancelled = new Error(CANCELLED_BY_DISCONNECT);
+    rejectPendingConnect?.(cancelled);
+    waiters.forEach((waiter) => waiter.reject(cancelled));
+    if (!client) return;
+    client.end(true, () => {
+      if (!this.client && this.generation === generation) this.emit('disconnect');
+    });
   }
 
   on<K extends keyof MQTTEventMap>(event: K, handler: MQTTEventMap[K]): void {
@@ -538,17 +710,48 @@ export class Tier0MQClient {
   // 断连后自动重新订阅所有已注册的 topic
   private resubscribeAll(): void {
     if (!this.client) return;
+    const client = this.client;
+    const generation = this.generation;
 
     // 按 topic 去重，每个 topic 只订阅一次
     const uniqueTopics = Array.from(
       new Set(this.subscriptions.map((s) => s.topic))
     );
-    uniqueTopics.forEach((topic) => {
-      this.client!.subscribe(topic, { qos: 1 as 0 | 1 | 2 }, (err) => {
-        if (err) {
-          this.emit('error', err);
-        }
-      });
+    uniqueTopics.forEach((topic) => this.subscribeTopic(topic, client, generation));
+  }
+
+  private clearTopicState(): void {
+    this.topicSubscriptions.clear();
+    this.pendingTopicPackets.clear();
+    this.sentTopicPackets.clear();
+  }
+
+  private subscribeTopic(topic: string, client: MqttClient, generation: number): void {
+    if (this.client !== client || this.generation !== generation || !this._connected ||
+        this.topicSubscriptions.has(topic) || !this.subscriptions.some((sub) => sub.topic === topic)) return;
+    const attempt: TopicSubscriptionAttempt = {};
+    this.topicSubscriptions.set(topic, attempt);
+    const pending = this.pendingTopicPackets.get(topic) ?? [];
+    pending.push(attempt);
+    this.pendingTopicPackets.set(topic, pending);
+    client.subscribe(topic, { qos: 1 as 0 | 1 | 2 }, (err, granted) => {
+      const queue = this.pendingTopicPackets.get(topic);
+      if (queue) {
+        const index = queue.indexOf(attempt);
+        if (index >= 0) queue.splice(index, 1);
+        if (!queue.length) this.pendingTopicPackets.delete(topic);
+      }
+      if (this.client !== client || this.generation !== generation || this.topicSubscriptions.get(topic) !== attempt) return;
+      // mqtt.js 5.3 reports SUBACK failure codes in granted with err=null.
+      // A QoS 1 request may only be granted QoS 0 or 1, for this one topic.
+      const accepted = Array.isArray(granted) && granted.length === 1 &&
+        granted[0]?.topic === topic && (granted[0]?.qos === 0 || granted[0]?.qos === 1);
+      if (err || attempt.invalidSuback || !accepted) {
+        this.topicSubscriptions.delete(topic);
+        // Every handler shares this broker subscription and its SUBACK.
+        this.subscriptions = this.subscriptions.filter((sub) => sub.topic !== topic);
+        this.emit('error', new Error(`MQTT subscription failed for topic ${topic}`, { cause: err ?? undefined }));
+      }
     });
   }
 

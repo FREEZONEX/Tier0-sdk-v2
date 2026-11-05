@@ -558,13 +558,14 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     finished();
   });
 
-  it('sends the migrated notification example with inbox type, explicit mode and v2 App identity', async () => {
+  it('sends the migrated notification example with inbox type, no mode and v2 App identity', async () => {
     vi.stubEnv('APP_ID', 'da6aa4b6-1a8f-43b7-86ed-73818fe22550');
     steps = [
       { path: '/openapi/v2/notifications/send', check: body => {
         expect(body).toMatchObject({ recipientUserId: '9007199254740993', type: 'inbox',
-          mode: 'test', idempotencyKey: 'work-order-event-v1', channels: ['web', 'mobile'],
+          idempotencyKey: 'work-order-event-v1', channels: ['web', 'mobile'],
           sender: { type: 'app', id: 'da6aa4b6-1a8f-43b7-86ed-73818fe22550' } });
+        expect(body).not.toHaveProperty('mode');
         expect(body.sender).not.toHaveProperty('meta');
         expect(body.sender).not.toHaveProperty('name');
       }, raw: JSON.stringify({ messageId: '9007199254740997', status: 'accepted', createdAt: '2026-10-22T00:00:00Z' }) },
@@ -573,7 +574,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     ];
     try {
       const sent = await example('notifications', 'send').sendCompletedOrder(
-        '9007199254740993', 'work-order', 'work-order-event-v1', 'test', client);
+        '9007199254740993', 'work-order', 'work-order-event-v1', client);
       const status = await example('notifications', 'get').waitForNotification(sent.messageId, client, 1);
       expect(status.status).toBe('accepted');
       expect(calls).toHaveLength(2);
