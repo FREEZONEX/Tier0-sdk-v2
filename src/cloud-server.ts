@@ -296,7 +296,7 @@ export function frontdoorKeysFromUrl(url: string | undefined = getEnvVar('TIER0_
 
 /**
  * The default key source: `TIER0_JWKS_DIR` when it exists (sessions and the old runtime, where an agent writes the
- * file), otherwise the front door's public JWKS at `TIER0_JWKS_URL` (published Apps on PandaStack).
+ * file), otherwise the front door's public JWKS at `TIER0_JWKS_URL` (published Apps on AENV).
  */
 export function frontdoorKeys(): VisitorKeySource {
   const dir = getEnvVar('TIER0_JWKS_DIR')?.trim();
