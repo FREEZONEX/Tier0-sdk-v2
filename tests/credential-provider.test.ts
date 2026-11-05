@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { HttpClient } from '../src/openapi/client.js';
 import { CloudTransport } from '../src/cloud-transport.js';
-import { createDataClient } from '../src/data/client.js';
+import { createDataClient, type DataClientConfig } from '../src/data/client.js';
 import { createClient } from '../src/index.js';
 
 const host = 'https://fixture.invalid';
@@ -108,7 +108,7 @@ describe('async API key provider', () => {
   it('rejects provider use by the high-level Data client before making any request', () => {
     const provider = vi.fn(async () => 'unused');
     const fetch = vi.fn<typeof globalThis.fetch>();
-    expect(() => createDataClient({ apiHost: host, apiKeyProvider: provider, fetch })).toThrow('not supported by createDataClient');
+    expect(() => createDataClient({ apiHost: host, apiKeyProvider: provider, fetch } as unknown as DataClientConfig)).toThrow('not supported by createDataClient');
     expect(provider).not.toHaveBeenCalled();
     expect(fetch).not.toHaveBeenCalled();
   });

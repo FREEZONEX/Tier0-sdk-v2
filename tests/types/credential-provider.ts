@@ -6,7 +6,7 @@ const apiKeyProvider = async ({ signal }: { signal: AbortSignal }): Promise<stri
   return 'fixture';
 };
 createClient({ apiKeyProvider });
-// The configuration type remains shared; Data rejects the provider at runtime.
+// @ts-expect-error Data client state must not follow dynamic credentials.
 if (false) createDataClient({ apiKeyProvider });
 // @ts-expect-error Providers must resolve to a string key.
 createClient({ apiKeyProvider: async () => 1 });

@@ -81,8 +81,11 @@ export type SettledBatchResults<Q extends BatchQueries> = {
 export const MAX_BATCH_QUERIES = 20;
 const QUERY_NAME = /^[A-Za-z0-9_.-]{1,64}$/;
 
-/** Credentials as for `createClient`; `transportTimeoutMs` (per attempt) defaults to 25 s here, see DEFAULT_DATA_TIMEOUT_MS. */
-export interface DataClientConfig extends ClientConfig {
+/** Data client state is bound to one static host and credential for its lifetime. */
+export interface DataClientConfig extends Omit<ClientConfig, 'getApiKey' | 'apiKeyProvider'> {
+  /** Dynamic credentials are unsupported while bootstrap and subscriptions share client state. */
+  getApiKey?: never;
+  apiKeyProvider?: never;
   collections?: readonly CollectionDefinition[];
   /** Defaults to "deployed" when NODE_ENV is production, otherwise "preview". */
   environment?: DataEnvironment;
@@ -131,10 +134,20 @@ export interface DataClient {
 }
 
 export function createDataClient(config: DataClientConfig): DataClient {
-  if (config.apiKeyProvider !== undefined) {
+  const snapshot = { ...config };
+  if (Object.hasOwn(snapshot, 'apiKeyProvider')) {
     throw new TypeError('Tier0 SDK: apiKeyProvider is not supported by createDataClient.');
   }
-  const { call, openStream } = createDataTransport(config);
+  if (Object.hasOwn(snapshot, 'getApiKey')) {
+    throw new TypeError('Tier0 SDK: getApiKey is not supported by createDataClient.');
+  }
+  // Never let bootstrap state, retries or SSE reconnect under a later identity or host.
+  const fixed = {
+    ...snapshot,
+    apiKey: Object.hasOwn(snapshot, 'apiKey') ? snapshot.apiKey : getEnvVar('TIER0_API_KEY'),
+    apiHost: snapshot.apiHost ?? snapshot.getApiHost?.() ?? getEnvVar('TIER0_API_HOST') ?? '',
+  };
+  const { call, openStream } = createDataTransport(fixed);
   const environment = config.environment ?? (getEnvVar('NODE_ENV') === 'production' ? 'deployed' : 'preview');
   const declared = [...(config.collections ?? [])];
   if (declared.length > MAX_COLLECTIONS) {

@@ -15,6 +15,8 @@ description: 使用 @tier0/sdk-v2/data 在 App 服务端声明并读写本 App �
 
 数据读写只在服务端代码（业务 service）里用 `@tier0/sdk-v2/data`：该入口依赖 Node 内置模块，浏览器打包会直接失败。组件和 route 的客户端代码只能从 `@tier0/sdk-v2/data/define` 取集合声明和类型（`defineCollection`、`Doc`、`NewDoc` 等），它不加载数据运行时，可以进浏览器包。需要 `zod` 4。底层调用 SDK 生成的 UNS 操作（`appCollectionsEnsure`、`recordFind`、`recordTransactionExecute` 等），凭证读取平台注入的 TIER0_API_HOST / TIER0_API_KEY。
 
+Data 客户端创建时固定 Host 和 Key（含环境值），不支持 `getApiKey` 或 `apiKeyProvider`；切换身份、Host 或环境凭证时须新建客户端，不能让 bootstrap、重试或订阅状态跨身份复用。员工数据委托仍按请求绑定到固定的 App Key。
+
 集合声明必须分别填写业务名称 `name` 与稳定程序标识 `alias`，例如 `name: '生产工单'`、`alias: 'production_orders'`。name 是唯一界面名称，没有 displayName 或 alias 回退；ensure 通过 alias 找回原集合，不覆盖用户改名。
 
 ## 按任务加载参考
