@@ -32,7 +32,7 @@ describe('provider configuration snapshots', () => {
     const [url, init] = fetchA.mock.calls[0];
     expect(String(url)).toMatch(/^https:\/\/a\.invalid\//);
     expect(new Headers(init?.headers).get('x-api-key')).toBe('key-a');
-    expect(new Headers(init?.headers).get('authorization')).toBe('Bearer key-a');
+    expect(new Headers(init?.headers).get('authorization')).toBeNull();
     await run();
     expect(fetchB).toHaveBeenCalledOnce();
     expect(String(fetchB.mock.calls[0][0])).toMatch(/^https:\/\/b\.invalid\//);
@@ -58,7 +58,8 @@ describe('provider configuration snapshots', () => {
     expect(fetchB).not.toHaveBeenCalled();
     expect(fetchA).toHaveBeenCalledOnce();
     expect(String(fetchA.mock.calls[0][0])).toBe('https://a.invalid/test');
-    expect(new Headers(fetchA.mock.calls[0][1]?.headers).get('authorization')).toBe('Bearer key-a');
+    expect(new Headers(fetchA.mock.calls[0][1]?.headers).get('x-api-key')).toBe('key-a');
+    expect(new Headers(fetchA.mock.calls[0][1]?.headers).get('authorization')).toBeNull();
   });
 });
 

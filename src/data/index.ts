@@ -15,7 +15,7 @@ export type { BatchQueries, BatchResults, DataClient, DataClientConfig, SettledB
 export type { DataEnvironment, EnsureConflict, EnsureNote, EnsureResult, EnsureState, EnsureWarning, Logger } from './bootstrap.js';
 export { MAX_ATOMIC_ITEMS, MAX_GET_IDS } from './collection.js';
 export type { BatchQuery, BulkOperation, CappedCount, Collection, CollectionQueries, Cursor, DeepPartial, FoundPage, ValueCount, FindOneAndOptions, FindOptions, FindPageOptions, InsertOneOptions, Projection, Update, UpdateOptions, WithMeta } from './collection.js';
-export { currentDataSubject, runAsApp, runWithRequestContext } from './context.js';
+export { currentDataSubject, runAsApp, runWithRequestContext, runWithRequiredEmployeeContext } from './context.js';
 export { redactRestricted, SUBSCRIBE_IDLE_TIMEOUT_MS } from './subscribe.js';
 export type { ChangeEvent, CollectionChange, RecordChange, SubscribeOptions, SubscriptionEvent } from './subscribe.js';
 export { ACCESS_REASONS, DataError } from './error.js';

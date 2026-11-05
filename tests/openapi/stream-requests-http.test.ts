@@ -66,7 +66,7 @@ describe('StreamRequest real HTTP fixture (no external credentials)', () => {
         '/openapi/v2/stream-requests/pump.start/invoke', '/openapi/v2/stream-messages/connect',
       ]);
       for (const row of rows) {
-        expect(row.headers.authorization).toBe(`Bearer ${key}`);
+        expect(row.headers.authorization).toBeUndefined();
         expect(row.headers['x-api-key']).toBe(key);
         expect(row.headers['x-tier0-app-data-subject']).toBeUndefined();
       }
@@ -92,7 +92,7 @@ describe('StreamRequest real HTTP fixture (no external credentials)', () => {
     expect(requests.map(r => r.body)).toEqual([{ search: 'pump' }, {}, { input, idempotencyKey: 'intent-http' }]);
     for (const request of requests) {
       expect(request.method).toBe('POST');
-      expect(request.headers.authorization).toBe('Bearer fixture-workspace-key');
+      expect(request.headers.authorization).toBeUndefined();
       expect(request.headers['x-api-key']).toBe('fixture-workspace-key');
       expect(request.headers['content-type']).toBe('application/json');
       expect(request.headers['idempotency-key']).toBeUndefined();

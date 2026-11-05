@@ -96,7 +96,6 @@ export class CloudTransport {
       }
       if (controller.signal.aborted) throw new CloudTransportError('TRANSPORT_ABORTED', undefined, !dispatched);
       if (key) {
-        headers.Authorization = `Bearer ${key}`;
         headers['X-API-Key'] = key;
       }
       try {
@@ -196,7 +195,6 @@ export class CloudTransport {
       const key = client.hasApiKeyProvider() ? await client.resolveApiKey(controller.signal) : staticKey;
       if (controller.signal.aborted) throw failure('TRANSPORT_ABORTED');
       if (key) {
-        headers.Authorization = `Bearer ${key}`;
         headers['X-API-Key'] = key;
       }
     } catch (error) {
@@ -269,7 +267,6 @@ export class CloudTransport {
           if (controller.signal.aborted) throw new CloudTransportError('TRANSPORT_ABORTED');
           const headers: Record<string, string> = { 'Content-Type': 'application/json' };
           if (key) {
-            headers.Authorization = `Bearer ${key}`;
             headers['X-API-Key'] = key;
           }
           dispatched = true;

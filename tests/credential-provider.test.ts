@@ -31,7 +31,7 @@ describe('async API key provider', () => {
     expect(seen.headers.map(h => h.get('x-api-key'))).toEqual(['key-1', 'key-2']);
   });
 
-  it('resolves independently for concurrent HTTP attempts and freezes both headers', async () => {
+  it('resolves independently for concurrent HTTP attempts and freezes the single credential', async () => {
     const pending = [deferred(), deferred()];
     let index = 0;
     const seen = capture();
@@ -44,7 +44,7 @@ describe('async API key provider', () => {
     pending[0].resolve('first-key');
     await Promise.all([first, second]);
     expect(seen.headers.map(h => [h.get('x-api-key'), h.get('authorization')]).sort()).toEqual([
-      ['first-key', 'Bearer first-key'], ['second-key', 'Bearer second-key'],
+      ['first-key', null], ['second-key', null],
     ]);
   });
 
@@ -101,7 +101,7 @@ describe('async API key provider', () => {
     await cloud.getEventStream('/events', { lastEventId: 'cursor-1' });
     await cloud.getEventStream('/events', { lastEventId: 'cursor-2' });
     expect(seen.headers.map(h => [h.get('x-api-key'), h.get('authorization'), h.get('last-event-id')])).toEqual([
-      ['key-1', 'Bearer key-1', null], ['key-2', 'Bearer key-2', 'cursor-1'], ['key-3', 'Bearer key-3', 'cursor-2'],
+      ['key-1', null, null], ['key-2', null, 'cursor-1'], ['key-3', null, 'cursor-2'],
     ]);
   });
 

@@ -27,6 +27,8 @@ description: 使用 @tier0/sdk-v2 开发或迁移 Tier0 云端 TypeScript/JavaSc
 
 ## 初始化与身份
 
+个人 Key 可直接读取已有集合，无需创建平台 App；网关配置、运行示例与排错见[本地连接指南](references/local-connection.md)。
+
 ```ts
 import { createClient } from '@tier0/sdk-v2';
 

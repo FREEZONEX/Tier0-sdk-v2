@@ -30,6 +30,7 @@ describe('new architecture v1 on a real HTTP fixture', () => {
     expect(user.workspaceID).toBe(12);
     expect(received[0]).toMatchObject({ method: 'POST', url: '/openapi/v2/auth/whoami', body: '{}' });
     expect(received[0].headers['x-api-key']).toBe('test-only-key');
+    expect(received[0].headers.authorization).toBeUndefined();
   });
   it('serializes signed 64-bit request IDs as exact JSON numbers', async () => {
     respond = res => json(res, { code: 200, msg: '', data: { success: true } });

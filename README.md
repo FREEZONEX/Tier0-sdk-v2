@@ -2,7 +2,13 @@
 
 Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交互均使用 `@tier0/sdk-v2`。旧 SDK 不再作为依赖。
 
-`0.9.8` 候选版新增 App 集合业务目录声明 `directoryPath`，按已知业务范围创建或复用目录，已有集合保持位置。保留 `0.9.7` 的 Source 生命周期简化：创建后可直接使用，删除后停止后续使用；移除 `client.source.state.update`、启停能力与 `desiredState`。名称和描述修改无需影响确认，连接配置变更或删除存在引用时仍须确认；运行中的 Stream 可直接删除。该版本尚未发布 npm，验收使用下方安装包。
+`0.9.10` 补齐个人 Key 本地接入指南与非 JSON 网关错误提示，并同步 Namespace 回收、删除和恢复说明；保留现有权限、请求地址和重试规则。
+
+`0.9.9` 新增 `client.uns.metadataPurge`，通过明确的已归档 Collection ID 提交永久删除，返回 `accepted` / `jobId` 并通过现有 `jobs` 查询逐项完成结果；`dryRun` 可选。集合删除保留 Record/Sample，支持恢复或继续永久清理。
+
+本版同时补齐 Agent / App 凭证的查询说明及 App 读取示例：`namespace()` 仍走 OpenAPI，App Key 使用 `dataAppContext` 和集合数据接口，服务端授权规则保持不变。
+
+保留 `0.9.8` 的 App 集合业务目录声明 `directoryPath`，按已知业务范围创建或复用目录，已有集合保持位置。Source 创建后可直接使用，删除后停止后续使用；不再提供 `client.source.state.update`、启停能力与 `desiredState`。名称和描述修改无需影响确认，连接配置变更或删除存在引用时仍须确认；运行中的 Stream 可直接删除。
 
 `0.9.3` 同步集合授权合同：授予既有集合访问权限时无需提供别名，并更新生成类型与使用说明。集合声明的 `name` / `alias` 要求保持不变。
 
@@ -22,24 +28,26 @@ Collection 声明必须同时提供业务名称 `name`（例如「生产工单�
 
 ## 安装与初始化
 
-维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。本分支的功能应使用检查通过的 `tier0-sdk-v2-0.9.8.tgz` 在业务项目中验证：
+安装正式版本：
 
 ```sh
-npm install /path/to/tier0-sdk-v2-0.9.8.tgz
+npm install @tier0/sdk-v2@0.9.10
 ```
 
-`0.9.8` 正式发布后再使用 `npm install @tier0/sdk-v2@0.9.8`。发布前，npm 的既有版本和 `next` 标签不代表本分支的完整功能。
+维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。
+
+个人 Key 可直接读取已有集合，无需创建平台 App；网关配置、运行示例与排错见[本地连接指南](skills/tier0-sdk-v2/references/local-connection.md)。
 
 ```ts
 import { createClient } from '@tier0/sdk-v2';
 
 // 服务端环境注入 TIER0_API_HOST 和 TIER0_API_KEY。
 const tier0 = createClient();
-// 首次接入时确认身份与 Workspace；不需要在每次业务操作前重复调用。
-const user = await tier0.system.whoami();
 ```
 
 也可显式配置 `{ apiHost, apiKey, transportTimeoutMs, fetch }`，或提供 `getApiHost` / `getApiKey` 回调。裸域名默认使用 HTTPS；本地 HTTP 测试请显式写 `http://127.0.0.1:端口`。不自动向浏览器注入或读取 `VITE_` API Key。
+
+SDK 访问平台 API 时仅发送 `X-API-Key`，不同时发送 `Authorization`；Cloud Gateway 的 enforce 模式会拒绝多来源凭据。`whoami` 同样使用单个 `X-API-Key`。API Key 应留在服务端，浏览器通过应用服务端调用平台 API；网关默认 CORS 配置可能不允许跨源 `X-API-Key`。
 
 服务端底层 HTTP 客户端也可配置 `apiKeyProvider: async ({ signal }) => ...`，每次 HTTP 请求或 SSE 连接分别解析一次 API Key。provider 必须返回非空的可打印 ASCII 字符串；失败、取消或超时会终止该次请求，不回退到静态 Key 或环境变量。provider 应使用 `signal` 停止自己的异步工作。SDK 不缓存 provider 返回的 Key，也不会因此重放请求；调用者须确保重试期间身份和幂等作用域一致。`@tier0/sdk-v2/data` 的 `createDataClient` 暂不支持此配置，会直接拒绝。该接口只提供现有 API Key 的动态获取，并不表示服务端支持委托凭据。
 
@@ -77,6 +85,12 @@ Data 高层会跨请求复用 ensure 结果、重放带幂等键的 seed、恢�
 集合声明必须分别提供稳定程序标识 `alias` 和业务名称 `name`，例如 `alias: 'production_orders'`、`name: '生产工单'`。目录、数据和引用直接用 name 展示，不提供 displayName 或名称回退；name 为 1–63 个 Unicode 字符，无首尾空白，不含 `/` 或空字符。ensure 按 alias 关联集合，仅首次创建设置 name，不覆盖用户改名。名称冲突时选择有区分度的业务名称，不拼随机后缀。
 
 不保留 UNS v1、旧 Flow、`getCurrentProjectId()`、project 成员查询或 `/gw/reload`。Workspace 成员不等于能使用某个 App 的成员，不可用前者在客户端猜测 App 权限。
+
+## SDK 方法与凭证权限
+
+同一 SDK 支持工作空间集成和 App 运行时，方法存在不代表当前凭证可调用。`client.uns.namespace()` 调用的是 `POST /openapi/v2/uns/namespace/query`，属于 OpenAPI；有相应权限且未绑定 App 的 Agent / Personal Key 可以使用，App Key 当前不能使用。App 已知集合 ID 时可直接用 `recordFind` 读取记录；需要发现可访问集合及结构时使用 `client.uns.dataAppContext({})`。`appCollectionsList` 也是管理接口，不能作为 App Key 的替代入口。
+
+SDK 不从 Key 前缀推断权限，也不在 403 后换凭证或回退内部接口。Agent 程序、SDK、MCP 都不能扩大所持凭证的权限。身份区别和排错见[命名空间查询与凭证](skills/tier0-sdk-v2/tier0-sdk-v2-uns/references/namespace.md)，App 读取示例见[查询集合与记录](skills/tier0-sdk-v2/tier0-sdk-v2-uns/references/read.md)。
 
 ## 本次接口退役
 
@@ -192,6 +206,14 @@ mq.subscribe('平台授权的主题', (_topic, payload) => { /* 处理消息 */ 
 ```
 
 完整凭证只在创建时返回一次。也支持从编码 Workspace 的平台 API Key 推导 MQTT 身份；无法解析的 Key 会拒绝连接，不回退到 Enterprise 身份。MQTT 自身的连接恢复/QoS 语义与 HTTP 的“不自动重试写入”是不同机制。
+
+MQTT 连接建立后，凭据和连接设置由底层客户端持有，包括自动重连期间。调用 `connect` 修改这些设置会报错，不会替换正在使用的凭据。换证时应停止旧客户端的业务操作、调用 `disconnect()`，再使用新凭据创建一个新的 `Tier0MQClient` 并重新注册订阅。旧客户端的 `disconnect()` 会清除 SDK 的订阅列表；它不是等待 Broker 确认断开的异步屏障。换证期间的消息可能丢失或重复，在途发布的结果也可能未知，应用需按业务协议处理，不能假定 SDK 已重放或恰好执行一次。Broker 撤销已经建立连接的生效时机取决于服务端认证、ACL 和缓存策略；仅更换客户端不能证明旧连接已被撤权。
+
+首次连接正在建立时，`subscribe` 会等待连接；连接失败时撤销该订阅并报告错误。自动重连期间的新订阅会报告错误且不会登记，调用方可在连接恢复后重试。连接中断前已登记的订阅仍会在重连后恢复，也可在恢复前取消。
+
+同一 topic 的多个 handler 共用一次 Broker 订阅和 SUBACK。SDK 同时检查报文及 mqtt.js 的授权结果；首次订阅或重连恢复若被 Broker 拒绝或确认不合法，该 topic 的 handler 会被移除，`error` 事件包含 topic，调用方可在处理原因后重新注册；其他 topic 不受影响。`connect` 事件仅表示连接建立，不表示所有订阅已获 Broker 确认。
+
+`connect` 在启动底层客户端前检查地址和凭据；本地预检失败不会保存本次传入的设置。底层客户端已创建后若连接失败，其连接设置仍由该客户端持有，自动重连会继续使用这些设置；要改变凭据，需先断开并按上述方式重建。
 
 ## React / Vue
 
