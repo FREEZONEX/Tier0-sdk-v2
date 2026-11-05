@@ -2,9 +2,9 @@
 
 Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交互均使用 `@tier0/sdk-v2`。旧 SDK 不再作为依赖。
 
-`0.10.0-aenv.8` 是 aenv-next 的本地预发布版本，基于 `0.9.10`（含 `0.9.9` 的 `metadataPurge` 与凭证查询说明、`0.9.8` 的 App 集合业务目录声明 `directoryPath`），未发布到 npm；内容见下方「aenv-next 运行环境」。
+`0.10.0-aenv.9` 是 aenv-next 的本地预发布版本，基于 `0.9.10` 和 base 2026-11-05 的 MQTT 修复（含 `0.9.9` 的 `metadataPurge` 与凭证查询说明、`0.9.8` 的 App 集合业务目录声明 `directoryPath`），未发布到 npm；内容见下方「aenv-next 运行环境」。
 
-**`0.10.0-aenv.2` 起是破坏性变更**：`TIER0_CREDENTIALS_FILE` 不再读取，SDK 在平台里不持有、不发送任何凭据，由节点代理注入 App 的长期 Key；必须和新的 AgentENV（`sbx-api-proxy`）一起上线，在旧 VM 上请求会被拒绝。`0.10.0-aenv.3` 起 `TIER0_RUNTIME` 只接受 `deployed` / `preview`，其他非空值（且没有 Key）直接报配置错误。`0.10.0-aenv.4` 起 MQTT 改用 `<ws>&open` / `<ws>&h.<app>.<随机>`，预览和正式同一行为（种子不再等委托请求，`appCredentialRuntime()` 已删除）。`0.10.0-aenv.5` 合入 base 的 `0.9.7`、`0.9.8`。`0.10.0-aenv.6` 起 `members.listApp` 经节点代理可用（托管 Key 按 `platform.users.read`，响应不带邮箱）。`0.10.0-aenv.7` 合入 base 的 `0.9.9`、`0.9.10`（个人 Key 本地接入指南、非 JSON 网关错误提示、Namespace 回收说明），节点代理凭据模型不变。`0.10.0-aenv.8` 起已发布的 App（AENV，没有 `TIER0_JWKS_DIR`）从 `TIER0_JWKS_URL`（前门的 `/__tier0/jwks.json`）拉访问者令牌公钥并定期刷新。
+**`0.10.0-aenv.2` 起是破坏性变更**：`TIER0_CREDENTIALS_FILE` 不再读取，SDK 在平台里不持有、不发送任何凭据，由节点代理注入 App 的长期 Key；必须和新的 AgentENV（`sbx-api-proxy`）一起上线，在旧 VM 上请求会被拒绝。`0.10.0-aenv.3` 起 `TIER0_RUNTIME` 只接受 `deployed` / `preview`，其他非空值（且没有 Key）直接报配置错误。`0.10.0-aenv.4` 起 MQTT 改用 `<ws>&open` / `<ws>&h.<app>.<随机>`，预览和正式同一行为（种子不再等委托请求，`appCredentialRuntime()` 已删除）。`0.10.0-aenv.5` 合入 base 的 `0.9.7`、`0.9.8`。`0.10.0-aenv.6` 起 `members.listApp` 经节点代理可用（托管 Key 按 `platform.users.read`，响应不带邮箱）。`0.10.0-aenv.7` 合入 base 的 `0.9.9`、`0.9.10`（个人 Key 本地接入指南、非 JSON 网关错误提示、Namespace 回收说明），节点代理凭据模型不变。`0.10.0-aenv.8` 起已发布的 App（AENV，没有 `TIER0_JWKS_DIR`）从 `TIER0_JWKS_URL`（前门的 `/__tier0/jwks.json`）拉访问者令牌公钥并定期刷新。`0.10.0-aenv.9` 合入 base 2026-11-05 的 MQTT 修复（按连接代次丢弃过期回调、逐个 topic 校验订阅确认、连接设置预检回滚），重连期间新订阅和发布仍等待重连。
 
 `0.9.10` 补齐个人 Key 本地接入指南与非 JSON 网关错误提示，并同步 Namespace 回收、删除和恢复说明；保留现有权限、请求地址和重试规则。
 
@@ -32,13 +32,13 @@ Collection 声明必须同时提供业务名称 `name`（例如「生产工单�
 
 ## 安装与初始化
 
-维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。本分支的功能应使用检查通过的 `tier0-sdk-v2-0.10.0-aenv.8.tgz` 在业务项目中验证：
+维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。本分支的功能应使用检查通过的 `tier0-sdk-v2-0.10.0-aenv.9.tgz` 在业务项目中验证：
 
 ```sh
-npm install /path/to/tier0-sdk-v2-0.10.0-aenv.8.tgz
+npm install /path/to/tier0-sdk-v2-0.10.0-aenv.9.tgz
 ```
 
-`0.10.0-aenv.8` 正式发布后再使用 `npm install @tier0/sdk-v2@0.10.0-aenv.8`。发布前，npm 的既有版本和 `next` 标签不代表本分支的完整功能。
+`0.10.0-aenv.9` 正式发布后再使用 `npm install @tier0/sdk-v2@0.10.0-aenv.9`。发布前，npm 的既有版本和 `next` 标签不代表本分支的完整功能。
 
 个人 Key 可直接读取已有集合，无需创建平台 App；网关配置、运行示例与排错见[本地连接指南](skills/tier0-sdk-v2/references/local-connection.md)。
 

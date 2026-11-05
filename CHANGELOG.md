@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.0-aenv.9 (local aenv-next prerelease)
+
+- Merge the base MQTT and data fixes of 2026-11-05 (base `d0276cf`) into the aenv-next line. MQTT: callbacks are bound to the connection generation, mqtt.js resubscription is off and every topic checks its SUBACK grant (MQTT 3.1.1 and 5), connection settings are preflighted and rolled back on failure, settings cannot change while a client exists, and a failed first connect drops the subscriptions it registered. aenv-next keeps its own reconnect model: the SDK reconnects itself, a browser fetches a fresh token on every reconnect, new subscriptions and publishes wait for the reconnect instead of failing, and `disconnect()` also rejects the waiting calls.
+- `runWithRequiredEmployeeContext` accepts either `X-Tier0-App-Data-Subject` (base) or `X-Tier0-Delegation` (aenv-next employee identity); whichever is present must be well formed.
+- Notifications are sent without `mode`; the platform derives test or live from the App Key's runtime (session sandboxes carry the preview key).
+
+This prerelease is built locally for the aenv-next scaffold and is not published to npm.
+
 ## 0.10.0-aenv.8 (local aenv-next prerelease)
 
 - Visitor tokens on AENV Apps: when `TIER0_JWKS_DIR` does not exist (published Apps have no guest agent writing it), `createVisitorTokenVerifier()` fetches the front door keys from `TIER0_JWKS_URL` (`https://<app>.<apps domain>/__tier0/jwks.json`, set by the platform) with the new `frontdoorKeysFromUrl()`: refreshed every 60 s, early when a token names an unknown `kid` (at most every 10 s), the last good set kept when a fetch fails, `dev-` kids never trusted. Until the first fetch lands every token is refused; `ready()` waits for it. `frontdoorKeys()` is the new default source; `frontdoorKeysFromDir()` is unchanged.
