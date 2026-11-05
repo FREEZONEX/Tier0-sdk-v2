@@ -73,8 +73,8 @@ export class CloudTransport {
         this.#unsV2AppDataSubject !== undefined) {
       headers[UNS_V2_APP_DATA_SUBJECT_HEADER] = this.#unsV2AppDataSubject;
     }
+    // Gateway enforce mode accepts exactly one credential source.
     if (key) {
-      headers.Authorization = `Bearer ${key}`;
       headers['X-API-Key'] = key;
     }
     const controller = new AbortController();
@@ -168,7 +168,6 @@ export class CloudTransport {
     }
     if (options.lastEventId !== undefined) headers['Last-Event-ID'] = options.lastEventId;
     if (key) {
-      headers.Authorization = `Bearer ${key}`;
       headers['X-API-Key'] = key;
     }
     const controller = new AbortController();
@@ -239,7 +238,6 @@ export class CloudTransport {
           const key = client.getApiKey();
           const headers: Record<string, string> = { 'Content-Type': 'application/json' };
           if (key) {
-            headers.Authorization = `Bearer ${key}`;
             headers['X-API-Key'] = key;
           }
           response = await client.getFetch()(url, { method: 'POST', headers, body: serialized, redirect: 'manual', signal: controller.signal });

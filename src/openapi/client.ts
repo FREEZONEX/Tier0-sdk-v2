@@ -75,7 +75,8 @@ export class HttpClient {
     const key = this.getApiKey();
     const headers = new Headers(init.headers);
     headers.set('Content-Type', 'application/json');
-    if (key) { headers.set('X-API-Key', key); headers.set('Authorization', `Bearer ${key}`); }
+    // Gateway enforce mode rejects multiple credential sources; whoami accepts this header.
+    if (key) headers.set('X-API-Key', key);
     const controller = new AbortController();
     let expired = false;
     let started = false;
