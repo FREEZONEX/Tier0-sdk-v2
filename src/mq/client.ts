@@ -52,6 +52,8 @@ export class Tier0MQClient {
   private explicitUsername: boolean;
   private listeners: { [K in keyof MQTTEventMap]?: Array<MQTTEventMap[K]> } = {};
   private subscriptions: Subscription[] = [];
+  // One broker subscription (including its pending SUBACK) per topic.
+  private topicSubscriptions = new Map<string, object>();
   private connectingPromise: Promise<void> | null = null;
   private rejectPendingConnect: ((error: Error) => void) | null = null;
   private _connected = false;
@@ -159,6 +161,8 @@ export class Tier0MQClient {
         reconnectPeriod: this.config.reconnectPeriod,
         connectTimeout: this.config.connectTimeout,
         clean: this.config.clean,
+        // The SDK owns resubscription so every SUBACK reaches its callback.
+        resubscribe: false,
       };
 
       let client: MqttClient;
@@ -175,6 +179,7 @@ export class Tier0MQClient {
       client.on('connect', () => {
         if (this.client !== client || this.generation !== generation) return;
         this._connected = true;
+        this.topicSubscriptions.clear();
         for (const sub of this.subscriptions) sub.pendingConnect = false;
         this.connectingPromise = null;
         this.rejectPendingConnect = null;
@@ -198,12 +203,14 @@ export class Tier0MQClient {
       client.on('disconnect', () => {
         if (this.client !== client || this.generation !== generation) return;
         this._connected = false;
+        this.topicSubscriptions.clear();
         this.emit('disconnect');
       });
 
       client.on('close', () => {
         if (this.client !== client || this.generation !== generation) return;
         this._connected = false;
+        this.topicSubscriptions.clear();
       });
 
       client.on(
@@ -344,15 +351,7 @@ export class Tier0MQClient {
     const generation = this.generation;
 
     if (this._connected && this.client) {
-      const client = this.client;
-      client.subscribe(topic, { qos: 1 as 0 | 1 | 2 }, (err) => {
-        if (this.client !== client || this.generation !== generation) return;
-        if (err) {
-          // 订阅失败时回滚
-          this.subscriptions = this.subscriptions.filter((s) => s !== sub);
-          this.emit('error', err);
-        }
-      });
+      this.subscribeTopic(topic, this.client, generation);
     } else {
       // 未连接时触发懒连接，连接成功后 resubscribeAll 会自动 subscribe
       this.ensureConnected().catch((err) => {
@@ -381,6 +380,7 @@ export class Tier0MQClient {
     // 如果该 topic 下已无任何 handler，则向 broker 发送 unsubscribe
     const stillHasHandler = this.subscriptions.some((s) => s.topic === topic);
     if (!stillHasHandler) {
+      this.topicSubscriptions.delete(topic);
       client.unsubscribe(topic, (err) => {
         if (this.client !== client || this.generation !== generation) return;
         if (err) {
@@ -419,6 +419,7 @@ export class Tier0MQClient {
     const rejectPendingConnect = this.rejectPendingConnect;
     this.rejectPendingConnect = null;
     this.subscriptions = [];
+    this.topicSubscriptions.clear();
     rejectPendingConnect?.(new Error('MQTT connection cancelled by disconnect'));
     if (!client) return;
     client.end(true, () => {
@@ -461,14 +462,22 @@ export class Tier0MQClient {
     const uniqueTopics = Array.from(
       new Set(this.subscriptions.map((s) => s.topic))
     );
-    uniqueTopics.forEach((topic) => {
-      if (this.client !== client || this.generation !== generation) return;
-      client.subscribe(topic, { qos: 1 as 0 | 1 | 2 }, (err) => {
-        if (this.client !== client || this.generation !== generation) return;
-        if (err) {
-          this.emit('error', err);
-        }
-      });
+    uniqueTopics.forEach((topic) => this.subscribeTopic(topic, client, generation));
+  }
+
+  private subscribeTopic(topic: string, client: MqttClient, generation: number): void {
+    if (this.client !== client || this.generation !== generation || !this._connected ||
+        this.topicSubscriptions.has(topic) || !this.subscriptions.some((sub) => sub.topic === topic)) return;
+    const attempt = {};
+    this.topicSubscriptions.set(topic, attempt);
+    client.subscribe(topic, { qos: 1 as 0 | 1 | 2 }, (err) => {
+      if (this.client !== client || this.generation !== generation || this.topicSubscriptions.get(topic) !== attempt) return;
+      if (err) {
+        this.topicSubscriptions.delete(topic);
+        // Every handler shares this broker subscription and its SUBACK.
+        this.subscriptions = this.subscriptions.filter((sub) => sub.topic !== topic);
+        this.emit('error', new Error(`MQTT subscription failed for topic ${topic}`, { cause: err }));
+      }
     });
   }
 

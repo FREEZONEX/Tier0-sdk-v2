@@ -72,6 +72,86 @@ describe('Tier0MQClient', () => {
     };
   }
 
+  it('ignores a same-client SUBACK after unsubscribe and replacement', async () => {
+    const transport = lifecycleClient();
+    (mqtt.connect as any).mockReturnValue(transport);
+    const client = new Tier0MQClient({ host: 'broker' });
+    const errors = vi.fn();
+    const first = vi.fn();
+    const replacement = vi.fn();
+    client.on('error', errors);
+    const connected = client.connect();
+    transport.emit('connect');
+    await connected;
+    client.subscribe('topic', first);
+    client.unsubscribe('topic', first);
+    client.subscribe('topic', replacement);
+    transport.subscribeCallbacks[0](new Error('old SUBACK'));
+    expect(errors).not.toHaveBeenCalled();
+    expect(client.subscribedTopics).toEqual(['topic']);
+    transport.subscribeCallbacks[1](null);
+    transport.emit('message', 'topic', Buffer.from('ok'));
+    expect(replacement).toHaveBeenCalledWith('topic', 'ok');
+    client.disconnect();
+  });
+
+  it('ignores the previous connection cycle SUBACK on the same transport', async () => {
+    const transport = lifecycleClient();
+    (mqtt.connect as any).mockReturnValue(transport);
+    const client = new Tier0MQClient({ host: 'broker' });
+    const errors = vi.fn();
+    client.on('error', errors);
+    const connected = client.connect();
+    transport.emit('connect');
+    await connected;
+    client.subscribe('topic', vi.fn());
+    transport.emit('close');
+    transport.emit('connect');
+    expect(transport.subscribeCallbacks).toHaveLength(2);
+    transport.subscribeCallbacks[0](new Error('late old SUBACK'));
+    expect(errors).not.toHaveBeenCalled();
+    expect(client.subscribedTopics).toEqual(['topic']);
+    transport.subscribeCallbacks[1](new Error('current SUBACK'));
+    expect(errors).toHaveBeenCalledTimes(1);
+    expect(client.subscribedTopics).toEqual([]);
+    client.disconnect();
+  });
+
+  it('allows a synchronous retry from a rejected topic error listener', async () => {
+    const transport = lifecycleClient();
+    (mqtt.connect as any).mockReturnValue(transport);
+    const client = new Tier0MQClient({ host: 'broker' });
+    const handler = vi.fn();
+    const errors = vi.fn(() => client.subscribe('topic', handler));
+    client.on('error', errors);
+    const connected = client.connect();
+    transport.emit('connect');
+    await connected;
+    client.subscribe('topic', handler);
+    transport.subscribeCallbacks[0](new Error('rejected'));
+    expect(errors).toHaveBeenCalledTimes(1);
+    expect(transport.subscribeCallbacks).toHaveLength(2);
+    transport.subscribeCallbacks[1](null);
+    expect(client.subscribedTopics).toEqual(['topic']);
+    client.disconnect();
+  });
+
+  it('does not resubscribe a topic removed by another topic error listener', async () => {
+    const transport = lifecycleClient();
+    transport.subscribe.mockImplementation((topic: string, _opts: unknown, cb: Function) => {
+      if (topic === 'first') cb(new Error('rejected'));
+    });
+    (mqtt.connect as any).mockReturnValue(transport);
+    const client = new Tier0MQClient({ host: 'broker' });
+    client.on('error', () => client.unsubscribe('second'));
+    client.subscribe('first', vi.fn());
+    client.subscribe('second', vi.fn());
+    transport.emit('connect');
+    expect(transport.subscribe).toHaveBeenCalledTimes(1);
+    expect(client.subscribedTopics).toEqual([]);
+    client.disconnect();
+  });
+
   it.each([
     [undefined, 'sk-per-ws1_test', '1'],
     ['sk-svc-ws2_old', 'sk-svc-ws10_test', '36'],
