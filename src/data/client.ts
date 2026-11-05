@@ -134,7 +134,7 @@ export interface DataClient {
 }
 
 export function createDataClient(config: DataClientConfig): DataClient {
-  const snapshot = snapshotClientConfig(config);
+  const snapshot = snapshotClientConfig(config, ['environment', 'collections', 'logger']);
   if (Object.hasOwn(snapshot, 'apiKeyProvider')) {
     throw new TypeError('Tier0 SDK: apiKeyProvider is not supported by createDataClient.');
   }
@@ -148,8 +148,8 @@ export function createDataClient(config: DataClientConfig): DataClient {
     apiHost: snapshot.apiHost ?? snapshot.getApiHost?.() ?? getEnvVar('TIER0_API_HOST') ?? '',
   };
   const { call, openStream } = createDataTransport(fixed);
-  const environment = config.environment ?? (getEnvVar('NODE_ENV') === 'production' ? 'deployed' : 'preview');
-  const declared = [...(config.collections ?? [])];
+  const environment = snapshot.environment ?? (getEnvVar('NODE_ENV') === 'production' ? 'deployed' : 'preview');
+  const declared = [...(snapshot.collections ?? [])];
   if (declared.length > MAX_COLLECTIONS) {
     throw new Error(`An App declares at most ${MAX_COLLECTIONS} collections; got ${declared.length}.`);
   }
@@ -160,7 +160,7 @@ export function createDataClient(config: DataClientConfig): DataClient {
     seen.add(key);
   }
 
-  const bootstrap = createBootstrap({ call, collections: declared, environment, logger: config.logger ?? console });
+  const bootstrap = createBootstrap({ call, collections: declared, environment, logger: snapshot.logger ?? console });
   const runtime = {
     call,
     resolve: async (target: CollectionTarget | string) => {

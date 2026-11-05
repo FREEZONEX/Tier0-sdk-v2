@@ -40,11 +40,12 @@ export class CloudTransport {
   readonly #unsV2AppDataSubject: string | undefined;
 
   constructor(private readonly resolveClient: () => HttpClient = getClient, config: CloudTransportConfig = {}) {
-    const timeout = config.transportTimeoutMs ?? DEFAULT_CLOUD_TRANSPORT_TIMEOUT_MS;
+    const configuredTimeout = config.transportTimeoutMs;
+    const timeout = configuredTimeout ?? DEFAULT_CLOUD_TRANSPORT_TIMEOUT_MS;
     if (!Number.isInteger(timeout) || timeout < 1 || timeout > 2_147_483_647) {
       throw new TypeError('Tier0 SDK: transportTimeoutMs must be an integer between 1 and 2147483647.');
     }
-    this.configuredTimeoutMs = config.transportTimeoutMs;
+    this.configuredTimeoutMs = configuredTimeout;
     const maxResponseBytes = config.unsV2MaxResponseBytes ?? UNS_V2_MAX_RESPONSE_BYTES;
     if (!Number.isInteger(maxResponseBytes) || maxResponseBytes < 1 || maxResponseBytes > UNS_V2_MAX_RESPONSE_BYTES) {
       throw new TypeError('Tier0 SDK: unsV2MaxResponseBytes must be an integer between 1 and 20971520.');

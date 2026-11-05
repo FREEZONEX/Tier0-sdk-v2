@@ -58,6 +58,33 @@ async function firstEvent(events: AsyncIterable<SubscriptionEvent>) {
 }
 
 describe('Data client stable credential boundary over HTTP', () => {
+  it('reads configuration accessors once and pins that principal for actual requests', async () => {
+    const counts: Record<string, number> = {};
+    const config = {} as DataClientConfig;
+    for (const [field, value] of Object.entries({ apiHost: hosts[0], apiKey: 'user-a', collections: [orders], environment: 'preview', logger: console, transportTimeoutMs: 5000 })) {
+      Object.defineProperty(config, field, { enumerable: false, get() {
+        counts[field] = (counts[field] ?? 0) + 1;
+        if (counts[field] !== 1) throw new Error(`${field} read twice`);
+        return value;
+      } });
+    }
+    vi.stubEnv('TIER0_API_KEY', 'user-b');
+    const client = createDataClient(config);
+    expect(await client.collection(orders).countDocuments()).toEqual({ count: 11, capped: false });
+    expect(counts).toEqual({ apiHost: 1, apiKey: 1, collections: 1, environment: 1, logger: 1, transportTimeoutMs: 1 });
+    expect(requests).toHaveLength(2);
+    expect(requests.every(r => r.server === 'A' && r.key === 'user-a' && r.auth === undefined)).toBe(true);
+  });
+
+  it('retains inherited Data declarations while keeping credentials explicitly owned', async () => {
+    const config = Object.assign(Object.create({ collections: [orders], environment: 'preview', logger: console }), {
+      apiHost: hosts[0], apiKey: 'user-a',
+    });
+    const client = createDataClient(config);
+    expect(await client.collection(orders).countDocuments()).toEqual({ count: 11, capped: false });
+    expect(requests).toHaveLength(2);
+    expect(requests.every(r => r.key === 'user-a' && r.server === 'A')).toBe(true);
+  });
   it('rejects an A-then-B getter before preflight or dispatch to the actual HTTP server', async () => {
     let calls = 0;
     const getter = vi.fn(() => ++calls === 1 ? 'user-a' : 'user-b');

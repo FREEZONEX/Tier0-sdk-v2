@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { createClient } from '../src/index.js';
+import { createClient, createSourceClient, createStreamClient, createUnsDataClient } from '../src/index.js';
 import { HttpClient } from '../src/openapi/client.js';
 import { CloudTransport } from '../src/cloud-transport.js';
 import { createDataTransport } from '../src/data/call.js';
@@ -45,6 +45,46 @@ const deferred = () => {
 };
 
 describe('credential source selection', () => {
+  it('reads a non-enumerable timeout once in each client and sends under its selected identity', async () => {
+    const config = () => {
+      let reads = 0;
+      const value = Object.defineProperty({ apiHost: origin, apiKey: 'user-a' }, 'transportTimeoutMs', {
+        get() { if (++reads !== 1) throw new Error('timeout read twice'); return 5000; }, enumerable: false,
+      });
+      return { value, reads: () => reads };
+    };
+    const httpConfig = config();
+    await new HttpClient(httpConfig.value).get('/probe');
+    const cloudConfig = config();
+    await new CloudTransport(() => new HttpClient({ apiHost: origin, apiKey: 'user-a' }), cloudConfig.value).postText('/cloud', '{}');
+    const combined = config();
+    await createClient(combined.value).system.whoami();
+    const source = config();
+    await createSourceClient(source.value).documents.get({ id: '101' });
+    const stream = config();
+    await createStreamClient(stream.value).observations.get({ id: '202' });
+    const uns = config();
+    await createUnsDataClient(uns.value).recordFind({ collectionId: 'orders' });
+    const data = config();
+    await createDataTransport(data.value).call('catalog', {});
+    for (const item of [httpConfig, cloudConfig, combined, source, stream, uns, data]) expect(item.reads()).toBe(1);
+    expect(received).toHaveLength(7);
+    expect(received.every(r => r.key === 'user-a' && r.auth === undefined)).toBe(true);
+  });
+
+  it('preserves inherited transport limits and delegated subject in standalone clients', async () => {
+    const config = Object.assign(Object.create({ unsV2MaxResponseBytes: 1 }), { apiHost: origin, apiKey: 'user-a' });
+    await expect(createSourceClient(config).documents.get({ id: '101' })).rejects.toThrow();
+    await expect(createStreamClient(config).observations.get({ id: '202' })).rejects.toThrow();
+    await expect(createUnsDataClient(config).recordFind({ collectionId: 'orders' })).rejects.toThrow();
+    expect(received).toHaveLength(3);
+    const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response(JSON.stringify({
+      code: 200, msg: '', requestId: 'fixture', data: { count: 1, capped: false },
+    })));
+    const delegated = Object.assign(Object.create({ unsV2AppDataSubject: 'a.employee.c' }), { apiHost: origin, apiKey: 'user-a', fetch });
+    await createUnsDataClient(delegated).recordCount({ collectionId: 'orders' });
+    expect(new Headers(fetch.mock.calls[0][1]?.headers).get('x-tier0-app-data-subject')).toBe('a.employee.c');
+  });
   it('uses the environment only when all credential properties are absent', async () => {
     vi.stubEnv('TIER0_API_KEY', 'shared-env');
     const configs = [
