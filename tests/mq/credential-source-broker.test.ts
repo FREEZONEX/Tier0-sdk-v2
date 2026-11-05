@@ -140,6 +140,7 @@ describe.each([['mqtt.js current', mqttCurrent], ['mqtt.js 5.3.0', mqtt530]])('M
     b.breakConnections();
     await vi.waitFor(() => expect(client.isConnected).toBe(false), { timeout: 1000, interval: 10 });
     await expect(client.connect({ password: undefined })).rejects.toThrow(/password/i);
+    vi.stubEnv('TIER0_API_KEY', 'sk-per-ws2_user-b');
     await vi.waitFor(() => expect(b.seen.length).toBeGreaterThanOrEqual(2), { timeout: 2500, interval: 20 });
     expect(b.seen.map(entry => [entry.password, entry.username])).toEqual([
       ['sk-app-ws1_env-a', '1&open'], ['sk-app-ws1_env-a', '1&open'],
