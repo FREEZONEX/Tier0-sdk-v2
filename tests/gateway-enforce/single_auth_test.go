@@ -17,6 +17,7 @@ import (
 	"github.com/zeromicro/go-zero/rest"
 	"github.com/zeromicro/go-zero/rest/router"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 )
 
 type sdkSingleAuthFake struct {
@@ -29,7 +30,27 @@ func (f *sdkSingleAuthFake) ApiKeyWhoami(_ context.Context, req *sys.ApiKeyWhoam
 	f.mu.Lock()
 	f.whoamiKey = req.GetApiKey()
 	f.mu.Unlock()
-	return &sys.ApiKeyWhoamiResp{UserID: 7, UserName: req.GetApiKey(), WorkspaceID: 10001, KeyType: "service"}, nil
+	keyType := "service"
+	if strings.HasPrefix(req.GetApiKey(), "sk-app-") {
+		keyType = "app"
+	}
+	return &sys.ApiKeyWhoamiResp{UserID: 7, UserName: req.GetApiKey(), WorkspaceID: 10001, KeyType: keyType}, nil
+}
+
+func (f *sdkSingleAuthFake) ApiKeyCheck(ctx context.Context, req *sys.ApiKeyCheckReq, opts ...grpc.CallOption) (*sys.ApiKeyCheckResp, error) {
+	result, err := f.requestAuthFake.ApiKeyCheck(ctx, req, opts...)
+	if err != nil || result == nil {
+		return result, err
+	}
+	result = proto.Clone(result).(*sys.ApiKeyCheckResp)
+	if strings.HasPrefix(req.GetApiKey(), "sk-app-") {
+		result.KeyType = "app"
+	}
+	return result, nil
+}
+
+func (f *sdkSingleAuthFake) FileUrlGet(_ context.Context, req *sys.SysFileUrlGetReq, _ ...grpc.CallOption) (*sys.SysFileUrlGetResp, error) {
+	return &sys.SysFileUrlGetResp{FileUrl: "https://storage.example/" + req.GetFilePath()}, nil
 }
 
 // 真实 Gateway 路由和 enforce 中间件；SYS / Stream RPC 为隔离测试替身。
@@ -47,15 +68,15 @@ func TestSDKSingleAuthGatewayEnforce(t *testing.T) {
 	mux := router.NewRouter()
 	count := 0
 	for _, route := range registered.Routes() {
-		if route.Path == "/openapi/v2/auth/whoami" || strings.HasPrefix(route.Path, "/openapi/v2/stream-requests/") {
+		if route.Path == "/openapi/v2/auth/whoami" || route.Path == "/openapi/v2/assets/files/url" || strings.HasPrefix(route.Path, "/openapi/v2/stream-requests/") {
 			if err := mux.Handle(route.Method, route.Path, route.Handler); err != nil {
 				t.Fatal(err)
 			}
 			count++
 		}
 	}
-	if count != 4 {
-		t.Fatalf("registered routes = %d, want 4", count)
+	if count != 5 {
+		t.Fatalf("registered routes = %d, want 5", count)
 	}
 	server := httptest.NewServer(mux)
 	defer server.Close()
@@ -139,6 +160,18 @@ const two = createClient({ apiHost: process.argv[2], apiKeyProvider: async () =>
 const [a, b] = await Promise.all([one.system.whoami(), two.system.whoami()]);
 assert.equal(a.userName, 'sk-svc-ws7pt_a');
 assert.equal(b.userName, 'sk-svc-ws7pt_b');
+if (process.env.TIER0_SCAFFOLD_HELPER_ENTRY) {
+  process.env.TIER0_API_HOST = process.argv[2];
+  process.env.TIER0_API_KEY = 'sk-app-ws7pt_fixture';
+  const { getTier0AppClient } = await import(pathToFileURL(process.env.TIER0_SCAFFOLD_HELPER_ENTRY).href);
+  const app = await getTier0AppClient();
+  const identity = await app.system.whoami();
+  assert.equal(identity.userName, 'sk-app-ws7pt_fixture');
+  assert.equal(identity.keyType, 'app');
+  const file = await app.files.url({ filePath: 'report.txt' });
+  assert.equal(file.fileUrl, 'https://storage.example/report.txt');
+}
+
 
 `
 		cmd := exec.Command("node", "--input-type=module", "-e", program, sdk, server.URL)
