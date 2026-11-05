@@ -45,6 +45,10 @@ interface Subscription {
   backpressuredCount?: number;
 }
 
+interface TopicSubscriptionAttempt {
+  invalidSuback?: boolean;
+}
+
 export class Tier0MQClient {
   private client: MqttClient | null = null;
   private config: MQTTConfig;
@@ -53,7 +57,9 @@ export class Tier0MQClient {
   private listeners: { [K in keyof MQTTEventMap]?: Array<MQTTEventMap[K]> } = {};
   private subscriptions: Subscription[] = [];
   // One broker subscription (including its pending SUBACK) per topic.
-  private topicSubscriptions = new Map<string, object>();
+  private topicSubscriptions = new Map<string, TopicSubscriptionAttempt>();
+  private pendingTopicPackets = new Map<string, TopicSubscriptionAttempt[]>();
+  private sentTopicPackets = new Map<number, TopicSubscriptionAttempt>();
   private connectingPromise: Promise<void> | null = null;
   private rejectPendingConnect: ((error: Error) => void) | null = null;
   private _connected = false;
@@ -176,10 +182,37 @@ export class Tier0MQClient {
       }
       this.client = client;
 
+      // mqtt.js 5.3 synthesizes the requested QoS if a malformed SUBACK has
+      // no grants, and can throw when it contains too many. Track wire packet
+      // ids so malformed acknowledgements never become apparent success.
+      client.on('packetsend', (packet) => {
+        if (this.client !== client || this.generation !== generation || packet.cmd !== 'subscribe' || packet.subscriptions.length !== 1) return;
+        const topic = packet.subscriptions[0]?.topic;
+        if (!topic || typeof packet.messageId !== 'number') return;
+        const queue = this.pendingTopicPackets.get(topic);
+        const attempt = queue?.shift();
+        if (queue?.length === 0) this.pendingTopicPackets.delete(topic);
+        if (attempt) this.sentTopicPackets.set(packet.messageId, attempt);
+      });
+      client.on('packetreceive', (packet) => {
+        if (this.client !== client || this.generation !== generation || packet.cmd !== 'suback' || typeof packet.messageId !== 'number') return;
+        const attempt = this.sentTopicPackets.get(packet.messageId);
+        this.sentTopicPackets.delete(packet.messageId);
+        if (!attempt) return;
+        if (!Array.isArray(packet.granted) || packet.granted.length !== 1 ||
+            (packet.granted[0] !== 0 && packet.granted[0] !== 1)) {
+          attempt.invalidSuback = true;
+          // Keep old mqtt.js from indexing past its single requested topic.
+          packet.granted = [128];
+        }
+      });
+
       client.on('connect', () => {
         if (this.client !== client || this.generation !== generation) return;
         this._connected = true;
         this.topicSubscriptions.clear();
+        this.pendingTopicPackets.clear();
+        this.sentTopicPackets.clear();
         for (const sub of this.subscriptions) sub.pendingConnect = false;
         this.connectingPromise = null;
         this.rejectPendingConnect = null;
@@ -204,6 +237,8 @@ export class Tier0MQClient {
         if (this.client !== client || this.generation !== generation) return;
         this._connected = false;
         this.topicSubscriptions.clear();
+        this.pendingTopicPackets.clear();
+        this.sentTopicPackets.clear();
         this.emit('disconnect');
       });
 
@@ -211,6 +246,8 @@ export class Tier0MQClient {
         if (this.client !== client || this.generation !== generation) return;
         this._connected = false;
         this.topicSubscriptions.clear();
+        this.pendingTopicPackets.clear();
+        this.sentTopicPackets.clear();
       });
 
       client.on(
@@ -420,6 +457,8 @@ export class Tier0MQClient {
     this.rejectPendingConnect = null;
     this.subscriptions = [];
     this.topicSubscriptions.clear();
+    this.pendingTopicPackets.clear();
+    this.sentTopicPackets.clear();
     rejectPendingConnect?.(new Error('MQTT connection cancelled by disconnect'));
     if (!client) return;
     client.end(true, () => {
@@ -468,15 +507,28 @@ export class Tier0MQClient {
   private subscribeTopic(topic: string, client: MqttClient, generation: number): void {
     if (this.client !== client || this.generation !== generation || !this._connected ||
         this.topicSubscriptions.has(topic) || !this.subscriptions.some((sub) => sub.topic === topic)) return;
-    const attempt = {};
+    const attempt: TopicSubscriptionAttempt = {};
     this.topicSubscriptions.set(topic, attempt);
-    client.subscribe(topic, { qos: 1 as 0 | 1 | 2 }, (err) => {
+    const pending = this.pendingTopicPackets.get(topic) ?? [];
+    pending.push(attempt);
+    this.pendingTopicPackets.set(topic, pending);
+    client.subscribe(topic, { qos: 1 as 0 | 1 | 2 }, (err, granted) => {
+      const queue = this.pendingTopicPackets.get(topic);
+      if (queue) {
+        const index = queue.indexOf(attempt);
+        if (index >= 0) queue.splice(index, 1);
+        if (!queue.length) this.pendingTopicPackets.delete(topic);
+      }
       if (this.client !== client || this.generation !== generation || this.topicSubscriptions.get(topic) !== attempt) return;
-      if (err) {
+      // mqtt.js 5.3 reports SUBACK failure codes in granted with err=null.
+      // A QoS 1 request may only be granted QoS 0 or 1, for this one topic.
+      const accepted = Array.isArray(granted) && granted.length === 1 &&
+        granted[0]?.topic === topic && (granted[0]?.qos === 0 || granted[0]?.qos === 1);
+      if (err || attempt.invalidSuback || !accepted) {
         this.topicSubscriptions.delete(topic);
         // Every handler shares this broker subscription and its SUBACK.
         this.subscriptions = this.subscriptions.filter((sub) => sub.topic !== topic);
-        this.emit('error', new Error(`MQTT subscription failed for topic ${topic}`, { cause: err }));
+        this.emit('error', new Error(`MQTT subscription failed for topic ${topic}`, { cause: err ?? undefined }));
       }
     });
   }

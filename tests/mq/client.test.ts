@@ -28,7 +28,7 @@ describe('Tier0MQClient', () => {
       connected: false,
       subscribe: vi.fn((topic: string, opts: any, cb: Function) => {
         subscribeCallbacks.push({ topic, opts, cb });
-        if (typeof cb === 'function') cb(null);
+        if (typeof cb === 'function') cb(null, [{ topic, qos: 1 }]);
       }),
       publish: vi.fn(),
       unsubscribe: vi.fn((topic: string, cb: Function) => {
@@ -89,9 +89,45 @@ describe('Tier0MQClient', () => {
     transport.subscribeCallbacks[0](new Error('old SUBACK'));
     expect(errors).not.toHaveBeenCalled();
     expect(client.subscribedTopics).toEqual(['topic']);
-    transport.subscribeCallbacks[1](null);
+    transport.subscribeCallbacks[1](null, [{ topic: 'topic', qos: 1 }]);
     transport.emit('message', 'topic', Buffer.from('ok'));
     expect(replacement).toHaveBeenCalledWith('topic', 'ok');
+    client.disconnect();
+  });
+
+  it.each([
+    ['missing', undefined],
+    ['null', null],
+    ['empty', []],
+    ['wrong topic', [{ topic: 'other', qos: 1 }]],
+    ['multiple grants', [{ topic: 'topic', qos: 1 }, { topic: 'other', qos: 1 }]],
+    ['failure code', [{ topic: 'topic', qos: 128 }]],
+    ['invalid QoS', [{ topic: 'topic', qos: 2 }]],
+    ['missing QoS', [{ topic: 'topic' }]],
+  ])('rejects %s SUBACK grants for every handler and allows retry', async (_name, granted) => {
+    const transport = lifecycleClient();
+    (mqtt.connect as any).mockReturnValue(transport);
+    const client = new Tier0MQClient({ host: 'broker' });
+    const errors = vi.fn();
+    const first = vi.fn();
+    const second = vi.fn();
+    client.on('error', errors);
+    const connected = client.connect();
+    transport.emit('connect');
+    await connected;
+    client.subscribe('topic', first);
+    client.subscribe('topic', second);
+    expect(transport.subscribeCallbacks).toHaveLength(1);
+    transport.subscribeCallbacks[0](null, granted);
+    expect(errors).toHaveBeenCalledTimes(1);
+    expect(client.subscribedTopics).toEqual([]);
+    client.subscribe('topic', first);
+    client.subscribe('topic', second);
+    expect(transport.subscribeCallbacks).toHaveLength(2);
+    transport.subscribeCallbacks[1](null, [{ topic: 'topic', qos: 0 }]);
+    transport.emit('message', 'topic', Buffer.from('ok'));
+    expect(first).toHaveBeenCalledWith('topic', 'ok');
+    expect(second).toHaveBeenCalledWith('topic', 'ok');
     client.disconnect();
   });
 
@@ -117,6 +153,33 @@ describe('Tier0MQClient', () => {
     client.disconnect();
   });
 
+  it('ignores a malformed wire SUBACK from an unsubscribed attempt on the same client', async () => {
+    const transport = lifecycleClient();
+    (mqtt.connect as any).mockReturnValue(transport);
+    const client = new Tier0MQClient({ host: 'broker' });
+    const errors = vi.fn();
+    const oldHandler = vi.fn();
+    const newHandler = vi.fn();
+    client.on('error', errors);
+    const connected = client.connect();
+    transport.emit('connect');
+    await connected;
+    client.subscribe('topic', oldHandler);
+    transport.emit('packetsend', { cmd: 'subscribe', messageId: 11, subscriptions: [{ topic: 'topic' }] });
+    client.unsubscribe('topic', oldHandler);
+    client.subscribe('topic', newHandler);
+    transport.emit('packetsend', { cmd: 'subscribe', messageId: 12, subscriptions: [{ topic: 'topic' }] });
+    transport.emit('packetreceive', { cmd: 'suback', messageId: 11, granted: [] });
+    transport.subscribeCallbacks[0](null, [{ topic: 'topic', qos: 1 }]);
+    transport.emit('packetreceive', { cmd: 'suback', messageId: 12, granted: [1] });
+    transport.subscribeCallbacks[1](null, [{ topic: 'topic', qos: 1 }]);
+    expect(errors).not.toHaveBeenCalled();
+    expect(client.subscribedTopics).toEqual(['topic']);
+    transport.emit('message', 'topic', Buffer.from('ok'));
+    expect(newHandler).toHaveBeenCalledWith('topic', 'ok');
+    client.disconnect();
+  });
+
   it('allows a synchronous retry from a rejected topic error listener', async () => {
     const transport = lifecycleClient();
     (mqtt.connect as any).mockReturnValue(transport);
@@ -131,7 +194,7 @@ describe('Tier0MQClient', () => {
     transport.subscribeCallbacks[0](new Error('rejected'));
     expect(errors).toHaveBeenCalledTimes(1);
     expect(transport.subscribeCallbacks).toHaveLength(2);
-    transport.subscribeCallbacks[1](null);
+    transport.subscribeCallbacks[1](null, [{ topic: 'topic', qos: 1 }]);
     expect(client.subscribedTopics).toEqual(['topic']);
     client.disconnect();
   });
