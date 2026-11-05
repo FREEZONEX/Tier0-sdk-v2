@@ -22,52 +22,36 @@ describe('Cloud HTTP Source management contract', () => {
 
   it('uses http-api for native documents, list filters and credential creation', () => {
     for (const schemas of [contract.schemas, manifest.schemas]) {
-      for (const name of ['CloudSourceDocument', 'CloudSourceDocumentListReq']) {
+      for (const name of ['SourceDefinition', 'CloudSourceDocumentListReq']) {
         const protocols = schemas[name].properties.protocol.enum;
         expect(protocols).toContain('http-api');
         expect(protocols).not.toContain('http_push');
         expect(protocols).not.toContain('http');
       }
-      expect(schemas.CloudSourceDocumentCreateReq.allOf[0].oneOf[1]
-        .properties.document.properties.protocol.enum).toEqual(['http-api']);
+      expect(schemas.CloudSourceDocumentCreateReq.properties.document.$ref).toBe('#/components/schemas/SourceDefinition');
     }
     expect(catalog.list.some((item: { protocol: string }) => item.protocol === 'http')).toBe(false);
     expect(catalog.list.some((item: { protocol: string }) => item.protocol === 'http_push')).toBe(false);
   });
 
-  it('keeps roles inside Cloud config and separates managed Server from outbound Client options', () => {
-    expect(contract.schemas.CloudSourceDocument.properties).not.toHaveProperty('role');
-    expect(contract.schemas.CloudSourceConfig.oneOf[0].properties.role.enum).toEqual(['client', 'server']);
-    const schema = http.configSchema;
-    expect(schema.properties.role).toMatchObject({ default: 'client', enum: ['client', 'server'] });
-    expect(schema['x-tier0-roles']).toEqual(['client', 'server']);
-    expect(schema.properties.options.properties).toHaveProperty('headers');
-    expect(schema.properties.options.properties).toHaveProperty('parameters');
-    expect(schema.properties.options.properties).not.toHaveProperty('requestRules');
-    expect(schema.allOf[0].then.properties).toEqual({
-      auth: false, endpoint: { const: 'http://managed' }, options: { const: {} }, tls: false,
-    });
-    expect(schema['x-tier0-http-in']).toMatchObject({
-      authentication: 'bearer', endpoint: 'http://managed', prefix: '/ingest/v1/{workspaceId}/{sourceId}',
-    });
-  });
-
-  it('preserves the four inline auth material contracts and Source REQUEST binding restrictions', () => {
-    expect(http.credentialKinds).toEqual(['basic', 'bearer', 'apiKey', 'oauth2ClientCredentials']);
-    const schema = contract.schemas.CloudSourceCreateCredentials;
-    expect(schema.required).toEqual(['kind', 'material']);
-    expect(schema.properties.method.enum).toEqual(['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'REQUEST']);
-    const apiKey = schema.oneOf.find((item: { properties: { kind: { enum: string[] } } }) => item.properties.kind.enum[0] === 'apiKey');
-    expect(apiKey.properties.method).toEqual({ const: 'REQUEST' });
-    expect(apiKey.properties.material.required).toEqual(['headerName', 'value']);
-    const oauth = schema.oneOf.find((item: { properties: { kind: { enum: string[] } } }) => item.properties.kind.enum[0] === 'oauth2ClientCredentials');
-    expect(oauth.properties.method.enum).toEqual(['GET', 'REQUEST']);
-    expect(oauth.properties.material.properties.clientAuthentication).toMatchObject({
-      enum: ['client_secret_post', 'client_secret_basic'], default: 'client_secret_post', writeOnly: true,
-    });
-    expect(manifest.operations.find((item: { name: string }) => item.name === 'sourceCredentialCreate').coreOnly).toBe(true);
-    expect(UNS_V2_CONTRACT_PROVENANCE.cloudContractRevision.split('+')).toEqual(expect.arrayContaining(['http-source-role/1', 'http-source-request/1']));
-    expect(UNS_V2_CONTRACT_PROVENANCE.cloudContractRevision.split('+')).toContain('http-push-retirement/1');
+  it('shares top-level native connection fields and write-only credential material', () => {
+    for (const schemas of [contract.schemas, manifest.schemas]) {
+      const source = schemas.SourceDefinition;
+      expect(source.properties.role).toMatchObject({ default: 'client', enum: ['client', 'server'] });
+      expect(source.properties).not.toHaveProperty('config');
+      expect(source.properties.http.$ref).toBe('#/components/schemas/HTTPConnection');
+      expect(schemas.HTTPConnection.properties).toHaveProperty('parameters');
+      const credentials = schemas.SourceCredentials;
+      expect(credentials.required).toEqual(['kind']);
+      expect(credentials.properties.kind.enum).toEqual(expect.arrayContaining(['basic', 'bearer', 'oauth2', 'custom']));
+      expect(credentials.properties.secret.writeOnly).toBe(true);
+      expect(credentials.properties.values.writeOnly).toBe(true);
+      expect(credentials.properties).not.toHaveProperty('material');
+      expect(credentials.properties).not.toHaveProperty('method');
+    }
+    expect(UNS_V2_OPERATIONS.sourceNativeCredentialsUpdate.path).toBe('/openapi/v2/uns/sources/documents/credentials/update');
+    expect(UNS_V2_OPERATIONS.sourceDocumentDelete.path).toBe('/openapi/v2/uns/sources/documents/delete');
+    expect(UNS_V2_OPERATIONS).not.toHaveProperty('sourceDelete');
   });
 
   it('removes Push schemas and aliases without adding an SDK ingress or reply API', () => {
@@ -83,15 +67,13 @@ describe('Cloud HTTP Source management contract', () => {
 
   it('uses the current single-model document shapes without restoring generation selectors', () => {
     for (const schemas of [contract.schemas, manifest.schemas]) {
-      for (const config of schemas.CloudSourceConfig.oneOf) {
-        expect(config.properties).not.toHaveProperty('configVersion');
-      }
-      for (const name of ['RuntimeStreamDefinition', 'CloudStreamScript']) {
+      expect(schemas.SourceDefinition.properties).not.toHaveProperty('configVersion');
+      for (const name of ['RuntimeStreamDefinition', 'StreamScript']) {
         expect(schemas[name].properties).not.toHaveProperty('sdkVersion');
         expect(schemas[name].required).not.toContain('sdkVersion');
       }
-      expect(schemas.RuntimeStreamDefinition.properties.script.type).toBe('string');
-      expect(schemas.CloudStreamScript.properties.code.type).toBe('string');
+      expect(schemas.RuntimeStreamDefinition.properties.script.$ref).toBe('#/components/schemas/StreamScript');
+      expect(schemas.StreamScript.properties.code.type).toBe('string');
     }
   });
 });

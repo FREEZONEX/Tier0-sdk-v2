@@ -60,7 +60,7 @@ run(['--input-type=module', '-e', `
   if (typeof client.source.documents.get !== 'function' || typeof client.stream.programs.deploy !== 'function') throw new Error('Missing domain entrypoints');
 `], consumer);
 for (const ext of ['mts', 'cts']) writeFileSync(resolve(consumer, `consumer.${ext}`), `
-import { createClient, type Tier0Client, type CloudSourceDocument, type UnsV2Request } from '@tier0/sdk-v2';
+import { createClient, type Tier0Client, type SourceDefinition, type UnsV2Request } from '@tier0/sdk-v2';
 const namedCollection: UnsV2Request<'appCollectionsEnsure'> = { collections: [{ alias: 'orders', name: '生产工单', recordSchema: { type: 'object' } }] };
 // @ts-expect-error The installed low-level declaration requires name independently of alias.
 const unnamedCollection: UnsV2Request<'appCollectionsEnsure'> = { collections: [{ alias: 'orders', recordSchema: { type: 'object' } }] };
@@ -127,7 +127,7 @@ client.uns.recordInsertOne({ collectionId: 'orders', data: { code: 'A' }, return
 client.uns.metadataFind({ kind: 'collection', filter: { _id: 'orders' } });
 createSourceClient().documents.list({});
 // @ts-expect-error Packed declarations must not recreate HTTP Push as a Source protocol.
-const retiredPushProtocol: CloudSourceDocument['protocol'] = 'http_push';
+const retiredPushProtocol: SourceDefinition['protocol'] = 'http_push';
 // @ts-expect-error The packed Source list filter must also reject HTTP Push.
 createSourceClient().documents.list({ protocol: 'http_push' });
 void retiredPushProtocol;

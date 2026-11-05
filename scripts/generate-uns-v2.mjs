@@ -170,25 +170,33 @@ const shaping = (parts, kind) => kind === 'allOf'
   ? parts.filter(part => !constraintOnly(part))
   : parts.some(constraintOnly) ? [] : parts;
 
+function excludedFields(not) {
+  if (!not) return [];
+  if (Object.keys(not).length !== 1) return undefined;
+  if (not.required?.length === 1) return not.required;
+  if (Array.isArray(not.anyOf) && not.anyOf.every(part => Object.keys(part).length === 1 && part.required?.length === 1)) {
+    return not.anyOf.flatMap(part => part.required);
+  }
+  return undefined;
+}
+
 function typeFor(schema, nested = false) {
   if (!schema || typeof schema !== 'object' || Object.keys(schema).length === 0) return 'UnsV2JSONValue';
   // 单字段排除可以准确表达，避免 SQL 凭据误带 HTTP method。
-  if (schema.properties && schema.not && Object.keys(schema.not).length === 1 && schema.not.required?.length === 1) {
+  if (schema.properties && schema.not && excludedFields(schema.not)) {
     const { not, ...shape } = schema;
-    return `(${typeFor(shape, nested)} & { ${JSON.stringify(not.required[0])}?: never })`;
+    return `(${typeFor(shape, nested)} & { ${excludedFields(not).map(name => `${JSON.stringify(name)}?: never`).join('; ')} })`;
   }
   // Required-only object alternatives inherit the parent's field definitions.
   // IndexSpec uses this to require exactly one of path/paths.
   if (schema.type === 'object' && schema.properties && Array.isArray(schema.oneOf) &&
       schema.oneOf.every(branch => Array.isArray(branch.required) &&
-        Object.keys(branch).every(key => key === 'required' || key === 'not') &&
-        (!branch.not || (Object.keys(branch.not).length === 1 && Array.isArray(branch.not.required) && branch.not.required.length === 1)))) {
+        Object.keys(branch).every(key => key === 'required' || key === 'not' || key === 'oneOf') &&
+        excludedFields(branch.not) !== undefined)) {
     const own = { ...schema };
     delete own.oneOf;
     const alternatives = schema.oneOf.map(branch => {
-      const shape = typeFor({ ...own, required: [...new Set([...(own.required || []), ...branch.required])] });
-      const excluded = branch.not?.required?.[0];
-      return `(${shape}${excluded ? ` & { ${JSON.stringify(excluded)}?: never }` : ''})`;
+      return typeFor({ ...own, ...branch, required: [...new Set([...(own.required || []), ...branch.required])] });
     });
     return `(${union(alternatives)}${schema.nullable === true ? ' | null' : ''})`;
   }
@@ -248,9 +256,13 @@ function codecFor(schema) {
   if (schema.type === 'integer') return { k: 'j' };
   if (schema.type === 'number') return { k: 'n' };
   if (schema.type === 'array') return { k: 'a', ...(schema.items ? { i: codecFor(schema.items) || {} } : {}) };
-  if (Array.isArray(schema.allOf)) return { k: 'u', a: schema.allOf.map(codecFor).filter(Boolean) };
-  if (Array.isArray(schema.oneOf)) return { k: 'u', a: schema.oneOf.map(codecFor).filter(Boolean) };
-  if (Array.isArray(schema.anyOf)) return { k: 'u', a: schema.anyOf.map(codecFor).filter(Boolean) };
+  if (schema.allOf || schema.oneOf || schema.anyOf) {
+    const { allOf, oneOf, anyOf, ...own } = schema;
+    const parts = [...(allOf || []), ...(oneOf || []), ...(anyOf || [])];
+    // Native bindings declare numeric revisions on the parent, not in required-only branches.
+    if (own.properties || own.type || own.additionalProperties !== undefined) parts.unshift(own);
+    return { k: 'u', a: parts.map(codecFor).filter(Boolean) };
+  }
   if (schema.type === 'object' || schema.properties || schema.additionalProperties !== undefined) {
     const properties = Object.fromEntries(Object.entries(schema.properties || {})
       .map(([name, value]) => [name, codecFor(value)])

@@ -1,12 +1,12 @@
 # HTTPServer 固定前缀与 Stream 路由
 
-先用 [Source 创建](../../tier0-sdk-v2-source/references/create.md)保存 `http-api` + `config.role: server`。Source 使用 `http://managed` 和空 options；业务路径在 Stream 注册。
+先用 [Source 创建](../../tier0-sdk-v2-source/references/create.md)保存 `http-api` + `role: server`。Source 使用 `http://managed` ；业务路径在 Stream 注册。
 
 固定前缀为 `/ingest/v1/{workspaceId}/{sourceId}`。下例路由为 `POST /orders/:id`，完整请求路径为 `POST /ingest/v1/{workspaceId}/{sourceId}/orders/A-001`。前缀由部署环境和已认证的工作空间、Source 身份确定，不从请求 body 推断工作空间。Bearer 凭据由 Source 的既有管理合同取得并在调用时注入，不写入脚本。
 
 ## 保存原生程序草稿
 
-使用完整原生 `document`：script 是 `{code,timeoutMs}`，sources 使用 alias。这与 `program` 的 script 字符串形态不同。
+使用完整原生 `document`：script 是 `{code,timeoutMs}`，sources 使用 alias。这与 `program` 的 script 对象形态不同。
 
 ```ts
 import { createClient, type Tier0Client, type CloudStreamDocument } from '@tier0/sdk-v2';
@@ -18,7 +18,7 @@ export async function createHttpServerStream(
   if (!/^[1-9][0-9]*$/.test(sourceId)) throw new Error('Source ID 必须是正十进制字符串');
   const source = await client.source.documents.get({ id: sourceId, view: 'full' });
   if (!('document' in source.data)) throw new Error('需要完整 Source 文档');
-  const config = source.data.document.config;
+  const config = source.data.document;
   if (source.data.document.protocol !== 'http-api' || config.role !== 'server') {
     throw new Error('此入站路由示例需要 HTTP API Server Source');
   }
@@ -60,7 +60,7 @@ export async function createHttpServerEarlyReplyStream(
   if (!collectionId) throw new Error('需要实际 Collection ID');
   const source = await client.source.documents.get({ id: sourceId, view: 'full' });
   if (!('document' in source.data)) throw new Error('需要完整 Source 文档');
-  const config = source.data.document.config;
+  const config = source.data.document;
   if (source.data.document.protocol !== 'http-api' || config.role !== 'server') {
     throw new Error('此入站路由示例需要 HTTP API Server Source');
   }

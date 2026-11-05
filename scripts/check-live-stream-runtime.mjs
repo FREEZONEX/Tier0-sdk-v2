@@ -33,8 +33,8 @@ async function step(name, fn) {
     console.log(JSON.stringify(report.steps.at(-1)));
   }
 }
-const document = { name, timeoutMs: 5000,
-  script: 'module.exports = api => { api.stream.every({ id: "sdk_tick", intervalMs: 1000 }, async () => ({ sdkAcceptance: true, value: 1 })); };' };
+const document = { name,
+  script: { timeoutMs: 5000, code: 'module.exports = api => { api.stream.every({ id: "sdk_tick", intervalMs: 1000 }, async () => ({ sdkAcceptance: true, value: 1 })); };' } };
 try {
   await step('create', async () => {
     const created = await client.stream.documents.create({ dryRun: false, program: document, idempotencyKey: `${name}-create` });
@@ -71,11 +71,11 @@ try {
     try {
       await step('disable and archive', async () => {
         let current = (await client.stream.documents.get({ id })).data;
-        if (String(current.activeRelease) !== '0') {
+        if (current.activeVersion !== '0') {
           await client.stream.documents.disable({ id, expectedRevision: current.revision,
-            expectedActiveRelease: current.activeRelease, dryRun: false, idempotencyKey: `${name}-disable` });
+            expectedActiveVersion: current.activeVersion, dryRun: false, idempotencyKey: `${name}-disable` });
           current = (await client.stream.documents.get({ id })).data;
-          assert.equal(String(current.activeRelease), '0');
+          assert.equal(current.activeVersion, '0');
         }
         const removed = await client.stream.programs.delete({ id, expectedRevision: current.revision,
           dryRun: false, idempotencyKey: `${name}-delete` });

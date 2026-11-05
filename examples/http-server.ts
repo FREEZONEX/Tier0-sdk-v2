@@ -7,7 +7,7 @@ export async function createHttpServerStream(
   if (!/^[1-9][0-9]*$/.test(sourceId)) throw new Error('Source ID 必须是正十进制字符串');
   const source = await client.source.documents.get({ id: sourceId, view: 'full' });
   if (!('document' in source.data)) throw new Error('需要完整 Source 文档');
-  const config = source.data.document.config;
+  const config = source.data.document;
   if (source.data.document.protocol !== 'http-api' || config.role !== 'server') {
     throw new Error('此入站路由示例需要 HTTP API Server Source');
   }

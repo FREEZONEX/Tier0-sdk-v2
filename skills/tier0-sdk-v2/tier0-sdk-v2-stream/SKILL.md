@@ -23,7 +23,7 @@ description: 使用 @tier0/sdk-v2 的 client.stream 创建、查询、修改和�
 
 | 形态 | 完整输入 | 适用入口 |
 | --- | --- | --- |
-| Runtime program | name、script 字符串、sourceBindings、timeoutMs | documents.create/update/validate({program}) |
+| Runtime program | name、script {code,timeoutMs}、sourceBindings | documents.create/update/validate({program}) |
 | 云端原生文档 | name、model、script 对象、sources、entries | documents.create/get/update/validate |
 
 程序必须是完整 `module.exports = api => { ... }`，执行器 API 是 api.sources/api.uns/api.stream，与 npm 包的 client.source 不同。Runtime sourceBindings 为 sourceId/configRevision/acquisition；原生 sources 还使用 alias/resources。连接凭据不进脚本或 acquisition，秘密材料由 Source 执行宿主管理，不通过脚本读取、记录或返回。定时入口使用 api.stream.every，不传播旧注册别名；App 请求与消息交互由本包 @tier0/sdk-v2 的 client.streams.requests/messages 提供，不作为 Goja 注册参数。
@@ -32,7 +32,7 @@ description: 使用 @tier0/sdk-v2 的 client.stream 创建、查询、修改和�
 
 1. documents.get({id,view:"summary"}) 返回安全摘要，不含可回写脚本；完整编辑使用 documents.get 或上次 documents.create/update 返回的完整文档。保留未修改的 sources/entries/script 字段。
 2. create/update 保存草稿，不自动发布；documents 没有 deploy，云端 program 发布使用 programs.deploy。不能将已保存报告为已运行。
-3. 所有更新/部署/删除携带当前 expectedRevision。原生停用另需 expectedActiveRelease，避免停掉他人刚发布的版本。
+3. 所有更新/部署/删除携带当前 expectedRevision。发布/停用/回滚使用权威 activeVersion 字符串作为 expectedActiveVersion，避免停掉他人刚发布的版本。
 4. versionId 使用已知发布回执的 activeVersion，或从 versions.list 选定，不把 release 序号当 ID。expectedSourceRevision 仅用于恰好一个依赖源，不代表多个源的修订。
 5. resources=[] 是空冻结资源集，不是通配符。写入本身由服务端校验，需要预览时单独 validate；当前云端程序 timeoutMs 上限 30000。
 6. HTTPServer 响应时机在 Stream：普通返回等处理/提交完成；HTTP onRequest 内 await ctx.reply 可先回复一次再继续，仍受超时/并发/权限约束，断线不取消但 shutdown 可取消，不保证崩溃重放。

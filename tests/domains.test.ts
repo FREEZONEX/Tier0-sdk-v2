@@ -66,10 +66,10 @@ describe('Source, Stream and UNS domain clients', () => {
     });
     const body = {
       dryRun: false, idempotencyKey: 'source-delete-101-rev2',
-      items: [{ id: '101', expectedRevision: 2, confirmedImpactRevision: 'si1_' + 'x'.repeat(43) }],
+      id: '101', expectedRevision: 2, confirmedImpactRevision: 'si1_' + 'x'.repeat(43),
     };
-    await expect(client.source.delete(body)).rejects.toMatchObject({
-      operation: 'sourceDelete', outcomeUnknown: true,
+    await expect(client.source.documents.delete(body)).rejects.toMatchObject({
+      operation: 'sourceDocumentDelete', outcomeUnknown: true,
     });
     expect(received).toEqual([body]);
   });
