@@ -17,7 +17,7 @@ description: 使用 @tier0/sdk-v2 发送和查询 Tier0 站内通知、Web/Deskt
 
 - type 固定 inbox；Swagger 的 string 不代表接受任意类型。
 - 用人读姓名/邮箱选择收件人，ID 由成员数据解析并保持字符串，不让用户填写 ID。Workspace 成员不等于 App 可访问用户。
-- title 最多50字符，content 最多800字符。mode 按真实发布环境选择 test/live；test 会创建测试消息，不能当预检。
+- title 最多50字符，content 最多800字符。不传 mode：平台按来源判定，预览和沙箱发出的是 test，只进该 App 的预览铃铛，线上 App 发出的是 live；test 也是真实消息，不能当预检。
 - App sender 使用 getCurrentAppId() 的真实 APP_ID，导航和名称展示按目标前端支持核实。
 - sender/link/meta 是展示提示，不作为授权。新代码不使用废弃 source 字段。
 - 同一业务事件、收件人、内容使用稳定 idempotencyKey；新事件使用新键，不因超时随机换键。
