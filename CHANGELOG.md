@@ -4,6 +4,7 @@
 
 - Select the HTTP credential source by explicit configuration presence. Missing explicit credentials no longer fall back to another source or `TIER0_API_KEY`; omit all credential properties to retain the environment default.
 - Bind each high-level Data client to the host and static credential resolved at creation, and reject dynamic credential callbacks so cached bootstrap and subscriptions cannot switch principals.
+- Reject an explicitly undefined MQTT connect-time password instead of silently reusing a saved or environment credential.
 
 ## 0.9.10 (2026-11-04)
 

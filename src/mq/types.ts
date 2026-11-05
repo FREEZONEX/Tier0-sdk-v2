@@ -16,7 +16,7 @@ export interface MQTTConfig {
   secure?: boolean;
   clientId?: string;
   username?: string;
-  /** API key or MQTT password. To change it, disconnect and create a new client. */
+  /** API key or MQTT password. Explicit undefined is rejected by connect(); omit to keep existing settings. To change an active connection, disconnect and create a new client. */
   password?: string;
   keepAlive?: number;
   reconnectPeriod?: number;
