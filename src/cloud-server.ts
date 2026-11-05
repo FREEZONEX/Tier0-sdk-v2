@@ -1,6 +1,6 @@
 // Server-only entry point. Browser HTTP clients remain independent of node:crypto.
 import { createHash, createPublicKey, verify, type KeyObject } from 'node:crypto';
-import { readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { APP_REQUEST_IDENTITY_CONTRACT as contract } from './app-identity-contract.generated.js';
 import { getEnvVar } from './runtime-env.js';
@@ -211,10 +211,105 @@ export function frontdoorKeysFromDir(dir: string | undefined = getEnvVar('TIER0_
   };
 }
 
+/** Without the directory, keys are fetched from the front door at this interval (design 21.0: verifiers refresh within 60 s). */
+export const FRONTDOOR_JWKS_REFRESH_MS = 60_000;
+/** An unknown `kid` triggers an early refresh at most this often, so a rotation is picked up without waiting a full interval. */
+export const FRONTDOOR_JWKS_MISS_REFRESH_MS = 10_000;
+const FRONTDOOR_JWKS_TIMEOUT_MS = 10_000;
+const FRONTDOOR_JWKS_MAX_BYTES = 64 * 1024;
+
+export interface FrontdoorKeysFromUrlOptions {
+  refreshMs?: number;
+  missRefreshMs?: number;
+  /** For tests; defaults to the global `fetch`. */
+  fetch?: typeof fetch;
+}
+
+/** A key source fed by background fetches. `ready()` resolves after the first fetch settles, successful or not. */
+export interface RefreshingVisitorKeySource extends VisitorKeySource {
+  ready(): Promise<void>;
+  /** Stops the refresh timer. */
+  close(): void;
+}
+
+/** A key set that reports lookups of an unknown `kid` (they start an early refresh). */
+class MissAwareKeys extends Map<string, KeyObject> {
+  constructor(entries: Iterable<readonly [string, KeyObject]>, private readonly onMiss: () => void) {
+    super(entries);
+  }
+
+  override get(kid: string): KeyObject | undefined {
+    const key = super.get(kid);
+    if (!key) this.onMiss();
+    return key;
+  }
+}
+
+/**
+ * Keys fetched from the front door's public JWKS (`https://<app>.<apps domain>/__tier0/jwks.json`, given to published
+ * Apps as `TIER0_JWKS_URL`). Published Apps run without the guest agent that writes `TIER0_JWKS_DIR`. The set is
+ * refreshed every `refreshMs`, and early (at most every `missRefreshMs`) when a token names an unknown `kid`; the
+ * verification that saw the unknown kid still fails, the next one sees the new set. A failed or malformed fetch
+ * keeps the last good set. Until the first fetch lands the set is empty and every token is refused.
+ */
+export function frontdoorKeysFromUrl(url: string | undefined = getEnvVar('TIER0_JWKS_URL'), options: FrontdoorKeysFromUrlOptions = {}): RefreshingVisitorKeySource {
+  const target = url?.trim();
+  if (!target || !/^https?:\/\//i.test(target)) throw new VisitorTokenError('VISITOR_TOKEN_CONFIGURATION_INVALID');
+  const doFetch = options.fetch ?? globalThis.fetch;
+  if (typeof doFetch !== 'function') throw new VisitorTokenError('VISITOR_TOKEN_CONFIGURATION_INVALID');
+  const refreshMs = options.refreshMs ?? FRONTDOOR_JWKS_REFRESH_MS;
+  const missRefreshMs = options.missRefreshMs ?? FRONTDOOR_JWKS_MISS_REFRESH_MS;
+  let inflight: Promise<void> | undefined;
+  let lastStart = 0;
+  const onMiss = () => { if (Date.now() - lastStart >= missRefreshMs) void refresh(); };
+  let current: Map<string, KeyObject> = new MissAwareKeys([], onMiss);
+
+  const refresh = (): Promise<void> => {
+    if (inflight) return inflight;
+    lastStart = Date.now();
+    inflight = (async () => {
+      try {
+        const response = await doFetch(target, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(FRONTDOOR_JWKS_TIMEOUT_MS) });
+        if (!response.ok) return;
+        const text = await response.text();
+        if (Buffer.byteLength(text) > FRONTDOOR_JWKS_MAX_BYTES) return;
+        const parsed = parseVisitorJwks(JSON.parse(text));
+        current = new MissAwareKeys([...parsed].filter(([kid]) => !kid.startsWith('dev-')), onMiss);
+      } catch {
+        // Keep the last good set.
+      } finally {
+        inflight = undefined;
+      }
+    })();
+    return inflight;
+  };
+
+  const first = refresh();
+  const timer = setInterval(() => { void refresh(); }, refreshMs);
+  timer.unref?.();
+  return {
+    keys: () => current,
+    ready: () => first,
+    close: () => clearInterval(timer),
+  };
+}
+
+/**
+ * The default key source: `TIER0_JWKS_DIR` when it exists (sessions and the old runtime, where an agent writes the
+ * file), otherwise the front door's public JWKS at `TIER0_JWKS_URL` (published Apps on PandaStack).
+ */
+export function frontdoorKeys(): VisitorKeySource {
+  const dir = getEnvVar('TIER0_JWKS_DIR')?.trim();
+  if (dir && existsSync(dir)) return frontdoorKeysFromDir(dir);
+  if (getEnvVar('TIER0_JWKS_URL')?.trim()) return frontdoorKeysFromUrl();
+  if (dir) return frontdoorKeysFromDir(dir);
+  throw new VisitorTokenError('VISITOR_TOKEN_CONFIGURATION_INVALID');
+}
+
 export interface VisitorVerifierConfig {
   /** Expected `aud` is `app:<appID>`. Defaults to `TIER0_APP_ID`. */
   appID?: string;
-  /** Defaults to `frontdoorKeysFromDir()`. */
+  /** Defaults to `frontdoorKeys()`: the `TIER0_JWKS_DIR` file, or the front door's public JWKS at `TIER0_JWKS_URL`. */
   keys?: VisitorKeySource;
 }
 
@@ -225,7 +320,7 @@ export interface VisitorVerifierConfig {
  * release: the front door cannot know which release serves the request.
  */
 export function createVisitorTokenVerifier(config: VisitorVerifierConfig = {}) {
-  const source = config.keys ?? frontdoorKeysFromDir();
+  const source = config.keys ?? frontdoorKeys();
   const fixedAppID = config.appID;
   const fail = () => new VisitorTokenError('VISITOR_TOKEN_INVALID');
 

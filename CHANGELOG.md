@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.0-aenv.8 (local aenv-next prerelease)
+
+- Visitor tokens on PandaStack Apps: when `TIER0_JWKS_DIR` does not exist (published Apps have no guest agent writing it), `createVisitorTokenVerifier()` fetches the front door keys from `TIER0_JWKS_URL` (`https://<app>.<apps domain>/__tier0/jwks.json`, set by the platform) with the new `frontdoorKeysFromUrl()`: refreshed every 60 s, early when a token names an unknown `kid` (at most every 10 s), the last good set kept when a fetch fails, `dev-` kids never trusted. Until the first fetch lands every token is refused; `ready()` waits for it. `frontdoorKeys()` is the new default source; `frontdoorKeysFromDir()` is unchanged.
+
+This prerelease is built locally for the aenv-next scaffold and is not published to npm.
+
 ## 0.10.0-aenv.7 (local aenv-next prerelease)
 
 - Merge base 0.9.9 and 0.9.10 into the aenv-next line (`0.10.0-aenv.6` + base `0.9.10`): the Personal key local connection guide, non-JSON gateway error diagnostics, App versus workspace credential query guidance and the Namespace trash / delete / restore wording. The node-proxy credential model is unchanged: there is no `TIER0_API_KEY` in the VM, every platform request carries `X-Tier0-SDK: 1`, and the proxy error reference stays.

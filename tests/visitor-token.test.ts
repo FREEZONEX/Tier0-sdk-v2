@@ -3,7 +3,7 @@ import { mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createVisitorTokenVerifier, frontdoorKeysFromDir, parseVisitorJwks } from '../src/cloud-server.js';
+import { createVisitorTokenVerifier, frontdoorKeys, frontdoorKeysFromDir, frontdoorKeysFromUrl, parseVisitorJwks } from '../src/cloud-server.js';
 
 const pair = () => generateKeyPairSync('ed25519');
 const b64 = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
@@ -112,6 +112,98 @@ describe('visitor token verification v2', () => {
     it('needs the directory configured', () => {
       vi.stubEnv('TIER0_JWKS_DIR', undefined);
       expect(() => frontdoorKeysFromDir()).toThrow('VISITOR_TOKEN_CONFIGURATION_INVALID');
+    });
+  });
+  describe('keys from the front door JWKS (TIER0_JWKS_URL)', () => {
+    const url = 'https://app_1.apps.example.test/__tier0/jwks.json';
+    const serve = (...bodies: Array<string | Error | number>) => {
+      const calls: string[] = [];
+      const fetchStub = (async (target: string | URL | Request) => {
+        calls.push(String(target));
+        const body = bodies.length > 1 ? bodies.shift()! : bodies[0];
+        if (body instanceof Error) throw body;
+        if (typeof body === 'number') return new Response('nope', { status: body });
+        return new Response(body, { status: 200 });
+      }) as typeof fetch;
+      return { calls, fetchStub };
+    };
+
+    it('fetches the keys and verifies once they are loaded', async () => {
+      const { calls, fetchStub } = serve(JSON.stringify({ keys: [jwk(main.publicKey, 'k1'), jwk(main.publicKey, 'dev-signer')] }));
+      const source = frontdoorKeysFromUrl(url, { fetch: fetchStub });
+      expect(source.keys().size).toBe(0);
+      await source.ready();
+      expect([...source.keys().keys()]).toEqual(['k1']);
+      expect(createVisitorTokenVerifier({ appID: 'app_1', keys: source })(issue(main.privateKey)).subject).toBe('u1');
+      expect(calls).toEqual([url]);
+      source.close();
+    });
+
+    it('refreshes early on an unknown kid and keeps the last good set on failure', async () => {
+      const next = pair();
+      const { calls, fetchStub } = serve(
+        JSON.stringify({ keys: [jwk(main.publicKey, 'k1')] }),
+        JSON.stringify({ keys: [jwk(main.publicKey, 'k1'), jwk(next.publicKey, 'k2')] }),
+        new Error('network down'),
+      );
+      const source = frontdoorKeysFromUrl(url, { fetch: fetchStub, missRefreshMs: 0 });
+      await source.ready();
+      const verify = createVisitorTokenVerifier({ appID: 'app_1', keys: source });
+      expect(() => verify(issue(next.privateKey, {}, { kid: 'k2' }))).toThrow('VISITOR_TOKEN_INVALID');
+      await vi.waitFor(() => expect(source.keys().has('k2')).toBe(true));
+      expect(verify(issue(next.privateKey, {}, { kid: 'k2' })).subject).toBe('u1');
+      expect(() => verify(issue(next.privateKey, {}, { kid: 'k3' }))).toThrow('VISITOR_TOKEN_INVALID');
+      await vi.waitFor(() => expect(calls.length).toBe(3));
+      expect(source.keys().has('k1') && source.keys().has('k2')).toBe(true);
+      source.close();
+    });
+
+    it('refreshes on the interval', async () => {
+      vi.useFakeTimers();
+      try {
+        const next = pair();
+        const { fetchStub } = serve(JSON.stringify({ keys: [jwk(main.publicKey, 'k1')] }), JSON.stringify({ keys: [jwk(next.publicKey, 'k2')] }));
+        const source = frontdoorKeysFromUrl(url, { fetch: fetchStub, refreshMs: 60_000, missRefreshMs: 3_600_000 });
+        await source.ready();
+        expect(source.keys().has('k1')).toBe(true);
+        await vi.advanceTimersByTimeAsync(60_000);
+        expect([...source.keys().keys()]).toEqual(['k2']);
+        source.close();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('ignores a non-200 answer', async () => {
+      const { fetchStub } = serve(503);
+      const source = frontdoorKeysFromUrl(url, { fetch: fetchStub });
+      await source.ready();
+      expect(source.keys().size).toBe(0);
+      source.close();
+    });
+
+    it('needs an http(s) URL', () => {
+      vi.stubEnv('TIER0_JWKS_URL', undefined);
+      expect(() => frontdoorKeysFromUrl()).toThrow('VISITOR_TOKEN_CONFIGURATION_INVALID');
+      expect(() => frontdoorKeysFromUrl('file:///etc/passwd')).toThrow('VISITOR_TOKEN_CONFIGURATION_INVALID');
+    });
+
+    it('is the default when TIER0_JWKS_DIR does not exist', () => {
+      vi.stubEnv('TIER0_JWKS_DIR', join(tmpdir(), 'tier0-jwks-missing-dir'));
+      vi.stubEnv('TIER0_JWKS_URL', url);
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ keys: [] })));
+      try {
+        const source = frontdoorKeys() as ReturnType<typeof frontdoorKeysFromUrl>;
+        expect(typeof source.ready).toBe('function');
+        expect(fetchSpy).toHaveBeenCalledWith(url, expect.anything());
+        source.close();
+      } finally {
+        fetchSpy.mockRestore();
+      }
+      vi.stubEnv('TIER0_JWKS_URL', undefined);
+      expect(() => frontdoorKeys()).not.toThrow();
+      vi.stubEnv('TIER0_JWKS_DIR', undefined);
+      expect(() => frontdoorKeys()).toThrow('VISITOR_TOKEN_CONFIGURATION_INVALID');
     });
   });
 });
