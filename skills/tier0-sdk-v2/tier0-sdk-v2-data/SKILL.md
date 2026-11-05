@@ -17,6 +17,8 @@ description: 使用 @tier0/sdk-v2/data 在 App 服务端声明并读写本 App �
 
 Data 客户端创建时固定 Host 和 Key（含环境值），不支持 `getApiKey` 或 `apiKeyProvider`；切换身份、Host 或环境凭证时须新建客户端，不能让 bootstrap、重试或订阅状态跨身份复用。员工数据委托仍按请求绑定到固定的 App Key。
 
+服务端已从可信身份链取得某主体的有效 Key 时，可用 `createDataClient({ apiHost, apiKey })` 为该主体创建独立实例，通过 `collection({ collectionId })` 访问其已获授权的现有集合；不要跨主体共享该实例。Key 轮换后创建新实例。声明集合的 ensure/seed 仍由服务端判断凭证是否有权限，不因创建客户端而获得授权。
+
 集合声明必须分别填写业务名称 `name` 与稳定程序标识 `alias`，例如 `name: '生产工单'`、`alias: 'production_orders'`。name 是唯一界面名称，没有 displayName 或 alias 回退；ensure 通过 alias 找回原集合，不覆盖用户改名。
 
 ## 按任务加载参考

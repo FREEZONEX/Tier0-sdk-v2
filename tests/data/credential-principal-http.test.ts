@@ -116,6 +116,25 @@ describe('Data client stable credential boundary over HTTP', () => {
     expect(requests.at(-1)).toMatchObject({ server: 'A', key: 'user-a' });
   });
 
+  it('uses a distinct explicitly keyed Data client for each trusted principal', async () => {
+    vi.stubEnv('TIER0_API_KEY', 'unrelated-process-key');
+    vi.stubEnv('TIER0_API_HOST', hosts[1]);
+    const forPrincipal = (apiHost: string, apiKey: string) => createDataClient({ apiHost, apiKey, collections: [orders] });
+    const a = forPrincipal(hosts[0], 'user-a');
+    const b = forPrincipal(hosts[1], 'user-b');
+    failFirstA = true;
+    const [countA, countB] = await Promise.all([
+      a.collection(orders).countDocuments(), b.collection(orders).countDocuments(),
+    ]);
+    expect([countA.count, countB.count]).toEqual([11, 22]);
+    const [eventA, eventB] = await Promise.all([firstEvent(a.subscribe()), firstEvent(b.subscribe())]);
+    expect(eventA).toMatchObject({ collectionId: 'user-a-orders', eventId: 'user-a' });
+    expect(eventB).toMatchObject({ collectionId: 'user-b-orders', eventId: 'user-b' });
+    expect(requests.filter(r => r.server === 'A')).toHaveLength(4);
+    expect(requests.filter(r => r.server === 'B')).toHaveLength(3);
+    expect(requests.every(r => r.auth === undefined && r.key === (r.server === 'A' ? 'user-a' : 'user-b'))).toBe(true);
+  });
+
   it('does not adopt a later environment key or host after being created unconfigured', async () => {
     vi.stubEnv('TIER0_API_KEY', '');
     vi.stubEnv('TIER0_API_HOST', '');

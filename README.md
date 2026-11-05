@@ -53,6 +53,22 @@ SDK 访问平台 API 时仅发送 `X-API-Key`，不同时发送 `Authorization`�
 
 服务端底层 HTTP 客户端也可配置 `apiKeyProvider: async ({ signal }) => ...`，每次 HTTP 请求或 SSE 连接分别解析一次 API Key。provider 必须返回非空的可打印 ASCII 字符串；失败、取消或超时会终止该次请求，不回退到静态 Key 或环境变量。provider 应使用 `signal` 停止自己的异步工作。SDK 不缓存 provider 返回的 Key，也不会因此重放请求；调用者须确保重试期间身份和幂等作用域一致。`@tier0/sdk-v2/data` 的 `createDataClient` 不支持 `apiKeyProvider` 或 `getApiKey`，会直接拒绝；它在创建时固定静态 Key 和 Host，包括从环境变量取得的值。需要更换身份或环境配置时须新建 Data 客户端，不能复用原有 bootstrap、重试和订阅状态。员工数据委托仍按请求绑定，不改变 App Key。该接口只提供现有 API Key 的动态获取，并不表示服务端支持委托凭据。
 
+服务端已有经授权的主体 Key 时，可以为每个可信主体创建独立 Data 客户端，并按实际权限访问已有集合：
+
+```ts
+import { createDataClient } from '@tier0/sdk-v2/data';
+
+export function dataForPrincipal(apiHost: string, apiKey: string) {
+  if (!apiHost.trim() || !apiKey.trim()) throw new Error('A host and principal key are required');
+  return createDataClient({ apiHost, apiKey });
+}
+
+// 从可信服务端身份链取得该主体已获授权的 Key 和集合 ID 后：
+// const count = await dataForPrincipal(apiHost, apiKey).collection({ collectionId }).countDocuments();
+```
+
+不要从客户端自报的主体推导 Key，也不要跨主体复用客户端；Key 轮换后创建新实例。声明集合的 ensure/seed 是否允许由服务端凭证和权限决定，此例不声明集合。App 共用固定 App Key 时，可用受信 Gateway 的员工断言按请求收窄数据访问；它不是签发或验证个人 Key 的途径。
+
 Data 高层会跨请求复用 ensure 结果、重放带幂等键的 seed、恢复 stale 集合和续接 SSE。现有 whoami 不返回权威 App ID，同一工作空间和创建者的不同 App Key 可能具有相同的 workspace/user/type；名称、前缀或 provider 自报的身份不能证明不同 Key 属于同一主体。移除高层拒绝前，需要与实际请求凭据绑定、可验证且覆盖 App、员工委托及幂等作用域的服务端身份合同，并将这些跨请求状态隔离到已确认主体。`scripts/check-data-principal-boundary.mjs` 可在受控环境中用真实 Gateway 和两个不同 App 的临时 Key 验证此边界；脚本开头列出输入，Key 文件由调用方在验证后撤销和清理。
 
 `createClient()` 实例之间不共享配置；推荐在一个稳定身份的服务生命周期内复用实例。员工数据委托必须为每个请求创建新实例，传入受信网关的 `unsV2AppDataSubject`。App Key 只代表 App，不能替代当前用户身份，也不能下发到浏览器。浏览器页面应调用自己的服务端 API。
