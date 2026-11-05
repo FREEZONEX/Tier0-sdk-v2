@@ -164,6 +164,20 @@ const two = createClient({ apiHost: process.argv[2], apiKeyProvider: async () =>
 const [a, b] = await Promise.all([one.system.whoami(), two.system.whoami()]);
 assert.equal(a.userName, 'sk-svc-ws7pt_a');
 assert.equal(b.userName, 'sk-svc-ws7pt_b');
+process.env.TIER0_API_KEY = 'sk-svc-ws7pt_environment';
+const absent = createClient({ apiHost: process.argv[2], getApiKey: () => undefined });
+const explicitUndefined = createClient({ apiHost: process.argv[2], apiKey: undefined });
+const [missingA, missingB, active] = await Promise.allSettled([
+  absent.system.whoami(), explicitUndefined.system.whoami(), two.system.whoami(),
+]);
+assert.equal(missingA.status, 'rejected');
+assert.equal(missingA.reason.status, 401);
+assert.equal(missingB.status, 'rejected');
+assert.equal(missingB.reason.status, 401);
+assert.equal(active.status, 'fulfilled');
+assert.equal(active.value.userName, 'sk-svc-ws7pt_b');
+const fromEnvironment = await createClient({ apiHost: process.argv[2] }).system.whoami();
+assert.equal(fromEnvironment.userName, 'sk-svc-ws7pt_environment');
 if (process.env.TIER0_SCAFFOLD_HELPER_ENTRY) {
   process.env.TIER0_API_HOST = process.argv[2];
   process.env.TIER0_API_KEY = 'sk-app-ws7pt_fixture';

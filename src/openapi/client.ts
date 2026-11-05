@@ -4,8 +4,10 @@ import { decodeUnsV2JSON, encodeUnsV2JSON } from '../uns-v2/codec.js';
 
 export interface ClientConfig {
   apiHost?: string;
+  /** Explicit credential sources are selected by property presence; no environment fallback. */
   apiKey?: string;
   getApiHost?: () => string | undefined;
+  /** Evaluated per request; an absent result does not use another credential. */
   getApiKey?: () => string | undefined;
   /** Resolve an API key for each HTTP attempt. Failure never falls back to other credentials. */
   apiKeyProvider?: (options: { signal: AbortSignal }) => Promise<string>;
@@ -68,11 +70,17 @@ export class HttpClient {
     if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new TypeError('Invalid apiHost');
     return url.href.replace(/\/+$/, '');
   }
-  getApiKey(): string | undefined { return this.config.apiKey ?? this.config.getApiKey?.() ?? getEnvVar('TIER0_API_KEY'); }
-  hasApiKeyProvider(): boolean { return this.config.apiKeyProvider !== undefined; }
+  getApiKey(): string | undefined {
+    // An explicitly selected source must never fall through to a shared identity.
+    if (this.hasApiKeyProvider()) return undefined;
+    if (Object.hasOwn(this.config, 'apiKey')) return this.config.apiKey;
+    if (Object.hasOwn(this.config, 'getApiKey')) return this.config.getApiKey?.();
+    return getEnvVar('TIER0_API_KEY');
+  }
+  hasApiKeyProvider(): boolean { return Object.hasOwn(this.config, 'apiKeyProvider'); }
   async resolveApiKey(signal: AbortSignal): Promise<string | undefined> {
     const provider = this.config.apiKeyProvider;
-    if (provider === undefined) return this.getApiKey();
+    if (provider === undefined) return this.hasApiKeyProvider() ? undefined : this.getApiKey();
     if (signal.aborted) throw new Error('Tier0 SDK: credential resolution aborted.');
     return new Promise((resolve, reject) => {
       const aborted = () => {

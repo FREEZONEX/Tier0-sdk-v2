@@ -47,6 +47,8 @@ const tier0 = createClient();
 
 也可显式配置 `{ apiHost, apiKey, transportTimeoutMs, fetch }`，或提供 `getApiHost` / `getApiKey` 回调。裸域名默认使用 HTTPS；本地 HTTP 测试请显式写 `http://127.0.0.1:端口`。不自动向浏览器注入或读取 `VITE_` API Key。
 
+凭证来源按配置属性是否存在固定：`apiKeyProvider` 优先于 `apiKey`，再优先于 `getApiKey`；只有三者均未提供时才读取 `TIER0_API_KEY`。显式传入 `undefined`、空 Key，或同步 getter 返回 `undefined` 时不会回退到其他 Key；底层 HTTP 请求不带认证头，Data 客户端会在发送前报告未配置。异步 provider 返回无效值会在发送前失败。此前依赖这些空值回退环境 Key 的调用方，需要去掉对应属性，或显式提供所需 Key。每个用户或请求应创建自己的客户端，不能用全局 `configureClient` 保存每请求身份。
+
 SDK 访问平台 API 时仅发送 `X-API-Key`，不同时发送 `Authorization`；Cloud Gateway 的 enforce 模式会拒绝多来源凭据。`whoami` 同样使用单个 `X-API-Key`。API Key 应留在服务端，浏览器通过应用服务端调用平台 API；网关默认 CORS 配置可能不允许跨源 `X-API-Key`。
 
 服务端底层 HTTP 客户端也可配置 `apiKeyProvider: async ({ signal }) => ...`，每次 HTTP 请求或 SSE 连接分别解析一次 API Key。provider 必须返回非空的可打印 ASCII 字符串；失败、取消或超时会终止该次请求，不回退到静态 Key 或环境变量。provider 应使用 `signal` 停止自己的异步工作。SDK 不缓存 provider 返回的 Key，也不会因此重放请求；调用者须确保重试期间身份和幂等作用域一致。`@tier0/sdk-v2/data` 的 `createDataClient` 暂不支持此配置，会直接拒绝。该接口只提供现有 API Key 的动态获取，并不表示服务端支持委托凭据。

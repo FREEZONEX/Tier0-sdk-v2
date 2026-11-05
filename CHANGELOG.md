@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Select the HTTP credential source by explicit configuration presence. Missing explicit credentials no longer fall back to another source or `TIER0_API_KEY`; omit all credential properties to retain the environment default.
+
 ## 0.9.10 (2026-11-04)
 
 - Add a local connection guide for Personal keys, explicit OpenAPI gateway configuration and reading existing collections without a platform App.
