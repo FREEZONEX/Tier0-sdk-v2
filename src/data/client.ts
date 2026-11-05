@@ -131,6 +131,9 @@ export interface DataClient {
 }
 
 export function createDataClient(config: DataClientConfig): DataClient {
+  if (config.apiKeyProvider !== undefined) {
+    throw new TypeError('Tier0 SDK: apiKeyProvider is not supported by createDataClient.');
+  }
   const { call, openStream } = createDataTransport(config);
   const environment = config.environment ?? (getEnvVar('NODE_ENV') === 'production' ? 'deployed' : 'preview');
   const declared = [...(config.collections ?? [])];

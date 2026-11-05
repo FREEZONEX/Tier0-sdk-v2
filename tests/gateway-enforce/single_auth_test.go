@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/FREEZONEX/Tier0-Backend/service/syssvr/pb/sys"
@@ -20,12 +21,15 @@ import (
 
 type sdkSingleAuthFake struct {
 	*requestAuthFake
+	mu        sync.Mutex
 	whoamiKey string
 }
 
 func (f *sdkSingleAuthFake) ApiKeyWhoami(_ context.Context, req *sys.ApiKeyWhoamiReq, _ ...grpc.CallOption) (*sys.ApiKeyWhoamiResp, error) {
+	f.mu.Lock()
 	f.whoamiKey = req.GetApiKey()
-	return &sys.ApiKeyWhoamiResp{UserID: 7, WorkspaceID: 10001, KeyType: "service"}, nil
+	f.mu.Unlock()
+	return &sys.ApiKeyWhoamiResp{UserID: 7, UserName: req.GetApiKey(), WorkspaceID: 10001, KeyType: "service"}, nil
 }
 
 // 真实 Gateway 路由和 enforce 中间件；SYS / Stream RPC 为隔离测试替身。
@@ -71,7 +75,9 @@ func TestSDKSingleAuthGatewayEnforce(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			fake.mu.Lock()
 			fake.whoamiKey = ""
+			fake.mu.Unlock()
 			r, err := http.NewRequest(http.MethodPost, server.URL+tc.path, strings.NewReader("{}"))
 			if err != nil {
 				t.Fatal(err)
@@ -106,8 +112,11 @@ func TestSDKSingleAuthGatewayEnforce(t *testing.T) {
 					t.Fatalf("business code=%d body=%s, want %d", result.Code, body, tc.businessCode)
 				}
 			}
-			if fake.whoamiKey != tc.whoamiKey {
-				t.Fatalf("whoami key=%q, want %q", fake.whoamiKey, tc.whoamiKey)
+			fake.mu.Lock()
+			gotKey := fake.whoamiKey
+			fake.mu.Unlock()
+			if gotKey != tc.whoamiKey {
+				t.Fatalf("whoami key=%q, want %q", gotKey, tc.whoamiKey)
 			}
 		})
 	}
@@ -125,6 +134,12 @@ const whoami = await client.system.whoami();
 assert.equal(whoami.userID, 7);
 const discovery = await client.streams.requests.discover();
 assert.equal(discovery.list[0].code, 'device.start');
+const one = createClient({ apiHost: process.argv[2], apiKey: 'sk-svc-ws7pt_wrong', apiKeyProvider: async () => { await new Promise(r => setTimeout(r, 20)); return 'sk-svc-ws7pt_a'; } });
+const two = createClient({ apiHost: process.argv[2], apiKeyProvider: async () => 'sk-svc-ws7pt_b' });
+const [a, b] = await Promise.all([one.system.whoami(), two.system.whoami()]);
+assert.equal(a.userName, 'sk-svc-ws7pt_a');
+assert.equal(b.userName, 'sk-svc-ws7pt_b');
+
 `
 		cmd := exec.Command("node", "--input-type=module", "-e", program, sdk, server.URL)
 		if output, err := cmd.CombinedOutput(); err != nil {
