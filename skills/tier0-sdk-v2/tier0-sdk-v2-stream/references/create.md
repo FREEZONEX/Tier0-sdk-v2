@@ -6,14 +6,14 @@
 | --- | --- | --- | --- |
 | dryRun | boolean | 否 | 默认 false 提交；true 仅预检 |
 | program.name | string | 是 | 1–63 字符 |
-| program.script | string | 是 | 完整 module.exports 程序 |
-| program.timeoutMs | integer | 否 | 当前云端上限 30000 ms |
+| program.script | object | 是 | code 为完整 module.exports 程序，timeoutMs 为超时 |
+| program.script.timeoutMs | integer | 是 | 当前云端上限 30000 ms |
 | program.sourceBindings | array | 否 | sourceId、configRevision、acquisition |
 | idempotencyKey | string | 否 | 最多 128 字符，本次创建的固定意图键 |
 
 ## HTTP Client Source 绑定示例
 
-先按[Source 查询](../../tier0-sdk-v2-source/references/read.md)选定真实 HTTP Client Source。脚本的 api.sources 属于平台执行器，与应用中的 client.source 不同。sourceId 保持字符串，configRevision 使用 Source 创建、更新回执或完整查询得到的修订。已有回执时直接传入 source；没有快照时再调用 source.documents.get({id,view:"full"}) 并检查 data.document。省略 `config.role` 时按正式协议目录默认为 client；Server 走入站语义，不能创建为主动请求程序。
+先按[Source 查询](../../tier0-sdk-v2-source/references/read.md)选定真实 HTTP Client Source。脚本的 api.sources 属于平台执行器，与应用中的 client.source 不同。sourceId 保持字符串，configRevision 使用 Source 创建、更新回执或完整查询得到的修订。已有回执时直接传入 source；没有快照时再调用 source.documents.get({id,view:"full"}) 并检查 data.document。省略 `role` 时按正式协议目录默认为 client；Server 走入站语义，不能创建为主动请求程序。
 
 Source 负责基址和认证，Stream 负责请求的 method/path/query。以下示例与 [Source Bearer 创建](../../tier0-sdk-v2-source/references/create.md#http-client-bearer-凭据)配合：Source endpoint 为 `https://inventory.example.com/api/v1`，凭据使用默认基址绑定；实际请求是 `GET https://inventory.example.com/api/v1/inventory?limit=5000`。已有 Source 的凭据若只绑定精确 URL `/api/v1` 的 GET，不能用于此子路径；不要通过改写请求为 REQUEST 或自动扩大凭据授权来绕过拒绝。
 
@@ -26,14 +26,14 @@ export async function createHttpStream(
   if (!collectionId.trim()) throw new Error('需要实际 Collection ID');
   const sourceId = source.id;
   if (!/^[1-9][0-9]*$/.test(sourceId)) throw new Error('Source ID 必须是正十进制字符串');
-  if (source.document.protocol !== 'http-api' || 'sourceType' in source.document.config ||
-      (source.document.config.role ?? 'client') !== 'client') {
+  if (source.document.protocol !== 'http-api' || 'sourceType' in source.document ||
+      (source.document.role ?? 'client') !== 'client') {
     throw new Error('此主动请求示例需要 HTTP API Client Source');
   }
   const document: RuntimeStreamDefinition = {
-    name, timeoutMs: 5000,
+    name,
     sourceBindings: [{ sourceId, configRevision: source.revision, acquisition: {} }],
-    script: [
+    script: { timeoutMs: 5000, code: [
       'module.exports = api => {',
       '  const upstream = api.sources.use({ id: ' + JSON.stringify(sourceId) + ', resources: [] });',
       '  const output = api.uns.use({ collectionId: ' + JSON.stringify(collectionId) + ', access: "write" });',
@@ -49,7 +49,7 @@ export async function createHttpStream(
       '    return { acceptedRows: records.length };',
       '  });',
       '};',
-    ].join('\n'),
+    ].join('\n') },
   };
   const saved = await client.stream.documents.create({
     dryRun: false, program: document, idempotencyKey: intentKey,
@@ -73,4 +73,18 @@ validate 检查配置、程序和可确定的绑定问题，不执行任意业�
 
 创建结局未知时先按已知 ID 或业务标识核对状态；允许重试时保留原请求与幂等键。
 
-原生编辑器形态 `documents.create({dryRun, document})` 的 document 为 name/model/script对象/sources/entries，script 为 `{code,timeoutMs}`，sources 用 alias/sourceId/configRevision/resources/acquisition。不要把上面的 script 字符串直接塞入原生文档。
+原生编辑器形态 `documents.create({dryRun, document})` 的 document 为 name/model/script对象/sources/entries，script 为 `{code,timeoutMs}`，sources 用 alias/sourceId/configRevision/resources/acquisition。两种入口均使用 script 对象；不接受 script 字符串。
+
+远端 Edge 绑定使用 `target: {fleetNodeId, sourceId, configRevision}` 替代同一绑定上的 sourceId/configRevision。fleetNodeId 是发现返回的复合节点字符串，sourceId 是该节点上的原生十进制 ID。服务端验证并创建引用，调用方不拼装 edge:// 引用，也不创建另一种 Source 文档。
+
+```ts
+import type { RuntimeStreamDefinition, StreamSourceTarget } from '@tier0/sdk-v2';
+
+export function bindApprovedEdgeSource(
+  program: RuntimeStreamDefinition, target: StreamSourceTarget,
+): RuntimeStreamDefinition {
+  return { ...program, sourceBindings: [{ target, acquisition: {} }] };
+}
+```
+
+该函数只构造绑定；脚本仍须使用声明资源并通过目标目录授权。厂商凭据在 Edge 本地预配，target 不携带秘密。配置成功不证明端到端采集完成。

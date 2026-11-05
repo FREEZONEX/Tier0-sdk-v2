@@ -33,9 +33,9 @@ describe('Backend App UNS access contract without generic record audit', () => {
         createHash('sha256').update(read(file)).digest('hex')
       );
     }
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(82);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(90);
     expect(UNS_V2_CONTRACT_PROVENANCE.streamOperationCount).toBe(1);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(95);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(104);
     // Error envelopes are decoded by every operation, although success DTOs do not reference them.
     expect(Object.hasOwn(UNS_V2_CODEC_SCHEMAS, 'UnsV2ErrorResponse')).toBe(true);
     expect(Object.hasOwn(manifest.schemas, 'UnsV2ErrorResponse')).toBe(true);
@@ -50,17 +50,16 @@ describe('Backend App UNS access contract without generic record audit', () => {
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudContractRevision).toContain('+business-name/1+');
   });
 
-  it('keeps acquisition and capability provenance on the same explicitly identified Cloud baseline', () => {
+  it('pins Source/Stream separately while preserving the capability and data baseline', () => {
     const upstream = JSON.parse(readFileSync(new URL('../../contracts/upstream.json', import.meta.url), 'utf8'));
     const capability = JSON.parse(readFileSync(new URL('../../contracts/capability-discovery/provenance.json', import.meta.url), 'utf8'));
     expect(upstream.revision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(capability.revision).toBe(upstream.revision);
-    const acquisition = upstream.schemaUpdates.find((update: { scope: string }) => update.scope === 'source-stream-acquisition');
-    expect(acquisition.revision).toBe(upstream.revision);
-    expect(acquisition.sourceKind).toBe(upstream.sourceKind ?? 'committed');
+    const acquisition = upstream.schemaUpdates.find((update: { scope: string }) => update.scope === 'source-stream-public');
+    expect(acquisition.revision).toMatch(/^[a-f0-9]{40}$/);
     expect(capability.sourceKind).toBe(upstream.sourceKind ?? 'committed');
-    for (const input of Object.values(acquisition.inputs) as { baseSHA256: string; resultSHA256: string }[]) {
-      expect(input.resultSHA256).toBe(input.baseSHA256);
+    for (const [path, input] of Object.entries(acquisition.inputs) as [string, { baseSHA256: string; resultSHA256: string }][]) {
+      expect(input.resultSHA256).toBe(upstream.inputs[path].sha256);
     }
   });
 

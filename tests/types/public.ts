@@ -1,4 +1,4 @@
-import { createClient, getCurrentAppId, type Tier0Client, type UnsV2Integer, type CloudSourceDocument, type CloudSourceConfig, type CloudSourceCreateCredentials, type components } from '../../src/index.js';
+import { createClient, getCurrentAppId, type Tier0Client, type UnsV2Integer, type SourceDefinition, type SourceCredentials, type components } from '../../src/index.js';
 import { useTier0Query, useTier0Mutation } from '../../src/react.js';
 import { useTier0Request } from '../../src/vue.js';
 const sdk: Tier0Client = createClient({ apiHost: 'https://api.example.invalid', apiKey: 'placeholder' });
@@ -42,7 +42,7 @@ void invalid;
 
 export async function publishStreamFromReceipts(client: Tier0Client) {
   const created = await client.stream.documents.create({ dryRun: false, idempotencyKey: 'create',
-    program: { name: 'typed-receipts', script: 'module.exports=api=>{};' } });
+    program: { name: 'typed-receipts', script: { code: 'module.exports=api=>{};', timeoutMs: 5000 } } });
   if (!('id' in created.data)) return;
   const deployed = await client.stream.programs.deploy({ id: created.data.id,
     expectedRevision: created.data.revision, dryRun: false, idempotencyKey: 'deploy' });
@@ -67,53 +67,64 @@ sdk.agent.nodes.searchSemantic({});
 sdk.stream.runtime.capabilities({});
 
 // Both HTTP roles use the native management envelope, with the role inside config.
-const httpClient: CloudSourceDocument = { name: 'client', protocol: 'http-api',
-  config: { role: 'client', endpoint: 'https://fixture.invalid', options: {} } };
-const httpServer: CloudSourceDocument = { name: 'server', protocol: 'http-api',
-  config: { role: 'server', endpoint: 'http://managed', options: {} } };
+const httpClient: SourceDefinition = { name: 'client', protocol: 'http-api',
+  role: 'client', endpoint: 'https://fixture.invalid', http: { anonymous: true } };
+const httpServer: SourceDefinition = { name: 'server', protocol: 'http-api',
+  role: 'server', endpoint: 'http://managed' };
 sdk.source.documents.create({ dryRun: true, document: httpClient });
 sdk.source.documents.create({ dryRun: true, document: httpServer });
 sdk.source.documents.list({ protocol: 'http-api' });
 // @ts-expect-error The old HTTP protocol is not a new management document protocol.
-const retiredHttpProtocol: CloudSourceDocument['protocol'] = 'http';
+const retiredHttpProtocol: SourceDefinition['protocol'] = 'http';
 // @ts-expect-error HTTP Push has no creation alias; use an HTTPServer Source and Stream route.
-const retiredPushProtocol: CloudSourceDocument['protocol'] = 'http_push';
+const retiredPushProtocol: SourceDefinition['protocol'] = 'http_push';
 // @ts-expect-error The protocol filter cannot advertise retired Push Sources.
 sdk.source.documents.list({ protocol: 'http_push' });
 // @ts-expect-error Connection roles come from the public contract.
-const invalidHttpRole: CloudSourceConfig['role'] = 'listener';
-// @ts-expect-error Enterprise projection roles cannot be copied to the Cloud document root.
-const misplacedHttpRole: CloudSourceDocument = { ...httpClient, role: 'client' };
+const invalidHttpRole: SourceDefinition['role'] = 'listener';
+// Cloud and Enterprise share the same top-level role.
+const misplacedHttpRole: SourceDefinition = { ...httpClient, role: 'client' };
 void [retiredHttpProtocol, retiredPushProtocol, invalidHttpRole, misplacedHttpRole];
 
-const inlineAuth: CloudSourceCreateCredentials[] = [
-  { kind: 'basic', material: { username: 'fixture', password: 'fixture-only' } },
-  { kind: 'bearer', material: { token: 'fixture-only' } },
-  { kind: 'apiKey', material: { headerName: 'X-API-Key', value: 'fixture-only' } },
-  { kind: 'oauth2ClientCredentials', material: { tokenUrl: 'https://fixture.invalid/token', clientId: 'fixture', clientSecret: 'fixture-only' } },
-  { kind: 'oauth2ClientCredentials', method: 'REQUEST', material: { tokenUrl: 'https://fixture.invalid/token', clientId: 'fixture', clientSecret: 'fixture-only', clientAuthentication: 'client_secret_basic' } },
+const inlineAuth: SourceCredentials[] = [
+  { kind: 'basic', username: 'fixture', secret: 'fixture-only' },
+  { kind: 'bearer', secret: 'fixture-only' },
+  { kind: 'custom', values: { username: 'fixture', privateKey: 'fixture-only' } },
+  { kind: 'oauth2', secret: 'fixture-only' },
 ];
 for (const credentials of inlineAuth) sdk.source.documents.create({ dryRun: true, document: httpClient, credentials, idempotencyKey: 'fixture-inline' });
 // @ts-expect-error APIKey inline material uses headerName/value.
-const oldApiKeyMaterial: CloudSourceCreateCredentials = { kind: 'apiKey', material: { name: 'X-API-Key', key: 'fixture-only' } };
+const oldApiKeyMaterial: SourceCredentials = { kind: 'apiKey', material: { name: 'X-API-Key', key: 'fixture-only' } };
 // @ts-expect-error APIKey only accepts REQUEST binding.
-const invalidApiKeyMethod: CloudSourceCreateCredentials = { kind: 'apiKey', method: 'GET', material: { headerName: 'X-API-Key', value: 'fixture-only' } };
+const invalidApiKeyMethod: SourceCredentials = { kind: 'apiKey', method: 'GET', material: { headerName: 'X-API-Key', value: 'fixture-only' } };
 // @ts-expect-error Vendor SESSION is not an inline HTTP credential method.
-const vendorSessionInline: CloudSourceCreateCredentials = { kind: 'bearer', method: 'SESSION', material: { token: 'fixture-only' } };
+const vendorSessionInline: SourceCredentials = { kind: 'bearer', method: 'SESSION', secret: 'fixture-only' };
 // @ts-expect-error The independent credential endpoint remains Core-only.
 sdk.source.credentials.create({});
 void [oldApiKeyMaterial, invalidApiKeyMethod, vendorSessionInline];
 
-const sqlCredentials: CloudSourceCreateCredentials = { kind: 'usernamePassword', material: { username: 'fixture', password: 'fixture-only' } };
-sdk.source.documents.create({ document: { name: 'PG', protocol: 'sql', config: { endpoint: 'postgres://fixture.invalid/database', options: {} } }, credentials: sqlCredentials, idempotencyKey: 'sql-create' });
+const sqlCredentials: SourceCredentials = { kind: 'basic', username: 'fixture', secret: 'fixture-only' };
+sdk.source.documents.create({ document: { name: 'PG', protocol: 'edge-sql', endpoint: 'postgres://fixture.invalid/database', sql: { queries: { inventory: 'SELECT id FROM inventory' }, tlsMode: 'verify-full' } }, credentials: sqlCredentials, idempotencyKey: 'sql-create' });
 // @ts-expect-error SQL 连接不接受 HTTP method。
-const sqlHTTPMethod: CloudSourceCreateCredentials = { kind: 'usernamePassword', method: 'GET', material: { username: 'fixture', password: 'fixture-only' } };
+const sqlHTTPMethod: SourceCredentials = { kind: 'usernamePassword', method: 'GET', material: { username: 'fixture', password: 'fixture-only' } };
 void sqlHTTPMethod;
 
+sdk.source.documents.credentials.update({ id: '101', expectedRevision: 2,
+  credentials: { kind: 'oauth2', secret: 'fixture-only' }, dryRun: true, idempotencyKey: 'rotate-oauth-fixture' });
+sdk.stream.documents.create({ document: { name: 'edge-reader', model: 'program',
+  script: { code: 'module.exports=api=>{};', timeoutMs: 5000 },
+  sources: [{ alias: 'plant', target: { fleetNodeId: '101-202', sourceId: '303', configRevision: 2 } }],
+} });
+// @ts-expect-error A binding cannot mix a local Source identity and a remote target.
+const mixedBinding: import('../../src/index.js').StreamSourceAlias = { alias: 'plant', sourceId: '101', configRevision: 2, target: { fleetNodeId: '101-202', sourceId: '303', configRevision: 2 } };
+// @ts-expect-error A binding must select a local identity or a target.
+const missingBinding: import('../../src/index.js').StreamSourceAlias = { alias: 'plant' };
+void [mixedBinding, missingBinding];
+
 // @ts-expect-error Single-model Source documents no longer select a config version.
-const retiredConfigSelector: CloudSourceConfig = { configVersion: 2, endpoint: 'https://fixture.invalid', options: {} };
+const retiredConfigSelector: SourceDefinition = { configVersion: 2, endpoint: 'https://fixture.invalid', options: {} };
 // @ts-expect-error Full Stream programs no longer select an interpreter generation.
-sdk.stream.documents.create({ dryRun: true, program: { name: 'single-model', script: 'module.exports=api=>{};', sdkVersion: 'tier0-stream/v2' } });
+sdk.stream.documents.create({ dryRun: true, program: { name: 'single-model', script: { code: 'module.exports=api=>{};', timeoutMs: 5000 }, sdkVersion: 'tier0-stream/v2' } });
 // @ts-expect-error Native Stream script objects use code/timeoutMs without a generation selector.
 sdk.stream.documents.validate({ document: { name: 'single-model', model: 'program', script: { code: 'module.exports=api=>{};', timeoutMs: 1000, sdkVersion: 'tier0-stream/v2' } } });
 sdk.capabilities.discover().then(response => {
