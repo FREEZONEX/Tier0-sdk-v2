@@ -38,11 +38,15 @@ func (f *sdkSingleAuthFake) ApiKeyWhoami(_ context.Context, req *sys.ApiKeyWhoam
 }
 
 func (f *sdkSingleAuthFake) ApiKeyCheck(ctx context.Context, req *sys.ApiKeyCheckReq, opts ...grpc.CallOption) (*sys.ApiKeyCheckResp, error) {
+	f.mu.Lock()
 	result, err := f.requestAuthFake.ApiKeyCheck(ctx, req, opts...)
+	if result != nil {
+		result = proto.Clone(result).(*sys.ApiKeyCheckResp)
+	}
+	f.mu.Unlock()
 	if err != nil || result == nil {
 		return result, err
 	}
-	result = proto.Clone(result).(*sys.ApiKeyCheckResp)
 	if strings.HasPrefix(req.GetApiKey(), "sk-app-") {
 		result.KeyType = "app"
 	}
@@ -177,6 +181,9 @@ if (process.env.TIER0_SCAFFOLD_HELPER_ENTRY) {
 		cmd := exec.Command("node", "--input-type=module", "-e", program, sdk, server.URL)
 		if output, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("SDK call: %v\n%s", err, output)
+		}
+		if os.Getenv("TIER0_SCAFFOLD_HELPER_ENTRY") != "" {
+			t.Log("Scaffold App helper verified against the Gateway")
 		}
 	})
 
