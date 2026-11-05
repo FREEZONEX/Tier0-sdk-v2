@@ -126,6 +126,19 @@ describe('Tier0MQClient across reconnects and token expiry', () => {
       expect(sdk.client.reconnect).toHaveBeenCalledTimes(13);
     });
 
+    it('owns resubscription, so mqtt.js does not resubscribe on its own', async () => {
+      await connected();
+      expect((mqtt.connect as any).mock.calls[0][1]).toMatchObject({ resubscribe: false });
+    });
+
+    it('rejects calls waiting for a reconnect on disconnect()', async () => {
+      const { sdk, emit } = await connected();
+      emit('close');
+      const waiting = sdk.connect();
+      sdk.disconnect();
+      await expect(waiting).rejects.toThrow(/cancelled by disconnect/);
+    });
+
     it('stops reconnecting after disconnect()', async () => {
       const { sdk, client, emit } = await connected();
       emit('close');
@@ -177,6 +190,18 @@ describe('Tier0MQClient across reconnects and token expiry', () => {
       const [url, options] = (mqtt.connect as any).mock.calls[0];
       expect(url).toBe('wss://emqx.example/mqtt');
       expect(options).toMatchObject({ username: '42&g1&appbrowser', clientId: '42&b.g1.abcd', password: 't1', clean: false });
+    });
+
+    it('does not start a transport when disconnected while the token is fetched', async () => {
+      fakeRuntime();
+      fakeMqtt();
+      const sdk = new Tier0MQClient();
+      sdk.on('error', () => undefined);
+      const pending = sdk.connect();
+      sdk.disconnect();
+      await expect(pending).rejects.toThrow(/cancelled by disconnect/);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(mqtt.connect).not.toHaveBeenCalled();
     });
 
     it('takes a new token for each reconnect', async () => {

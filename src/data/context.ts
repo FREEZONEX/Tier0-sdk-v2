@@ -38,6 +38,29 @@ export function runWithRequestContext<T>(request: Request | Headers, fn: () => T
 }
 
 /**
+ * For employee-only request handlers. Reject before running the handler if the
+ * employee assertion is absent or malformed: the front door's
+ * `X-Tier0-Delegation`, or `X-Tier0-App-Data-Subject` on an API key. Every
+ * assertion present must be well formed, and at least one must be present.
+ * This checks syntax only: the receiving Gateway must authenticate the
+ * assertion and authorize each call. It does not turn ensure/seed or an
+ * explicit runAsApp into employee work.
+ */
+export function runWithRequiredEmployeeContext<T>(request: Request | Headers, fn: () => T): T {
+  const headers = request instanceof Headers ? request : request.headers;
+  const subject = headers.get(UNS_V2_APP_DATA_SUBJECT_HEADER)?.trim();
+  const delegation = headers.get(DELEGATION_HEADER)?.trim();
+  if ((!subject && !delegation) || (subject && !isCompactAssertion(subject)) || (delegation && !isCompactAssertion(delegation))) {
+    throw new TypeError('Tier0 SDK: a validly formatted employee data subject is required (X-Tier0-Delegation, or X-Tier0-App-Data-Subject with an API key).');
+  }
+  return runWithRequestContext(request, fn);
+}
+
+function isCompactAssertion(value: string): boolean {
+  return value.length <= 8192 && /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(value);
+}
+
+/**
  * Runs `fn` as the App itself, outside any employee's request: use it for
  * work that outlives or is detached from the request (timers, queues, fire-
  * and-forget follow-ups). Its calls carry no data subject or delegation.
