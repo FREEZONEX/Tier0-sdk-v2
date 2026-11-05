@@ -2791,12 +2791,11 @@
       "summary": "validate: reuse the existing Source/Stream runtime lifecycle; runtime IDs are positive decimal strings; no shared release is implicitly deployed",
       "runtime": true,
       "example": {
-        "name": "Example",
-        "adapter": "http-api",
-        "connection": {
-          "endpoint": "https://example.com/data",
-          "role": "client",
+        "document": {
+          "name": "Example",
+          "protocol": "http-api",
           "runtimeLocation": "local",
+          "endpoint": "https://example.com/data",
           "http": {
             "authentication": "none"
           }
@@ -5543,7 +5542,9 @@
           "type": "boolean"
         },
         "qos": {
-          "type": "integer"
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2
         },
         "replyTopic": {
           "type": "string"
@@ -5611,7 +5612,10 @@
           "type": "array"
         },
         "unitId": {
-          "type": "integer"
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 247,
+          "default": 1
         }
       },
       "required": [
@@ -6039,7 +6043,7 @@
           "maxLength": 512
         },
         "endpoint": {
-          "description": "Protocol URL; no userinfo, query or fragment. Server role uses managed endpoint: http://managed, mqtt://managed or opc.tcp://managed",
+          "description": "Protocol connection address or a discovered native device key. Never include credentials in the address. Managed server roles use the target-defined managed endpoint.",
           "type": "string"
         },
         "extensions": {
@@ -6296,6 +6300,211 @@
                         }
                       }
                     }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "protocol": {
+                "const": "http-api"
+              }
+            },
+            "required": [
+              "protocol"
+            ]
+          },
+          "then": {
+            "required": [
+              "http"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "protocol": {
+                "const": "oauth2"
+              }
+            },
+            "required": [
+              "protocol"
+            ]
+          },
+          "then": {
+            "required": [
+              "http"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "protocol": {
+                "const": "mqtt"
+              }
+            },
+            "required": [
+              "protocol"
+            ],
+            "not": {
+              "required": [
+                "extensions"
+              ],
+              "properties": {
+                "extensions": {
+                  "required": [
+                    "ingress"
+                  ]
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "mqtt"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "protocol": {
+                "const": "opcua"
+              }
+            },
+            "required": [
+              "protocol"
+            ]
+          },
+          "then": {
+            "required": [
+              "opcua"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "protocol": {
+                "const": "modbus-tcp"
+              }
+            },
+            "required": [
+              "protocol"
+            ]
+          },
+          "then": {
+            "required": [
+              "modbus"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "protocol": {
+                "const": "http-api"
+              }
+            },
+            "required": [
+              "protocol"
+            ],
+            "not": {
+              "properties": {
+                "role": {
+                  "const": "server"
+                }
+              },
+              "required": [
+                "role"
+              ]
+            }
+          },
+          "then": {
+            "properties": {
+              "http": {
+                "required": [
+                  "authentication"
+                ],
+                "properties": {
+                  "authentication": {
+                    "enum": [
+                      "none",
+                      "basic",
+                      "bearer",
+                      "custom",
+                      "http"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "protocol": {
+                "const": "oauth2"
+              }
+            },
+            "required": [
+              "protocol"
+            ]
+          },
+          "then": {
+            "properties": {
+              "http": {
+                "required": [
+                  "oauth"
+                ],
+                "properties": {
+                  "authentication": {
+                    "enum": [
+                      ""
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "protocol": {
+                "const": "mqtt"
+              }
+            },
+            "required": [
+              "protocol"
+            ],
+            "not": {
+              "properties": {
+                "role": {
+                  "const": "server"
+                }
+              },
+              "required": [
+                "role"
+              ]
+            }
+          },
+          "then": {
+            "properties": {
+              "mqtt": {
+                "required": [
+                  "clientId"
+                ],
+                "properties": {
+                  "clientId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
                   }
                 }
               }
@@ -24832,7 +25041,7 @@
           "maxLength": 512
         },
         "endpoint": {
-          "description": "Protocol URL; no userinfo, query or fragment. Server role uses managed endpoint: http://managed, mqtt://managed or opc.tcp://managed",
+          "description": "Protocol connection address or a discovered native device key. Never include credentials in the address. Managed server roles use the target-defined managed endpoint.",
           "type": "string"
         },
         "extensions": {
@@ -25110,7 +25319,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "description": "对象 ID（字符串），从发现或读取接口取得；不要把名称当成 ID。"
+          "description": "User-declared logical resource selection name within this Source, not a database Source ID or asset file ID. Reuse the same selection name for stable resource identity."
         },
         "path": {
           "type": "string"
@@ -25156,7 +25365,7 @@
         },
         "id": {
           "type": "string",
-          "description": "对象 ID（字符串），从发现或读取接口取得；不要把名称当成 ID。"
+          "description": "User-declared logical resource selection name within this Source, not a database Source ID or asset file ID. Reuse the same selection name for stable resource identity."
         },
         "path": {
           "type": "string"

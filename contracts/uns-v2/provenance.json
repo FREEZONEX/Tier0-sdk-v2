@@ -20,25 +20,25 @@
       "capability": "x-tier0-opcua-server: static available=false; online availability is workspace/registry authoritative"
     }
   },
-  "sourceDerivedContractSHA256": "b02ed10f1a1e4b1c42389ab8e0ab7ff14b230b1bd41581b6758af620c0eb9a29",
+  "sourceDerivedContractSHA256": "dc3a67b0cc787dbf8aa227a749661c3b1e84cf9d531fccd6f97a782b60c3fb8a",
   "schemaUpdates": [
     {
       "scope": "source-stream-public",
       "repository": "FREEZONEX/Tier0-Backend",
-      "revision": "79f0588beae5eaf2bff451f0d4b080b06b1d1506",
+      "revision": "727c6395a8235aed184aced47f47b214f41ea014",
       "sourceKind": "committed",
       "inputs": {
         "contracts/uns-v2/contract.json": {
           "path": "service/unssvr/internal/domain/unsv2/contract_generated.go",
-          "sourceSHA256": "536f2a73ef1ad94005ed143f2fd249acdc9e76c87d828daf2d9ce7cec58e290b",
+          "sourceSHA256": "7755363e8fe763044828a5ad9040c86f70d61afc1e7cafa0a6d7c0962ce3c5a0",
           "baseSHA256": "8ca167f398715d051d9c797f0b35908b9f68cfaca819c4f56f6a7ef82f97acc0",
-          "resultSHA256": "b02ed10f1a1e4b1c42389ab8e0ab7ff14b230b1bd41581b6758af620c0eb9a29"
+          "resultSHA256": "dc3a67b0cc787dbf8aa227a749661c3b1e84cf9d531fccd6f97a782b60c3fb8a"
         },
         "contracts/uns-v2/manifest.json": {
           "path": "share/unscontract/manifest.json",
-          "sourceSHA256": "f9bafc42410583076f47e3f63b500afd14e8f8d378d427a36bdafd71e8c11e03",
+          "sourceSHA256": "1a183f9ce1e349dc2f7becc1be7ea5b10e06a0c0fb0e87cef7d9415371320a05",
           "baseSHA256": "4737cf897b544d6e2a1088a87087f8e1ac447a5b89858cf471a100775d0945aa",
-          "resultSHA256": "5c8ff7788307393e92159973b45c1cd423416659c67cbbbc62f435fdf31034bd"
+          "resultSHA256": "f9b7f491b929c9233897714af170a206075c5f2c4b752d38ce84124f09f18c0e"
         },
         "contracts/uns-v2/cloud-support.json": {
           "path": "share/unscontract/cloud-support.json",
@@ -54,9 +54,9 @@
         },
         "contracts/uns-v2/source-protocols.json": {
           "path": "share/unscontract/source-protocols.json",
-          "sourceSHA256": "bb6ba163db421c238399e423e89eea03ccd45fd2820a3873d88830ab2bc740a7",
+          "sourceSHA256": "b68b12311ebfe426dec54476eb1927074de835d5ed13cc40a16127f5617ad676",
           "baseSHA256": "1506b3a332038315f6d9ad6eda7342dbe5f54af9d40a96a560ea2d7711aa222a",
-          "resultSHA256": "bb6ba163db421c238399e423e89eea03ccd45fd2820a3873d88830ab2bc740a7"
+          "resultSHA256": "b68b12311ebfe426dec54476eb1927074de835d5ed13cc40a16127f5617ad676"
         }
       },
       "schemas": [
