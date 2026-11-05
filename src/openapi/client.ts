@@ -47,6 +47,16 @@ export class TransportError extends ApiError {
   }
 }
 const record = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v);
+/** Snapshot all own properties once, including non-enumerable credential and delegation fields. */
+export function snapshotClientConfig<T extends ClientConfig>(config: T): T {
+  const snapshot = { ...config };
+  for (const field of Reflect.ownKeys(config)) {
+    if (!Object.hasOwn(snapshot, field)) {
+      Object.defineProperty(snapshot, field, { value: Reflect.get(config, field), writable: true, enumerable: true, configurable: true });
+    }
+  }
+  return snapshot;
+}
 export function responseError(status: number, value: unknown, fallback = 'Request failed'): ApiError {
   return new ApiError(status, record(value) && typeof value.code === 'number' ? value.code : 0,
     record(value) && typeof value.message === 'string' ? value.message : record(value) && typeof value.msg === 'string' ? value.msg : fallback,
@@ -58,7 +68,7 @@ export class HttpClient {
   private readonly config: Readonly<ClientConfig>;
   readonly timeoutMs: number;
   constructor(config: ClientConfig = {}) {
-    this.config = Object.freeze({ ...config });
+    this.config = Object.freeze(snapshotClientConfig(config));
     this.timeoutMs = config.transportTimeoutMs ?? 60_000;
     if (!Number.isInteger(this.timeoutMs) || this.timeoutMs < 1 || this.timeoutMs > 2_147_483_647) throw new TypeError('Invalid transportTimeoutMs');
   }

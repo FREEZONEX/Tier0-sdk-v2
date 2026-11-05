@@ -4,7 +4,7 @@
  * collection declarations; tests build their own with a mock `fetch`.
  */
 import type { z } from 'zod';
-import type { ClientConfig } from '../openapi/client.js';
+import { snapshotClientConfig, type ClientConfig } from '../openapi/client.js';
 import { getEnvVar } from '../runtime-env.js';
 import { createBootstrap, type DataEnvironment, type EnsureState, type Logger } from './bootstrap.js';
 import { createDataTransport } from './call.js';
@@ -134,7 +134,7 @@ export interface DataClient {
 }
 
 export function createDataClient(config: DataClientConfig): DataClient {
-  const snapshot = { ...config };
+  const snapshot = snapshotClientConfig(config);
   if (Object.hasOwn(snapshot, 'apiKeyProvider')) {
     throw new TypeError('Tier0 SDK: apiKeyProvider is not supported by createDataClient.');
   }

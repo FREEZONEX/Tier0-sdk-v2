@@ -63,6 +63,33 @@ describe('credential source selection', () => {
     ]);
   });
 
+  it.each([
+    ['apiKey', undefined], ['apiKey', ''], ['getApiKey', undefined], ['getApiKey', () => undefined],
+    ['apiKeyProvider', undefined],
+  ] as const)('does not lose a non-enumerable %s during public client creation', async (field, value) => {
+    vi.stubEnv('TIER0_API_KEY', 'shared-env');
+    const config = Object.defineProperty({ apiHost: origin }, field, { value, enumerable: false });
+    const client = createClient(config);
+    await expect(client.system.whoami()).rejects.toMatchObject({ status: 401 });
+    expect(received).toEqual([{ path: '/openapi/v2/auth/whoami', key: undefined, auth: undefined, storage: false }]);
+  });
+
+  it('preserves non-enumerable valid credential sources and employee delegation', async () => {
+    vi.stubEnv('TIER0_API_KEY', 'shared-env');
+    const syncConfig = Object.defineProperty({ apiHost: origin }, 'getApiKey', { value: () => 'user-b', enumerable: false });
+    const asyncConfig = Object.defineProperty({ apiHost: origin }, 'apiKeyProvider', { value: async () => 'user-a', enumerable: false });
+    const [a, b] = await Promise.all([createClient(syncConfig).system.whoami(), createClient(asyncConfig).system.whoami()]);
+    expect(a.userID).toBe(2);
+    expect(b.userID).toBe(1);
+    expect(received.map(r => r.key).sort()).toEqual(['user-a', 'user-b']);
+    const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response(JSON.stringify({
+      code: 200, msg: 'ok', requestId: 'r', data: { count: 1, capped: false },
+    })));
+    const delegated = Object.defineProperty({ apiHost: origin, apiKey: 'user-a', fetch }, 'unsV2AppDataSubject', { value: 'a.employee.c', enumerable: false });
+    await createClient(delegated).uns.recordCount({ collectionId: 'orders' });
+    expect(new Headers(fetch.mock.calls[0][1]?.headers).get('x-tier0-app-data-subject')).toBe('a.employee.c');
+  });
+
   it.each(['http', 'cloud', 'stream', 'sse', 'upload', 'download'] as const)(
     'interleaves missing per-user identity with a distinct user for %s without a shared fallback', async kind => {
       vi.stubEnv('TIER0_API_KEY', 'shared-env');

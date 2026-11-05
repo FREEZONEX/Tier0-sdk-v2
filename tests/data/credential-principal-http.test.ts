@@ -84,6 +84,17 @@ describe('Data client stable credential boundary over HTTP', () => {
     expect(requests).toEqual([]);
   });
 
+  it('rejects non-enumerable dynamic sources and does not fall back for a hidden undefined key', async () => {
+    vi.stubEnv('TIER0_API_KEY', 'user-b');
+    const dynamic = Object.defineProperty({ apiHost: hosts[0] }, 'getApiKey', { value: () => 'user-a', enumerable: false });
+    const provider = Object.defineProperty({ apiHost: hosts[0] }, 'apiKeyProvider', { value: async () => 'user-a', enumerable: false });
+    expect(() => createDataClient(dynamic)).toThrow('getApiKey is not supported');
+    expect(() => createDataClient(provider)).toThrow('apiKeyProvider is not supported');
+    const missing = Object.defineProperty({ apiHost: hosts[0], collections: [orders] }, 'apiKey', { value: undefined, enumerable: false });
+    await expect(createDataClient(missing).collection(orders).countDocuments()).rejects.toMatchObject({ code: 'DATA_NOT_CONFIGURED' });
+    expect(requests).toEqual([]);
+  });
+
   it('pins each environment identity and host across interleaved bootstrap, retry and SSE', async () => {
     vi.stubEnv('TIER0_API_KEY', 'user-a');
     vi.stubEnv('TIER0_API_HOST', hosts[0]);
