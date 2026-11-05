@@ -90,7 +90,7 @@ SDK 不从 Key 前缀推断权限，也不在 403 后换凭证或回退内部接
 
 HTTP 调用统一使用 `/openapi/v2`。21 个重复 UNS 公共入口及生成方法直接移除，没有旧路由回退；升级 SDK 时需同时部署对应后端。
 
-- Source 的 list/get/create/update、connection.update 改用 documents.*；Stream 的 programs.get/create/update/validate/disable 改用 documents.*，停用同时携带 expectedRevision 与 expectedActiveRelease。
+- Source 的 list/get/create/update、connection.update 改用 documents.*；Stream 的 programs.get/create/update/validate/disable 改用 documents.*，停用同时携带 expectedRevision 与字符串 expectedActiveVersion。
 - 低层 findOneAnd* 改用 updateOne/replaceOne/deleteOne 的 returnDocument；批量新增用 bulkWrite 的 insertOne 项；元数据单条读取用 metadataFind + limit:1，去重用 aggregate。
 - App 数据层的 insertMany、findOneAnd*、distinct 等便捷方法保留，由 SDK 映射到当前入口；insertMany 仍是单次原子请求，最多 200 项。
 - Agent 的旧 nodes.searchSemantic/indexSync 和 relations.list/teach 没有 v2 契约，不再导出。旧 Controls 便捷入口、操作、DTO 和错误类不再导出，也没有兼容别名。
@@ -113,7 +113,7 @@ HTTP Source 使用 protocol: 'http-api'、顶层 role: 'client' | 'server'；OAu
 Source/Stream 仍保留 `{ code, msg, requestId, data }` 响应以及 `UnsV2Error` 错误类型。Source 配置统一使用 `source.documents`；Stream 草稿统一通过 `stream.documents` 创建、读取、校验和修改，输入 `program` 与 `document` 二选一。发布和回滚仍走 `stream.programs`。保存、部署、运行成功分别判断。
 
 - 已知 Source ID/revision 且没有 Stream 引用时，可 [直接 patch 或变更状态](skills/tier0-sdk-v2/tier0-sdk-v2-source/references/update.md)；有引用时仍按精确意图确认影响。
-- Stream 发布和回滚可携带并发守卫：有生效发布时使用 `expectedActiveRelease`，无生效发布时使用 `expectedReleaseState: 'inactive'`。[发布回执](skills/tier0-sdk-v2/tier0-sdk-v2-stream/references/deploy.md) 的 activeRelease 也可用于观察这次发布。
+- Stream 发布和回滚可携带并发守卫 `expectedActiveVersion`，取已读取回执的权威版本 ID 字符串，`'0'` 表示无生效发布。Cloud 的 `expectedReleaseState: 'inactive'` 是另一种互斥守卫。[发布回执](skills/tier0-sdk-v2/tier0-sdk-v2-stream/references/deploy.md) 的 activeRelease 是 Cloud 扩展的发布序号，只用于关联运行，不作为 activeVersion 使用。
 - 单条 Record 新增可用 [returnDocument:'after'](skills/tier0-sdk-v2/tier0-sdk-v2-uns/references/create.md) 同次取得创建快照；[App 数据层](skills/tier0-sdk-v2/tier0-sdk-v2-data/references/read-write.md) 支持相同选择及投影类型。
 
 从最初提交迁移：`uns.sourceList` → `source.documents.list`；`uns.sourceDocumentGet` → `source.documents.get`；`uns.streamProgramDeploy` → `stream.programs.deploy`；`uns.streamDocumentValidate` → `stream.documents.validate`。这些管理方法已移出主入口的 `uns`。底层 `createUnsV2Client()` 仍提供完整生成契约供契约工具使用；数据专用客户端可用 `createUnsDataClient()`。
