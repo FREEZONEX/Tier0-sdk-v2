@@ -4,7 +4,7 @@ Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交�
 
 `0.10.0-aenv.8` 是 aenv-next 的本地预发布版本，基于 `0.9.10`（含 `0.9.9` 的 `metadataPurge` 与凭证查询说明、`0.9.8` 的 App 集合业务目录声明 `directoryPath`），未发布到 npm；内容见下方「aenv-next 运行环境」。
 
-**`0.10.0-aenv.2` 起是破坏性变更**：`TIER0_CREDENTIALS_FILE` 不再读取，SDK 在平台里不持有、不发送任何凭据，由节点代理注入 App 的长期 Key；必须和新的 AgentENV（`sbx-api-proxy`）一起上线，在旧 VM 上请求会被拒绝。`0.10.0-aenv.3` 起 `TIER0_RUNTIME` 只接受 `deployed` / `preview`，其他非空值（且没有 Key）直接报配置错误。`0.10.0-aenv.4` 起 MQTT 改用 `<ws>&open` / `<ws>&h.<app>.<随机>`，预览和正式同一行为（种子不再等委托请求，`appCredentialRuntime()` 已删除）。`0.10.0-aenv.5` 合入 base 的 `0.9.7`、`0.9.8`。`0.10.0-aenv.6` 起 `members.listApp` 经节点代理可用（托管 Key 按 `platform.users.read`，响应不带邮箱）。`0.10.0-aenv.7` 合入 base 的 `0.9.9`、`0.9.10`（个人 Key 本地接入指南、非 JSON 网关错误提示、Namespace 回收说明），节点代理凭据模型不变。`0.10.0-aenv.8` 起已发布的 App（PandaStack，没有 `TIER0_JWKS_DIR`）从 `TIER0_JWKS_URL`（前门的 `/__tier0/jwks.json`）拉访问者令牌公钥并定期刷新。
+**`0.10.0-aenv.2` 起是破坏性变更**：`TIER0_CREDENTIALS_FILE` 不再读取，SDK 在平台里不持有、不发送任何凭据，由节点代理注入 App 的长期 Key；必须和新的 AgentENV（`sbx-api-proxy`）一起上线，在旧 VM 上请求会被拒绝。`0.10.0-aenv.3` 起 `TIER0_RUNTIME` 只接受 `deployed` / `preview`，其他非空值（且没有 Key）直接报配置错误。`0.10.0-aenv.4` 起 MQTT 改用 `<ws>&open` / `<ws>&h.<app>.<随机>`，预览和正式同一行为（种子不再等委托请求，`appCredentialRuntime()` 已删除）。`0.10.0-aenv.5` 合入 base 的 `0.9.7`、`0.9.8`。`0.10.0-aenv.6` 起 `members.listApp` 经节点代理可用（托管 Key 按 `platform.users.read`，响应不带邮箱）。`0.10.0-aenv.7` 合入 base 的 `0.9.9`、`0.9.10`（个人 Key 本地接入指南、非 JSON 网关错误提示、Namespace 回收说明），节点代理凭据模型不变。`0.10.0-aenv.8` 起已发布的 App（AENV，没有 `TIER0_JWKS_DIR`）从 `TIER0_JWKS_URL`（前门的 `/__tier0/jwks.json`）拉访问者令牌公钥并定期刷新。
 
 `0.9.10` 补齐个人 Key 本地接入指南与非 JSON 网关错误提示，并同步 Namespace 回收、删除和恢复说明；保留现有权限、请求地址和重试规则。
 
