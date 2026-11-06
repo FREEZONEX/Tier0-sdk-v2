@@ -6,13 +6,15 @@ Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交�
 
 **`0.10.0-aenv.2` 起是破坏性变更**：`TIER0_CREDENTIALS_FILE` 不再读取，SDK 在平台里不持有、不发送任何凭据，由节点代理注入 App 的长期 Key；必须和新的 AgentENV（`sbx-api-proxy`）一起上线，在旧 VM 上请求会被拒绝。`0.10.0-aenv.3` 起 `TIER0_RUNTIME` 只接受 `deployed` / `preview`，其他非空值（且没有 Key）直接报配置错误。`0.10.0-aenv.4` 起 MQTT 改用 `<ws>&open` / `<ws>&h.<app>.<随机>`，预览和正式同一行为（种子不再等委托请求，`appCredentialRuntime()` 已删除）。`0.10.0-aenv.5` 合入 base 的 `0.9.7`、`0.9.8`。`0.10.0-aenv.6` 起 `members.listApp` 经节点代理可用（托管 Key 按 `platform.users.read`，响应不带邮箱）。`0.10.0-aenv.7` 合入 base 的 `0.9.9`、`0.9.10`（个人 Key 本地接入指南、非 JSON 网关错误提示、Namespace 回收说明），节点代理凭据模型不变。`0.10.0-aenv.8` 起已发布的 App（AENV，没有 `TIER0_JWKS_DIR`）从 `TIER0_JWKS_URL`（前门的 `/__tier0/jwks.json`）拉访问者令牌公钥并定期刷新。`0.10.0-aenv.9` 合入 base 2026-11-05 的 MQTT 修复（按连接代次丢弃过期回调、逐个 topic 校验订阅确认、连接设置预检回滚），重连期间新订阅和发布仍等待重连。
 
+本分支已合入 base 的 `0.9.11` 待发布候选（版本号仍是 `0.10.0-aenv.9`，随下一个 aenv 预发布号一起发布）：隔离显式凭据来源、支持逐请求异步凭据（`apiKeyProvider`），并按 Gateway 合同只发送 `X-API-Key`；Data 客户端在创建时绑定静态主体；Source / Stream 公开合同同步到 Backend 的原生文档模型。平台代理模式（见「aenv-next 运行环境」）不变。
+
 `0.9.10` 补齐个人 Key 本地接入指南与非 JSON 网关错误提示，并同步 Namespace 回收、删除和恢复说明；保留现有权限、请求地址和重试规则。
 
 `0.9.9` 新增 `client.uns.metadataPurge`，通过明确的已归档 Collection ID 提交永久删除，返回 `accepted` / `jobId` 并通过现有 `jobs` 查询逐项完成结果；`dryRun` 可选。集合删除保留 Record/Sample，支持恢复或继续永久清理。
 
 本版同时补齐 Agent / App 凭证的查询说明及 App 读取示例：`namespace()` 仍走 OpenAPI，App Key 使用 `dataAppContext` 和集合数据接口，服务端授权规则保持不变。
 
-保留 `0.9.8` 的 App 集合业务目录声明 `directoryPath`，按已知业务范围创建或复用目录，已有集合保持位置。Source 创建后可直接使用，删除后停止后续使用；不再提供 `client.source.state.update`、启停能力与 `desiredState`。名称和描述修改无需影响确认，连接配置变更或删除存在引用时仍须确认；运行中的 Stream 可直接删除。
+保留 `0.9.8` 的 App 集合业务目录声明 `directoryPath`，按已知业务范围创建或复用目录，已有集合保持位置。Source 默认 enabled；原生状态入口为 `client.source.documents.state.update`，删除前必须先禁用 Source 本身，并按新 revision 评估删除影响。名称和描述修改无需影响确认，连接配置变更、禁用或删除存在引用时仍须显式确认。
 
 `0.9.3` 同步集合授权合同：授予既有集合访问权限时无需提供别名，并更新生成类型与使用说明。集合声明的 `name` / `alias` 要求保持不变。
 
@@ -22,7 +24,7 @@ Collection 声明必须同时提供业务名称 `name`（例如「生产工单�
 
 `0.7.x` 已移除旧 Controls 入口、生成操作、DTO 和错误类，不保留别名。能力发现不再以可选交互合同阻断 Namespace，未知核心合同仍严格拒绝。V2 的 `execution` / `retry` 和结果未知语义保持不变。
 
-`0.6.0` 的 HTTP Source 只保留 `protocol: http-api`，通过 `config.role: client | server` 区分主动请求与入站服务。旧 `http` / `http_push` 配置需要迁移；响应时机属于 Stream，不再建立独立异步 Source。同步 singlemodel 合同后，Source 配置不再带 configVersion，Stream 输入不再带 sdkVersion；保留完整 module.exports 程序与原生 script 对象/Runtime program 字符串两种既有形态，不能将旧 transform 函数体直接改名迁入。
+Source / Stream 管理已统一为 Enterprise 参数：SourceDefinition 使用顶层 role、endpoint、http/sql 等；Stream 的 document 与 program 均使用 script: {code,timeoutMs}。旧 config/options/material、script 字符串和旧删除/凭据创建路由不再受支持。
 
 `0.4.0` 版本变更：相对 0.3.x 移除已退役的 Stream 就绪探针且不保留别名，改用服务端现有统一权限，不再配置逐 Key Control scopes/codes。0.3.0 起统一使用 OpenAPI v2 并退役重复及旧接口；与 0.2.x 存在不兼容变更，迁移方式见下方“本次接口退役”。对应 UNS v2 契约 5.0.0，与 0.1.0 不兼容（新错误模型 `execution` / `retry`、封顶计数、删除 `recordChangesPoll` 等）。Collection 支持 int、float、double 和 datetime 声明；格式注解不新增数值范围或日期格式校验，Sample 外层 time 保持不变。使用时需确认目标环境已部署对应后端。要求 Node.js 20.19+。浏览器 HTTP、MQTT、React、Vue 和服务端身份验签分别提供独立入口。
 
@@ -51,13 +53,37 @@ const tier0 = createClient();
 
 也可显式配置 `{ apiHost, apiKey, transportTimeoutMs, fetch }`，或提供 `getApiHost` / `getApiKey` 回调。裸域名默认使用 HTTPS；本地 HTTP 测试请显式写 `http://127.0.0.1:端口`。不自动向浏览器注入或读取 `VITE_` API Key。
 
+底层 HTTP 凭证来源按配置属性是否存在固定：`apiKeyProvider` 优先于 `apiKey`，再优先于 `getApiKey`；只有三者均未提供时才读取 `TIER0_API_KEY`。显式传入 `undefined`、空 Key，或同步 getter 返回 `undefined` 时不会回退到其他 Key，底层请求不带认证头；异步 provider 返回无效值会在发送前失败。Data 客户端对动态来源及缺失 Key 的处理见下文。此前依赖这些空值回退环境 Key 的调用方，需要去掉对应属性，或显式提供所需 Key。每个用户或请求应创建自己的客户端，不能用全局 `configureClient` 保存每请求身份。
+
+SDK 访问平台 API 时仅发送 `X-API-Key`，不同时发送 `Authorization`；Cloud Gateway 的 enforce 模式会拒绝多来源凭据。`whoami` 同样使用单个 `X-API-Key`。API Key 应留在服务端，浏览器通过应用服务端调用平台 API；网关默认 CORS 配置可能不允许跨源 `X-API-Key`。
+
+服务端底层 HTTP 客户端也可配置 `apiKeyProvider: async ({ signal }) => ...`，每次 HTTP 请求或 SSE 连接分别解析一次 API Key。provider 必须返回非空的可打印 ASCII 字符串；失败、取消或超时会终止该次请求，不回退到静态 Key 或环境变量。provider 应使用 `signal` 停止自己的异步工作。SDK 不缓存 provider 返回的 Key，也不会因此重放请求；调用者须确保重试期间身份和幂等作用域一致。`@tier0/sdk-v2/data` 的 `createDataClient` 不支持 `apiKeyProvider` 或 `getApiKey`，会直接拒绝；它在创建时固定静态 Key 和 Host，包括从环境变量取得的值。需要更换身份或环境配置时须新建 Data 客户端，不能复用原有 bootstrap、重试和订阅状态。员工数据委托仍按请求绑定，不改变 App Key。该接口只提供现有 API Key 的动态获取，并不表示服务端支持委托凭据。
+
+服务端已有经授权的主体 Key 时，可以为每个可信主体创建独立 Data 客户端，并按实际权限访问已有集合：
+
+```ts
+import { createDataClient } from '@tier0/sdk-v2/data';
+
+export function dataForPrincipal(apiHost: string, apiKey: string) {
+  if (!apiHost.trim() || !apiKey.trim()) throw new Error('A host and principal key are required');
+  return createDataClient({ apiHost, apiKey });
+}
+
+// 从可信服务端身份链取得该主体已获授权的 Key 和集合 ID 后：
+// const count = await dataForPrincipal(apiHost, apiKey).collection({ collectionId }).countDocuments();
+```
+
+不要从客户端自报的主体推导 Key，也不要跨主体复用客户端；Key 轮换后创建新实例。声明集合的 ensure/seed 是否允许由服务端凭证和权限决定，此例不声明集合。App 共用固定 App Key 时，可用受信 Gateway 的员工断言按请求收窄数据访问；它不是签发或验证个人 Key 的途径。
+
+Data 高层会跨请求复用 ensure 结果、重放带幂等键的 seed、恢复 stale 集合和续接 SSE。现有 whoami 不返回权威 App ID，同一工作空间和创建者的不同 App Key 可能具有相同的 workspace/user/type；名称、前缀或 provider 自报的身份不能证明不同 Key 属于同一主体。移除高层拒绝前，需要与实际请求凭据绑定、可验证且覆盖 App、员工委托及幂等作用域的服务端身份合同，并将这些跨请求状态隔离到已确认主体。`scripts/check-data-principal-boundary.mjs` 可在受控环境中用真实 Gateway 和两个不同 App 的临时 Key 验证此边界；脚本开头列出输入，Key 文件由调用方在验证后撤销和清理。
+
 `createClient()` 实例之间不共享配置；推荐在一个稳定身份的服务生命周期内复用实例。员工数据委托必须为每个请求创建新实例，传入受信网关的 `unsV2AppDataSubject`。App Key 只代表 App，不能替代当前用户身份，也不能下发到浏览器。浏览器页面应调用自己的服务端 API。
 
 ## aenv-next 运行环境
 
 **平台里不需要、也读不到凭据。** Tier0 预览和部署的 VM 里没有 `TIER0_API_KEY`，也没有任何凭据文件。节点代理（`sbx-api-proxy`）按 VM 的源地址认出 App，转发到平台时注入这个 App 的长期 Key；SDK 不持有它。**预览和正式用同一把 Key，行为相同**：预览里 App 同样能读写自己的数据，种子在 ensure 时以 App 身份写入。
 
-`TIER0_RUNTIME` 为 `deployed` 或 `preview`、没有 `TIER0_API_KEY` 时，SDK 进入「平台代理模式」（显式传了 `apiKey` / `getApiKey` 的客户端仍按显式配置）。没有 `TIER0_API_KEY` 而 `TIER0_RUNTIME` 是其他非空值时，SDK 抛出配置错误，不猜测模式。平台代理模式下：
+`TIER0_RUNTIME` 为 `deployed` 或 `preview`、没有 `TIER0_API_KEY` 时，SDK 进入「平台代理模式」（传了有值的 `apiKey`，或给了 `getApiKey` / `apiKeyProvider` 的客户端仍按显式配置；`apiKey: undefined`，例如 `apiKey: process.env.TIER0_API_KEY`，在平台里仍走平台代理模式。`createDataClient` 在创建时把环境里的 Key 固定成 `apiKey`，平台里它是 `undefined`，同样走代理）。没有 `TIER0_API_KEY` 而 `TIER0_RUNTIME` 是其他非空值时，SDK 抛出配置错误，不猜测模式。平台代理模式下：
 
 - 不读任何凭据，不发 `Authorization`、`X-API-Key`、`X-Tier0-App-Data-Subject`；
 - 每个请求带 `X-Tier0-SDK: 1`，代理拒绝不带它的请求；
@@ -148,7 +174,7 @@ SDK 不从 Key 前缀推断权限，也不在 403 后换凭证或回退内部接
 
 HTTP 调用统一使用 `/openapi/v2`。21 个重复 UNS 公共入口及生成方法直接移除，没有旧路由回退；升级 SDK 时需同时部署对应后端。
 
-- Source 的 list/get/create/update、connection.update 改用 documents.*；Stream 的 programs.get/create/update/validate/disable 改用 documents.*，停用同时携带 expectedRevision 与 expectedActiveRelease。
+- Source 的 list/get/create/update、connection.update 改用 documents.*；Stream 的 programs.get/create/update/validate/disable 改用 documents.*，停用同时携带 expectedRevision 与字符串 expectedActiveVersion。
 - 低层 findOneAnd* 改用 updateOne/replaceOne/deleteOne 的 returnDocument；批量新增用 bulkWrite 的 insertOne 项；元数据单条读取用 metadataFind + limit:1，去重用 aggregate。
 - App 数据层的 insertMany、findOneAnd*、distinct 等便捷方法保留，由 SDK 映射到当前入口；insertMany 仍是单次原子请求，最多 200 项。
 - Agent 的旧 nodes.searchSemantic/indexSync 和 relations.list/teach 没有 v2 契约，不再导出。旧 Controls 便捷入口、操作、DTO 和错误类不再导出，也没有兼容别名。
@@ -166,12 +192,12 @@ const sources = await tier0.source.documents.list({ page: 1, size: 20 });
 const programs = await tier0.stream.programs.list({ page: 1, size: 20 });
 ```
 
-HTTP Source 统一使用 `protocol: 'http-api'`，显式设置 `config.role: 'client'`（主动请求）或 `config.role: 'server'`（接收入站请求），与 Enterprise 一协议两角色保持一致；Cloud 管理文档的角色位于 config 内。Server 不能作为 Client 发起主动请求。HTTPServer 使用固定前缀 `/ingest/v1/{workspaceId}/{sourceId}`，业务路由注册在 Stream；普通返回在处理和提交完成后回复；HTTP `onRequest` 可通过一次 `await ctx.reply(...)` 先回复再继续，仍受超时、并发和权限限制，回复后不随客户端断线取消但可由 shutdown 取消，不保证崩溃重放。202 状态本身不证明处理完成。示例见 [HTTPServer Stream Skill](skills/tier0-sdk-v2/tier0-sdk-v2-stream/references/http-server.md)。使用 `source.protocols.list({})` 核对目标环境支持，再通过现有 `source.documents.*` 管理配置。HTTP Client 单条 inline 创建支持 Basic、Bearer、APIKey、OAuth 四类认证；普通创建省略 credentials.method，由服务端默认 REQUEST 基址绑定，真实 method/path/query 在 Stream 定义。Basic/Bearer 显式凭据方法同时限制精确 URL，OAuth 旧 GET 保留既有兼容语义，存量限制不自动扩大；独立 credentialCreate 仍为 coreOnly。SDK 不新增猜测的 HTTP In API；npm 管理 SDK 与执行器中的 Goja Stream 脚本 API 分开使用。
+HTTP Source 使用 protocol: 'http-api'、顶层 role: 'client' | 'server'；OAuth 使用 protocol: 'oauth2'。配置字段与 Enterprise 相同，http 保存认证模式、OAuth 非秘密配置及命名参数。Server 不能主动请求，托管 endpoint 为 http://managed；路由和响应时机由 Stream 定义。普通 handler 在提交后回复，ctx.reply 可提前回复但不保证崩溃重放。通过 source.protocols.list({}) 核对目标能力；npm 管理 SDK 与执行器脚本 API 分开使用。见 [Source Skill](skills/tier0-sdk-v2/tier0-sdk-v2-source/SKILL.md) 和 [HTTPServer Stream](skills/tier0-sdk-v2/tier0-sdk-v2-stream/references/http-server.md)。
 
 Source/Stream 仍保留 `{ code, msg, requestId, data }` 响应以及 `UnsV2Error` 错误类型。Source 配置统一使用 `source.documents`；Stream 草稿统一通过 `stream.documents` 创建、读取、校验和修改，输入 `program` 与 `document` 二选一。发布和回滚仍走 `stream.programs`。保存、部署、运行成功分别判断。
 
 - 已知 Source ID/revision 且没有 Stream 引用时，可 [直接 patch 或变更状态](skills/tier0-sdk-v2/tier0-sdk-v2-source/references/update.md)；有引用时仍按精确意图确认影响。
-- Stream 发布和回滚可携带并发守卫：有生效发布时使用 `expectedActiveRelease`，无生效发布时使用 `expectedReleaseState: 'inactive'`。[发布回执](skills/tier0-sdk-v2/tier0-sdk-v2-stream/references/deploy.md) 的 activeRelease 也可用于观察这次发布。
+- Stream 发布和回滚可携带并发守卫 `expectedActiveVersion`，取已读取回执的权威版本 ID 字符串，`'0'` 表示无生效发布。Cloud 的 `expectedReleaseState: 'inactive'` 是另一种互斥守卫。[发布回执](skills/tier0-sdk-v2/tier0-sdk-v2-stream/references/deploy.md) 的 activeRelease 是 Cloud 扩展的发布序号，只用于关联运行，不作为 activeVersion 使用。
 - 单条 Record 新增可用 [returnDocument:'after'](skills/tier0-sdk-v2/tier0-sdk-v2-uns/references/create.md) 同次取得创建快照；[App 数据层](skills/tier0-sdk-v2/tier0-sdk-v2-data/references/read-write.md) 支持相同选择及投影类型。
 
 从最初提交迁移：`uns.sourceList` → `source.documents.list`；`uns.sourceDocumentGet` → `source.documents.get`；`uns.streamProgramDeploy` → `stream.programs.deploy`；`uns.streamDocumentValidate` → `stream.documents.validate`。这些管理方法已移出主入口的 `uns`。底层 `createUnsV2Client()` 仍提供完整生成契约供契约工具使用；数据专用客户端可用 `createUnsDataClient()`。
@@ -259,6 +285,8 @@ mq.subscribe('平台授权的主题', (_topic, payload) => { /* 处理消息 */ 
 
 完整凭证只在创建时返回一次。也支持从编码 Workspace 的平台 API Key 推导 MQTT 身份；无法解析的 Key 会拒绝连接，不回退到 Enterprise 身份。MQTT 自身的连接恢复/QoS 语义与 HTTP 的“不自动重试写入”是不同机制。
 
+MQTT 未配置 `password` 时可使用进程环境的 `TIER0_API_KEY`；显式传入 `password: undefined` 不会选择环境或已保存的 Key，`connect` 会拒绝。省略该字段则保留已有设置。已连接或自动重连中的客户端拒绝变更凭据时保持原连接及其身份，调用方必须处理错误；需要切换身份时先断开并创建新客户端。
+
 MQTT 连接建立后，凭据和连接设置由底层客户端持有，包括自动重连期间。调用 `connect` 修改这些设置会报错，不会替换正在使用的凭据。换证时应停止旧客户端的业务操作、调用 `disconnect()`，再使用新凭据创建一个新的 `Tier0MQClient` 并重新注册订阅。旧客户端的 `disconnect()` 会清除 SDK 的订阅列表；它不是等待 Broker 确认断开的异步屏障。换证期间的消息可能丢失或重复，在途发布的结果也可能未知，应用需按业务协议处理，不能假定 SDK 已重放或恰好执行一次。Broker 撤销已经建立连接的生效时机取决于服务端认证、ACL 和缓存策略；仅更换客户端不能证明旧连接已被撤权。
 
 首次连接正在建立时，`subscribe` 会等待连接；首次连接失败时撤销该订阅并报告错误。SDK 自己负责重连（见上文「aenv-next 运行环境」）：自动重连期间 `subscribe`、`connect` 等待重连完成，新订阅会登记，重连后与中断前已登记的订阅一起恢复，也可在恢复前取消；`publish` 交给同一底层客户端排队，重连后发出。客户端停止重连（浏览器授权失败）或调用 `disconnect()` 时，等待中的调用报错，等待中的新订阅撤销。
@@ -333,7 +361,7 @@ node scripts/check-live-stream-runtime.mjs <consumer> <workspaceId> .tmp/live-st
 
 平台接口与能力发现的本地联调可分别运行 `node scripts/sync-contracts.mjs <backend> --worktree --platform-only` 和 `node scripts/sync-capability-contract.mjs <backend> --worktree`。预览来源明确记录基线和内容摘要，不能直接发布。Backend 提交后，将两条命令的 `--worktree` 替换为正式提交 SHA，再运行 `npm run generate && npm run check`；UNS 数据模型仍使用其独立固定输入。
 
-采集流程的 Source 创建/更新/状态变更、Stream 文档创建/更新/部署均可省略 `dryRun`（默认 false 提交）。SQL 新连接可在 `source.documents.create` 中直接传 `credentials.kind: usernamePassword` 与只写用户名/密码，不传 `credentials.method`；连接地址不携带秘密。`contracts/uns-v2/provenance.json` 的 `schemaUpdates` 记录这次有限合同更新，共享数据模型继续使用固定基础版本。
+Source 创建/更新与 Stream 创建/更新/部署的 dryRun 默认 false。凭据统一为 basic/oauth2/bearer/custom 等原生 kind，使用 username/secret/values，不使用 material/method。SQL 使用 edge-sql 与顶层 sql 固定查询。删除使用 source.documents.delete，换证使用 source.documents.credentials.update；远端 Edge 秘密在 Edge 本地预配。Stream 远端绑定传 target: {fleetNodeId,sourceId,configRevision}，服务端自动生成受控引用；不得与本地 sourceId/configRevision 同时传入。
 
 ## App Stream 交互与旧包迁移
 
@@ -357,3 +385,5 @@ node scripts/check-live-stream-runtime.mjs <consumer> <workspaceId> .tmp/live-st
 真实消息本地验收用 `npm run test:streams:artifact`（Go、Node.js 22+、`nats-server`，通过 `TIER0_STREAM_MESSAGES_BACKEND_DIR` 指向 Backend checkout）。脚本验证生产 Go issuer、TLS NATS、已安装 tarball 的 ESM/CJS 及浏览器依赖闭包；固定夹具身份不代表线上 SYS/Gateway/App 权限链路或浏览器端到端验收。
 
 代码存在不代表已发布。先构建并安装这次统一实现的不可变制品，更新 App 模板、依赖锁与存量 App，再移除旧包；不能用旧 npm 0.7.2 替代本分支构建。完整交互说明见 [Stream 交互](skills/tier0-sdk-v2/tier0-sdk-v2-streams/SKILL.md)。
+
+Source/Stream 定向契约同步使用 `node scripts/sync-source-stream-contract.mjs <backend> <commit>`，然后 `npm run generate && npm run check`。该生成流程同步相关公开操作、路由、协议目录及依赖 schema，保留其余数据模型与平台输入的固定版本；来源和摘要记录在 contracts/uns-v2/provenance.json 的 source-stream-public 条目。`--worktree` 仅供预览，发布前必须重新固定已提交 SHA。

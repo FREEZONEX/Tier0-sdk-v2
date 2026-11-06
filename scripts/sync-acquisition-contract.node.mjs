@@ -9,10 +9,10 @@ import { acquisitionSchemas, projectAcquisition, verifyAcquisition } from './syn
 test('采集投影保留共享模型，只允许已有引用', () => {
   const current = JSON.parse(readFileSync(new URL('../contracts/uns-v2/manifest.json', import.meta.url)));
   const upstream = structuredClone(current);
-  upstream.schemas.CloudSourceDocument.properties.protocol.enum.push('unrelated-protocol');
+  upstream.schemas.SourceDefinition.properties.protocol.enum.push('unrelated-protocol');
   upstream.schemas.CloudSourceDocumentCreateReq.description = 'reviewed acquisition update';
   const actual = projectAcquisition(current, upstream);
-  assert.deepEqual(actual.schemas.CloudSourceDocument, current.schemas.CloudSourceDocument);
+  assert.deepEqual(actual.schemas.SourceDefinition, current.schemas.SourceDefinition);
   assert.equal(actual.schemas.CloudSourceDocumentCreateReq.description, 'reviewed acquisition update');
   for (const name of Object.keys(current.schemas).filter(name => !acquisitionSchemas.includes(name))) {
     assert.deepEqual(actual.schemas[name], current.schemas[name]);

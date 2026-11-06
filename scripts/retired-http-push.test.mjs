@@ -65,7 +65,7 @@ test('UNS generation rejects a stale protocol before replacing generated types',
     writeFileSync(output, 'unchanged output');
     const path = resolve(scratch, 'contracts/uns-v2/contract.json');
     const contract = JSON.parse(readFileSync(path, 'utf8'));
-    contract.schemas.CloudSourceDocument.properties.protocol.enum.push('http_push');
+    contract.schemas.SourceDefinition.properties.protocol.enum.push('http_push');
     writeFileSync(path, JSON.stringify(contract));
     const result = spawnSync(process.execPath, [resolve(scratch, 'scripts/generate-uns-v2.mjs')], { encoding: 'utf8' });
     assert.notEqual(result.status, 0);

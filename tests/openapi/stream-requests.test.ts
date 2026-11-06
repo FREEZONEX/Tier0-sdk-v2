@@ -22,7 +22,7 @@ describe('Cloud StreamRequest single-attempt transport', () => {
     expect(await handle().invoke(input, { idempotencyKey: 'intent-1' })).toEqual(result);
     expect(fetch).toHaveBeenCalledExactlyOnceWith('https://cloud.example/openapi/v2/stream-requests/pump.start/invoke', {
       method: 'POST', redirect: 'manual', signal: expect.any(AbortSignal),
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer fixture-key', 'X-API-Key': 'fixture-key' },
+      headers: { 'Content-Type': 'application/json', 'X-API-Key': 'fixture-key' },
       body: JSON.stringify({ input, idempotencyKey: 'intent-1' }),
     });
   });

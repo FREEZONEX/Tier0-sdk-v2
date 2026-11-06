@@ -261,10 +261,10 @@ export type HTTPConnection = {
   "anonymous"?: boolean;
   "authentication"?: string;
   "caCertificate"?: string;
-  "oauth"?: OAuthConfig;
-  "parameters"?: Record<string, UnsV2JSONValue>;
-  "port"?: UnsV2Integer;
   "headers"?: ({} & Record<string, string>);
+  "oauth"?: OAuthConfig;
+  "parameters"?: ({} & Record<string, UnsV2JSONValue>);
+  "port"?: UnsV2Integer;
 };
 
 export type IndexSpec = ((({
@@ -291,8 +291,10 @@ export type IndexState = {
 };
 
 export type MQTTOptions = {
-  "clientId": string;
+  "caCertificate"?: string;
+  "clientId"?: string;
   "correlationField"?: string;
+  "packetEnvelope"?: boolean;
   "qos"?: UnsV2Integer;
   "replyTopic"?: string;
   "replyTopicField"?: string;
@@ -300,6 +302,8 @@ export type MQTTOptions = {
   "serverSubscribeTopics"?: Array<string>;
   "subscriptions"?: ({} & Record<string, UnsV2Integer>);
   "topicFilters"?: Array<string>;
+  "devicePublishTopics"?: Array<string>;
+  "deviceSubscribeTopics"?: Array<string>;
 };
 
 export type ModbusOptions = {
@@ -318,11 +322,11 @@ export type ModbusRange = {
 };
 
 export type OAuthConfig = {
-  "authorizationUrl": string;
+  "authorizationUrl"?: string;
   "clientAuthentication": string;
   "clientId": string;
   "grantType"?: string;
-  "scopes": string;
+  "scopes"?: string;
   "tokenUrl": string;
 };
 
@@ -388,16 +392,12 @@ export type Result = {
 };
 
 export type RuntimeStreamDefinition = {
-  "description"?: string;
-  "extensions"?: Record<string, UnsV2JSONValue>;
   "name": string;
-  "script": string;
-  "timeoutMs"?: UnsV2Integer;
-  "sourceBindings"?: (Array<({
-  "sourceId": string;
-  "configRevision": UnsV2Integer;
-  "acquisition": Record<string, UnsV2JSONValue>;
-})>);
+  "description"?: string;
+  "script": StreamScript;
+  "sources"?: Array<StreamSourceAlias>;
+  "sourceBindings"?: Array<StreamSourceBinding>;
+  "extensions"?: Record<string, UnsV2JSONValue>;
 };
 
 export type Schema = {
@@ -419,16 +419,27 @@ export type SourceDefinition = ({
   "credentialRef"?: string;
   "description"?: string;
   "endpoint": string;
-  "extensions"?: ({} & Record<string, UnsV2JSONValue>);
+  "extensions"?: ({
+  "tls"?: ({
+  "caRef"?: string;
+  "clientIdentityRef"?: string;
+});
+  "ingress"?: ({
+  "kind": "mqtt-device";
+});
+} & Record<string, UnsV2JSONValue>);
+  "file"?: FileSourceOptions;
   "http"?: HTTPConnection;
   "modbus"?: ModbusOptions;
   "mqtt"?: MQTTOptions;
   "name"?: string;
   "opcua"?: OPCUAOptions;
-  "protocol"?: "http-api" | "oauth2" | "mqtt" | "opcua" | "modbus-tcp";
+  "openProtocol"?: OpenProtocolOptions;
+  "protocol": "http-api" | "oauth2" | "mqtt" | "opcua" | "modbus-tcp" | "usb-hid" | "file-read" | "edge-sql" | "open-protocol";
   "role"?: "client" | "server";
   "runtimeLocation"?: "local";
   "sourceType"?: string;
+  "sql"?: SQLConnection;
 });
 
 export type TransactionQueryResult = {
@@ -512,12 +523,9 @@ export type UnsV2SourceProtocolsListResponse = {
   "data": Record<string, UnsV2JSONValue>;
 };
 
-export type UnsV2SourceValidateReq = ({
-  "name"?: string;
-  "adapter"?: "http-api" | "oauth2" | "mqtt" | "opcua" | "modbus-tcp";
-  "connection"?: SourceDefinition;
-  "document"?: CloudSourceDocument;
-});
+export type UnsV2SourceValidateReq = {
+  "document": SourceDefinition;
+};
 
 export type UnsV2SourceValidateResponse = {
   "code": UnsV2Integer;
@@ -579,8 +587,8 @@ export type UnsV2StreamProgramDeployReq = {
   "id": string;
   "expectedRevision"?: UnsV2Integer;
   "expectedSourceRevision"?: UnsV2Integer;
-  "expectedActiveRelease"?: UnsV2Integer;
   "expectedReleaseState"?: "inactive";
+  "expectedActiveVersion"?: string;
 };
 
 export type UnsV2StreamProgramDeployResponse = {
@@ -597,8 +605,8 @@ export type UnsV2StreamProgramRollbackReq = {
   "expectedRevision"?: UnsV2Integer;
   "expectedSourceRevision"?: UnsV2Integer;
   "versionId": string;
-  "expectedActiveRelease"?: UnsV2Integer;
   "expectedReleaseState"?: "inactive";
+  "expectedActiveVersion"?: string;
 };
 
 export type UnsV2StreamProgramRollbackResponse = {
@@ -819,28 +827,28 @@ export type UnsV2RecordChange = ({
 }) | ({
   "action"?: "record.update" | "record.replace";
   "expectedRevision"?: 0;
-}))) & (({
+}))) & ((({
   "action": "record.create";
   "id"?: string;
   "expectedRevision"?: 0;
-}) | (({
+}) & { "update"?: never; "arrayFilters"?: never; "upsert"?: never; "exists"?: never; "filter"?: never; "selection"?: never; "sort"?: never; "returnDocument"?: never; "operations"?: never; "query"?: never; "conditions"?: never }) | ((({
   "action": "record.check";
-})) | (({
+})) & { "update"?: never; "arrayFilters"?: never; "upsert"?: never; "data"?: never; "selection"?: never; "sort"?: never; "returnDocument"?: never; "operations"?: never; "query"?: never; "lockToken"?: never; "release"?: never; "lockTokens"?: never }) | ((({
   "action": "record.read";
   "expectedRevision"?: 0;
-})) | (({
+})) & { "update"?: never; "arrayFilters"?: never; "upsert"?: never; "data"?: never; "exists"?: never; "operations"?: never; "query"?: never; "lockToken"?: never; "release"?: never; "lockTokens"?: never; "conditions"?: never }) | ((({
   "action": "record.update";
-})) | (({
+})) & { "data"?: never; "exists"?: never; "query"?: never }) | ((({
   "action": "record.modify";
   "operations": UnsV2JSONValue;
-})) | (({
+})) & { "update"?: never; "arrayFilters"?: never; "upsert"?: never; "data"?: never; "exists"?: never; "query"?: never }) | ((({
   "action": "record.replace";
-})) | (({
+})) & { "update"?: never; "arrayFilters"?: never; "exists"?: never; "operations"?: never; "query"?: never; "conditions"?: never }) | ((({
   "action": "record.delete";
-})) | ({
+})) & { "update"?: never; "arrayFilters"?: never; "upsert"?: never; "data"?: never; "exists"?: never; "operations"?: never; "query"?: never; "conditions"?: never }) | (({
   "action": "record.query";
   "expectedRevision"?: 0;
-}));
+}) & { "update"?: never; "arrayFilters"?: never; "upsert"?: never; "id"?: never; "data"?: never; "exists"?: never; "filter"?: never; "selection"?: never; "sort"?: never; "returnDocument"?: never; "operations"?: never; "bindings"?: never; "lockToken"?: never; "release"?: never; "lockTokens"?: never; "conditions"?: never }));
 
 export type UnsV2DataFilter = {
   "$and"?: Array<UnsV2DataFilter>;
@@ -1352,185 +1360,6 @@ export type UnsV2SampleDeleteRangeReq = {
   "dryRun"?: boolean;
 };
 
-export type CloudSourceConfig = (({
-  "endpoint": string;
-  "options": Record<string, UnsV2JSONValue>;
-  "auth"?: ({
-  "kind": "basic" | "bearer" | "apiKey" | "usernamePassword" | "oauth2ClientCredentials";
-  "credentialRef": string;
-});
-  "tls"?: ({
-  "caRef"?: string;
-  "clientIdentityRef"?: string;
-});
-  "role"?: "client" | "server";
-}) | ({
-  "auth": ({
-  "credentialRef": string;
-  "kind": "vendorNative";
-});
-  "endpoint": string;
-  "options": ({
-  "headers"?: ({} & Record<string, string>);
-  "parameters"?: ({
-  "serverName"?: string;
-});
-});
-  "role"?: "client";
-  "sourceType": "pi-web-api";
-}) | ({
-  "auth": ({
-  "credentialRef": string;
-  "kind": "vendorNative";
-});
-  "endpoint": string;
-  "options": ({
-  "headers"?: ({} & Record<string, string>);
-  "parameters"?: ({
-  "pcn"?: string;
-  "tenantId"?: string;
-});
-});
-  "role"?: "client";
-  "sourceType": "plex-mes";
-}) | ({
-  "auth": ({
-  "credentialRef": string;
-  "kind": "vendorNative";
-});
-  "endpoint": string;
-  "options": ({
-  "headers"?: ({} & Record<string, string>);
-  "parameters"?: {};
-});
-  "role"?: "client";
-  "sourceType": "wms-rest";
-}) | ({
-  "auth": ({
-  "credentialRef": string;
-  "kind": "vendorNative" | "vendorBasic";
-});
-  "endpoint": string;
-  "options": ({
-  "headers"?: ({} & Record<string, string>);
-  "parameters"?: ({
-  "client"?: string;
-});
-});
-  "role"?: "client";
-  "sourceType": "sap-odata";
-}) | ({
-  "auth": ({
-  "credentialRef": string;
-  "kind": "vendorNative";
-});
-  "endpoint": string;
-  "options": ({
-  "headers"?: ({} & Record<string, string>);
-  "parameters"?: ({
-  "orgId"?: string;
-});
-});
-  "role"?: "client";
-  "sourceType": "yonyou-yonbip";
-}) | ({
-  "auth": ({
-  "credentialRef": string;
-  "kind": "vendorNative";
-});
-  "endpoint": string;
-  "options": ({
-  "headers"?: ({} & Record<string, string>);
-  "parameters"?: ({
-  "domain"?: string;
-});
-});
-  "role"?: "client";
-  "sourceType": "kingdee-jdy";
-}) | ({
-  "auth": ({
-  "credentialRef": string;
-  "kind": "vendorNative";
-});
-  "endpoint": string;
-  "options": ({
-  "headers"?: ({} & Record<string, string>);
-  "parameters"?: ({
-  "redirectUri"?: string;
-});
-});
-  "role"?: "client";
-  "sourceType": "ngp";
-}) | ({
-  "auth": ({
-  "credentialRef": string;
-  "kind": "vendorNative";
-});
-  "endpoint": string;
-  "options": ({
-  "headers"?: ({} & Record<string, string>);
-  "parameters": ({
-  "acctId": (string);
-  "appId"?: string;
-  "lcid": (string);
-  "user": (string);
-});
-});
-  "role"?: "client";
-  "sourceType": "kingdee-k3cloud";
-}) | ({
-  "auth": ({
-  "credentialRef": string;
-  "kind": "vendorNative";
-});
-  "endpoint": string;
-  "options": ({
-  "headers"?: ({} & Record<string, string>);
-  "parameters": ({
-  "apiVersion"?: string;
-  "clientId": (string);
-  "scopes"?: string;
-});
-});
-  "role"?: "client";
-  "sourceType": "salesforce";
-}) | ({
-  "auth": ({
-  "credentialRef": string;
-  "kind": "vendorNative";
-});
-  "endpoint": string;
-  "options": ({
-  "headers"?: ({} & Record<string, string>);
-  "parameters"?: ({
-  "group"?: string;
-  "locale"?: string;
-  "role"?: string;
-});
-});
-  "role"?: "client";
-  "sourceType": "teamcenter";
-}) | ({
-  "auth": ({
-  "credentialRef": string;
-  "kind": "vendorNative";
-});
-  "endpoint": string;
-  "options": ({
-  "headers"?: ({} & Record<string, string>);
-  "parameters"?: {};
-});
-  "role"?: "client";
-  "sourceType": "hikvision-isapi";
-}));
-
-export type CloudSourceDocument = ({
-  "name": string;
-  "description"?: string;
-  "protocol": "http-api" | "modbus" | "mqtt" | "opcua" | "sap" | "teamcenter" | "mqtt_device" | "sql" | "edge";
-  "config": CloudSourceConfig;
-});
-
 export type CloudStreamRequestDefinition = {
   "code": string;
   "name": string;
@@ -1544,19 +1373,6 @@ export type CloudStreamRequestDefinition = {
   "status"?: string;
 };
 
-export type CloudStreamScript = {
-  "code": string;
-  "timeoutMs": UnsV2Integer;
-};
-
-export type CloudSourceBinding = {
-  "alias": string;
-  "sourceId": string;
-  "configRevision": UnsV2Integer;
-  "resources"?: Array<string>;
-  "acquisition"?: Record<string, UnsV2JSONValue>;
-};
-
 export type CloudStreamEntry = {
   "id": string;
   "kind": string;
@@ -1568,22 +1384,26 @@ export type CloudStreamEntry = {
 export type CloudStreamDocument = {
   "name": string;
   "description"?: string;
-  "model": string;
-  "script": CloudStreamScript;
-  "sources"?: Array<CloudSourceBinding>;
+  "model"?: string;
+  "script": StreamScript;
+  "sources"?: Array<StreamSourceAlias>;
   "entries"?: Array<CloudStreamEntry>;
   "messages"?: Array<CloudStreamMessageDeclaration>;
+  "sourceBindings"?: Array<StreamSourceBinding>;
+  "extensions"?: Record<string, UnsV2JSONValue>;
 };
 
 export type CloudSourceDocumentView = {
   "id": string;
   "revision": UnsV2Integer;
-  "document": CloudSourceDocument;
+  "document": SourceDefinition;
   "runtimeState": string;
   "health": string;
   "createdAt": UnsV2Integer;
   "updatedAt": UnsV2Integer;
   "platformReadiness"?: CloudPlatformReadiness;
+  "configRevision"?: UnsV2Integer;
+  "desiredState"?: string;
 };
 
 export type CloudStreamDocumentView = {
@@ -1596,25 +1416,7 @@ export type CloudStreamDocumentView = {
   "createdAt": UnsV2Integer;
   "updatedAt": UnsV2Integer;
   "platformReadiness"?: CloudPlatformReadiness;
-};
-
-export type CloudSourceDeleteReq = {
-  "dryRun": boolean;
-  "idempotencyKey"?: string;
-  "mode"?: "auto" | "sync";
-  "allowPartial"?: false;
-  "items": (Array<({
-  "id": string;
-  "expectedRevision": UnsV2Integer;
-  "confirmedImpactRevision"?: string;
-})>);
-};
-
-export type CloudSourceDeleteResponse = {
-  "code": UnsV2Integer;
-  "msg": string;
-  "requestId": string;
-  "data": Outcome;
+  "activeVersion"?: string;
 };
 
 export type CloudStreamProgramListReq = {
@@ -1671,49 +1473,112 @@ export type CloudSourceDocumentGetResponse = {
   "code": UnsV2Integer;
   "msg": string;
   "requestId": string;
-  "data": ((CloudSourceDocumentView | CloudSourceDocumentSummary));
+  "data": ((CloudSourceDocumentView | CloudSourceDocumentSummary | CloudSourceReferenceView));
 };
 
-export type CloudSourceDocumentCreateReq = ({
+export type CloudSourceDocumentCreateReq = ((({
   "dryRun"?: boolean;
   "idempotencyKey"?: string;
-  "document"?: CloudSourceDocument;
-  "credentials"?: CloudSourceCreateCredentials;
+  "document": SourceDefinition;
+  "credentials"?: SourceCredentials;
   "items"?: (Array<({
   "id"?: string;
-  "document": CloudSourceDocument;
+  "document": SourceDefinition;
+  "credentials"?: SourceCredentials;
 })>);
-});
+}) & { "items"?: never }) | (({
+  "dryRun"?: boolean;
+  "idempotencyKey"?: string;
+  "document"?: SourceDefinition;
+  "credentials"?: SourceCredentials;
+  "items": (Array<({
+  "id"?: string;
+  "document": SourceDefinition;
+  "credentials"?: SourceCredentials;
+})>);
+}) & { "document"?: never; "credentials"?: never }));
 
 export type CloudSourceDocumentCreateResponse = {
   "code": UnsV2Integer;
   "msg": string;
   "requestId": string;
-  "data": ((CloudSourceDocumentView | CloudPreviewResult | Outcome));
+  "data": ((CloudSourceDocumentView | CloudPreviewResult | ({
+  "items": Array<CloudSourceDocumentView>;
+})));
 };
 
-export type CloudSourceDocumentUpdateReq = ({
+export type CloudSourceDocumentUpdateReq = (({
   "dryRun"?: boolean;
   "idempotencyKey"?: string;
   "id"?: string;
   "expectedRevision"?: UnsV2Integer;
-  "document"?: CloudSourceDocument;
+  "document"?: SourceDefinition;
   "confirmedImpactRevision"?: string;
-  "patch"?: CloudSourceDocumentPatch;
+  "patch"?: SourceDefinitionPatch;
+  "items": (Array<(({
+  "id": string;
+  "expectedRevision": UnsV2Integer;
+  "confirmedImpactRevision"?: string;
+  "document": SourceDefinition;
+  "patch"?: SourceDefinitionPatch;
+} & { "patch"?: never }) | ({
+  "id": string;
+  "expectedRevision": UnsV2Integer;
+  "confirmedImpactRevision"?: string;
+  "document"?: SourceDefinition;
+  "patch": SourceDefinitionPatch;
+} & { "document"?: never }))>);
+} & { "id"?: never; "expectedRevision"?: never; "confirmedImpactRevision"?: never; "document"?: never; "patch"?: never; "credentials"?: never }) | ((({
+  "dryRun"?: boolean;
+  "idempotencyKey"?: string;
+  "id": string;
+  "expectedRevision": UnsV2Integer;
+  "document": SourceDefinition;
+  "confirmedImpactRevision"?: string;
+  "patch"?: SourceDefinitionPatch;
   "items"?: (Array<(({
   "id": string;
   "expectedRevision": UnsV2Integer;
   "confirmedImpactRevision"?: string;
-  "document"?: CloudSourceDocument;
-  "patch"?: CloudSourceDocumentPatch;
-}))>);
-});
+  "document": SourceDefinition;
+  "patch"?: SourceDefinitionPatch;
+} & { "patch"?: never }) | ({
+  "id": string;
+  "expectedRevision": UnsV2Integer;
+  "confirmedImpactRevision"?: string;
+  "document"?: SourceDefinition;
+  "patch": SourceDefinitionPatch;
+} & { "document"?: never }))>);
+} & { "patch"?: never }) | ({
+  "dryRun"?: boolean;
+  "idempotencyKey"?: string;
+  "id": string;
+  "expectedRevision": UnsV2Integer;
+  "document"?: SourceDefinition;
+  "confirmedImpactRevision"?: string;
+  "patch": SourceDefinitionPatch;
+  "items"?: (Array<(({
+  "id": string;
+  "expectedRevision": UnsV2Integer;
+  "confirmedImpactRevision"?: string;
+  "document": SourceDefinition;
+  "patch"?: SourceDefinitionPatch;
+} & { "patch"?: never }) | ({
+  "id": string;
+  "expectedRevision": UnsV2Integer;
+  "confirmedImpactRevision"?: string;
+  "document"?: SourceDefinition;
+  "patch": SourceDefinitionPatch;
+} & { "document"?: never }))>);
+} & { "document"?: never })) & { "items"?: never }));
 
 export type CloudSourceDocumentUpdateResponse = {
   "code": UnsV2Integer;
   "msg": string;
   "requestId": string;
-  "data": ((CloudSourceDocumentView | CloudPreviewResult | Outcome));
+  "data": ((CloudSourceDocumentView | CloudPreviewResult | ({
+  "items": Array<CloudSourceDocumentView>;
+})));
 };
 
 export type CloudStreamDocumentGetReq = {
@@ -1728,13 +1593,19 @@ export type CloudStreamDocumentGetResponse = {
   "data": ((CloudStreamDocumentView | CloudStreamDocumentSummary));
 };
 
-export type CloudStreamDocumentCreateReq = ({
+export type CloudStreamDocumentCreateReq = (({
+  "dryRun"?: boolean;
+  "idempotencyKey"?: string;
+  "document": CloudStreamDocument;
+  "program"?: RuntimeStreamDefinition;
+  "expectedSourceRevision"?: UnsV2Integer;
+} & { "program"?: never; "expectedSourceRevision"?: never }) | ({
   "dryRun"?: boolean;
   "idempotencyKey"?: string;
   "document"?: CloudStreamDocument;
-  "program"?: RuntimeStreamDefinition;
+  "program": RuntimeStreamDefinition;
   "expectedSourceRevision"?: UnsV2Integer;
-});
+} & { "document"?: never }));
 
 export type CloudStreamDocumentCreateResponse = {
   "code": UnsV2Integer;
@@ -1743,15 +1614,23 @@ export type CloudStreamDocumentCreateResponse = {
   "data": ((CloudStreamDocumentView | CloudPreviewResult));
 };
 
-export type CloudStreamDocumentUpdateReq = ({
+export type CloudStreamDocumentUpdateReq = (({
+  "dryRun"?: boolean;
+  "idempotencyKey"?: string;
+  "id": string;
+  "expectedRevision"?: UnsV2Integer;
+  "document": CloudStreamDocument;
+  "program"?: RuntimeStreamDefinition;
+  "expectedSourceRevision"?: UnsV2Integer;
+} & { "program"?: never; "expectedSourceRevision"?: never }) | ({
   "dryRun"?: boolean;
   "idempotencyKey"?: string;
   "id": string;
   "expectedRevision"?: UnsV2Integer;
   "document"?: CloudStreamDocument;
-  "program"?: RuntimeStreamDefinition;
+  "program": RuntimeStreamDefinition;
   "expectedSourceRevision"?: UnsV2Integer;
-});
+} & { "document"?: never }));
 
 export type CloudStreamDocumentUpdateResponse = {
   "code": UnsV2Integer;
@@ -1769,10 +1648,11 @@ export type CloudSourceDocumentListReq = {
   "page"?: UnsV2Integer;
   "size"?: UnsV2Integer;
   "search"?: string;
-  "protocol"?: "http-api" | "modbus" | "mqtt" | "opcua" | "sap" | "teamcenter" | "mqtt_device" | "sql" | "edge";
+  "protocol"?: "http-api" | "oauth2" | "mqtt" | "opcua" | "modbus-tcp" | "usb-hid" | "file-read" | "edge-sql" | "open-protocol";
   "health"?: string;
   "archived"?: boolean;
   "includeDocument"?: boolean;
+  "desiredState"?: "enabled" | "disabled";
 };
 
 export type CloudSourceDocumentListResponse = {
@@ -1795,9 +1675,9 @@ export type CloudSourceDocumentListResponse = {
 export type CloudStreamDocumentDisableReq = {
   "id": string;
   "expectedRevision": UnsV2Integer;
-  "expectedActiveRelease": UnsV2Integer;
   "dryRun": boolean;
   "idempotencyKey"?: string;
+  "expectedActiveVersion": string;
 };
 
 export type CloudStreamDocumentDisableResponse = {
@@ -1807,12 +1687,17 @@ export type CloudStreamDocumentDisableResponse = {
   "data": ((CloudStreamStopView | CloudPreviewResult));
 };
 
-export type CloudStreamDocumentValidateReq = ({
-  "document"?: CloudStreamDocument;
+export type CloudStreamDocumentValidateReq = (({
+  "document": CloudStreamDocument;
   "id"?: string;
   "program"?: RuntimeStreamDefinition;
   "expectedSourceRevision"?: UnsV2Integer;
-});
+} & { "program"?: never; "expectedSourceRevision"?: never }) | ({
+  "document"?: CloudStreamDocument;
+  "id"?: string;
+  "program": RuntimeStreamDefinition;
+  "expectedSourceRevision"?: UnsV2Integer;
+} & { "document"?: never }));
 
 export type CloudStreamDocumentValidateResponse = {
   "code": UnsV2Integer;
@@ -1867,17 +1752,19 @@ export type CloudStreamProgramSummary = {
 export type CloudSourceImpactReq = ({
   "id": string;
   "expectedRevision": UnsV2Integer;
-  "action": "update" | "delete";
-  "document"?: CloudSourceDocument;
+  "action": "update" | "delete" | "enable" | "disable" | "credentials";
+  "document"?: SourceDefinition;
   "offset"?: UnsV2Integer;
   "size"?: UnsV2Integer;
   "impactRevision"?: string;
-  "patch"?: CloudSourceDocumentPatch;
+  "patch"?: SourceDefinitionPatch;
 }) & ((({
   "action"?: "update";
-})) | ({
-  "action"?: "delete";
-}));
+})) | (({
+  "action"?: "delete" | "enable" | "disable";
+}) & { "document"?: never; "patch"?: never }) | (({
+  "action": "credentials";
+}) & { "document"?: never; "patch"?: never }));
 
 export type CloudSourceHistoryReq = {
   "id": string;
@@ -1893,7 +1780,7 @@ export type CloudSourceImpactResponse = {
   "impactRevision": string;
   "sourceID": string;
   "sourceRevision": UnsV2Integer;
-  "action": "update" | "delete";
+  "action": "update" | "delete" | "enable" | "disable" | "credentials";
   "complete": 1;
   "counts": ({
   "draft": UnsV2Integer;
@@ -1944,6 +1831,7 @@ export type CloudStreamStopView = {
   "activeRelease": UnsV2Integer;
   "createdAt": UnsV2Integer;
   "updatedAt": UnsV2Integer;
+  "activeVersion"?: string;
 };
 
 export type CloudSourceObservationsGetReq = {
@@ -1951,28 +1839,14 @@ export type CloudSourceObservationsGetReq = {
   "id": string;
   "expectedRevision": UnsV2Integer;
 })>);
+  "view"?: "summary" | "full";
 };
 
 export type CloudSourceObservationsGetResponse = {
   "code": UnsV2Integer;
   "msg": string;
   "requestId": string;
-  "data": ({
-  "items": (Array<({
-  "id": string;
-  "revision": UnsV2Integer;
-  "acceptedCaptures": UnsV2Integer;
-  "committedWrites": UnsV2Integer;
-  "failedRuns": UnsV2Integer;
-  "lastDataAt": UnsV2Int64 | null;
-})>);
-  "window": ({
-  "from": UnsV2Int64;
-  "to": UnsV2Int64;
-});
-  "coverage": "durable-admissions";
-  "checkedAt": UnsV2Int64;
-});
+  "data": ((CloudSourceObservationsFull | CloudSourceObservationsSummary));
 };
 
 export type CloudStreamObservationGetReq = {
@@ -2356,7 +2230,7 @@ export type CloudStreamRequestGrantTargetRevision = {
   "revision": UnsV2Integer;
 };
 
-export type CloudStreamRequestGrantSetReq = ({
+export type CloudStreamRequestGrantSetReq = (({
   "code": string;
   "principalKind": "app" | "user";
   "principalID": string;
@@ -2365,8 +2239,18 @@ export type CloudStreamRequestGrantSetReq = ({
   "expectedCodeRevision"?: UnsV2Integer;
   "actions"?: Array<"stream.requests.read" | "stream.requests.invoke" | "stream.requests.write">;
   "targetRevisions"?: Array<CloudStreamRequestGrantTargetRevision>;
+  "expectedSnapshotToken": string;
+} & { "expectedBindingDigest"?: never; "expectedCodeRevision"?: never; "targetRevisions"?: never }) | ({
+  "code": string;
+  "principalKind": "app" | "user";
+  "principalID": string;
+  "active": 1 | 2;
+  "expectedBindingDigest"?: string;
+  "expectedCodeRevision": UnsV2Integer;
+  "actions"?: Array<"stream.requests.read" | "stream.requests.invoke" | "stream.requests.write">;
+  "targetRevisions"?: Array<CloudStreamRequestGrantTargetRevision>;
   "expectedSnapshotToken"?: string;
-});
+} & { "expectedSnapshotToken"?: never }));
 
 export type CloudStreamRequestGrantTargetInfo = {
   "digest": string;
@@ -2431,9 +2315,9 @@ export type CloudAppDataGrantChange = ({
   "dataRule"?: (CloudAppDataRule | null);
 }) & ((({
   "action"?: "upsert";
-}) | ({
+}) | (({
   "action"?: "remove";
-})));
+}) & { "alias"?: never; "permissionLevel"?: never; "permissions"?: never; "dataRule"?: never })));
 
 export type CloudAppStreamAccessListReq = {
   "appId": string;
@@ -2482,7 +2366,7 @@ export type CloudSourceDiscoverResponse = {
   "data": ({
   "id": string;
   "revision": UnsV2Integer;
-  "sourceType": "pi-web-api" | "plex-mes" | "wms-rest" | "sap-odata" | "yonyou-yonbip" | "kingdee-jdy" | "ngp" | "kingdee-k3cloud" | "salesforce" | "teamcenter" | "hikvision-isapi";
+  "sourceType": "sap-odata";
   "resources": (Array<({
   "ref": string;
   "name": string;
@@ -2539,15 +2423,23 @@ export type UnsV2SampleAggregateResponse = {
   "data": CloudDataPage;
 };
 
-export type UnsV2RecordLockReq = ({
+export type UnsV2RecordLockReq = (({
   "collectionId": string;
-  "ids"?: Array<string>;
+  "ids": Array<string>;
   "filter"?: UnsV2DataFilter;
   "sort"?: UnsV2PipelineSort;
   "limit"?: UnsV2Integer;
   "ttlMs"?: UnsV2Integer;
   "label"?: string;
-});
+} & { "filter"?: never; "sort"?: never; "limit"?: never }) | ({
+  "collectionId": string;
+  "ids"?: Array<string>;
+  "filter": UnsV2DataFilter;
+  "sort"?: UnsV2PipelineSort;
+  "limit": UnsV2Integer;
+  "ttlMs"?: UnsV2Integer;
+  "label"?: string;
+} & { "ids"?: never }));
 
 export type UnsV2RecordLockResponse = {
   "code": UnsV2Integer;
@@ -2833,46 +2725,6 @@ export type CloudStreamRunError = {
   "repair": string;
   "sourceRequest"?: "notDispatched";
 };
-
-export type CloudSourceCreateCredentials = ({
-  "method"?: "GET" | "HEAD" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS" | "REQUEST";
-  "kind": "basic" | "bearer" | "apiKey" | "oauth2ClientCredentials" | "usernamePassword";
-  "material": {};
-}) & (({
-  "kind"?: "basic";
-  "material"?: ({
-  "username": string;
-  "password": string;
-});
-}) | ({
-  "kind"?: "bearer";
-  "material"?: ({
-  "token": string;
-});
-}) | ({
-  "kind"?: "apiKey";
-  "method"?: "REQUEST";
-  "material"?: ({
-  "headerName": string;
-  "value": string;
-});
-}) | ({
-  "kind"?: "oauth2ClientCredentials";
-  "method"?: "GET" | "REQUEST";
-  "material"?: ({
-  "tokenUrl": string;
-  "clientId": string;
-  "clientSecret": string;
-  "scope"?: string;
-  "clientAuthentication"?: "client_secret_post" | "client_secret_basic";
-});
-}) | (({
-  "kind"?: "usernamePassword";
-  "material"?: ({
-  "username": string;
-  "password": string;
-});
-}) & { "method"?: never }));
 
 export type UnsV2MetadataFindReq = ((({
   "kind": "directory" | "topic" | "collection";
@@ -3449,23 +3301,17 @@ export type MetadataTransactionOperation = ({
   "kind": "collection";
   "data"?: MetadataCollectionInput;
   "replacement"?: MetadataCollectionInput;
-}))) & (({
+}))) & ((({
   "action": "insertOne";
-}) | (({
+}) & { "filter"?: never; "update"?: never; "replacement"?: never; "expectedRevision"?: never; "sort"?: never }) | ((({
   "action": "updateOne";
-})) | (({
+})) & { "data"?: never; "replacement"?: never }) | ((({
   "action": "replaceOne";
-})) | (({
+})) & { "data"?: never; "update"?: never }) | ((({
   "action": "deleteOne";
-})) | ({
+})) & { "data"?: never; "update"?: never; "replacement"?: never }) | (({
   "action": "restoreOne";
-}));
-
-export type CloudSourceDocumentPatch = {
-  "name"?: string;
-  "description"?: string;
-  "config"?: CloudSourceConfig;
-};
+}) & { "data"?: never; "update"?: never; "replacement"?: never }));
 
 export type CloudSourceDocumentSummary = {
   "id": string;
@@ -3479,6 +3325,13 @@ export type CloudSourceDocumentSummary = {
   "runtimeState": string;
   "health": string;
   "platformReadiness"?: CloudPlatformReadiness;
+  "reference"?: boolean;
+  "nativeProtocol"?: string;
+  "target"?: StreamSourceTarget;
+  "configRevision"?: UnsV2Integer;
+  "desiredState"?: string;
+  "sourceType"?: string;
+  "runtimeLocation"?: string;
 };
 
 export type CloudStreamDocumentSummary = {
@@ -3493,6 +3346,7 @@ export type CloudStreamDocumentSummary = {
   "status": string;
   "activeRelease": UnsV2Integer;
   "platformReadiness"?: CloudPlatformReadiness;
+  "activeVersion"?: string;
 };
 
 export type CloudPlatformReadiness = {
@@ -3634,7 +3488,275 @@ export type CloudSourceResourceScanResponse = {
   "hasMore": boolean;
   "collectedAt": UnsV2Integer;
   "checkpoint"?: string;
+  "jobState"?: string;
+  "jobId"?: string;
+  "gaps"?: (Array<({
+  "reason": string;
+  "from": string;
+  "to": string;
+  "at": UnsV2Integer;
+})>);
+  "historyComplete"?: boolean;
+  "truncated"?: boolean;
+  "lastAttemptedId"?: UnsV2Integer;
 });
+};
+
+export type UnsV2SourceNativeOAuthCompleteResponse = {
+  "code": UnsV2Integer;
+  "msg": string;
+  "requestId": string;
+  "data": Record<string, UnsV2JSONValue>;
+};
+
+export type UnsV2SourceNativeOAuthCompleteReq = {
+  "dryRun"?: false;
+  "idempotencyKey"?: string;
+  "id": string;
+  "state": string;
+  "code": string;
+};
+
+export type UnsV2SourceNativeOAuthStartResponse = {
+  "code": UnsV2Integer;
+  "msg": string;
+  "requestId": string;
+  "data": Record<string, UnsV2JSONValue>;
+};
+
+export type UnsV2SourceNativeOAuthStartReq = {
+  "dryRun"?: false;
+  "idempotencyKey"?: string;
+  "id": string;
+  "redirectUri": string;
+};
+
+export type UnsV2SourceNativeCredentialsUpdateResponse = {
+  "code": UnsV2Integer;
+  "msg": string;
+  "requestId": string;
+  "data": Record<string, UnsV2JSONValue>;
+};
+
+export type UnsV2SourceNativeCredentialsUpdateReq = {
+  "dryRun"?: boolean;
+  "idempotencyKey": string;
+  "id": string;
+  "expectedRevision": UnsV2Integer;
+  "credentials": SourceCredentials;
+  "confirmedImpactRevision"?: string;
+};
+
+export type SourceCredentials = ({
+  "kind": "basic" | "bearer" | "custom" | "http" | "oauth2" | "certificate";
+  "username"?: string;
+  "secret"?: string;
+  "values"?: ({} & Record<string, string>);
+  "certificateFileId"?: string;
+  "privateKeyFileId"?: string;
+  "caFileId"?: string;
+});
+
+export type UnsV2SourceDocumentDeleteResponse = {
+  "code": UnsV2Integer;
+  "msg": string;
+  "requestId": string;
+  "data": Record<string, UnsV2JSONValue>;
+};
+
+export type UnsV2SourceDocumentDeleteReq = {
+  "dryRun"?: boolean;
+  "idempotencyKey"?: string;
+  "id": string;
+  "expectedRevision": UnsV2Integer;
+  "confirmedImpactRevision"?: string;
+};
+
+export type CloudSourceDevicesListResponse = {
+  "code": UnsV2Integer;
+  "msg": string;
+  "requestId": string;
+  "data": Record<string, UnsV2JSONValue>;
+};
+
+export type CloudSourceDevicesListReq = {
+  "kind"?: "usb-hid" | "serial";
+};
+
+export type StreamSourceBinding = (({
+  "sourceId": string;
+  "configRevision": UnsV2Integer;
+  "target"?: StreamSourceTarget;
+  "acquisition"?: Record<string, UnsV2JSONValue>;
+} & { "target"?: never }) | ({
+  "sourceId"?: string;
+  "configRevision"?: UnsV2Integer;
+  "target": StreamSourceTarget;
+  "acquisition"?: Record<string, UnsV2JSONValue>;
+} & { "sourceId"?: never; "configRevision"?: never }));
+
+export type StreamSourceTarget = {
+  "fleetNodeId": string;
+  "sourceId": string;
+  "configRevision": UnsV2Integer;
+};
+
+export type StreamSourceAlias = (({
+  "sourceId": string;
+  "configRevision": UnsV2Integer;
+  "target"?: StreamSourceTarget;
+  "acquisition"?: Record<string, UnsV2JSONValue>;
+  "alias": string;
+  "resources"?: Array<string>;
+} & { "target"?: never }) | ({
+  "sourceId"?: string;
+  "configRevision"?: UnsV2Integer;
+  "target": StreamSourceTarget;
+  "acquisition"?: Record<string, UnsV2JSONValue>;
+  "alias": string;
+  "resources"?: Array<string>;
+} & { "sourceId"?: never; "configRevision"?: never }));
+
+export type StreamScript = {
+  "code": string;
+  "timeoutMs": UnsV2Integer;
+};
+
+export type CloudSourceObservationsSummary = {
+  "view": "summary";
+  "items": (Array<({
+  "id": string;
+  "revision": UnsV2Integer;
+  "lastDataAt": UnsV2Int64 | null;
+})>);
+  "coverage": "durable-admissions";
+  "checkedAt": UnsV2Int64;
+};
+
+export type CloudSourceObservationsFull = {
+  "items": (Array<({
+  "id": string;
+  "revision": UnsV2Integer;
+  "acceptedCaptures": UnsV2Integer;
+  "committedWrites": UnsV2Integer;
+  "failedRuns": UnsV2Integer;
+  "lastDataAt": UnsV2Int64 | null;
+})>);
+  "window": ({
+  "from": UnsV2Int64;
+  "to": UnsV2Int64;
+});
+  "coverage": "durable-admissions";
+  "checkedAt": UnsV2Int64;
+};
+
+export type SourceDefinitionPatch = {
+  "credentialRef"?: string;
+  "description"?: string;
+  "endpoint"?: string;
+  "extensions"?: ({
+  "tls"?: ({
+  "caRef"?: string;
+  "clientIdentityRef"?: string;
+});
+  "ingress"?: ({
+  "kind": "mqtt-device";
+});
+} & Record<string, UnsV2JSONValue>);
+  "file"?: FileSourceOptions;
+  "http"?: HTTPConnection;
+  "modbus"?: ModbusOptions;
+  "mqtt"?: MQTTOptions;
+  "name"?: string;
+  "opcua"?: OPCUAOptions;
+  "openProtocol"?: OpenProtocolOptions;
+  "protocol"?: "http-api" | "oauth2" | "mqtt" | "opcua" | "modbus-tcp" | "usb-hid" | "file-read" | "edge-sql" | "open-protocol";
+  "role"?: "client" | "server";
+  "runtimeLocation"?: "local";
+  "sourceType"?: string;
+  "sql"?: SQLConnection;
+};
+
+export type SQLConnection = (({
+  "caCertificate"?: string;
+  "query": "sql:tool-inventory" | "sql:tool-loans" | "sql:tool-sharpenings" | "sql:tool-suppliers" | "sql:quality-inspections" | "sql:wms-schema" | "sql:wms-inventory" | "sql:wms-movements";
+  "wms"?: WMSMapping;
+  "queries"?: ({} & Record<string, string>);
+  "tlsMode"?: "verify-full" | "disable";
+} & { "queries"?: never }) | ({
+  "caCertificate"?: string;
+  "query"?: "sql:tool-inventory" | "sql:tool-loans" | "sql:tool-sharpenings" | "sql:tool-suppliers" | "sql:quality-inspections" | "sql:wms-schema" | "sql:wms-inventory" | "sql:wms-movements";
+  "wms"?: WMSMapping;
+  "queries": ({} & Record<string, string>);
+  "tlsMode"?: "verify-full" | "disable";
+} & { "query"?: never }));
+
+export type WMSMapping = {
+  "fields": Array<string>;
+  "keyColumn": string;
+  "table": string;
+  "updatedAt"?: string;
+};
+
+export type OpenProtocolOptions = {
+  "bufferLimit"?: UnsV2Integer;
+  "cellId": UnsV2Integer;
+  "channelId": UnsV2Integer;
+  "controllerName": string;
+  "historyEndId"?: UnsV2Integer;
+  "historyStartId"?: UnsV2Integer;
+};
+
+export type FileSourceOptions = ({
+  "caCertificate"?: string;
+  "directories"?: Array<FileDirectory>;
+  "resources"?: Array<FileSelection>;
+  "sshHostKey"?: string;
+});
+
+export type FileSelection = {
+  "id": string;
+  "path": string;
+  "tables"?: Array<"T_JYD" | "T_JYD_MX" | "T_YHB">;
+};
+
+export type FileDirectory = {
+  "extensions": Array<string>;
+  "format": "bytes" | "edifact";
+  "id": string;
+  "path": string;
+};
+
+export type SalesforceQueryDeclaration = {
+  "cdc"?: boolean;
+  "end": string;
+  "fields": Array<string>;
+  "id": string;
+  "object": string;
+  "queryAll"?: boolean;
+  "start": string;
+};
+
+export type TeamcenterFileSelection = {
+  "datasetUid": string;
+  "fileUid": string;
+  "id": string;
+  "itemId": string;
+  "itemUid": string;
+  "queryUid": string;
+  "revisionUid": string;
+};
+
+export type CloudSourceReferenceView = {
+  "id": string;
+  "revision": UnsV2Integer;
+  "configRevision": UnsV2Integer;
+  "reference": true;
+  "nativeProtocol": string;
+  "target": StreamSourceTarget;
+  "runtimeState": string;
+  "health": string;
+  "desiredState": string;
 };
 
 export const UNS_V2_OPERATIONS = {
@@ -3646,14 +3768,6 @@ export const UNS_V2_OPERATIONS = {
   "references": { path: "/openapi/v2/uns/references/query", pathParams: [], request: "UnsV2ReferencesDocumentedRequest", response: "UnsV2Envelope", mutation: false, idempotencyKey: false, scope: "uns:read" },
   "jobs": { path: "/openapi/v2/uns/jobs/query", pathParams: [], request: "UnsV2JobsDocumentedRequest", response: "UnsV2Envelope", mutation: false, idempotencyKey: false, scope: "uns:read" },
   "recordTransactionExecute": { path: "/openapi/v2/uns/records:transact", pathParams: [], request: "UnsV2RecordTransactionReq", response: "UnsV2RecordTransactionExecuteResponse", mutation: true, idempotencyKey: true, scope: "uns:write" },
-  "sourceRuntimeGet": { path: "/openapi/v2/uns/sources/runtime/get", pathParams: [], request: "UnsV2SourceRuntimeGetReq", response: "UnsV2SourceRuntimeGetResponse", mutation: false, idempotencyKey: false, scope: "source:read" },
-  "sourceProtocolsList": { path: "/openapi/v2/uns/sources/protocols/list", pathParams: [], request: "UnsV2SourceProtocolsListReq", response: "UnsV2SourceProtocolsListResponse", mutation: false, idempotencyKey: false, scope: "source:read" },
-  "sourceValidate": { path: "/openapi/v2/uns/sources/validate", pathParams: [], request: "UnsV2SourceValidateReq", response: "UnsV2SourceValidateResponse", mutation: false, idempotencyKey: false, scope: "source:manage" },
-  "sourceProbe": { path: "/openapi/v2/uns/sources/probe", pathParams: [], request: "UnsV2SourceProbeReq", response: "UnsV2SourceProbeResponse", mutation: true, idempotencyKey: true, scope: "source:manage" },
-  "sourceDiscover": { path: "/openapi/v2/uns/sources/discover", pathParams: [], request: "CloudSourceDiscoverReq", response: "CloudSourceDiscoverResponse", mutation: true, idempotencyKey: false, scope: "source:manage" },
-  "streamProgramVersionsList": { path: "/openapi/v2/uns/streams/program/versions/list", pathParams: [], request: "UnsV2StreamProgramVersionsListReq", response: "UnsV2StreamProgramVersionsListResponse", mutation: false, idempotencyKey: false, scope: "stream:read" },
-  "streamProgramDeploy": { path: "/openapi/v2/uns/streams/program/deploy", pathParams: [], request: "UnsV2StreamProgramDeployReq", response: "UnsV2StreamProgramDeployResponse", mutation: true, idempotencyKey: true, scope: "stream:manage" },
-  "streamProgramRollback": { path: "/openapi/v2/uns/streams/program/rollback", pathParams: [], request: "UnsV2StreamProgramRollbackReq", response: "UnsV2StreamProgramRollbackResponse", mutation: true, idempotencyKey: true, scope: "stream:manage" },
   "sampleAppend": { path: "/openapi/v2/uns/collections/:collectionId/records/:recordId/samples", pathParams: ["collectionId","recordId"], request: "UnsV2SampleAppendReq", response: "UnsV2SampleAppendResponse", mutation: true, idempotencyKey: true, scope: "uns:write" },
   "recordFind": { path: "/openapi/v2/uns/collections/:collectionId/records:find", pathParams: ["collectionId"], request: "UnsV2RecordFindReq", response: "UnsV2RecordFindResponse", mutation: false, idempotencyKey: false, scope: "uns:read" },
   "recordCount": { path: "/openapi/v2/uns/collections/:collectionId/records:count", pathParams: ["collectionId"], request: "UnsV2RecordCountReq", response: "UnsV2RecordCountResponse", mutation: false, idempotencyKey: false, scope: "uns:read" },
@@ -3668,24 +3782,6 @@ export const UNS_V2_OPERATIONS = {
   "recordBulkWrite": { path: "/openapi/v2/uns/collections/:collectionId/records:bulkWrite", pathParams: ["collectionId"], request: "UnsV2RecordBulkWriteReq", response: "UnsV2RecordBulkWriteResponse", mutation: true, idempotencyKey: true, scope: "uns:write" },
   "sampleLatestValues": { path: "/openapi/v2/uns/collections/:collectionId/samples:latest", pathParams: ["collectionId"], request: "UnsV2SampleLatestValuesReq", response: "UnsV2SampleLatestValuesResponse", mutation: false, idempotencyKey: false, scope: "uns:read" },
   "sampleDeleteRange": { path: "/openapi/v2/uns/collections/:collectionId/samples:delete", pathParams: ["collectionId"], request: "UnsV2SampleDeleteRangeReq", response: "UnsV2SampleDeleteRangeResponse", mutation: true, idempotencyKey: false, scope: "uns:update" },
-  "sourceDelete": { path: "/openapi/v2/uns/sources/delete", pathParams: [], request: "CloudSourceDeleteReq", response: "CloudSourceDeleteResponse", mutation: true, idempotencyKey: true, scope: "source:manage" },
-  "streamProgramList": { path: "/openapi/v2/uns/streams/program/list", pathParams: [], request: "CloudStreamProgramListReq", response: "CloudStreamProgramListResponse", mutation: false, idempotencyKey: false, scope: "stream:read" },
-  "streamProgramDelete": { path: "/openapi/v2/uns/streams/program/delete", pathParams: [], request: "CloudStreamProgramDeleteReq", response: "CloudStreamProgramDeleteResponse", mutation: true, idempotencyKey: true, scope: "stream:manage" },
-  "sourceDocumentGet": { path: "/openapi/v2/uns/sources/documents/get", pathParams: [], request: "CloudSourceDocumentGetReq", response: "CloudSourceDocumentGetResponse", mutation: false, idempotencyKey: false, scope: "source:read" },
-  "sourceDocumentCreate": { path: "/openapi/v2/uns/sources/documents/create", pathParams: [], request: "CloudSourceDocumentCreateReq", response: "CloudSourceDocumentCreateResponse", mutation: true, idempotencyKey: true, scope: "source:manage" },
-  "sourceDocumentUpdate": { path: "/openapi/v2/uns/sources/documents/update", pathParams: [], request: "CloudSourceDocumentUpdateReq", response: "CloudSourceDocumentUpdateResponse", mutation: true, idempotencyKey: true, scope: "source:manage" },
-  "streamDocumentGet": { path: "/openapi/v2/uns/streams/documents/get", pathParams: [], request: "CloudStreamDocumentGetReq", response: "CloudStreamDocumentGetResponse", mutation: false, idempotencyKey: false, scope: "stream:read" },
-  "streamDocumentCreate": { path: "/openapi/v2/uns/streams/documents/create", pathParams: [], request: "CloudStreamDocumentCreateReq", response: "CloudStreamDocumentCreateResponse", mutation: true, idempotencyKey: true, scope: "stream:manage" },
-  "streamDocumentUpdate": { path: "/openapi/v2/uns/streams/documents/update", pathParams: [], request: "CloudStreamDocumentUpdateReq", response: "CloudStreamDocumentUpdateResponse", mutation: true, idempotencyKey: true, scope: "stream:manage" },
-  "sourceDocumentList": { path: "/openapi/v2/uns/sources/documents/list", pathParams: [], request: "CloudSourceDocumentListReq", response: "CloudSourceDocumentListResponse", mutation: false, idempotencyKey: false, scope: "source:read" },
-  "streamDocumentDisable": { path: "/openapi/v2/uns/streams/documents/disable", pathParams: [], request: "CloudStreamDocumentDisableReq", response: "CloudStreamDocumentDisableResponse", mutation: true, idempotencyKey: true, scope: "stream:manage" },
-  "streamDocumentValidate": { path: "/openapi/v2/uns/streams/documents/validate", pathParams: [], request: "CloudStreamDocumentValidateReq", response: "CloudStreamDocumentValidateResponse", mutation: false, idempotencyKey: false, scope: "stream:manage" },
-  "sourceImpact": { path: "/openapi/v2/uns/sources/impact", pathParams: [], request: "CloudSourceImpactReq", response: "CloudSourceImpactResponse", mutation: false, idempotencyKey: false, scope: "source:manage" },
-  "sourceHistory": { path: "/openapi/v2/uns/sources/history", pathParams: [], request: "CloudSourceHistoryReq", response: "CloudSourceHistoryResponse", mutation: false, idempotencyKey: false, scope: "source:read" },
-  "sourceObservationsGet": { path: "/openapi/v2/uns/sources/observations/get", pathParams: [], request: "CloudSourceObservationsGetReq", response: "CloudSourceObservationsGetResponse", mutation: false, idempotencyKey: false, scope: "source:read" },
-  "streamObservationGet": { path: "/openapi/v2/uns/streams/observation/get", pathParams: [], request: "CloudStreamObservationGetReq", response: "CloudStreamObservationGetResponse", mutation: false, idempotencyKey: false, scope: "stream:read" },
-  "streamRunsList": { path: "/openapi/v2/uns/streams/runs/list", pathParams: [], request: "CloudStreamRunsListReq", response: "CloudStreamRunsListResponse", mutation: false, idempotencyKey: false, scope: "stream:read" },
-  "streamSampleTest": { path: "/openapi/v2/uns/streams/sample/test", pathParams: [], request: "CloudStreamSampleTestReq", response: "CloudStreamSampleTestResponse", mutation: false, idempotencyKey: false, scope: "stream:manage" },
   "appDataPolicyGet": { path: "/openapi/v2/uns/app-data-policy/get", pathParams: [], request: "CloudAppDataPolicyGetReq", response: "CloudAppDataPolicyGetResponse", mutation: false, idempotencyKey: false, scope: "uns:update" },
   "appDataPolicyUpdate": { path: "/openapi/v2/uns/app-data-policy/update", pathParams: [], request: "CloudAppDataPolicyUpdateReq", response: "CloudAppDataPolicyMutationResponse", mutation: true, idempotencyKey: true, scope: "uns:update" },
   "dataAppContext": { path: "/openapi/v2/uns/app/context", pathParams: [], request: "CloudDataAppContextReq", response: "CloudDataAppContextResponse", mutation: false, idempotencyKey: false, scope: "uns:read" },
@@ -3696,8 +3792,6 @@ export const UNS_V2_OPERATIONS = {
   "appCollectionsArchive": { path: "/openapi/v2/uns/app/collections/archive", pathParams: [], request: "CloudAppCollectionAliasReq", response: "CloudAppCollectionStateResponse", mutation: true, idempotencyKey: false, scope: "uns:update" },
   "appCollectionsRestore": { path: "/openapi/v2/uns/app/collections/restore", pathParams: [], request: "CloudAppCollectionAliasReq", response: "CloudAppCollectionStateResponse", mutation: true, idempotencyKey: false, scope: "uns:update" },
   "appCollectionsList": { path: "/openapi/v2/uns/app/collections/list", pathParams: [], request: "CloudAppCollectionsListReq", response: "CloudAppCollectionsListResponse", mutation: false, idempotencyKey: false, scope: "uns:read" },
-  "streamRequestGrantGet": { path: "/openapi/v2/uns/stream-requests/grants/get", pathParams: [], request: "CloudStreamRequestGrantGetReq", response: "CloudStreamRequestGrantGetResponse", mutation: false, idempotencyKey: false, scope: "stream.requests:manage" },
-  "streamRequestGrantSet": { path: "/openapi/v2/uns/stream-requests/grants/set", pathParams: [], request: "CloudStreamRequestGrantSetReq", response: "CloudStreamRequestGrantSetResponse", mutation: true, idempotencyKey: false, scope: "stream.requests:manage" },
   "appStreamAccessList": { path: "/openapi/v2/uns/app-stream-access/list", pathParams: [], request: "CloudAppStreamAccessListReq", response: "CloudAppStreamAccessListResponse", mutation: false, idempotencyKey: false, scope: "stream.requests:manage" },
   "sampleFind": { path: "/openapi/v2/uns/collections/:collectionId/samples:find", pathParams: ["collectionId"], request: "UnsV2SampleFindReq", response: "UnsV2SampleFindResponse", mutation: false, idempotencyKey: false, scope: "uns:read" },
   "sampleAggregate": { path: "/openapi/v2/uns/collections/:collectionId/samples:aggregate", pathParams: ["collectionId"], request: "UnsV2SampleAggregateReq", response: "UnsV2SampleAggregateResponse", mutation: false, idempotencyKey: false, scope: "uns:read" },
@@ -3721,10 +3815,42 @@ export const UNS_V2_OPERATIONS = {
   "metadataBulkWrite": { path: "/openapi/v2/uns/metadata:bulkWrite", pathParams: [], request: "UnsV2MetadataBulkWriteReq", response: "UnsV2MetadataBulkWriteResponse", mutation: true, idempotencyKey: true, scope: "uns:update" },
   "metadataTransact": { path: "/openapi/v2/uns/metadata:transact", pathParams: [], request: "UnsV2MetadataTransactReq", response: "UnsV2MetadataTransactResponse", mutation: true, idempotencyKey: true, scope: "uns:update" },
   "edgeNodesList": { path: "/openapi/v2/uns/edges/list", pathParams: [], request: "CloudEdgeNodesListReq", response: "CloudEdgeNodesListResponse", mutation: false, idempotencyKey: false, scope: "uns:read" },
+  "sourceRuntimeGet": { path: "/openapi/v2/uns/sources/runtime/get", pathParams: [], request: "UnsV2SourceRuntimeGetReq", response: "UnsV2SourceRuntimeGetResponse", mutation: false, idempotencyKey: false, scope: "source:read" },
+  "sourceProtocolsList": { path: "/openapi/v2/uns/sources/protocols/list", pathParams: [], request: "UnsV2SourceProtocolsListReq", response: "UnsV2SourceProtocolsListResponse", mutation: false, idempotencyKey: false, scope: "source:read" },
+  "sourceValidate": { path: "/openapi/v2/uns/sources/validate", pathParams: [], request: "UnsV2SourceValidateReq", response: "UnsV2SourceValidateResponse", mutation: false, idempotencyKey: false, scope: "source:manage" },
+  "sourceProbe": { path: "/openapi/v2/uns/sources/probe", pathParams: [], request: "UnsV2SourceProbeReq", response: "UnsV2SourceProbeResponse", mutation: true, idempotencyKey: true, scope: "source:manage" },
+  "sourceDiscover": { path: "/openapi/v2/uns/sources/discover", pathParams: [], request: "CloudSourceDiscoverReq", response: "CloudSourceDiscoverResponse", mutation: true, idempotencyKey: false, scope: "source:manage" },
+  "streamProgramVersionsList": { path: "/openapi/v2/uns/streams/program/versions/list", pathParams: [], request: "UnsV2StreamProgramVersionsListReq", response: "UnsV2StreamProgramVersionsListResponse", mutation: false, idempotencyKey: false, scope: "stream:read" },
+  "streamProgramDeploy": { path: "/openapi/v2/uns/streams/program/deploy", pathParams: [], request: "UnsV2StreamProgramDeployReq", response: "UnsV2StreamProgramDeployResponse", mutation: true, idempotencyKey: true, scope: "stream:manage" },
+  "streamProgramRollback": { path: "/openapi/v2/uns/streams/program/rollback", pathParams: [], request: "UnsV2StreamProgramRollbackReq", response: "UnsV2StreamProgramRollbackResponse", mutation: true, idempotencyKey: true, scope: "stream:manage" },
+  "streamProgramList": { path: "/openapi/v2/uns/streams/program/list", pathParams: [], request: "CloudStreamProgramListReq", response: "CloudStreamProgramListResponse", mutation: false, idempotencyKey: false, scope: "stream:read" },
+  "streamProgramDelete": { path: "/openapi/v2/uns/streams/program/delete", pathParams: [], request: "CloudStreamProgramDeleteReq", response: "CloudStreamProgramDeleteResponse", mutation: true, idempotencyKey: true, scope: "stream:manage" },
+  "sourceDocumentGet": { path: "/openapi/v2/uns/sources/documents/get", pathParams: [], request: "CloudSourceDocumentGetReq", response: "CloudSourceDocumentGetResponse", mutation: false, idempotencyKey: false, scope: "source:read" },
+  "sourceDocumentCreate": { path: "/openapi/v2/uns/sources/documents/create", pathParams: [], request: "CloudSourceDocumentCreateReq", response: "CloudSourceDocumentCreateResponse", mutation: true, idempotencyKey: true, scope: "source:manage" },
+  "sourceDocumentUpdate": { path: "/openapi/v2/uns/sources/documents/update", pathParams: [], request: "CloudSourceDocumentUpdateReq", response: "CloudSourceDocumentUpdateResponse", mutation: true, idempotencyKey: true, scope: "source:manage" },
+  "streamDocumentGet": { path: "/openapi/v2/uns/streams/documents/get", pathParams: [], request: "CloudStreamDocumentGetReq", response: "CloudStreamDocumentGetResponse", mutation: false, idempotencyKey: false, scope: "stream:read" },
+  "streamDocumentCreate": { path: "/openapi/v2/uns/streams/documents/create", pathParams: [], request: "CloudStreamDocumentCreateReq", response: "CloudStreamDocumentCreateResponse", mutation: true, idempotencyKey: true, scope: "stream:manage" },
+  "streamDocumentUpdate": { path: "/openapi/v2/uns/streams/documents/update", pathParams: [], request: "CloudStreamDocumentUpdateReq", response: "CloudStreamDocumentUpdateResponse", mutation: true, idempotencyKey: true, scope: "stream:manage" },
+  "sourceDocumentList": { path: "/openapi/v2/uns/sources/documents/list", pathParams: [], request: "CloudSourceDocumentListReq", response: "CloudSourceDocumentListResponse", mutation: false, idempotencyKey: false, scope: "source:read" },
+  "streamDocumentDisable": { path: "/openapi/v2/uns/streams/documents/disable", pathParams: [], request: "CloudStreamDocumentDisableReq", response: "CloudStreamDocumentDisableResponse", mutation: true, idempotencyKey: true, scope: "stream:manage" },
+  "streamDocumentValidate": { path: "/openapi/v2/uns/streams/documents/validate", pathParams: [], request: "CloudStreamDocumentValidateReq", response: "CloudStreamDocumentValidateResponse", mutation: false, idempotencyKey: false, scope: "stream:manage" },
+  "sourceImpact": { path: "/openapi/v2/uns/sources/impact", pathParams: [], request: "CloudSourceImpactReq", response: "CloudSourceImpactResponse", mutation: false, idempotencyKey: false, scope: "source:manage" },
+  "sourceHistory": { path: "/openapi/v2/uns/sources/history", pathParams: [], request: "CloudSourceHistoryReq", response: "CloudSourceHistoryResponse", mutation: false, idempotencyKey: false, scope: "source:read" },
+  "sourceObservationsGet": { path: "/openapi/v2/uns/sources/observations/get", pathParams: [], request: "CloudSourceObservationsGetReq", response: "CloudSourceObservationsGetResponse", mutation: false, idempotencyKey: false, scope: "source:read" },
+  "streamObservationGet": { path: "/openapi/v2/uns/streams/observation/get", pathParams: [], request: "CloudStreamObservationGetReq", response: "CloudStreamObservationGetResponse", mutation: false, idempotencyKey: false, scope: "stream:read" },
+  "streamRunsList": { path: "/openapi/v2/uns/streams/runs/list", pathParams: [], request: "CloudStreamRunsListReq", response: "CloudStreamRunsListResponse", mutation: false, idempotencyKey: false, scope: "stream:read" },
+  "streamSampleTest": { path: "/openapi/v2/uns/streams/sample/test", pathParams: [], request: "CloudStreamSampleTestReq", response: "CloudStreamSampleTestResponse", mutation: false, idempotencyKey: false, scope: "stream:manage" },
+  "streamRequestGrantGet": { path: "/openapi/v2/uns/stream-requests/grants/get", pathParams: [], request: "CloudStreamRequestGrantGetReq", response: "CloudStreamRequestGrantGetResponse", mutation: false, idempotencyKey: false, scope: "stream.requests:manage" },
+  "streamRequestGrantSet": { path: "/openapi/v2/uns/stream-requests/grants/set", pathParams: [], request: "CloudStreamRequestGrantSetReq", response: "CloudStreamRequestGrantSetResponse", mutation: true, idempotencyKey: false, scope: "stream.requests:manage" },
   "sourceResourceCatalog": { path: "/openapi/v2/uns/sources/resources/catalog", pathParams: [], request: "CloudSourceResourceCatalogReq", response: "CloudSourceResourceCatalogResponse", mutation: false, idempotencyKey: false, scope: "source:read" },
   "sourceResourceRead": { path: "/openapi/v2/uns/sources/resources/preview", pathParams: [], request: "CloudSourceResourceReadReq", response: "CloudSourceResourceReadResponse", mutation: false, idempotencyKey: false, scope: "source:read" },
   "sourceResourceScan": { path: "/openapi/v2/uns/sources/resources/scan", pathParams: [], request: "CloudSourceResourceScanReq", response: "CloudSourceResourceScanResponse", mutation: false, idempotencyKey: false, scope: "source:read" },
   "sourceDocumentStateUpdate": { path: "/openapi/v2/uns/sources/documents/state/update", pathParams: [], request: "CloudEdgeSourceStateUpdateReq", response: "CloudEdgeSourceStateUpdateResponse", mutation: true, idempotencyKey: true, scope: "source:manage" },
+  "sourceDevicesList": { path: "/openapi/v2/uns/sources/devices/list", pathParams: [], request: "CloudSourceDevicesListReq", response: "CloudSourceDevicesListResponse", mutation: false, idempotencyKey: false, scope: "source:read" },
+  "sourceDocumentDelete": { path: "/openapi/v2/uns/sources/documents/delete", pathParams: [], request: "UnsV2SourceDocumentDeleteReq", response: "UnsV2SourceDocumentDeleteResponse", mutation: true, idempotencyKey: true, scope: "source:manage" },
+  "sourceNativeCredentialsUpdate": { path: "/openapi/v2/uns/sources/documents/credentials/update", pathParams: [], request: "UnsV2SourceNativeCredentialsUpdateReq", response: "UnsV2SourceNativeCredentialsUpdateResponse", mutation: true, idempotencyKey: true, scope: "source:manage" },
+  "sourceNativeOAuthStart": { path: "/openapi/v2/uns/sources/documents/oauth/start", pathParams: [], request: "UnsV2SourceNativeOAuthStartReq", response: "UnsV2SourceNativeOAuthStartResponse", mutation: true, idempotencyKey: true, scope: "source:manage" },
+  "sourceNativeOAuthComplete": { path: "/openapi/v2/uns/sources/documents/oauth/complete", pathParams: [], request: "UnsV2SourceNativeOAuthCompleteReq", response: "UnsV2SourceNativeOAuthCompleteResponse", mutation: true, idempotencyKey: true, scope: "source:manage" },
 } as const;
 
 /** GET server-sent event streams; their wire frames are documented by the contract schemas. */
@@ -3742,14 +3868,6 @@ export interface UnsV2OperationMap {
   "references": { request: UnsV2ReferencesDocumentedRequest; response: UnsV2Envelope };
   "jobs": { request: UnsV2JobsDocumentedRequest; response: UnsV2Envelope };
   "recordTransactionExecute": { request: UnsV2RecordTransactionReq; response: UnsV2RecordTransactionExecuteResponse };
-  "sourceRuntimeGet": { request: UnsV2SourceRuntimeGetReq; response: UnsV2SourceRuntimeGetResponse };
-  "sourceProtocolsList": { request: UnsV2SourceProtocolsListReq; response: UnsV2SourceProtocolsListResponse };
-  "sourceValidate": { request: UnsV2SourceValidateReq; response: UnsV2SourceValidateResponse };
-  "sourceProbe": { request: UnsV2SourceProbeReq; response: UnsV2SourceProbeResponse };
-  "sourceDiscover": { request: CloudSourceDiscoverReq; response: CloudSourceDiscoverResponse };
-  "streamProgramVersionsList": { request: UnsV2StreamProgramVersionsListReq; response: UnsV2StreamProgramVersionsListResponse };
-  "streamProgramDeploy": { request: UnsV2StreamProgramDeployReq; response: UnsV2StreamProgramDeployResponse };
-  "streamProgramRollback": { request: UnsV2StreamProgramRollbackReq; response: UnsV2StreamProgramRollbackResponse };
   "sampleAppend": { request: UnsV2SampleAppendReq; response: UnsV2SampleAppendResponse };
   "recordFind": { request: UnsV2RecordFindReq; response: UnsV2RecordFindResponse };
   "recordCount": { request: UnsV2RecordCountReq; response: UnsV2RecordCountResponse };
@@ -3764,24 +3882,6 @@ export interface UnsV2OperationMap {
   "recordBulkWrite": { request: UnsV2RecordBulkWriteReq; response: UnsV2RecordBulkWriteResponse };
   "sampleLatestValues": { request: UnsV2SampleLatestValuesReq; response: UnsV2SampleLatestValuesResponse };
   "sampleDeleteRange": { request: UnsV2SampleDeleteRangeReq; response: UnsV2SampleDeleteRangeResponse };
-  "sourceDelete": { request: CloudSourceDeleteReq; response: CloudSourceDeleteResponse };
-  "streamProgramList": { request: CloudStreamProgramListReq; response: CloudStreamProgramListResponse };
-  "streamProgramDelete": { request: CloudStreamProgramDeleteReq; response: CloudStreamProgramDeleteResponse };
-  "sourceDocumentGet": { request: CloudSourceDocumentGetReq; response: CloudSourceDocumentGetResponse };
-  "sourceDocumentCreate": { request: CloudSourceDocumentCreateReq; response: CloudSourceDocumentCreateResponse };
-  "sourceDocumentUpdate": { request: CloudSourceDocumentUpdateReq; response: CloudSourceDocumentUpdateResponse };
-  "streamDocumentGet": { request: CloudStreamDocumentGetReq; response: CloudStreamDocumentGetResponse };
-  "streamDocumentCreate": { request: CloudStreamDocumentCreateReq; response: CloudStreamDocumentCreateResponse };
-  "streamDocumentUpdate": { request: CloudStreamDocumentUpdateReq; response: CloudStreamDocumentUpdateResponse };
-  "sourceDocumentList": { request: CloudSourceDocumentListReq; response: CloudSourceDocumentListResponse };
-  "streamDocumentDisable": { request: CloudStreamDocumentDisableReq; response: CloudStreamDocumentDisableResponse };
-  "streamDocumentValidate": { request: CloudStreamDocumentValidateReq; response: CloudStreamDocumentValidateResponse };
-  "sourceImpact": { request: CloudSourceImpactReq; response: CloudSourceImpactResponse };
-  "sourceHistory": { request: CloudSourceHistoryReq; response: CloudSourceHistoryResponse };
-  "sourceObservationsGet": { request: CloudSourceObservationsGetReq; response: CloudSourceObservationsGetResponse };
-  "streamObservationGet": { request: CloudStreamObservationGetReq; response: CloudStreamObservationGetResponse };
-  "streamRunsList": { request: CloudStreamRunsListReq; response: CloudStreamRunsListResponse };
-  "streamSampleTest": { request: CloudStreamSampleTestReq; response: CloudStreamSampleTestResponse };
   "appDataPolicyGet": { request: CloudAppDataPolicyGetReq; response: CloudAppDataPolicyGetResponse };
   "appDataPolicyUpdate": { request: CloudAppDataPolicyUpdateReq; response: CloudAppDataPolicyMutationResponse };
   "dataAppContext": { request: CloudDataAppContextReq; response: CloudDataAppContextResponse };
@@ -3792,8 +3892,6 @@ export interface UnsV2OperationMap {
   "appCollectionsArchive": { request: CloudAppCollectionAliasReq; response: CloudAppCollectionStateResponse };
   "appCollectionsRestore": { request: CloudAppCollectionAliasReq; response: CloudAppCollectionStateResponse };
   "appCollectionsList": { request: CloudAppCollectionsListReq; response: CloudAppCollectionsListResponse };
-  "streamRequestGrantGet": { request: CloudStreamRequestGrantGetReq; response: CloudStreamRequestGrantGetResponse };
-  "streamRequestGrantSet": { request: CloudStreamRequestGrantSetReq; response: CloudStreamRequestGrantSetResponse };
   "appStreamAccessList": { request: CloudAppStreamAccessListReq; response: CloudAppStreamAccessListResponse };
   "sampleFind": { request: UnsV2SampleFindReq; response: UnsV2SampleFindResponse };
   "sampleAggregate": { request: UnsV2SampleAggregateReq; response: UnsV2SampleAggregateResponse };
@@ -3817,10 +3915,42 @@ export interface UnsV2OperationMap {
   "metadataBulkWrite": { request: UnsV2MetadataBulkWriteReq; response: UnsV2MetadataBulkWriteResponse };
   "metadataTransact": { request: UnsV2MetadataTransactReq; response: UnsV2MetadataTransactResponse };
   "edgeNodesList": { request: CloudEdgeNodesListReq; response: CloudEdgeNodesListResponse };
+  "sourceRuntimeGet": { request: UnsV2SourceRuntimeGetReq; response: UnsV2SourceRuntimeGetResponse };
+  "sourceProtocolsList": { request: UnsV2SourceProtocolsListReq; response: UnsV2SourceProtocolsListResponse };
+  "sourceValidate": { request: UnsV2SourceValidateReq; response: UnsV2SourceValidateResponse };
+  "sourceProbe": { request: UnsV2SourceProbeReq; response: UnsV2SourceProbeResponse };
+  "sourceDiscover": { request: CloudSourceDiscoverReq; response: CloudSourceDiscoverResponse };
+  "streamProgramVersionsList": { request: UnsV2StreamProgramVersionsListReq; response: UnsV2StreamProgramVersionsListResponse };
+  "streamProgramDeploy": { request: UnsV2StreamProgramDeployReq; response: UnsV2StreamProgramDeployResponse };
+  "streamProgramRollback": { request: UnsV2StreamProgramRollbackReq; response: UnsV2StreamProgramRollbackResponse };
+  "streamProgramList": { request: CloudStreamProgramListReq; response: CloudStreamProgramListResponse };
+  "streamProgramDelete": { request: CloudStreamProgramDeleteReq; response: CloudStreamProgramDeleteResponse };
+  "sourceDocumentGet": { request: CloudSourceDocumentGetReq; response: CloudSourceDocumentGetResponse };
+  "sourceDocumentCreate": { request: CloudSourceDocumentCreateReq; response: CloudSourceDocumentCreateResponse };
+  "sourceDocumentUpdate": { request: CloudSourceDocumentUpdateReq; response: CloudSourceDocumentUpdateResponse };
+  "streamDocumentGet": { request: CloudStreamDocumentGetReq; response: CloudStreamDocumentGetResponse };
+  "streamDocumentCreate": { request: CloudStreamDocumentCreateReq; response: CloudStreamDocumentCreateResponse };
+  "streamDocumentUpdate": { request: CloudStreamDocumentUpdateReq; response: CloudStreamDocumentUpdateResponse };
+  "sourceDocumentList": { request: CloudSourceDocumentListReq; response: CloudSourceDocumentListResponse };
+  "streamDocumentDisable": { request: CloudStreamDocumentDisableReq; response: CloudStreamDocumentDisableResponse };
+  "streamDocumentValidate": { request: CloudStreamDocumentValidateReq; response: CloudStreamDocumentValidateResponse };
+  "sourceImpact": { request: CloudSourceImpactReq; response: CloudSourceImpactResponse };
+  "sourceHistory": { request: CloudSourceHistoryReq; response: CloudSourceHistoryResponse };
+  "sourceObservationsGet": { request: CloudSourceObservationsGetReq; response: CloudSourceObservationsGetResponse };
+  "streamObservationGet": { request: CloudStreamObservationGetReq; response: CloudStreamObservationGetResponse };
+  "streamRunsList": { request: CloudStreamRunsListReq; response: CloudStreamRunsListResponse };
+  "streamSampleTest": { request: CloudStreamSampleTestReq; response: CloudStreamSampleTestResponse };
+  "streamRequestGrantGet": { request: CloudStreamRequestGrantGetReq; response: CloudStreamRequestGrantGetResponse };
+  "streamRequestGrantSet": { request: CloudStreamRequestGrantSetReq; response: CloudStreamRequestGrantSetResponse };
   "sourceResourceCatalog": { request: CloudSourceResourceCatalogReq; response: CloudSourceResourceCatalogResponse };
   "sourceResourceRead": { request: CloudSourceResourceReadReq; response: CloudSourceResourceReadResponse };
   "sourceResourceScan": { request: CloudSourceResourceScanReq; response: CloudSourceResourceScanResponse };
   "sourceDocumentStateUpdate": { request: CloudEdgeSourceStateUpdateReq; response: CloudEdgeSourceStateUpdateResponse };
+  "sourceDevicesList": { request: CloudSourceDevicesListReq; response: CloudSourceDevicesListResponse };
+  "sourceDocumentDelete": { request: UnsV2SourceDocumentDeleteReq; response: UnsV2SourceDocumentDeleteResponse };
+  "sourceNativeCredentialsUpdate": { request: UnsV2SourceNativeCredentialsUpdateReq; response: UnsV2SourceNativeCredentialsUpdateResponse };
+  "sourceNativeOAuthStart": { request: UnsV2SourceNativeOAuthStartReq; response: UnsV2SourceNativeOAuthStartResponse };
+  "sourceNativeOAuthComplete": { request: UnsV2SourceNativeOAuthCompleteReq; response: UnsV2SourceNativeOAuthCompleteResponse };
 }
 
 export interface UnsV2Operations {
@@ -3832,14 +3962,6 @@ export interface UnsV2Operations {
   references(request: UnsV2ReferencesDocumentedRequest, options?: RequestOptions): Promise<UnsV2Envelope>;
   jobs(request: UnsV2JobsDocumentedRequest, options?: RequestOptions): Promise<UnsV2Envelope>;
   recordTransactionExecute(request: UnsV2RecordTransactionReq, options?: RequestOptions): Promise<UnsV2RecordTransactionExecuteResponse>;
-  sourceRuntimeGet(request: UnsV2SourceRuntimeGetReq, options?: RequestOptions): Promise<UnsV2SourceRuntimeGetResponse>;
-  sourceProtocolsList(request: UnsV2SourceProtocolsListReq, options?: RequestOptions): Promise<UnsV2SourceProtocolsListResponse>;
-  sourceValidate(request: UnsV2SourceValidateReq, options?: RequestOptions): Promise<UnsV2SourceValidateResponse>;
-  sourceProbe(request: UnsV2SourceProbeReq, options?: RequestOptions): Promise<UnsV2SourceProbeResponse>;
-  sourceDiscover(request: CloudSourceDiscoverReq, options?: RequestOptions): Promise<CloudSourceDiscoverResponse>;
-  streamProgramVersionsList(request: UnsV2StreamProgramVersionsListReq, options?: RequestOptions): Promise<UnsV2StreamProgramVersionsListResponse>;
-  streamProgramDeploy(request: UnsV2StreamProgramDeployReq, options?: RequestOptions): Promise<UnsV2StreamProgramDeployResponse>;
-  streamProgramRollback(request: UnsV2StreamProgramRollbackReq, options?: RequestOptions): Promise<UnsV2StreamProgramRollbackResponse>;
   sampleAppend(request: UnsV2SampleAppendReq, options?: RequestOptions): Promise<UnsV2SampleAppendResponse>;
   recordFind(request: UnsV2RecordFindReq, options?: RequestOptions): Promise<UnsV2RecordFindResponse>;
   recordCount(request: UnsV2RecordCountReq, options?: RequestOptions): Promise<UnsV2RecordCountResponse>;
@@ -3854,24 +3976,6 @@ export interface UnsV2Operations {
   recordBulkWrite(request: UnsV2RecordBulkWriteReq, options?: RequestOptions): Promise<UnsV2RecordBulkWriteResponse>;
   sampleLatestValues(request: UnsV2SampleLatestValuesReq, options?: RequestOptions): Promise<UnsV2SampleLatestValuesResponse>;
   sampleDeleteRange(request: UnsV2SampleDeleteRangeReq, options?: RequestOptions): Promise<UnsV2SampleDeleteRangeResponse>;
-  sourceDelete(request: CloudSourceDeleteReq, options?: RequestOptions): Promise<CloudSourceDeleteResponse>;
-  streamProgramList(request: CloudStreamProgramListReq, options?: RequestOptions): Promise<CloudStreamProgramListResponse>;
-  streamProgramDelete(request: CloudStreamProgramDeleteReq, options?: RequestOptions): Promise<CloudStreamProgramDeleteResponse>;
-  sourceDocumentGet(request: CloudSourceDocumentGetReq, options?: RequestOptions): Promise<CloudSourceDocumentGetResponse>;
-  sourceDocumentCreate(request: CloudSourceDocumentCreateReq, options?: RequestOptions): Promise<CloudSourceDocumentCreateResponse>;
-  sourceDocumentUpdate(request: CloudSourceDocumentUpdateReq, options?: RequestOptions): Promise<CloudSourceDocumentUpdateResponse>;
-  streamDocumentGet(request: CloudStreamDocumentGetReq, options?: RequestOptions): Promise<CloudStreamDocumentGetResponse>;
-  streamDocumentCreate(request: CloudStreamDocumentCreateReq, options?: RequestOptions): Promise<CloudStreamDocumentCreateResponse>;
-  streamDocumentUpdate(request: CloudStreamDocumentUpdateReq, options?: RequestOptions): Promise<CloudStreamDocumentUpdateResponse>;
-  sourceDocumentList(request: CloudSourceDocumentListReq, options?: RequestOptions): Promise<CloudSourceDocumentListResponse>;
-  streamDocumentDisable(request: CloudStreamDocumentDisableReq, options?: RequestOptions): Promise<CloudStreamDocumentDisableResponse>;
-  streamDocumentValidate(request: CloudStreamDocumentValidateReq, options?: RequestOptions): Promise<CloudStreamDocumentValidateResponse>;
-  sourceImpact(request: CloudSourceImpactReq, options?: RequestOptions): Promise<CloudSourceImpactResponse>;
-  sourceHistory(request: CloudSourceHistoryReq, options?: RequestOptions): Promise<CloudSourceHistoryResponse>;
-  sourceObservationsGet(request: CloudSourceObservationsGetReq, options?: RequestOptions): Promise<CloudSourceObservationsGetResponse>;
-  streamObservationGet(request: CloudStreamObservationGetReq, options?: RequestOptions): Promise<CloudStreamObservationGetResponse>;
-  streamRunsList(request: CloudStreamRunsListReq, options?: RequestOptions): Promise<CloudStreamRunsListResponse>;
-  streamSampleTest(request: CloudStreamSampleTestReq, options?: RequestOptions): Promise<CloudStreamSampleTestResponse>;
   appDataPolicyGet(request: CloudAppDataPolicyGetReq, options?: RequestOptions): Promise<CloudAppDataPolicyGetResponse>;
   appDataPolicyUpdate(request: CloudAppDataPolicyUpdateReq, options?: RequestOptions): Promise<CloudAppDataPolicyMutationResponse>;
   dataAppContext(request: CloudDataAppContextReq, options?: RequestOptions): Promise<CloudDataAppContextResponse>;
@@ -3882,8 +3986,6 @@ export interface UnsV2Operations {
   appCollectionsArchive(request: CloudAppCollectionAliasReq, options?: RequestOptions): Promise<CloudAppCollectionStateResponse>;
   appCollectionsRestore(request: CloudAppCollectionAliasReq, options?: RequestOptions): Promise<CloudAppCollectionStateResponse>;
   appCollectionsList(request: CloudAppCollectionsListReq, options?: RequestOptions): Promise<CloudAppCollectionsListResponse>;
-  streamRequestGrantGet(request: CloudStreamRequestGrantGetReq, options?: RequestOptions): Promise<CloudStreamRequestGrantGetResponse>;
-  streamRequestGrantSet(request: CloudStreamRequestGrantSetReq, options?: RequestOptions): Promise<CloudStreamRequestGrantSetResponse>;
   appStreamAccessList(request: CloudAppStreamAccessListReq, options?: RequestOptions): Promise<CloudAppStreamAccessListResponse>;
   sampleFind(request: UnsV2SampleFindReq, options?: RequestOptions): Promise<UnsV2SampleFindResponse>;
   sampleAggregate(request: UnsV2SampleAggregateReq, options?: RequestOptions): Promise<UnsV2SampleAggregateResponse>;
@@ -3907,17 +4009,49 @@ export interface UnsV2Operations {
   metadataBulkWrite(request: UnsV2MetadataBulkWriteReq, options?: RequestOptions): Promise<UnsV2MetadataBulkWriteResponse>;
   metadataTransact(request: UnsV2MetadataTransactReq, options?: RequestOptions): Promise<UnsV2MetadataTransactResponse>;
   edgeNodesList(request: CloudEdgeNodesListReq, options?: RequestOptions): Promise<CloudEdgeNodesListResponse>;
+  sourceRuntimeGet(request: UnsV2SourceRuntimeGetReq, options?: RequestOptions): Promise<UnsV2SourceRuntimeGetResponse>;
+  sourceProtocolsList(request: UnsV2SourceProtocolsListReq, options?: RequestOptions): Promise<UnsV2SourceProtocolsListResponse>;
+  sourceValidate(request: UnsV2SourceValidateReq, options?: RequestOptions): Promise<UnsV2SourceValidateResponse>;
+  sourceProbe(request: UnsV2SourceProbeReq, options?: RequestOptions): Promise<UnsV2SourceProbeResponse>;
+  sourceDiscover(request: CloudSourceDiscoverReq, options?: RequestOptions): Promise<CloudSourceDiscoverResponse>;
+  streamProgramVersionsList(request: UnsV2StreamProgramVersionsListReq, options?: RequestOptions): Promise<UnsV2StreamProgramVersionsListResponse>;
+  streamProgramDeploy(request: UnsV2StreamProgramDeployReq, options?: RequestOptions): Promise<UnsV2StreamProgramDeployResponse>;
+  streamProgramRollback(request: UnsV2StreamProgramRollbackReq, options?: RequestOptions): Promise<UnsV2StreamProgramRollbackResponse>;
+  streamProgramList(request: CloudStreamProgramListReq, options?: RequestOptions): Promise<CloudStreamProgramListResponse>;
+  streamProgramDelete(request: CloudStreamProgramDeleteReq, options?: RequestOptions): Promise<CloudStreamProgramDeleteResponse>;
+  sourceDocumentGet(request: CloudSourceDocumentGetReq, options?: RequestOptions): Promise<CloudSourceDocumentGetResponse>;
+  sourceDocumentCreate(request: CloudSourceDocumentCreateReq, options?: RequestOptions): Promise<CloudSourceDocumentCreateResponse>;
+  sourceDocumentUpdate(request: CloudSourceDocumentUpdateReq, options?: RequestOptions): Promise<CloudSourceDocumentUpdateResponse>;
+  streamDocumentGet(request: CloudStreamDocumentGetReq, options?: RequestOptions): Promise<CloudStreamDocumentGetResponse>;
+  streamDocumentCreate(request: CloudStreamDocumentCreateReq, options?: RequestOptions): Promise<CloudStreamDocumentCreateResponse>;
+  streamDocumentUpdate(request: CloudStreamDocumentUpdateReq, options?: RequestOptions): Promise<CloudStreamDocumentUpdateResponse>;
+  sourceDocumentList(request: CloudSourceDocumentListReq, options?: RequestOptions): Promise<CloudSourceDocumentListResponse>;
+  streamDocumentDisable(request: CloudStreamDocumentDisableReq, options?: RequestOptions): Promise<CloudStreamDocumentDisableResponse>;
+  streamDocumentValidate(request: CloudStreamDocumentValidateReq, options?: RequestOptions): Promise<CloudStreamDocumentValidateResponse>;
+  sourceImpact(request: CloudSourceImpactReq, options?: RequestOptions): Promise<CloudSourceImpactResponse>;
+  sourceHistory(request: CloudSourceHistoryReq, options?: RequestOptions): Promise<CloudSourceHistoryResponse>;
+  sourceObservationsGet(request: CloudSourceObservationsGetReq, options?: RequestOptions): Promise<CloudSourceObservationsGetResponse>;
+  streamObservationGet(request: CloudStreamObservationGetReq, options?: RequestOptions): Promise<CloudStreamObservationGetResponse>;
+  streamRunsList(request: CloudStreamRunsListReq, options?: RequestOptions): Promise<CloudStreamRunsListResponse>;
+  streamSampleTest(request: CloudStreamSampleTestReq, options?: RequestOptions): Promise<CloudStreamSampleTestResponse>;
+  streamRequestGrantGet(request: CloudStreamRequestGrantGetReq, options?: RequestOptions): Promise<CloudStreamRequestGrantGetResponse>;
+  streamRequestGrantSet(request: CloudStreamRequestGrantSetReq, options?: RequestOptions): Promise<CloudStreamRequestGrantSetResponse>;
   sourceResourceCatalog(request: CloudSourceResourceCatalogReq, options?: RequestOptions): Promise<CloudSourceResourceCatalogResponse>;
   sourceResourceRead(request: CloudSourceResourceReadReq, options?: RequestOptions): Promise<CloudSourceResourceReadResponse>;
   sourceResourceScan(request: CloudSourceResourceScanReq, options?: RequestOptions): Promise<CloudSourceResourceScanResponse>;
   sourceDocumentStateUpdate(request: CloudEdgeSourceStateUpdateReq, options?: RequestOptions): Promise<CloudEdgeSourceStateUpdateResponse>;
+  sourceDevicesList(request: CloudSourceDevicesListReq, options?: RequestOptions): Promise<CloudSourceDevicesListResponse>;
+  sourceDocumentDelete(request: UnsV2SourceDocumentDeleteReq, options?: RequestOptions): Promise<UnsV2SourceDocumentDeleteResponse>;
+  sourceNativeCredentialsUpdate(request: UnsV2SourceNativeCredentialsUpdateReq, options?: RequestOptions): Promise<UnsV2SourceNativeCredentialsUpdateResponse>;
+  sourceNativeOAuthStart(request: UnsV2SourceNativeOAuthStartReq, options?: RequestOptions): Promise<UnsV2SourceNativeOAuthStartResponse>;
+  sourceNativeOAuthComplete(request: UnsV2SourceNativeOAuthCompleteReq, options?: RequestOptions): Promise<UnsV2SourceNativeOAuthCompleteResponse>;
 }
 
 export type UnsV2OperationName = keyof UnsV2OperationMap;
 export type UnsV2Request<Name extends UnsV2OperationName> = UnsV2OperationMap[Name]['request'];
 export type UnsV2Response<Name extends UnsV2OperationName> = UnsV2OperationMap[Name]['response'];
 
-export const UNS_V2_CODEC_SCHEMAS = {"UnsV2CatalogReq":{"k":"o"},"UnsV2TransactionQuery":{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"},"limit":{"k":"j"},"expectCount":{"r":"UnsV2QueryCountExpectation"}}},"UnsV2QueryCountExpectation":{"k":"u","a":[]},"UnsV2FieldOperation":{"k":"u","a":[{"k":"o"},{"k":"o","p":{"value":{"k":"a","i":{}}}},{"k":"o"}]},"UnsV2ResultBinding":{"k":"o"},"UnsV2Page":{"k":"o","p":{"page":{"k":"j"},"size":{"k":"j"}}},"UnsV2TimeRange":{"k":"o","p":{"from":{"k":"j"},"to":{"k":"j"}}},"UnsV2History":{"k":"o","p":{"page":{"k":"j"},"size":{"k":"j"},"timeRange":{"r":"UnsV2TimeRange"}}},"UnsV2SelectedRecord":{"k":"o","p":{"history":{"r":"UnsV2History"}}},"UnsV2ReferenceTarget":{"k":"o"},"UnsV2PipelinePage":{"k":"u","a":[{"k":"u","a":[{"k":"o"},{"k":"o"}]}]},"UnsV2Envelope":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"u","a":[{"r":"Outcome"},{"r":"AppContext"},{"r":"AppKeyCreated"},{"r":"AppKeyRevoked"},{"k":"o","p":{"results":{"k":"a","i":{"k":"o"}}}},{"k":"o","p":{"capabilities":{"k":"o"}}}]}}},"UnsV2DiscoverySearchReq":{"k":"o","p":{"page":{"k":"j"},"size":{"k":"j"}}},"UnsV2CollectionDescribeReq":{"k":"o"},"UnsV2RecordTransactionReq":{"k":"o","p":{"items":{"k":"a","i":{"r":"UnsV2RecordChange"}},"assertLocks":{"k":"a","i":{"k":"o"}}}},"UnsV2Identity":{"k":"u","a":[{"k":"o"}]},"AppCollectionContext":{"k":"o","p":{"indexes":{"k":"a","i":{"r":"IndexSpec"}},"permissions":{"k":"a","i":{}},"recordSchema":{"r":"Schema"},"sampleSchema":{"r":"Schema"},"createCapability":{"r":"CloudAppCreateCapability"},"revision":{"k":"j"},"indexStatus":{"k":"a","i":{"r":"IndexState"}},"ttl":{"k":"u","a":[{"r":"CloudCollectionTTL"}]},"directoryPath":{"k":"a","i":{}}}},"AppContext":{"k":"o","p":{"collections":{"k":"a","i":{"r":"AppCollectionContext"}},"platformPermissions":{"k":"a","i":{}},"revision":{"k":"j"},"limits":{"r":"CloudAppDataLimits"}}},"AppKeyCreated":{"k":"o","p":{"resourceKeys":{"k":"a","i":{}}}},"AppKeyRevoked":{"k":"o"},"CollectionDescription":{"k":"o","p":{"fields":{"k":"a","i":{"r":"DiscoveredField"}},"indexStatus":{"k":"a","i":{"r":"IndexState"}},"indexes":{"k":"a","i":{"r":"IndexSpec"}},"recordSchema":{"r":"Schema"},"relationships":{"k":"a","i":{"r":"CollectionRelationship"}},"revision":{"k":"j"},"sampleSchema":{"r":"Schema"}}},"CollectionRelationship":{"k":"o"},"CollectionSemantics":{"k":"o","p":{"fields":{"k":"a","i":{"r":"FieldSemantics"}},"relationships":{"k":"a","i":{"r":"CollectionRelationship"}}}},"DiscoveredField":{"k":"o","p":{"enum":{"k":"a","i":{}}}},"DiscoveryCollection":{"k":"o","p":{"revision":{"k":"j"}}},"DiscoveryResult":{"k":"o","p":{"asOf":{"k":"j"},"list":{"k":"a","i":{"r":"DiscoveryCollection"}},"nextPage":{"k":"j"},"page":{"k":"j"},"size":{"k":"j"},"total":{"k":"j"}}},"Fault":{"k":"o","p":{"details":{"k":"a","i":{"k":"o"}},"retry":{"r":"ErrorRetry"},"candidates":{"k":"a","i":{"k":"o"}},"conditionIndex":{"k":"j"}}},"FieldBinding":{"k":"o","p":{"collectionId":{"r":"UnsV2Identity"},"recordId":{"r":"UnsV2Identity"}}},"FieldSemantics":{"k":"o"},"HTTPConnection":{"k":"o","p":{"oauth":{"r":"OAuthConfig"},"parameters":{"k":"o"},"port":{"k":"j"},"headers":{"k":"o"}}},"IndexSpec":{"k":"u","a":[{"k":"u","a":[{"k":"o"}]}]},"IndexState":{"k":"o","p":{"spec":{"r":"IndexSpec"}}},"MQTTOptions":{"k":"o","p":{"qos":{"k":"j"},"serverSubscribeTopics":{"k":"a","i":{}},"subscriptions":{"k":"o","x":{"k":"j"}},"topicFilters":{"k":"a","i":{}}}},"ModbusOptions":{"k":"o","p":{"pollIntervalMs":{"k":"j"},"ranges":{"k":"a","i":{"r":"ModbusRange"}},"unitId":{"k":"j"}}},"ModbusRange":{"k":"o","p":{"address":{"k":"j"},"quantity":{"k":"j"},"unitId":{"k":"j"}}},"OAuthConfig":{"k":"o"},"OPCUAOptions":{"k":"o","p":{"nodeIds":{"k":"a","i":{}},"samplingIntervalMs":{"k":"j"},"serverNodes":{"k":"a","i":{"r":"OPCUAServerNode"}}}},"OPCUAServerNode":{"k":"o"},"Outcome":{"k":"o","p":{"results":{"k":"a","i":{"r":"Result"}},"summary":{"r":"OutcomeSummary"}}},"OutcomeSummary":{"k":"o","p":{"failed":{"k":"j"},"notExecuted":{"k":"j"},"succeeded":{"k":"j"},"total":{"k":"j"},"unknown":{"k":"j"}}},"RecordDocument":{"k":"o","p":{"data":{"k":"o"},"revision":{"k":"j"},"createdAt":{"k":"j"},"updatedAt":{"k":"j"},"sourceTime":{"k":"j"},"lock":{"r":"CloudRecordLockView"}}},"Result":{"k":"o","p":{"document":{"r":"RecordDocument"},"error":{"r":"Fault"},"query":{"r":"TransactionQueryResult"},"release":{"k":"j"},"revision":{"k":"j"}}},"RuntimeStreamDefinition":{"k":"o","p":{"extensions":{"k":"o"},"timeoutMs":{"k":"j"},"sourceBindings":{"k":"a","i":{"k":"o","p":{"configRevision":{"k":"j"},"acquisition":{"k":"o"}}}}}},"Schema":{"k":"o","p":{"enum":{"k":"a","i":{}},"items":{"r":"Schema"},"maximum":{"k":"n"},"minimum":{"k":"n"},"properties":{"k":"o","x":{"r":"Schema"}},"required":{"k":"a","i":{}}}},"SourceDefinition":{"k":"u","a":[]},"TransactionQueryResult":{"k":"o","p":{"records":{"k":"a","i":{"r":"RecordDocument"}},"total":{"k":"j"}}},"UnsV2SourceRuntimeGetReq":{"k":"o"},"UnsV2SourceRuntimeGetResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"revision":{"k":"j"},"state":{"k":"o","p":{"schemaVersion":{"k":"j"},"lastDataAt":{"k":"j"},"checkedAt":{"k":"j"},"resources":{"k":"a","i":{"k":"o"}},"streams":{"k":"o","x":{"k":"o","p":{"revision":{"k":"j"},"leaseUntil":{"k":"j"},"nextRunAt":{"k":"j"},"page":{"k":"j"},"lastDataAt":{"k":"j"},"records":{"k":"j"},"sequence":{"k":"j"},"retries":{"k":"j"}}}},"bindings":{"k":"a","i":{"k":"o","p":{"release":{"k":"j"},"configRevision":{"k":"j"},"currentConfigRevision":{"k":"j"},"observationWindowHours":{"k":"j"},"lastCollectionCommitAt":{"k":"j"},"lastSourceCallAt":{"k":"j"},"sourceReportedCollectedAt":{"k":"j"},"lastRunError":{"k":"o","p":{"at":{"k":"j"},"error":{"k":"o"}}},"checkpoints":{"k":"a","i":{"k":"o","p":{"revision":{"k":"j"},"updatedAt":{"k":"j"}}}},"edgeSubscriptions":{"k":"a","i":{"k":"o"}}}}},"edgeSubscriptions":{"k":"a","i":{"k":"o"}}}}}}}},"UnsV2SourceProtocolsListReq":{"k":"o"},"UnsV2SourceProtocolsListResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o"}}},"UnsV2SourceValidateReq":{"k":"u","a":[]},"UnsV2SourceValidateResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o"}}},"UnsV2SourceProbeReq":{"k":"o","p":{"timeoutMs":{"k":"j"}}},"UnsV2SourceProbeResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o"}}},"UnsV2StreamProgramVersionsListReq":{"k":"o","p":{"page":{"k":"j"},"size":{"k":"j"}}},"UnsV2StreamProgramVersionsListResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"list":{"k":"a","i":{"k":"o","p":{"release":{"k":"j"},"createdAt":{"k":"j"},"document":{"k":"u","a":[{"r":"CloudStreamDocument"},{"k":"o","p":{"timeoutMs":{"k":"j"}}}]}}}},"total":{"k":"j"},"page":{"k":"j"},"size":{"k":"j"}}}}},"UnsV2StreamProgramDeployReq":{"k":"o","p":{"expectedRevision":{"k":"j"},"expectedSourceRevision":{"k":"j"},"expectedActiveRelease":{"k":"j"}}},"UnsV2StreamProgramDeployResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"u","a":[{"r":"CloudStreamProgramView"},{"r":"CloudPreviewResult"}]}}},"UnsV2StreamProgramRollbackReq":{"k":"o","p":{"expectedRevision":{"k":"j"},"expectedSourceRevision":{"k":"j"},"expectedActiveRelease":{"k":"j"}}},"UnsV2StreamProgramRollbackResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"u","a":[{"r":"CloudStreamProgramView"},{"r":"CloudPreviewResult"}]}}},"UnsV2SampleAppendResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"Outcome"}}},"UnsV2RecordFindResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"CloudRecordPage"}}},"UnsV2RecordCountResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"CloudCappedCount"}}},"UnsV2RecordAggregatePipelineResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"CloudRecordAggregatePage"}}},"UnsV2RecordExplainResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"matchedCount":{"k":"j"},"sampleIds":{"k":"a","i":{}},"plan":{"k":"o"}}}}},"UnsV2RecordInsertOneResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"value":{"r":"RecordDocument"}}}}},"UnsV2RecordUpdateOneResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"matchedCount":{"k":"j"},"modifiedCount":{"k":"j"},"value":{"r":"CloudNullableRecordDocument"}}}}},"UnsV2RecordReplaceOneResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"matchedCount":{"k":"j"},"modifiedCount":{"k":"j"},"value":{"r":"CloudNullableRecordDocument"}}}}},"UnsV2RecordDeleteOneResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"deletedCount":{"k":"j"},"value":{"r":"CloudNullableRecordDocument"}}}}},"UnsV2RecordUpdateManyResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"u","a":[]}}},"UnsV2RecordDeleteManyResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"u","a":[]}}},"UnsV2RecordBulkWriteResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"insertedCount":{"k":"j"},"matchedCount":{"k":"j"},"modifiedCount":{"k":"j"},"deletedCount":{"k":"j"},"upsertedCount":{"k":"j"},"insertedIds":{"k":"o"},"upsertedIds":{"k":"o"},"nextIndex":{"k":"j"},"unknownUntil":{"k":"j"},"writeErrors":{"k":"a","i":{"r":"CloudWriteError"}}}}}},"UnsV2SampleLatestValuesReq":{"k":"o","p":{"recordIds":{"k":"a","i":{}}}},"UnsV2SampleLatestValuesResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"series":{"k":"a","i":{"k":"o","p":{"sample":{"r":"CloudNullableSampleDocument"}}}}}}}},"UnsV2SampleDeleteRangeResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"deletedCount":{"k":"j"}}}}},"UnsV2RecordChange":{"k":"u","a":[{"k":"u","a":[{"k":"o"}]},{"k":"u","a":[{"k":"o"},{"k":"o"}]},{"k":"u","a":[{"k":"o"},{"k":"o"}]},{"k":"u","a":[{"k":"o"},{"k":"o"}]}]},"UnsV2DataFilter":{"k":"o","p":{"$and":{"k":"a","i":{"r":"UnsV2DataFilter"}},"$or":{"k":"a","i":{"r":"UnsV2DataFilter"}},"$nor":{"k":"a","i":{"r":"UnsV2DataFilter"}},"$not":{"r":"UnsV2DataFilter"},"$expr":{"r":"UnsV2PipelineExpression"}},"x":{"k":"u","a":[{"r":"UnsV2FilterScalar"},{"r":"UnsV2FieldPredicate"}]}},"UnsV2FilterScalar":{"k":"u","a":[{"k":"n"}]},"UnsV2ArrayElementFilter":{"k":"o"},"UnsV2FieldComparisons":{"k":"o","p":{"$eq":{"r":"UnsV2FilterScalar"},"$ne":{"r":"UnsV2FilterScalar"},"$gt":{"r":"UnsV2FilterScalar"},"$gte":{"r":"UnsV2FilterScalar"},"$lt":{"r":"UnsV2FilterScalar"},"$lte":{"r":"UnsV2FilterScalar"},"$in":{"k":"a","i":{"r":"UnsV2FilterScalar"}},"$nin":{"k":"a","i":{"r":"UnsV2FilterScalar"}},"$all":{"k":"a","i":{}},"$size":{"k":"j"},"$elemMatch":{"r":"UnsV2ArrayElementFilter"}}},"UnsV2FieldPredicate":{"k":"o","p":{"$eq":{"r":"UnsV2FilterScalar"},"$ne":{"r":"UnsV2FilterScalar"},"$gt":{"r":"UnsV2FilterScalar"},"$gte":{"r":"UnsV2FilterScalar"},"$lt":{"r":"UnsV2FilterScalar"},"$lte":{"r":"UnsV2FilterScalar"},"$in":{"k":"a","i":{"r":"UnsV2FilterScalar"}},"$nin":{"k":"a","i":{"r":"UnsV2FilterScalar"}},"$all":{"k":"a","i":{}},"$size":{"k":"j"},"$elemMatch":{"r":"UnsV2ArrayElementFilter"},"$not":{"r":"UnsV2FieldComparisons"}}},"UnsV2PipelineExpression":{"k":"u","a":[{"r":"UnsV2FilterScalar"},{"k":"o","p":{"$ifNull":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$add":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$subtract":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$multiply":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$divide":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$literal":{"r":"UnsV2FilterScalar"}}},{"k":"o","p":{"$eq":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$ne":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$gt":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$gte":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$lt":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$lte":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$and":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$or":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$not":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$cond":{"k":"u","a":[{"k":"a","i":{"r":"UnsV2PipelineExpression"}},{"k":"o","p":{"if":{"r":"UnsV2PipelineExpression"},"then":{"r":"UnsV2PipelineExpression"},"else":{"r":"UnsV2PipelineExpression"}}}]}}},{"k":"o","p":{"$concat":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$toLower":{"r":"UnsV2PipelineExpression"}}},{"k":"o","p":{"$toUpper":{"r":"UnsV2PipelineExpression"}}},{"k":"o","p":{"$strLenCP":{"r":"UnsV2PipelineExpression"}}},{"k":"o","p":{"$toString":{"r":"UnsV2PipelineExpression"}}},{"k":"o","p":{"$toDecimal":{"r":"UnsV2PipelineExpression"}}},{"k":"o","p":{"$toLong":{"r":"UnsV2PipelineExpression"}}},{"k":"o","p":{"$toBool":{"r":"UnsV2PipelineExpression"}}},{"k":"o","p":{"$trim":{"k":"o","p":{"input":{"r":"UnsV2PipelineExpression"},"chars":{"r":"UnsV2PipelineExpression"}}}}},{"k":"o","p":{"$convert":{"k":"o","p":{"input":{"r":"UnsV2PipelineExpression"}}}}},{"k":"o","p":{"$dateTrunc":{"k":"o","p":{"date":{"r":"UnsV2PipelineExpression"},"binSize":{"k":"j"}}}}}]},"UnsV2PipelineAccumulator":{"k":"u","a":[{"k":"o","p":{"$sum":{"r":"UnsV2PipelineExpression"}}},{"k":"o","p":{"$avg":{"r":"UnsV2PipelineExpression"}}},{"k":"o","p":{"$min":{"r":"UnsV2PipelineExpression"}}},{"k":"o","p":{"$max":{"r":"UnsV2PipelineExpression"}}},{"k":"o","p":{"$count":{"k":"o"}}}]},"UnsV2PipelineSort":{"k":"a","i":{"k":"a","i":{"k":"u","a":[{"k":"j"}]}}},"UnsV2DistinctBy":{"k":"o"},"UnsV2Distinct":{"k":"o","p":{"by":{"r":"UnsV2DistinctBy"}}},"UnsV2Frequencies":{"k":"o","p":{"by":{"k":"u","a":[{"r":"UnsV2DistinctBy"}]}}},"UnsV2PipelineStage":{"k":"u","a":[{"k":"o","p":{"$match":{"r":"UnsV2DataFilter"}}},{"k":"o","p":{"$project":{"k":"o","x":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$set":{"k":"o","x":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$sort":{"r":"UnsV2PipelineSort"}}},{"k":"o","p":{"$group":{"k":"o","p":{"_id":{"k":"u","a":[{"r":"UnsV2PipelineExpression"},{"k":"o","x":{"r":"UnsV2PipelineExpression"}}]}},"x":{"r":"UnsV2PipelineAccumulator"}}}},{"k":"o","p":{"$distinct":{"r":"UnsV2Distinct"}}},{"k":"o","p":{"$frequencies":{"r":"UnsV2Frequencies"}}},{"k":"o","p":{"$lookup":{"k":"u","a":[{"k":"o"},{"k":"o"}]}}},{"k":"o","p":{"$unwind":{"k":"u","a":[{"k":"o"}]}}},{"k":"o","p":{"$skip":{"k":"j"}}},{"k":"o","p":{"$limit":{"k":"j"}}},{"k":"o"},{"k":"o"}]},"UnsV2DataDiscoverResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"DiscoveryResult"}}},"UnsV2CollectionDescribeResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"CollectionDescription"}}},"UnsV2RecordTransactionExecuteResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"Outcome"}}},"UnsV2NamespaceQuery":{"k":"o","p":{"page":{"k":"j"},"size":{"k":"j"},"kinds":{"k":"a","i":{}},"ids":{"k":"a","i":{}}}},"UnsV2NamespaceDocumentedRequest":{"k":"o","p":{"queries":{"k":"a","i":{"r":"UnsV2NamespaceQuery"}}}},"UnsV2TopicsQuery":{"k":"o","p":{"include":{"k":"a","i":{}},"records":{"r":"UnsV2Page"},"selectedRecord":{"r":"UnsV2SelectedRecord"}}},"UnsV2TopicsDocumentedRequest":{"k":"o","p":{"queries":{"k":"a","i":{"r":"UnsV2TopicsQuery"}}}},"UnsV2ReferencesQuery":{"k":"o","p":{"page":{"k":"j"},"size":{"k":"j"},"targets":{"k":"a","i":{"r":"UnsV2ReferenceTarget"}},"relationKinds":{"k":"a","i":{}},"kinds":{"k":"a","i":{}}}},"UnsV2ReferencesDocumentedRequest":{"k":"o","p":{"queries":{"k":"a","i":{"r":"UnsV2ReferencesQuery"}}}},"UnsV2JobsQuery":{"k":"o","p":{"jobIds":{"k":"a","i":{}}}},"UnsV2JobsDocumentedRequest":{"k":"o","p":{"queries":{"k":"a","i":{"r":"UnsV2JobsQuery"}}}},"UnsV2ErrorResponse":{"k":"o","p":{"code":{"k":"j"},"error":{"r":"Fault"}}},"UnsV2RecordFilter":{"k":"o"},"UnsV2RecordGetReq":{"k":"o","p":{"ids":{"k":"a","i":{}},"projection":{"k":"o","x":{"k":"u","a":[{"k":"j"}]}}}},"UnsV2RecordGetResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"CloudRecordGetResult"}}},"UnsV2SampleAppendReq":{"k":"o","p":{"items":{"k":"a","i":{"k":"o","p":{"time":{"k":"j"},"data":{"k":"o"}}}}}},"UnsV2RecordFindReq":{"k":"u","a":[]},"UnsV2RecordCountReq":{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"maxCount":{"k":"j"}}},"UnsV2RecordAggregatePipelineReq":{"k":"u","a":[]},"UnsV2RecordExplainReq":{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"},"limit":{"k":"j"}}},"UnsV2RecordInsertOneReq":{"k":"u","a":[{"k":"u","a":[{"k":"o"}]}]},"UnsV2RecordUpdateOneReq":{"k":"u","a":[{"k":"u","a":[{"k":"o"}]}]},"UnsV2RecordReplaceOneReq":{"k":"u","a":[{"k":"u","a":[{"k":"o"}]}]},"UnsV2RecordDeleteOneReq":{"k":"u","a":[{"k":"u","a":[{"k":"o"}]}]},"UnsV2RecordUpdateManyReq":{"k":"o","p":{"expectedRevision":{"k":"j"},"filter":{"r":"UnsV2DataFilter"},"update":{"k":"o"},"arrayFilters":{"k":"a","i":{"k":"o"}},"maxDocs":{"k":"j"},"assertLocks":{"k":"a","i":{"k":"o"}},"lockTokens":{"k":"o"}}},"UnsV2RecordDeleteManyReq":{"k":"o","p":{"expectedRevision":{"k":"j"},"filter":{"r":"UnsV2DataFilter"},"maxDocs":{"k":"j"},"assertLocks":{"k":"a","i":{"k":"o"}},"lockTokens":{"k":"o"}}},"UnsV2RecordBulkWriteReq":{"k":"o","p":{"expectedRevision":{"k":"j"},"operations":{"k":"a","i":{"k":"u","a":[{"k":"o","p":{"insertOne":{"k":"o","p":{"data":{"k":"o"}}}}},{"k":"o","p":{"updateOne":{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"},"update":{"k":"o"},"arrayFilters":{"k":"a","i":{"k":"o"}}}}}},{"k":"o","p":{"replaceOne":{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"},"replacement":{"k":"o"}}}}},{"k":"o","p":{"deleteOne":{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"}}}}}]}},"assertLocks":{"k":"a","i":{"k":"o"}},"lockTokens":{"k":"o"}}},"UnsV2SampleDeleteRangeReq":{"k":"o","p":{"recordIds":{"k":"a","i":{}},"from":{"k":"j"},"to":{"k":"j"}}},"CloudSourceConfig":{"k":"u","a":[{"k":"o","p":{"options":{"k":"o"},"auth":{"k":"o"},"tls":{"k":"o"}}},{"k":"o","p":{"auth":{"k":"o"},"options":{"k":"o","p":{"headers":{"k":"o"},"parameters":{"k":"o"}}}}},{"k":"o","p":{"auth":{"k":"o"},"options":{"k":"o","p":{"headers":{"k":"o"},"parameters":{"k":"o"}}}}},{"k":"o","p":{"auth":{"k":"o"},"options":{"k":"o","p":{"headers":{"k":"o"},"parameters":{"k":"o"}}}}},{"k":"o","p":{"auth":{"k":"o"},"options":{"k":"o","p":{"headers":{"k":"o"},"parameters":{"k":"o"}}}}},{"k":"o","p":{"auth":{"k":"o"},"options":{"k":"o","p":{"headers":{"k":"o"},"parameters":{"k":"o"}}}}},{"k":"o","p":{"auth":{"k":"o"},"options":{"k":"o","p":{"headers":{"k":"o"},"parameters":{"k":"o"}}}}},{"k":"o","p":{"auth":{"k":"o"},"options":{"k":"o","p":{"headers":{"k":"o"},"parameters":{"k":"o"}}}}},{"k":"o","p":{"auth":{"k":"o"},"options":{"k":"o","p":{"headers":{"k":"o"},"parameters":{"k":"o","p":{"acctId":{"k":"u","a":[]},"lcid":{"k":"u","a":[]},"user":{"k":"u","a":[]}}}}}}},{"k":"o","p":{"auth":{"k":"o"},"options":{"k":"o","p":{"headers":{"k":"o"},"parameters":{"k":"o","p":{"clientId":{"k":"u","a":[]}}}}}}},{"k":"o","p":{"auth":{"k":"o"},"options":{"k":"o","p":{"headers":{"k":"o"},"parameters":{"k":"o"}}}}},{"k":"o","p":{"auth":{"k":"o"},"options":{"k":"o","p":{"headers":{"k":"o"},"parameters":{"k":"o"}}}}}]},"CloudSourceDocument":{"k":"u","a":[]},"CloudStreamRequestDefinition":{"k":"o","p":{"inputSchema":{"k":"o"},"outputSchema":{"k":"o"},"timeoutMs":{"k":"j"}}},"CloudStreamScript":{"k":"o","p":{"timeoutMs":{"k":"j"}}},"CloudSourceBinding":{"k":"o","p":{"configRevision":{"k":"j"},"resources":{"k":"a","i":{}},"acquisition":{"k":"o"}}},"CloudStreamEntry":{"k":"o","p":{"config":{"k":"o"},"request":{"r":"CloudStreamRequestDefinition"}}},"CloudStreamDocument":{"k":"o","p":{"script":{"r":"CloudStreamScript"},"sources":{"k":"a","i":{"r":"CloudSourceBinding"}},"entries":{"k":"a","i":{"r":"CloudStreamEntry"}},"messages":{"k":"a","i":{"r":"CloudStreamMessageDeclaration"}}}},"CloudSourceDocumentView":{"k":"o","p":{"revision":{"k":"j"},"document":{"r":"CloudSourceDocument"},"createdAt":{"k":"j"},"updatedAt":{"k":"j"},"platformReadiness":{"r":"CloudPlatformReadiness"}}},"CloudStreamDocumentView":{"k":"o","p":{"revision":{"k":"j"},"document":{"r":"CloudStreamDocument"},"activeDocument":{"r":"CloudStreamDocument"},"activeRelease":{"k":"j"},"createdAt":{"k":"j"},"updatedAt":{"k":"j"},"platformReadiness":{"r":"CloudPlatformReadiness"}}},"CloudSourceDeleteReq":{"k":"o","p":{"items":{"k":"a","i":{"k":"o","p":{"expectedRevision":{"k":"j"}}}}}},"CloudSourceDeleteResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"Outcome"}}},"CloudStreamProgramListReq":{"k":"o","p":{"page":{"k":"j"},"size":{"k":"j"}}},"CloudStreamProgramListResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"list":{"k":"a","i":{"r":"CloudStreamProgramSummary"}},"total":{"k":"j"},"page":{"k":"j"},"size":{"k":"j"},"nextPage":{"k":"j"}}}}},"CloudStreamProgramDeleteReq":{"k":"o","p":{"expectedRevision":{"k":"j"}}},"CloudStreamProgramDeleteResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"u","a":[{"k":"o","p":{"revision":{"k":"j"}}},{"r":"CloudPreviewResult"}]}}},"CloudSourceDocumentGetReq":{"k":"o"},"CloudSourceDocumentGetResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"u","a":[{"r":"CloudSourceDocumentView"},{"r":"CloudSourceDocumentSummary"}]}}},"CloudSourceDocumentCreateReq":{"k":"u","a":[{"k":"u","a":[{"k":"o","p":{"credentials":{"k":"o"},"document":{"k":"o","p":{"config":{"k":"o"}}}}},{"k":"o","p":{"credentials":{"k":"o"},"document":{"k":"o"}}}]}]},"CloudSourceDocumentCreateResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"u","a":[{"r":"CloudSourceDocumentView"},{"r":"CloudPreviewResult"},{"r":"Outcome"}]}}},"CloudSourceDocumentUpdateReq":{"k":"u","a":[{"k":"u","a":[]}]},"CloudSourceDocumentUpdateResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"u","a":[{"r":"CloudSourceDocumentView"},{"r":"CloudPreviewResult"},{"r":"Outcome"}]}}},"CloudStreamDocumentGetReq":{"k":"o"},"CloudStreamDocumentGetResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"u","a":[{"r":"CloudStreamDocumentView"},{"r":"CloudStreamDocumentSummary"}]}}},"CloudStreamDocumentCreateReq":{"k":"u","a":[]},"CloudStreamDocumentCreateResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"u","a":[{"r":"CloudStreamDocumentView"},{"r":"CloudPreviewResult"}]}}},"CloudStreamDocumentUpdateReq":{"k":"u","a":[]},"CloudStreamDocumentUpdateResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"u","a":[{"r":"CloudStreamDocumentView"},{"r":"CloudPreviewResult"}]}}},"CloudPreviewResult":{"k":"o"},"CloudSourceDocumentListReq":{"k":"o","p":{"page":{"k":"j"},"size":{"k":"j"}}},"CloudSourceDocumentListResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"list":{"k":"a","i":{"k":"u","a":[{"r":"CloudSourceDocumentView"},{"r":"CloudSourceSummaryView"}]}},"total":{"k":"j"},"page":{"k":"j"},"size":{"k":"j"},"nextPage":{"k":"j"}}}}},"CloudStreamDocumentDisableReq":{"k":"o","p":{"expectedRevision":{"k":"j"},"expectedActiveRelease":{"k":"j"}}},"CloudStreamDocumentDisableResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"u","a":[{"r":"CloudStreamStopView"},{"r":"CloudPreviewResult"}]}}},"CloudStreamDocumentValidateReq":{"k":"u","a":[]},"CloudStreamDocumentValidateResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"issues":{"k":"a","i":{"k":"o"}},"normalizedDocument":{"r":"CloudStreamDocument"}}}}},"CloudSourceSummaryView":{"k":"o","p":{"revision":{"k":"j"},"createdAt":{"k":"j"},"updatedAt":{"k":"j"},"platformReadiness":{"r":"CloudPlatformReadiness"}}},"CloudStreamProgramSummary":{"k":"o","p":{"revision":{"k":"j"},"activeRelease":{"k":"j"},"document":{"k":"o"},"createdAt":{"k":"j"},"updatedAt":{"k":"j"},"platformReadiness":{"r":"CloudPlatformReadiness"}}},"CloudSourceImpactReq":{"k":"u","a":[{"k":"u","a":[]},{"k":"o"}]},"CloudSourceHistoryReq":{"k":"o","p":{"beforeRevision":{"k":"j"},"size":{"k":"j"}}},"CloudSourceImpactResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"sourceRevision":{"k":"j"},"complete":{"k":"j"},"counts":{"k":"o","p":{"draft":{"k":"j"},"activeRelease":{"k":"j"},"historicalRelease":{"k":"j"}}},"restrictedCount":{"k":"j"},"references":{"k":"a","i":{"k":"o","p":{"streamRevision":{"k":"j"},"release":{"k":"j"},"configRevision":{"k":"j"},"streamDeleted":{"k":"j"},"parentMissing":{"k":"j"}}}},"nextOffset":{"k":"j"},"expiresAt":{"k":"j"}}}}},"CloudSourceHistoryResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"currentRevision":{"k":"j"},"deleted":{"k":"j"},"total":{"k":"j"},"missingRevisionCount":{"k":"j"},"nextBeforeRevision":{"k":"j"},"revisions":{"k":"a","i":{"k":"o","p":{"revision":{"k":"j"},"createdTime":{"k":"j"}}}}}}}},"CloudStreamStopView":{"k":"o","p":{"revision":{"k":"j"},"activeRelease":{"k":"j"},"createdAt":{"k":"j"},"updatedAt":{"k":"j"}}},"CloudSourceObservationsGetReq":{"k":"o","p":{"items":{"k":"a","i":{"k":"o","p":{"expectedRevision":{"k":"j"}}}}}},"CloudSourceObservationsGetResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"items":{"k":"a","i":{"k":"o","p":{"revision":{"k":"j"},"acceptedCaptures":{"k":"j"},"committedWrites":{"k":"j"},"failedRuns":{"k":"j"},"lastDataAt":{"k":"i"}}}},"window":{"k":"o","p":{"from":{"k":"i"},"to":{"k":"i"}}},"checkedAt":{"k":"i"}}}}},"CloudStreamObservationGetReq":{"k":"o"},"CloudStreamObservationGetResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"revision":{"k":"j"},"stats":{"k":"o","p":{"admitted":{"k":"j"},"completed":{"k":"j"},"failed":{"k":"j"},"unknown":{"k":"j"},"pending":{"k":"j"},"durationSamples":{"k":"j"},"successRate":{"k":"n"},"averageDurationMs":{"k":"n"}}},"window":{"k":"o","p":{"from":{"k":"i"},"to":{"k":"i"}}},"checkedAt":{"k":"i"}}}}},"CloudStreamRunsListReq":{"k":"o","p":{"size":{"k":"j"}}},"CloudStreamRunsListResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"items":{"k":"a","i":{"k":"o","p":{"createdAt":{"k":"i"},"finishedAt":{"k":"i"},"durationMs":{"k":"n"},"responseSentAt":{"k":"i"},"error":{"r":"CloudStreamRunError"}}}},"checkedAt":{"k":"i"}}}}},"CloudStreamSampleTestReq":{"k":"o","p":{"document":{"r":"CloudStreamDocument"}}},"CloudStreamSampleTestResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"writePreview":{"k":"a","i":{"k":"o"}},"logs":{"k":"a","i":{"k":"o"}},"durationMs":{"k":"j"}}}}},"CloudAppDataGrant":{"k":"o","p":{"permissions":{"k":"a","i":{}},"dataRule":{"r":"CloudAppDataRule"}}},"CloudAppDataPolicyGetReq":{"k":"o"},"CloudAppDataPolicyUpdateReq":{"k":"u","a":[]},"CloudAppDataPolicy":{"k":"o","p":{"revision":{"k":"j"},"collections":{"k":"a","i":{"r":"CloudAppDataGrant"}}}},"CloudAppDataPolicyGetResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"CloudAppDataPolicy"}}},"CloudAppDataPolicyMutationResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"Outcome"}}},"CloudDataAppContextReq":{"k":"o"},"CloudDataAppContextResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"AppContext"}}},"CloudAppStreamPolicyGetReq":{"k":"o"},"CloudAppStreamPolicyUpdateReq":{"k":"o","p":{"expectedRevision":{"k":"j"},"platformPermissions":{"k":"a","i":{}},"messageTopics":{"k":"a","i":{"r":"CloudStreamMessageTopicPermission"}}}},"CloudAppStreamPolicy":{"k":"o","p":{"revision":{"k":"j"},"platformPermissions":{"k":"a","i":{}},"messageTopics":{"k":"a","i":{"r":"CloudStreamMessageTopicPermission"}}}},"CloudAppStreamPolicyGetResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"CloudAppStreamPolicy"}}},"CloudAppStreamPolicyMutationResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"Outcome"}}},"CloudAppDataRuleTransition":{"k":"o"},"CloudAppDataRulePrincipal":{"k":"o","p":{"permissions":{"k":"a","i":{}},"readFields":{"k":"a","i":{}},"writeFields":{"k":"a","i":{}},"writeStates":{"k":"a","i":{}},"transitions":{"k":"a","i":{"r":"CloudAppDataRuleTransition"}}}},"CloudAppDataRule":{"k":"o","p":{"principals":{"k":"a","i":{"r":"CloudAppDataRulePrincipal"}}}},"CloudAppCollectionDeclaration":{"k":"o","p":{"recordSchema":{"r":"Schema"},"indexes":{"k":"a","i":{"r":"IndexSpec"}},"directoryPath":{"k":"a","i":{}}}},"CloudAppCollectionsEnsureReq":{"k":"o","p":{"collections":{"k":"a","i":{"r":"CloudAppCollectionDeclaration"}}}},"CloudAppCollectionSchemaNote":{"k":"o"},"CloudAppCollectionWarning":{"k":"o"},"CloudAppCollectionEnsureResult":{"k":"o","p":{"revision":{"k":"j"},"ignored":{"k":"a","i":{"r":"CloudAppCollectionSchemaNote"}},"warnings":{"k":"a","i":{"r":"CloudAppCollectionWarning"}},"indexStatus":{"k":"a","i":{"r":"IndexState"}}}},"CloudAppCollectionsEnsureResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"results":{"k":"a","i":{"r":"CloudAppCollectionEnsureResult"}}}}}},"CloudAppCollectionsSchemaReplaceReq":{"k":"o","p":{"recordSchema":{"r":"Schema"},"indexes":{"k":"a","i":{"r":"IndexSpec"}},"expectedRevision":{"k":"j"}}},"CloudAppCollectionRetired":{"k":"o","p":{"paths":{"k":"a","i":{}},"enumValues":{"k":"a","i":{"k":"o","p":{"values":{"k":"a","i":{}}}}}}},"CloudAppCollectionsSchemaReplaceResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"revision":{"k":"j"},"retired":{"r":"CloudAppCollectionRetired"},"checkedRecords":{"k":"j"},"warnings":{"k":"a","i":{"r":"CloudAppCollectionWarning"}},"indexStatus":{"k":"a","i":{"r":"IndexState"}}}}}},"CloudAppCollectionAliasReq":{"k":"o"},"CloudAppCollectionStateResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"revision":{"k":"j"}}}}},"CloudAppCollectionsListReq":{"k":"o"},"CloudAppCollectionView":{"k":"o","p":{"recordSchema":{"r":"Schema"},"indexes":{"k":"a","i":{"r":"IndexSpec"}},"indexStatus":{"k":"a","i":{"r":"IndexState"}},"retired":{"r":"CloudAppCollectionRetired"},"revision":{"k":"j"},"updatedAt":{"k":"j"}}},"CloudAppCollectionsListResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"collections":{"k":"a","i":{"r":"CloudAppCollectionView"}}}}}},"CloudRecordSubscribeReq":{"k":"u","a":[{"k":"u","a":[{"k":"o"}]}]},"CloudRecordChangeEvent":{"k":"o","p":{"revision":{"k":"j"},"occurredAt":{"k":"j"}}},"CloudRecordSubscribeReset":{"k":"o"},"CloudRecordSubscribeResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"events":{"k":"a","i":{"r":"CloudRecordChangeEvent"}},"reset":{"k":"u","a":[{"r":"CloudRecordSubscribeReset"}]}}}}},"CloudStreamRequestGrantGetReq":{"k":"o"},"CloudStreamRequestGrantTargetRevision":{"k":"o","p":{"revision":{"k":"j"}}},"CloudStreamRequestGrantSetReq":{"k":"u","a":[]},"CloudStreamRequestGrantTargetInfo":{"k":"o","p":{"revision":{"k":"j"},"active":{"k":"j"},"current":{"k":"j"}}},"CloudStreamRequestGrantInfo":{"k":"o","p":{"recipientEligible":{"k":"j"},"recipientActions":{"k":"a","i":{}},"registered":{"k":"j"},"active":{"k":"j"},"revision":{"k":"j"},"actions":{"k":"a","i":{}},"targets":{"k":"a","i":{"r":"CloudStreamRequestGrantTargetInfo"}},"createdTime":{"k":"j"},"updatedTime":{"k":"j"},"activationSupported":{"k":"j"}}},"CloudStreamRequestGrantMutation":{"k":"o","p":{"revision":{"k":"j"},"active":{"k":"j"}}},"CloudStreamRequestGrantGetResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"CloudStreamRequestGrantInfo"}}},"CloudStreamRequestGrantSetResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"CloudStreamRequestGrantMutation"}}},"CloudAppDataGrantChange":{"k":"u","a":[{"k":"u","a":[{"k":"o"},{"k":"o"}]}]},"CloudAppStreamAccessListReq":{"k":"o","p":{"page":{"k":"j"},"size":{"k":"j"},"includeInactive":{"k":"j"}}},"CloudAppStreamAccessItem":{"k":"o","p":{"actions":{"k":"a","i":{}},"configuredActive":{"k":"j"},"blockedReasons":{"k":"a","i":{}},"revision":{"k":"j"}}},"CloudAppStreamAccessPage":{"k":"o","p":{"items":{"k":"a","i":{"r":"CloudAppStreamAccessItem"}},"page":{"k":"j"},"size":{"k":"j"},"total":{"k":"j"}}},"CloudAppStreamAccessListResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"CloudAppStreamAccessPage"}}},"CloudSourceDiscoverReq":{"k":"o","p":{"expectedRevision":{"k":"j"}}},"CloudSourceDiscoverResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"revision":{"k":"j"},"resources":{"k":"a","i":{"k":"o"}}}}}},"CloudStreamMessageTopicPermission":{"k":"o"},"CloudStreamMessageDeclaration":{"k":"o"},"UnsV2SampleFindReq":{"k":"u","a":[]},"UnsV2SampleFindResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"CloudSamplePage"}}},"UnsV2SampleAggregateReq":{"k":"u","a":[]},"UnsV2SampleAggregateResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"CloudDataPage"}}},"UnsV2RecordLockReq":{"k":"u","a":[]},"UnsV2RecordLockResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"locks":{"k":"a","i":{"r":"CloudRecordLeaseGrant"}}}}}},"UnsV2RecordRenewReq":{"k":"o","p":{"locks":{"k":"a","i":{"k":"o"}},"ttlMs":{"k":"j"}}},"UnsV2RecordRenewResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"locks":{"k":"a","i":{"k":"o","p":{"expiresAt":{"k":"j"}}}}}}}},"UnsV2RecordUnlockReq":{"k":"u","a":[{"k":"o"},{"k":"o"}]},"UnsV2RecordUnlockResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"unlockedCount":{"k":"j"}}}}},"UnsV2RecordRestoreReq":{"k":"o","p":{"ids":{"k":"a","i":{}}}},"UnsV2RecordRestoreResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"restoredCount":{"k":"j"},"restoredIds":{"k":"a","i":{}}}}}},"CloudRecordTotalOption":{"k":"o","p":{"max":{"k":"j"}}},"CloudAppCreateCapability":{"k":"o","p":{"appRevision":{"k":"j"},"collectionRevision":{"k":"j"},"inputSchema":{"r":"Schema"}}},"CloudDataPage":{"k":"o","p":{"items":{"k":"a","i":{"k":"o"}},"pageInfo":{"r":"CloudPageInfo"}}},"CloudRecordLockView":{"k":"o","p":{"expiresAt":{"k":"j"},"fence":{"k":"j"},"since":{"k":"j"}}},"CloudNullableRecordDocument":{"k":"o","p":{"data":{"k":"o"},"revision":{"k":"j"},"createdAt":{"k":"j"},"updatedAt":{"k":"j"},"sourceTime":{"k":"j"},"lock":{"r":"CloudRecordLockView"}}},"SampleDocument":{"k":"o","p":{"time":{"k":"j"},"receivedAt":{"k":"j"},"data":{"k":"o"}}},"CloudNullableSampleDocument":{"k":"o","p":{"time":{"k":"j"},"receivedAt":{"k":"j"},"data":{"k":"o"}}},"CloudPageInfo":{"k":"o","p":{"nextPage":{"k":"j"}}},"CloudCappedCount":{"k":"o","p":{"count":{"k":"j"}}},"CloudRecordPage":{"k":"o","p":{"items":{"k":"a","i":{"r":"RecordDocument"}},"pageInfo":{"r":"CloudPageInfo"},"total":{"r":"CloudCappedCount"}}},"CloudSamplePage":{"k":"o","p":{"items":{"k":"a","i":{"r":"SampleDocument"}},"pageInfo":{"r":"CloudPageInfo"}}},"CloudRecordAggregatePage":{"k":"o","p":{"items":{"k":"a","i":{"k":"o"}},"pageInfo":{"r":"CloudPageInfo"},"total":{"r":"CloudCappedCount"}}},"CloudDistinctResult":{"k":"o","p":{"values":{"k":"a","i":{}},"pageInfo":{"r":"CloudPageInfo"}}},"CloudRecordGetResult":{"k":"o","p":{"items":{"k":"a","i":{"r":"RecordDocument"}},"missing":{"k":"a","i":{}}}},"CloudDistinctPage":{"k":"o","p":{"page":{"k":"j"},"size":{"k":"j"}}},"CloudWriteError":{"k":"o","p":{"index":{"k":"j"},"error":{"r":"Fault"}}},"CloudRecordLeaseGrant":{"k":"o","p":{"expiresAt":{"k":"j"},"fence":{"k":"j"},"record":{"r":"RecordDocument"}}},"CloudRecordBatchQuery":{"k":"u","a":[{"k":"u","a":[]},{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"maxCount":{"k":"j"}}},{"k":"u","a":[]},{"k":"u","a":[]},{"k":"o","p":{"ids":{"k":"a","i":{}},"projection":{"k":"o","x":{"k":"u","a":[{"k":"j"}]}}}}]},"CloudRecordBatchQueryResult":{"k":"u","a":[{"k":"o","p":{"data":{"k":"u","a":[{"r":"CloudRecordPage"},{"r":"CloudCappedCount"},{"r":"CloudDistinctResult"},{"r":"CloudRecordAggregatePage"},{"r":"CloudRecordGetResult"}]}}},{"k":"o","p":{"error":{"r":"Fault"}}}]},"UnsV2RecordQueryBatchReq":{"k":"o","p":{"queries":{"k":"a","i":{"r":"CloudRecordBatchQuery"}}}},"UnsV2RecordQueryBatchResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"results":{"k":"o","x":{"r":"CloudRecordBatchQueryResult"}}}}}},"CloudStreamProgramView":{"k":"o","p":{"revision":{"k":"j"},"activeRelease":{"k":"j"},"createdAt":{"k":"j"},"updatedAt":{"k":"j"},"document":{"k":"o","p":{"timeoutMs":{"k":"j"}}},"platformReadiness":{"r":"CloudPlatformReadiness"}}},"CloudStreamRunError":{"k":"o"},"CloudSourceCreateCredentials":{"k":"u","a":[{"k":"o","p":{"material":{"k":"o"}}},{"k":"o","p":{"material":{"k":"o"}}},{"k":"o","p":{"material":{"k":"o"}}},{"k":"o","p":{"material":{"k":"o"}}},{"k":"o","p":{"material":{"k":"o"}}}]},"UnsV2MetadataFindReq":{"k":"u","a":[]},"UnsV2MetadataFindResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"MetadataPage"}}},"UnsV2MetadataCountReq":{"k":"u","a":[]},"UnsV2MetadataCountResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"count":{"k":"j"}}}}},"UnsV2MetadataAggregateReq":{"k":"u","a":[]},"UnsV2MetadataAggregateResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"items":{"k":"a","i":{"k":"o"}},"pageInfo":{"r":"CloudPageInfo"}}}}},"UnsV2MetadataInsertOneReq":{"k":"u","a":[{"k":"u","a":[{"k":"o"}]}]},"UnsV2MetadataInsertOneResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o"}}},"UnsV2MetadataUpdateOneReq":{"k":"u","a":[{"k":"u","a":[{"k":"o"}]}]},"UnsV2MetadataUpdateOneResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"matchedCount":{"k":"j"},"modifiedCount":{"k":"j"},"value":{"r":"MetadataNullableDocument"}}}}},"UnsV2MetadataReplaceOneReq":{"k":"u","a":[{"k":"u","a":[{"k":"o"}]}]},"UnsV2MetadataReplaceOneResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"matchedCount":{"k":"j"},"modifiedCount":{"k":"j"},"value":{"r":"MetadataNullableDocument"}}}}},"UnsV2MetadataDeleteOneReq":{"k":"u","a":[{"k":"u","a":[{"k":"o"}]}]},"UnsV2MetadataDeleteOneResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"deletedCount":{"k":"j"},"value":{"r":"MetadataNullableDocument"}}}}},"UnsV2MetadataUpdateManyReq":{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"update":{"k":"o","p":{"$set":{"k":"o"},"$unset":{"k":"o"},"$setOnInsert":{"k":"o"}}},"maxDocs":{"k":"j"}}},"UnsV2MetadataUpdateManyResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"matchedCount":{"k":"j"},"modifiedCount":{"k":"j"},"results":{"k":"a","i":{"r":"MetadataBulkResult"}},"errors":{"k":"a","i":{"k":"o","p":{"index":{"k":"j"},"error":{"r":"Fault"}}}}}}}},"UnsV2MetadataDeleteManyReq":{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"maxDocs":{"k":"j"}}},"UnsV2MetadataDeleteManyResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"deletedCount":{"k":"j"},"results":{"k":"a","i":{"r":"MetadataBulkResult"}},"errors":{"k":"a","i":{"k":"o","p":{"index":{"k":"j"},"error":{"r":"Fault"}}}}}}}},"UnsV2MetadataRestoreReq":{"k":"o","p":{"items":{"k":"a","i":{"k":"o","p":{"expectedRevision":{"k":"j"}}}}}},"UnsV2MetadataRestoreResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"restoredCount":{"k":"j"},"items":{"k":"a","i":{"r":"MetadataDocument"}}}}}},"UnsV2MetadataPurgeReq":{"k":"o","p":{"ids":{"k":"a","i":{}}}},"UnsV2MetadataPurgeResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"Outcome"}}},"UnsV2MetadataBulkWriteReq":{"k":"o","p":{"operations":{"k":"a","i":{"k":"u","a":[{"k":"o","p":{"insertOne":{"r":"MetadataBulkInsertOne"}}},{"k":"o","p":{"updateOne":{"r":"MetadataBulkUpdateOne"}}},{"k":"o","p":{"replaceOne":{"r":"MetadataBulkReplaceOne"}}},{"k":"o","p":{"deleteOne":{"r":"MetadataBulkDeleteOne"}}},{"k":"o","p":{"restoreOne":{"r":"MetadataBulkRestoreOne"}}}]}}}},"UnsV2MetadataBulkWriteResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"insertedCount":{"k":"j"},"matchedCount":{"k":"j"},"modifiedCount":{"k":"j"},"deletedCount":{"k":"j"},"restoredCount":{"k":"j"},"upsertedCount":{"k":"j"},"insertedIds":{"k":"o"},"upsertedIds":{"k":"o"},"results":{"k":"a","i":{"r":"MetadataBulkResult"}},"errors":{"k":"a","i":{"k":"o","p":{"index":{"k":"j"},"error":{"r":"Fault"}}}},"nextIndex":{"k":"j"},"unknownUntil":{"k":"j"}}}}},"UnsV2MetadataTransactReq":{"k":"o","p":{"operations":{"k":"a","i":{"r":"MetadataTransactionOperation"}}}},"UnsV2MetadataTransactResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"results":{"k":"a","i":{"r":"MetadataTransactionResult"}}}}}},"CloudCollectionTTL":{"k":"o","p":{"expireAfterSeconds":{"k":"j"}}},"CloudAppDataLimits":{"k":"o","p":{"count":{"k":"o","p":{"defaultMax":{"k":"j"},"max":{"k":"j"}}},"total":{"k":"o","p":{"defaultMax":{"k":"j"},"max":{"k":"j"}}},"queryBatch":{"k":"o","p":{"maxQueries":{"k":"j"},"maxRows":{"k":"j"},"maxBytes":{"k":"j"}}},"get":{"k":"o","p":{"maxIds":{"k":"j"}}},"subscribe":{"k":"o","p":{"maxCollections":{"k":"j"},"maxRecordIds":{"k":"j"},"heartbeatMs":{"k":"j"},"retentionMs":{"k":"j"}}},"ttl":{"k":"o","p":{"minSeconds":{"k":"j"},"maxSeconds":{"k":"j"},"maxPerCollection":{"k":"j"}}},"concurrency":{"k":"o","p":{"reads":{"k":"j"},"writes":{"k":"j"},"queueMs":{"k":"j"}}},"idempotencyWindowMs":{"k":"j"}}},"ErrorRetry":{"k":"o","p":{"afterMs":{"k":"j"}}},"MetadataDocument":{"k":"o","p":{"revision":{"k":"j"},"createdAt":{"k":"j"},"updatedAt":{"k":"j"},"deletedAt":{"k":"j"},"data":{"k":"o"}}},"MetadataNullableDocument":{"k":"u","a":[{"r":"MetadataDocument"}]},"MetadataPage":{"k":"o","p":{"items":{"k":"a","i":{"r":"MetadataDocument"}},"pageInfo":{"r":"CloudPageInfo"}}},"MetadataDirectoryInput":{"k":"o","p":{"parentId":{"k":"u","a":[{"r":"UnsV2Identity"}]},"schemaVersion":{"k":"j"}}},"MetadataTopicInput":{"k":"o","p":{"collectionId":{"r":"UnsV2Identity"},"fields":{"k":"a","i":{"r":"FieldBinding"}},"parentId":{"k":"u","a":[{"r":"UnsV2Identity"}]},"schemaVersion":{"k":"j"}}},"MetadataCollectionInput":{"k":"o","p":{"indexes":{"k":"a","i":{"r":"IndexSpec"}},"recordSchema":{"r":"Schema"},"sampleSchema":{"r":"Schema"},"schemaVersion":{"k":"j"},"semantics":{"r":"CollectionSemantics"},"parentId":{"k":"u","a":[{"r":"UnsV2Identity"}]}}},"MetadataBulkResult":{"k":"o","p":{"index":{"k":"j"},"matchedCount":{"k":"j"},"modifiedCount":{"k":"j"},"deletedCount":{"k":"j"},"restoredCount":{"k":"j"},"value":{"r":"MetadataNullableDocument"},"error":{"r":"Fault"}}},"MetadataTransactionResult":{"k":"o","p":{"matchedCount":{"k":"j"},"modifiedCount":{"k":"j"},"deletedCount":{"k":"j"},"restoredCount":{"k":"j"},"value":{"r":"MetadataNullableDocument"}}},"MetadataBulkInsertOne":{"k":"o","p":{"data":{"k":"o"}}},"MetadataBulkUpdateOne":{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"},"expectedRevision":{"k":"j"},"update":{"k":"o","p":{"$set":{"k":"o"},"$unset":{"k":"o"},"$setOnInsert":{"k":"o"}}}}},"MetadataBulkReplaceOne":{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"},"expectedRevision":{"k":"j"},"replacement":{"k":"o"}}},"MetadataBulkDeleteOne":{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"},"expectedRevision":{"k":"j"}}},"MetadataBulkRestoreOne":{"k":"o","p":{"expectedRevision":{"k":"j"}}},"MetadataTransactionOperation":{"k":"u","a":[{"k":"u","a":[{"k":"o","p":{"data":{"r":"MetadataDirectoryInput"},"replacement":{"r":"MetadataDirectoryInput"}}},{"k":"o","p":{"data":{"r":"MetadataTopicInput"},"replacement":{"r":"MetadataTopicInput"}}},{"k":"o","p":{"data":{"r":"MetadataCollectionInput"},"replacement":{"r":"MetadataCollectionInput"}}}]}]},"CloudSourceDocumentPatch":{"k":"o","p":{"config":{"r":"CloudSourceConfig"}}},"CloudSourceDocumentSummary":{"k":"o","p":{"revision":{"k":"j"},"createdAt":{"k":"j"},"updatedAt":{"k":"j"},"platformReadiness":{"r":"CloudPlatformReadiness"}}},"CloudStreamDocumentSummary":{"k":"o","p":{"revision":{"k":"j"},"createdAt":{"k":"j"},"updatedAt":{"k":"j"},"activeRelease":{"k":"j"},"platformReadiness":{"r":"CloudPlatformReadiness"}}},"CloudPlatformReadiness":{"k":"o","p":{"retryAfterMs":{"k":"j"}}},"CloudEdgeSourceStateUpdateReq":{"k":"o","p":{"expectedRevision":{"k":"j"}}},"CloudEdgeSourceStateUpdateResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o"}}},"CloudEdgeNodesListReq":{"k":"o","p":{"page":{"k":"j"},"size":{"k":"j"}}},"CloudEdgeNodesListResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"list":{"k":"a","i":{"k":"o","p":{"lastOnlineAt":{"k":"j"},"lastOfflineAt":{"k":"j"}}}},"total":{"k":"j"},"page":{"k":"j"},"size":{"k":"j"}}}}},"CloudSourceResourceCatalogReq":{"k":"o","p":{"configRevision":{"k":"j"}}},"CloudSourceResourceCatalogResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"configRevision":{"k":"j"},"resources":{"k":"a","i":{"k":"o","p":{"modes":{"k":"a","i":{}},"inputSchema":{"k":"o"},"outputSchema":{"k":"o"},"requiredPermissions":{"k":"a","i":{}},"configRevision":{"k":"j"},"metadata":{"k":"o"}}}}}}}},"CloudSourceResourceReadReq":{"k":"o","p":{"configRevision":{"k":"j"},"params":{"k":"o","p":{"limit":{"k":"j"},"selectFields":{"k":"a","i":{}}}},"timeoutMs":{"k":"j"}}},"CloudSourceResourceReadResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o"}}},"CloudSourceResourceScanReq":{"k":"o","p":{"configRevision":{"k":"j"},"params":{"k":"o","p":{"maxItems":{"k":"j"},"selectFields":{"k":"a","i":{}}}},"limit":{"k":"j"},"timeoutMs":{"k":"j"}}},"CloudSourceResourceScanResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"configRevision":{"k":"j"},"items":{"k":"a","i":{"k":"o"}},"collectedAt":{"k":"j"}}}}}} as const;
+export const UNS_V2_CODEC_SCHEMAS = {"UnsV2CatalogReq":{"k":"o"},"UnsV2TransactionQuery":{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"},"limit":{"k":"j"},"expectCount":{"r":"UnsV2QueryCountExpectation"}}},"UnsV2QueryCountExpectation":{"k":"u","a":[{"k":"o","p":{"min":{"k":"j"},"max":{"k":"j"}}}]},"UnsV2FieldOperation":{"k":"u","a":[{"k":"o"},{"k":"o"},{"k":"o","p":{"value":{"k":"a","i":{}}}},{"k":"o"}]},"UnsV2ResultBinding":{"k":"o"},"UnsV2Page":{"k":"o","p":{"page":{"k":"j"},"size":{"k":"j"}}},"UnsV2TimeRange":{"k":"o","p":{"from":{"k":"j"},"to":{"k":"j"}}},"UnsV2History":{"k":"o","p":{"page":{"k":"j"},"size":{"k":"j"},"timeRange":{"r":"UnsV2TimeRange"}}},"UnsV2SelectedRecord":{"k":"o","p":{"history":{"r":"UnsV2History"}}},"UnsV2ReferenceTarget":{"k":"o"},"UnsV2PipelinePage":{"k":"u","a":[{"k":"o","p":{"size":{"k":"j"},"page":{"k":"j"}}},{"k":"u","a":[{"k":"o"},{"k":"o"}]}]},"UnsV2Envelope":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"u","a":[{"r":"Outcome"},{"r":"AppContext"},{"r":"AppKeyCreated"},{"r":"AppKeyRevoked"},{"k":"o","p":{"results":{"k":"a","i":{"k":"o"}}}},{"k":"o","p":{"capabilities":{"k":"o"}}}]}}},"UnsV2DiscoverySearchReq":{"k":"o","p":{"page":{"k":"j"},"size":{"k":"j"}}},"UnsV2CollectionDescribeReq":{"k":"o"},"UnsV2RecordTransactionReq":{"k":"o","p":{"items":{"k":"a","i":{"r":"UnsV2RecordChange"}},"assertLocks":{"k":"a","i":{"k":"o"}}}},"UnsV2Identity":{"k":"u","a":[{"k":"o"}]},"AppCollectionContext":{"k":"o","p":{"indexes":{"k":"a","i":{"r":"IndexSpec"}},"permissions":{"k":"a","i":{}},"recordSchema":{"r":"Schema"},"sampleSchema":{"r":"Schema"},"createCapability":{"r":"CloudAppCreateCapability"},"revision":{"k":"j"},"indexStatus":{"k":"a","i":{"r":"IndexState"}},"ttl":{"k":"u","a":[{"r":"CloudCollectionTTL"}]},"directoryPath":{"k":"a","i":{}}}},"AppContext":{"k":"o","p":{"collections":{"k":"a","i":{"r":"AppCollectionContext"}},"platformPermissions":{"k":"a","i":{}},"revision":{"k":"j"},"limits":{"r":"CloudAppDataLimits"}}},"AppKeyCreated":{"k":"o","p":{"resourceKeys":{"k":"a","i":{}}}},"AppKeyRevoked":{"k":"o"},"CollectionDescription":{"k":"o","p":{"fields":{"k":"a","i":{"r":"DiscoveredField"}},"indexStatus":{"k":"a","i":{"r":"IndexState"}},"indexes":{"k":"a","i":{"r":"IndexSpec"}},"recordSchema":{"r":"Schema"},"relationships":{"k":"a","i":{"r":"CollectionRelationship"}},"revision":{"k":"j"},"sampleSchema":{"r":"Schema"}}},"CollectionRelationship":{"k":"o"},"CollectionSemantics":{"k":"o","p":{"fields":{"k":"a","i":{"r":"FieldSemantics"}},"relationships":{"k":"a","i":{"r":"CollectionRelationship"}}}},"DiscoveredField":{"k":"o","p":{"enum":{"k":"a","i":{}}}},"DiscoveryCollection":{"k":"o","p":{"revision":{"k":"j"}}},"DiscoveryResult":{"k":"o","p":{"asOf":{"k":"j"},"list":{"k":"a","i":{"r":"DiscoveryCollection"}},"nextPage":{"k":"j"},"page":{"k":"j"},"size":{"k":"j"},"total":{"k":"j"}}},"Fault":{"k":"o","p":{"details":{"k":"a","i":{"k":"o"}},"retry":{"r":"ErrorRetry"},"candidates":{"k":"a","i":{"k":"o"}},"conditionIndex":{"k":"j"}}},"FieldBinding":{"k":"o","p":{"collectionId":{"r":"UnsV2Identity"},"recordId":{"r":"UnsV2Identity"}}},"FieldSemantics":{"k":"o"},"HTTPConnection":{"k":"o","p":{"headers":{"k":"o"},"oauth":{"r":"OAuthConfig"},"parameters":{"k":"o"},"port":{"k":"j"}}},"IndexSpec":{"k":"u","a":[{"k":"o","p":{"paths":{"k":"a","i":{}},"expireAfterSeconds":{"k":"j"}}},{"k":"u","a":[{"k":"o"}]}]},"IndexState":{"k":"o","p":{"spec":{"r":"IndexSpec"}}},"MQTTOptions":{"k":"o","p":{"qos":{"k":"j"},"serverSubscribeTopics":{"k":"a","i":{}},"subscriptions":{"k":"o","x":{"k":"j"}},"topicFilters":{"k":"a","i":{}},"devicePublishTopics":{"k":"a","i":{}},"deviceSubscribeTopics":{"k":"a","i":{}}}},"ModbusOptions":{"k":"o","p":{"pollIntervalMs":{"k":"j"},"ranges":{"k":"a","i":{"r":"ModbusRange"}},"unitId":{"k":"j"}}},"ModbusRange":{"k":"o","p":{"address":{"k":"j"},"quantity":{"k":"j"},"unitId":{"k":"j"}}},"OAuthConfig":{"k":"o"},"OPCUAOptions":{"k":"o","p":{"nodeIds":{"k":"a","i":{}},"samplingIntervalMs":{"k":"j"},"serverNodes":{"k":"a","i":{"r":"OPCUAServerNode"}}}},"OPCUAServerNode":{"k":"o"},"Outcome":{"k":"o","p":{"results":{"k":"a","i":{"r":"Result"}},"summary":{"r":"OutcomeSummary"}}},"OutcomeSummary":{"k":"o","p":{"failed":{"k":"j"},"notExecuted":{"k":"j"},"succeeded":{"k":"j"},"total":{"k":"j"},"unknown":{"k":"j"}}},"RecordDocument":{"k":"o","p":{"data":{"k":"o"},"revision":{"k":"j"},"createdAt":{"k":"j"},"updatedAt":{"k":"j"},"sourceTime":{"k":"j"},"lock":{"r":"CloudRecordLockView"}}},"Result":{"k":"o","p":{"document":{"r":"RecordDocument"},"error":{"r":"Fault"},"query":{"r":"TransactionQueryResult"},"release":{"k":"j"},"revision":{"k":"j"}}},"RuntimeStreamDefinition":{"k":"o","p":{"script":{"r":"StreamScript"},"sources":{"k":"a","i":{"r":"StreamSourceAlias"}},"sourceBindings":{"k":"a","i":{"r":"StreamSourceBinding"}},"extensions":{"k":"o"}}},"Schema":{"k":"o","p":{"enum":{"k":"a","i":{}},"items":{"r":"Schema"},"maximum":{"k":"n"},"minimum":{"k":"n"},"properties":{"k":"o","x":{"r":"Schema"}},"required":{"k":"a","i":{}}}},"SourceDefinition":{"k":"u","a":[{"k":"o","p":{"extensions":{"k":"o","p":{"tls":{"k":"o"},"ingress":{"k":"o"}}},"file":{"r":"FileSourceOptions"},"http":{"r":"HTTPConnection"},"modbus":{"r":"ModbusOptions"},"mqtt":{"r":"MQTTOptions"},"opcua":{"r":"OPCUAOptions"},"openProtocol":{"r":"OpenProtocolOptions"},"sql":{"r":"SQLConnection"}}},{"k":"u","a":[{"k":"o"},{"k":"o"}]},{"k":"u","a":[{"k":"o"},{"k":"o"}]},{"k":"u","a":[{"k":"o"},{"k":"o"}]}]},"TransactionQueryResult":{"k":"o","p":{"records":{"k":"a","i":{"r":"RecordDocument"}},"total":{"k":"j"}}},"UnsV2SourceRuntimeGetReq":{"k":"o"},"UnsV2SourceRuntimeGetResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"revision":{"k":"j"},"state":{"k":"o","p":{"schemaVersion":{"k":"j"},"lastDataAt":{"k":"j"},"checkedAt":{"k":"j"},"resources":{"k":"a","i":{"k":"o"}},"streams":{"k":"o","x":{"k":"o","p":{"revision":{"k":"j"},"leaseUntil":{"k":"j"},"nextRunAt":{"k":"j"},"page":{"k":"j"},"lastDataAt":{"k":"j"},"records":{"k":"j"},"sequence":{"k":"j"},"retries":{"k":"j"}}}},"bindings":{"k":"a","i":{"k":"o","p":{"release":{"k":"j"},"configRevision":{"k":"j"},"currentConfigRevision":{"k":"j"},"observationWindowHours":{"k":"j"},"lastCollectionCommitAt":{"k":"j"},"lastSourceCallAt":{"k":"j"},"sourceReportedCollectedAt":{"k":"j"},"lastRunError":{"k":"o","p":{"at":{"k":"j"},"error":{"k":"o"}}},"checkpoints":{"k":"a","i":{"k":"o","p":{"revision":{"k":"j"},"updatedAt":{"k":"j"}}}},"edgeSubscriptions":{"k":"a","i":{"k":"o"}}}}},"edgeSubscriptions":{"k":"a","i":{"k":"o"}}}}}}}},"UnsV2SourceProtocolsListReq":{"k":"o"},"UnsV2SourceProtocolsListResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o"}}},"UnsV2SourceValidateReq":{"k":"o","p":{"document":{"r":"SourceDefinition"}}},"UnsV2SourceValidateResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o"}}},"UnsV2SourceProbeReq":{"k":"o","p":{"timeoutMs":{"k":"j"}}},"UnsV2SourceProbeResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o"}}},"UnsV2StreamProgramVersionsListReq":{"k":"o","p":{"page":{"k":"j"},"size":{"k":"j"}}},"UnsV2StreamProgramVersionsListResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"list":{"k":"a","i":{"k":"o","p":{"release":{"k":"j"},"createdAt":{"k":"j"},"document":{"k":"u","a":[{"r":"CloudStreamDocument"},{"k":"o","p":{"timeoutMs":{"k":"j"}}}]}}}},"total":{"k":"j"},"page":{"k":"j"},"size":{"k":"j"}}}}},"UnsV2StreamProgramDeployReq":{"k":"o","p":{"expectedRevision":{"k":"j"},"expectedSourceRevision":{"k":"j"}}},"UnsV2StreamProgramDeployResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"u","a":[{"r":"CloudStreamProgramView"},{"r":"CloudPreviewResult"}]}}},"UnsV2StreamProgramRollbackReq":{"k":"o","p":{"expectedRevision":{"k":"j"},"expectedSourceRevision":{"k":"j"}}},"UnsV2StreamProgramRollbackResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"u","a":[{"r":"CloudStreamProgramView"},{"r":"CloudPreviewResult"}]}}},"UnsV2SampleAppendResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"Outcome"}}},"UnsV2RecordFindResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"CloudRecordPage"}}},"UnsV2RecordCountResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"CloudCappedCount"}}},"UnsV2RecordAggregatePipelineResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"CloudRecordAggregatePage"}}},"UnsV2RecordExplainResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"matchedCount":{"k":"j"},"sampleIds":{"k":"a","i":{}},"plan":{"k":"o"}}}}},"UnsV2RecordInsertOneResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"value":{"r":"RecordDocument"}}}}},"UnsV2RecordUpdateOneResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"matchedCount":{"k":"j"},"modifiedCount":{"k":"j"},"value":{"r":"CloudNullableRecordDocument"}}}}},"UnsV2RecordReplaceOneResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"matchedCount":{"k":"j"},"modifiedCount":{"k":"j"},"value":{"r":"CloudNullableRecordDocument"}}}}},"UnsV2RecordDeleteOneResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"deletedCount":{"k":"j"},"value":{"r":"CloudNullableRecordDocument"}}}}},"UnsV2RecordUpdateManyResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"u","a":[{"k":"o","p":{"matchedCount":{"k":"j"},"modifiedCount":{"k":"j"},"writeErrors":{"k":"a","i":{"r":"CloudWriteError"}}}}]}}},"UnsV2RecordDeleteManyResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"u","a":[{"k":"o","p":{"deletedCount":{"k":"j"},"writeErrors":{"k":"a","i":{"r":"CloudWriteError"}}}}]}}},"UnsV2RecordBulkWriteResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"insertedCount":{"k":"j"},"matchedCount":{"k":"j"},"modifiedCount":{"k":"j"},"deletedCount":{"k":"j"},"upsertedCount":{"k":"j"},"insertedIds":{"k":"o"},"upsertedIds":{"k":"o"},"nextIndex":{"k":"j"},"unknownUntil":{"k":"j"},"writeErrors":{"k":"a","i":{"r":"CloudWriteError"}}}}}},"UnsV2SampleLatestValuesReq":{"k":"o","p":{"recordIds":{"k":"a","i":{}}}},"UnsV2SampleLatestValuesResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"series":{"k":"a","i":{"k":"o","p":{"sample":{"r":"CloudNullableSampleDocument"}}}}}}}},"UnsV2SampleDeleteRangeResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"deletedCount":{"k":"j"}}}}},"UnsV2RecordChange":{"k":"u","a":[{"k":"o","p":{"update":{"k":"o"},"arrayFilters":{"k":"a","i":{"k":"o"}},"id":{"k":"u","a":[{"r":"UnsV2Identity"}]},"collectionId":{"r":"UnsV2Identity"},"expectedRevision":{"k":"j"},"data":{"k":"o"},"dependsOn":{"k":"a","i":{}},"filter":{"r":"UnsV2DataFilter"},"sort":{"k":"u","a":[{"r":"UnsV2PipelineSort"}]},"operations":{"k":"a","i":{"r":"UnsV2FieldOperation"}},"bindings":{"k":"a","i":{"r":"UnsV2ResultBinding"}},"query":{"r":"UnsV2TransactionQuery"},"lockTokens":{"k":"o"},"conditions":{"k":"a","i":{"r":"UnsV2RecordFilter"}}}},{"k":"u","a":[{"k":"o"}]},{"k":"u","a":[{"k":"o"},{"k":"o"}]},{"k":"u","a":[{"k":"o"},{"k":"o"}]},{"k":"u","a":[{"k":"o"},{"k":"o"}]},{"k":"o"},{"k":"u","a":[{"k":"o"}]},{"k":"u","a":[{"k":"o"}]},{"k":"u","a":[{"k":"o"},{"k":"u","a":[]},{"k":"u","a":[{"k":"o"}]}]},{"k":"u","a":[{"k":"o"},{"k":"u","a":[]}]},{"k":"u","a":[{"k":"o"}]},{"k":"u","a":[{"k":"o"}]},{"k":"o"}]},"UnsV2DataFilter":{"k":"o","p":{"$and":{"k":"a","i":{"r":"UnsV2DataFilter"}},"$or":{"k":"a","i":{"r":"UnsV2DataFilter"}},"$nor":{"k":"a","i":{"r":"UnsV2DataFilter"}},"$not":{"r":"UnsV2DataFilter"},"$expr":{"r":"UnsV2PipelineExpression"}},"x":{"k":"u","a":[{"r":"UnsV2FilterScalar"},{"r":"UnsV2FieldPredicate"}]}},"UnsV2FilterScalar":{"k":"u","a":[{"k":"n"}]},"UnsV2ArrayElementFilter":{"k":"o"},"UnsV2FieldComparisons":{"k":"o","p":{"$eq":{"r":"UnsV2FilterScalar"},"$ne":{"r":"UnsV2FilterScalar"},"$gt":{"r":"UnsV2FilterScalar"},"$gte":{"r":"UnsV2FilterScalar"},"$lt":{"r":"UnsV2FilterScalar"},"$lte":{"r":"UnsV2FilterScalar"},"$in":{"k":"a","i":{"r":"UnsV2FilterScalar"}},"$nin":{"k":"a","i":{"r":"UnsV2FilterScalar"}},"$all":{"k":"a","i":{}},"$size":{"k":"j"},"$elemMatch":{"r":"UnsV2ArrayElementFilter"}}},"UnsV2FieldPredicate":{"k":"o","p":{"$eq":{"r":"UnsV2FilterScalar"},"$ne":{"r":"UnsV2FilterScalar"},"$gt":{"r":"UnsV2FilterScalar"},"$gte":{"r":"UnsV2FilterScalar"},"$lt":{"r":"UnsV2FilterScalar"},"$lte":{"r":"UnsV2FilterScalar"},"$in":{"k":"a","i":{"r":"UnsV2FilterScalar"}},"$nin":{"k":"a","i":{"r":"UnsV2FilterScalar"}},"$all":{"k":"a","i":{}},"$size":{"k":"j"},"$elemMatch":{"r":"UnsV2ArrayElementFilter"},"$not":{"r":"UnsV2FieldComparisons"}}},"UnsV2PipelineExpression":{"k":"u","a":[{"r":"UnsV2FilterScalar"},{"k":"o","p":{"$ifNull":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$add":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$subtract":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$multiply":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$divide":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$literal":{"r":"UnsV2FilterScalar"}}},{"k":"o","p":{"$eq":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$ne":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$gt":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$gte":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$lt":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$lte":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$and":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$or":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$not":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$cond":{"k":"u","a":[{"k":"a","i":{"r":"UnsV2PipelineExpression"}},{"k":"o","p":{"if":{"r":"UnsV2PipelineExpression"},"then":{"r":"UnsV2PipelineExpression"},"else":{"r":"UnsV2PipelineExpression"}}}]}}},{"k":"o","p":{"$concat":{"k":"a","i":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$toLower":{"r":"UnsV2PipelineExpression"}}},{"k":"o","p":{"$toUpper":{"r":"UnsV2PipelineExpression"}}},{"k":"o","p":{"$strLenCP":{"r":"UnsV2PipelineExpression"}}},{"k":"o","p":{"$toString":{"r":"UnsV2PipelineExpression"}}},{"k":"o","p":{"$toDecimal":{"r":"UnsV2PipelineExpression"}}},{"k":"o","p":{"$toLong":{"r":"UnsV2PipelineExpression"}}},{"k":"o","p":{"$toBool":{"r":"UnsV2PipelineExpression"}}},{"k":"o","p":{"$trim":{"k":"o","p":{"input":{"r":"UnsV2PipelineExpression"},"chars":{"r":"UnsV2PipelineExpression"}}}}},{"k":"o","p":{"$convert":{"k":"o","p":{"input":{"r":"UnsV2PipelineExpression"}}}}},{"k":"o","p":{"$dateTrunc":{"k":"o","p":{"date":{"r":"UnsV2PipelineExpression"},"binSize":{"k":"j"}}}}}]},"UnsV2PipelineAccumulator":{"k":"u","a":[{"k":"o","p":{"$sum":{"r":"UnsV2PipelineExpression"}}},{"k":"o","p":{"$avg":{"r":"UnsV2PipelineExpression"}}},{"k":"o","p":{"$min":{"r":"UnsV2PipelineExpression"}}},{"k":"o","p":{"$max":{"r":"UnsV2PipelineExpression"}}},{"k":"o","p":{"$count":{"k":"o"}}}]},"UnsV2PipelineSort":{"k":"a","i":{"k":"a","i":{"k":"u","a":[{"k":"j"}]}}},"UnsV2DistinctBy":{"k":"o"},"UnsV2Distinct":{"k":"o","p":{"by":{"r":"UnsV2DistinctBy"}}},"UnsV2Frequencies":{"k":"o","p":{"by":{"k":"u","a":[{"r":"UnsV2DistinctBy"}]}}},"UnsV2PipelineStage":{"k":"u","a":[{"k":"o","p":{"$match":{"r":"UnsV2DataFilter"}}},{"k":"o","p":{"$project":{"k":"o","x":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$set":{"k":"o","x":{"r":"UnsV2PipelineExpression"}}}},{"k":"o","p":{"$sort":{"r":"UnsV2PipelineSort"}}},{"k":"o","p":{"$group":{"k":"o","p":{"_id":{"k":"u","a":[{"r":"UnsV2PipelineExpression"},{"k":"o","x":{"r":"UnsV2PipelineExpression"}}]}},"x":{"r":"UnsV2PipelineAccumulator"}}}},{"k":"o","p":{"$distinct":{"r":"UnsV2Distinct"}}},{"k":"o","p":{"$frequencies":{"r":"UnsV2Frequencies"}}},{"k":"o","p":{"$lookup":{"k":"u","a":[{"k":"o","p":{"pipeline":{"k":"a","i":{"r":"UnsV2PipelineStage"}}}},{"k":"o"},{"k":"o"}]}}},{"k":"o","p":{"$unwind":{"k":"u","a":[{"k":"o"}]}}},{"k":"o","p":{"$skip":{"k":"j"}}},{"k":"o","p":{"$limit":{"k":"j"}}},{"k":"o"},{"k":"o"}]},"UnsV2DataDiscoverResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"DiscoveryResult"}}},"UnsV2CollectionDescribeResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"CollectionDescription"}}},"UnsV2RecordTransactionExecuteResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"Outcome"}}},"UnsV2NamespaceQuery":{"k":"o","p":{"page":{"k":"j"},"size":{"k":"j"},"kinds":{"k":"a","i":{}},"ids":{"k":"a","i":{}}}},"UnsV2NamespaceDocumentedRequest":{"k":"o","p":{"queries":{"k":"a","i":{"r":"UnsV2NamespaceQuery"}}}},"UnsV2TopicsQuery":{"k":"o","p":{"include":{"k":"a","i":{}},"records":{"r":"UnsV2Page"},"selectedRecord":{"r":"UnsV2SelectedRecord"}}},"UnsV2TopicsDocumentedRequest":{"k":"o","p":{"queries":{"k":"a","i":{"r":"UnsV2TopicsQuery"}}}},"UnsV2ReferencesQuery":{"k":"o","p":{"page":{"k":"j"},"size":{"k":"j"},"targets":{"k":"a","i":{"r":"UnsV2ReferenceTarget"}},"relationKinds":{"k":"a","i":{}},"kinds":{"k":"a","i":{}}}},"UnsV2ReferencesDocumentedRequest":{"k":"o","p":{"queries":{"k":"a","i":{"r":"UnsV2ReferencesQuery"}}}},"UnsV2JobsQuery":{"k":"o","p":{"jobIds":{"k":"a","i":{}}}},"UnsV2JobsDocumentedRequest":{"k":"o","p":{"queries":{"k":"a","i":{"r":"UnsV2JobsQuery"}}}},"UnsV2ErrorResponse":{"k":"o","p":{"code":{"k":"j"},"error":{"r":"Fault"}}},"UnsV2RecordFilter":{"k":"o"},"UnsV2RecordGetReq":{"k":"o","p":{"ids":{"k":"a","i":{}},"projection":{"k":"o","x":{"k":"u","a":[{"k":"j"}]}}}},"UnsV2RecordGetResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"CloudRecordGetResult"}}},"UnsV2SampleAppendReq":{"k":"o","p":{"items":{"k":"a","i":{"k":"o","p":{"time":{"k":"j"},"data":{"k":"o"}}}}}},"UnsV2RecordFindReq":{"k":"u","a":[{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"},"projection":{"k":"o","x":{"k":"u","a":[{"k":"j"}]}},"limit":{"k":"j"},"count":{"r":"CloudRecordTotalOption"}}}]},"UnsV2RecordCountReq":{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"maxCount":{"k":"j"}}},"UnsV2RecordAggregatePipelineReq":{"k":"u","a":[{"k":"o","p":{"pipeline":{"k":"a","i":{"r":"UnsV2PipelineStage"}},"limit":{"k":"j"},"page":{"r":"UnsV2PipelinePage"},"count":{"r":"CloudRecordTotalOption"}}}]},"UnsV2RecordExplainReq":{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"},"limit":{"k":"j"}}},"UnsV2RecordInsertOneReq":{"k":"u","a":[{"k":"o","p":{"expectedRevision":{"k":"j"},"data":{"k":"o"},"assertLocks":{"k":"a","i":{"k":"o"}},"projection":{"k":"o","x":{"k":"u","a":[{"k":"j"}]}}}},{"k":"u","a":[{"k":"o"}]}]},"UnsV2RecordUpdateOneReq":{"k":"u","a":[{"k":"o","p":{"expectedRevision":{"k":"j"},"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"},"update":{"k":"o"},"arrayFilters":{"k":"a","i":{"k":"o"}},"assertLocks":{"k":"a","i":{"k":"o"}},"projection":{"k":"o","x":{"k":"u","a":[{"k":"j"}]}}}},{"k":"u","a":[{"k":"o"}]}]},"UnsV2RecordReplaceOneReq":{"k":"u","a":[{"k":"o","p":{"expectedRevision":{"k":"j"},"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"},"replacement":{"k":"o"},"assertLocks":{"k":"a","i":{"k":"o"}},"projection":{"k":"o","x":{"k":"u","a":[{"k":"j"}]}}}},{"k":"u","a":[{"k":"o"}]}]},"UnsV2RecordDeleteOneReq":{"k":"u","a":[{"k":"o","p":{"expectedRevision":{"k":"j"},"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"},"assertLocks":{"k":"a","i":{"k":"o"}},"projection":{"k":"o","x":{"k":"u","a":[{"k":"j"}]}}}},{"k":"u","a":[{"k":"o"}]}]},"UnsV2RecordUpdateManyReq":{"k":"o","p":{"expectedRevision":{"k":"j"},"filter":{"r":"UnsV2DataFilter"},"update":{"k":"o"},"arrayFilters":{"k":"a","i":{"k":"o"}},"maxDocs":{"k":"j"},"assertLocks":{"k":"a","i":{"k":"o"}},"lockTokens":{"k":"o"}}},"UnsV2RecordDeleteManyReq":{"k":"o","p":{"expectedRevision":{"k":"j"},"filter":{"r":"UnsV2DataFilter"},"maxDocs":{"k":"j"},"assertLocks":{"k":"a","i":{"k":"o"}},"lockTokens":{"k":"o"}}},"UnsV2RecordBulkWriteReq":{"k":"o","p":{"expectedRevision":{"k":"j"},"operations":{"k":"a","i":{"k":"u","a":[{"k":"o","p":{"insertOne":{"k":"o","p":{"data":{"k":"o"}}}}},{"k":"o","p":{"updateOne":{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"},"update":{"k":"o"},"arrayFilters":{"k":"a","i":{"k":"o"}}}}}},{"k":"o","p":{"replaceOne":{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"},"replacement":{"k":"o"}}}}},{"k":"o","p":{"deleteOne":{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"}}}}}]}},"assertLocks":{"k":"a","i":{"k":"o"}},"lockTokens":{"k":"o"}}},"UnsV2SampleDeleteRangeReq":{"k":"o","p":{"recordIds":{"k":"a","i":{}},"from":{"k":"j"},"to":{"k":"j"}}},"CloudStreamRequestDefinition":{"k":"o","p":{"inputSchema":{"k":"o"},"outputSchema":{"k":"o"},"timeoutMs":{"k":"j"}}},"CloudStreamEntry":{"k":"o","p":{"config":{"k":"o"},"request":{"r":"CloudStreamRequestDefinition"}}},"CloudStreamDocument":{"k":"o","p":{"script":{"r":"StreamScript"},"sources":{"k":"a","i":{"r":"StreamSourceAlias"}},"entries":{"k":"a","i":{"r":"CloudStreamEntry"}},"messages":{"k":"a","i":{"r":"CloudStreamMessageDeclaration"}},"sourceBindings":{"k":"a","i":{"r":"StreamSourceBinding"}},"extensions":{"k":"o"}}},"CloudSourceDocumentView":{"k":"o","p":{"revision":{"k":"j"},"document":{"r":"SourceDefinition"},"createdAt":{"k":"j"},"updatedAt":{"k":"j"},"platformReadiness":{"r":"CloudPlatformReadiness"},"configRevision":{"k":"j"}}},"CloudStreamDocumentView":{"k":"o","p":{"revision":{"k":"j"},"document":{"r":"CloudStreamDocument"},"activeDocument":{"r":"CloudStreamDocument"},"activeRelease":{"k":"j"},"createdAt":{"k":"j"},"updatedAt":{"k":"j"},"platformReadiness":{"r":"CloudPlatformReadiness"}}},"CloudStreamProgramListReq":{"k":"o","p":{"page":{"k":"j"},"size":{"k":"j"}}},"CloudStreamProgramListResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"list":{"k":"a","i":{"r":"CloudStreamProgramSummary"}},"total":{"k":"j"},"page":{"k":"j"},"size":{"k":"j"},"nextPage":{"k":"j"}}}}},"CloudStreamProgramDeleteReq":{"k":"o","p":{"expectedRevision":{"k":"j"}}},"CloudStreamProgramDeleteResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"u","a":[{"k":"o","p":{"revision":{"k":"j"}}},{"r":"CloudPreviewResult"}]}}},"CloudSourceDocumentGetReq":{"k":"o"},"CloudSourceDocumentGetResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"u","a":[{"r":"CloudSourceDocumentView"},{"r":"CloudSourceDocumentSummary"},{"r":"CloudSourceReferenceView"}]}}},"CloudSourceDocumentCreateReq":{"k":"u","a":[{"k":"o","p":{"document":{"r":"SourceDefinition"},"credentials":{"r":"SourceCredentials"},"items":{"k":"a","i":{"k":"o","p":{"document":{"r":"SourceDefinition"},"credentials":{"r":"SourceCredentials"}}}}}}]},"CloudSourceDocumentCreateResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"u","a":[{"r":"CloudSourceDocumentView"},{"r":"CloudPreviewResult"},{"k":"o","p":{"items":{"k":"a","i":{"r":"CloudSourceDocumentView"}}}}]}}},"CloudSourceDocumentUpdateReq":{"k":"u","a":[{"k":"o","p":{"expectedRevision":{"k":"j"},"document":{"r":"SourceDefinition"},"patch":{"r":"SourceDefinitionPatch"},"items":{"k":"a","i":{"k":"u","a":[{"k":"o","p":{"expectedRevision":{"k":"j"},"document":{"r":"SourceDefinition"},"patch":{"r":"SourceDefinitionPatch"}}}]}}}},{"k":"u","a":[]}]},"CloudSourceDocumentUpdateResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"u","a":[{"r":"CloudSourceDocumentView"},{"r":"CloudPreviewResult"},{"k":"o","p":{"items":{"k":"a","i":{"r":"CloudSourceDocumentView"}}}}]}}},"CloudStreamDocumentGetReq":{"k":"o"},"CloudStreamDocumentGetResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"u","a":[{"r":"CloudStreamDocumentView"},{"r":"CloudStreamDocumentSummary"}]}}},"CloudStreamDocumentCreateReq":{"k":"u","a":[{"k":"o","p":{"document":{"r":"CloudStreamDocument"},"program":{"r":"RuntimeStreamDefinition"},"expectedSourceRevision":{"k":"j"}}}]},"CloudStreamDocumentCreateResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"u","a":[{"r":"CloudStreamDocumentView"},{"r":"CloudPreviewResult"}]}}},"CloudStreamDocumentUpdateReq":{"k":"u","a":[{"k":"o","p":{"expectedRevision":{"k":"j"},"document":{"r":"CloudStreamDocument"},"program":{"r":"RuntimeStreamDefinition"},"expectedSourceRevision":{"k":"j"}}}]},"CloudStreamDocumentUpdateResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"u","a":[{"r":"CloudStreamDocumentView"},{"r":"CloudPreviewResult"}]}}},"CloudPreviewResult":{"k":"o"},"CloudSourceDocumentListReq":{"k":"o","p":{"page":{"k":"j"},"size":{"k":"j"}}},"CloudSourceDocumentListResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"list":{"k":"a","i":{"k":"u","a":[{"r":"CloudSourceDocumentView"},{"r":"CloudSourceSummaryView"}]}},"total":{"k":"j"},"page":{"k":"j"},"size":{"k":"j"},"nextPage":{"k":"j"}}}}},"CloudStreamDocumentDisableReq":{"k":"o","p":{"expectedRevision":{"k":"j"}}},"CloudStreamDocumentDisableResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"u","a":[{"r":"CloudStreamStopView"},{"r":"CloudPreviewResult"}]}}},"CloudStreamDocumentValidateReq":{"k":"u","a":[{"k":"o","p":{"document":{"r":"CloudStreamDocument"},"program":{"r":"RuntimeStreamDefinition"},"expectedSourceRevision":{"k":"j"}}}]},"CloudStreamDocumentValidateResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"issues":{"k":"a","i":{"k":"o"}},"normalizedDocument":{"r":"CloudStreamDocument"}}}}},"CloudSourceSummaryView":{"k":"o","p":{"revision":{"k":"j"},"createdAt":{"k":"j"},"updatedAt":{"k":"j"},"platformReadiness":{"r":"CloudPlatformReadiness"}}},"CloudStreamProgramSummary":{"k":"o","p":{"revision":{"k":"j"},"activeRelease":{"k":"j"},"document":{"k":"o"},"createdAt":{"k":"j"},"updatedAt":{"k":"j"},"platformReadiness":{"r":"CloudPlatformReadiness"}}},"CloudSourceImpactReq":{"k":"u","a":[{"k":"o","p":{"expectedRevision":{"k":"j"},"document":{"r":"SourceDefinition"},"offset":{"k":"j"},"size":{"k":"j"},"patch":{"r":"SourceDefinitionPatch"}}},{"k":"u","a":[{"k":"o"}]},{"k":"o"},{"k":"o"}]},"CloudSourceHistoryReq":{"k":"o","p":{"beforeRevision":{"k":"j"},"size":{"k":"j"}}},"CloudSourceImpactResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"sourceRevision":{"k":"j"},"complete":{"k":"j"},"counts":{"k":"o","p":{"draft":{"k":"j"},"activeRelease":{"k":"j"},"historicalRelease":{"k":"j"}}},"restrictedCount":{"k":"j"},"references":{"k":"a","i":{"k":"o","p":{"streamRevision":{"k":"j"},"release":{"k":"j"},"configRevision":{"k":"j"},"streamDeleted":{"k":"j"},"parentMissing":{"k":"j"}}}},"nextOffset":{"k":"j"},"expiresAt":{"k":"j"}}}}},"CloudSourceHistoryResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"currentRevision":{"k":"j"},"deleted":{"k":"j"},"total":{"k":"j"},"missingRevisionCount":{"k":"j"},"nextBeforeRevision":{"k":"j"},"revisions":{"k":"a","i":{"k":"o","p":{"revision":{"k":"j"},"createdTime":{"k":"j"}}}}}}}},"CloudStreamStopView":{"k":"o","p":{"revision":{"k":"j"},"activeRelease":{"k":"j"},"createdAt":{"k":"j"},"updatedAt":{"k":"j"}}},"CloudSourceObservationsGetReq":{"k":"o","p":{"items":{"k":"a","i":{"k":"o","p":{"expectedRevision":{"k":"j"}}}}}},"CloudSourceObservationsGetResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"u","a":[{"r":"CloudSourceObservationsFull"},{"r":"CloudSourceObservationsSummary"}]}}},"CloudStreamObservationGetReq":{"k":"o"},"CloudStreamObservationGetResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"revision":{"k":"j"},"stats":{"k":"o","p":{"admitted":{"k":"j"},"completed":{"k":"j"},"failed":{"k":"j"},"unknown":{"k":"j"},"pending":{"k":"j"},"durationSamples":{"k":"j"},"successRate":{"k":"n"},"averageDurationMs":{"k":"n"}}},"window":{"k":"o","p":{"from":{"k":"i"},"to":{"k":"i"}}},"checkedAt":{"k":"i"}}}}},"CloudStreamRunsListReq":{"k":"o","p":{"size":{"k":"j"}}},"CloudStreamRunsListResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"items":{"k":"a","i":{"k":"o","p":{"createdAt":{"k":"i"},"finishedAt":{"k":"i"},"durationMs":{"k":"n"},"responseSentAt":{"k":"i"},"error":{"r":"CloudStreamRunError"}}}},"checkedAt":{"k":"i"}}}}},"CloudStreamSampleTestReq":{"k":"o","p":{"document":{"r":"CloudStreamDocument"}}},"CloudStreamSampleTestResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"writePreview":{"k":"a","i":{"k":"o"}},"logs":{"k":"a","i":{"k":"o"}},"durationMs":{"k":"j"}}}}},"CloudAppDataGrant":{"k":"o","p":{"permissions":{"k":"a","i":{}},"dataRule":{"r":"CloudAppDataRule"}}},"CloudAppDataPolicyGetReq":{"k":"o"},"CloudAppDataPolicyUpdateReq":{"k":"u","a":[{"k":"o","p":{"expectedRevision":{"k":"j"},"collections":{"k":"a","i":{"r":"CloudAppDataGrant"}},"changes":{"k":"a","i":{"r":"CloudAppDataGrantChange"}}}}]},"CloudAppDataPolicy":{"k":"o","p":{"revision":{"k":"j"},"collections":{"k":"a","i":{"r":"CloudAppDataGrant"}}}},"CloudAppDataPolicyGetResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"CloudAppDataPolicy"}}},"CloudAppDataPolicyMutationResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"Outcome"}}},"CloudDataAppContextReq":{"k":"o"},"CloudDataAppContextResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"AppContext"}}},"CloudAppStreamPolicyGetReq":{"k":"o"},"CloudAppStreamPolicyUpdateReq":{"k":"o","p":{"expectedRevision":{"k":"j"},"platformPermissions":{"k":"a","i":{}},"messageTopics":{"k":"a","i":{"r":"CloudStreamMessageTopicPermission"}}}},"CloudAppStreamPolicy":{"k":"o","p":{"revision":{"k":"j"},"platformPermissions":{"k":"a","i":{}},"messageTopics":{"k":"a","i":{"r":"CloudStreamMessageTopicPermission"}}}},"CloudAppStreamPolicyGetResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"CloudAppStreamPolicy"}}},"CloudAppStreamPolicyMutationResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"Outcome"}}},"CloudAppDataRuleTransition":{"k":"o"},"CloudAppDataRulePrincipal":{"k":"o","p":{"permissions":{"k":"a","i":{}},"readFields":{"k":"a","i":{}},"writeFields":{"k":"a","i":{}},"writeStates":{"k":"a","i":{}},"transitions":{"k":"a","i":{"r":"CloudAppDataRuleTransition"}}}},"CloudAppDataRule":{"k":"o","p":{"principals":{"k":"a","i":{"r":"CloudAppDataRulePrincipal"}}}},"CloudAppCollectionDeclaration":{"k":"o","p":{"recordSchema":{"r":"Schema"},"indexes":{"k":"a","i":{"r":"IndexSpec"}},"directoryPath":{"k":"a","i":{}}}},"CloudAppCollectionsEnsureReq":{"k":"o","p":{"collections":{"k":"a","i":{"r":"CloudAppCollectionDeclaration"}}}},"CloudAppCollectionSchemaNote":{"k":"o"},"CloudAppCollectionWarning":{"k":"o"},"CloudAppCollectionEnsureResult":{"k":"o","p":{"revision":{"k":"j"},"ignored":{"k":"a","i":{"r":"CloudAppCollectionSchemaNote"}},"warnings":{"k":"a","i":{"r":"CloudAppCollectionWarning"}},"indexStatus":{"k":"a","i":{"r":"IndexState"}}}},"CloudAppCollectionsEnsureResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"results":{"k":"a","i":{"r":"CloudAppCollectionEnsureResult"}}}}}},"CloudAppCollectionsSchemaReplaceReq":{"k":"o","p":{"recordSchema":{"r":"Schema"},"indexes":{"k":"a","i":{"r":"IndexSpec"}},"expectedRevision":{"k":"j"}}},"CloudAppCollectionRetired":{"k":"o","p":{"paths":{"k":"a","i":{}},"enumValues":{"k":"a","i":{"k":"o","p":{"values":{"k":"a","i":{}}}}}}},"CloudAppCollectionsSchemaReplaceResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"revision":{"k":"j"},"retired":{"r":"CloudAppCollectionRetired"},"checkedRecords":{"k":"j"},"warnings":{"k":"a","i":{"r":"CloudAppCollectionWarning"}},"indexStatus":{"k":"a","i":{"r":"IndexState"}}}}}},"CloudAppCollectionAliasReq":{"k":"o"},"CloudAppCollectionStateResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"revision":{"k":"j"}}}}},"CloudAppCollectionsListReq":{"k":"o"},"CloudAppCollectionView":{"k":"o","p":{"recordSchema":{"r":"Schema"},"indexes":{"k":"a","i":{"r":"IndexSpec"}},"indexStatus":{"k":"a","i":{"r":"IndexState"}},"retired":{"r":"CloudAppCollectionRetired"},"revision":{"k":"j"},"updatedAt":{"k":"j"}}},"CloudAppCollectionsListResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"collections":{"k":"a","i":{"r":"CloudAppCollectionView"}}}}}},"CloudRecordSubscribeReq":{"k":"u","a":[{"k":"o","p":{"collectionIds":{"k":"a","i":{}},"recordIds":{"k":"a","i":{}},"waitMs":{"k":"j"},"limit":{"k":"j"}}},{"k":"u","a":[{"k":"o"}]}]},"CloudRecordChangeEvent":{"k":"o","p":{"revision":{"k":"j"},"occurredAt":{"k":"j"}}},"CloudRecordSubscribeReset":{"k":"o"},"CloudRecordSubscribeResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"events":{"k":"a","i":{"r":"CloudRecordChangeEvent"}},"reset":{"k":"u","a":[{"r":"CloudRecordSubscribeReset"}]}}}}},"CloudStreamRequestGrantGetReq":{"k":"o"},"CloudStreamRequestGrantTargetRevision":{"k":"o","p":{"revision":{"k":"j"}}},"CloudStreamRequestGrantSetReq":{"k":"u","a":[{"k":"o","p":{"active":{"k":"j"},"expectedCodeRevision":{"k":"j"},"actions":{"k":"a","i":{}},"targetRevisions":{"k":"a","i":{"r":"CloudStreamRequestGrantTargetRevision"}}}}]},"CloudStreamRequestGrantTargetInfo":{"k":"o","p":{"revision":{"k":"j"},"active":{"k":"j"},"current":{"k":"j"}}},"CloudStreamRequestGrantInfo":{"k":"o","p":{"recipientEligible":{"k":"j"},"recipientActions":{"k":"a","i":{}},"registered":{"k":"j"},"active":{"k":"j"},"revision":{"k":"j"},"actions":{"k":"a","i":{}},"targets":{"k":"a","i":{"r":"CloudStreamRequestGrantTargetInfo"}},"createdTime":{"k":"j"},"updatedTime":{"k":"j"},"activationSupported":{"k":"j"}}},"CloudStreamRequestGrantMutation":{"k":"o","p":{"revision":{"k":"j"},"active":{"k":"j"}}},"CloudStreamRequestGrantGetResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"CloudStreamRequestGrantInfo"}}},"CloudStreamRequestGrantSetResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"CloudStreamRequestGrantMutation"}}},"CloudAppDataGrantChange":{"k":"u","a":[{"k":"o","p":{"permissions":{"k":"a","i":{}},"dataRule":{"k":"u","a":[{"r":"CloudAppDataRule"}]}}},{"k":"u","a":[{"k":"o"},{"k":"o"}]}]},"CloudAppStreamAccessListReq":{"k":"o","p":{"page":{"k":"j"},"size":{"k":"j"},"includeInactive":{"k":"j"}}},"CloudAppStreamAccessItem":{"k":"o","p":{"actions":{"k":"a","i":{}},"configuredActive":{"k":"j"},"blockedReasons":{"k":"a","i":{}},"revision":{"k":"j"}}},"CloudAppStreamAccessPage":{"k":"o","p":{"items":{"k":"a","i":{"r":"CloudAppStreamAccessItem"}},"page":{"k":"j"},"size":{"k":"j"},"total":{"k":"j"}}},"CloudAppStreamAccessListResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"CloudAppStreamAccessPage"}}},"CloudSourceDiscoverReq":{"k":"o","p":{"expectedRevision":{"k":"j"}}},"CloudSourceDiscoverResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"revision":{"k":"j"},"resources":{"k":"a","i":{"k":"o"}}}}}},"CloudStreamMessageTopicPermission":{"k":"o"},"CloudStreamMessageDeclaration":{"k":"o"},"UnsV2SampleFindReq":{"k":"u","a":[{"k":"o","p":{"recordIds":{"k":"a","i":{}},"from":{"k":"j"},"to":{"k":"j"},"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"},"projection":{"k":"o","x":{"k":"u","a":[{"k":"j"}]}},"limit":{"k":"j"},"page":{"r":"UnsV2PipelinePage"}}}]},"UnsV2SampleFindResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"CloudSamplePage"}}},"UnsV2SampleAggregateReq":{"k":"u","a":[{"k":"o","p":{"recordIds":{"k":"a","i":{}},"from":{"k":"j"},"to":{"k":"j"},"pipeline":{"k":"a","i":{"r":"UnsV2PipelineStage"}},"limit":{"k":"j"},"page":{"r":"UnsV2PipelinePage"}}}]},"UnsV2SampleAggregateResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"CloudDataPage"}}},"UnsV2RecordLockReq":{"k":"u","a":[{"k":"o","p":{"ids":{"k":"a","i":{}},"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"},"limit":{"k":"j"},"ttlMs":{"k":"j"}}}]},"UnsV2RecordLockResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"locks":{"k":"a","i":{"r":"CloudRecordLeaseGrant"}}}}}},"UnsV2RecordRenewReq":{"k":"o","p":{"locks":{"k":"a","i":{"k":"o"}},"ttlMs":{"k":"j"}}},"UnsV2RecordRenewResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"locks":{"k":"a","i":{"k":"o","p":{"expiresAt":{"k":"j"}}}}}}}},"UnsV2RecordUnlockReq":{"k":"u","a":[{"k":"o","p":{"locks":{"k":"a","i":{"k":"o"}},"ids":{"k":"a","i":{}}}},{"k":"o"},{"k":"o"}]},"UnsV2RecordUnlockResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"unlockedCount":{"k":"j"}}}}},"UnsV2RecordRestoreReq":{"k":"o","p":{"ids":{"k":"a","i":{}}}},"UnsV2RecordRestoreResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"restoredCount":{"k":"j"},"restoredIds":{"k":"a","i":{}}}}}},"CloudRecordTotalOption":{"k":"o","p":{"max":{"k":"j"}}},"CloudAppCreateCapability":{"k":"o","p":{"appRevision":{"k":"j"},"collectionRevision":{"k":"j"},"inputSchema":{"r":"Schema"}}},"CloudDataPage":{"k":"o","p":{"items":{"k":"a","i":{"k":"o"}},"pageInfo":{"r":"CloudPageInfo"}}},"CloudRecordLockView":{"k":"o","p":{"expiresAt":{"k":"j"},"fence":{"k":"j"},"since":{"k":"j"}}},"CloudNullableRecordDocument":{"k":"o","p":{"data":{"k":"o"},"revision":{"k":"j"},"createdAt":{"k":"j"},"updatedAt":{"k":"j"},"sourceTime":{"k":"j"},"lock":{"r":"CloudRecordLockView"}}},"SampleDocument":{"k":"o","p":{"time":{"k":"j"},"receivedAt":{"k":"j"},"data":{"k":"o"}}},"CloudNullableSampleDocument":{"k":"o","p":{"time":{"k":"j"},"receivedAt":{"k":"j"},"data":{"k":"o"}}},"CloudPageInfo":{"k":"o","p":{"nextPage":{"k":"j"}}},"CloudCappedCount":{"k":"o","p":{"count":{"k":"j"}}},"CloudRecordPage":{"k":"o","p":{"items":{"k":"a","i":{"r":"RecordDocument"}},"pageInfo":{"r":"CloudPageInfo"},"total":{"r":"CloudCappedCount"}}},"CloudSamplePage":{"k":"o","p":{"items":{"k":"a","i":{"r":"SampleDocument"}},"pageInfo":{"r":"CloudPageInfo"}}},"CloudRecordAggregatePage":{"k":"o","p":{"items":{"k":"a","i":{"k":"o"}},"pageInfo":{"r":"CloudPageInfo"},"total":{"r":"CloudCappedCount"}}},"CloudDistinctResult":{"k":"o","p":{"values":{"k":"a","i":{}},"pageInfo":{"r":"CloudPageInfo"}}},"CloudRecordGetResult":{"k":"o","p":{"items":{"k":"a","i":{"r":"RecordDocument"}},"missing":{"k":"a","i":{}}}},"CloudDistinctPage":{"k":"o","p":{"page":{"k":"j"},"size":{"k":"j"}}},"CloudWriteError":{"k":"o","p":{"index":{"k":"j"},"error":{"r":"Fault"}}},"CloudRecordLeaseGrant":{"k":"o","p":{"expiresAt":{"k":"j"},"fence":{"k":"j"},"record":{"r":"RecordDocument"}}},"CloudRecordBatchQuery":{"k":"u","a":[{"k":"u","a":[{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"},"projection":{"k":"o","x":{"k":"u","a":[{"k":"j"}]}},"limit":{"k":"j"},"count":{"r":"CloudRecordTotalOption"}}}]},{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"maxCount":{"k":"j"}}},{"k":"u","a":[{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"limit":{"k":"j"},"page":{"r":"CloudDistinctPage"}}}]},{"k":"u","a":[{"k":"o","p":{"pipeline":{"k":"a","i":{"r":"UnsV2PipelineStage"}},"limit":{"k":"j"},"page":{"r":"UnsV2PipelinePage"},"count":{"r":"CloudRecordTotalOption"}}}]},{"k":"o","p":{"ids":{"k":"a","i":{}},"projection":{"k":"o","x":{"k":"u","a":[{"k":"j"}]}}}}]},"CloudRecordBatchQueryResult":{"k":"u","a":[{"k":"o","p":{"data":{"k":"u","a":[{"r":"CloudRecordPage"},{"r":"CloudCappedCount"},{"r":"CloudDistinctResult"},{"r":"CloudRecordAggregatePage"},{"r":"CloudRecordGetResult"}]}}},{"k":"o","p":{"error":{"r":"Fault"}}}]},"UnsV2RecordQueryBatchReq":{"k":"o","p":{"queries":{"k":"a","i":{"r":"CloudRecordBatchQuery"}}}},"UnsV2RecordQueryBatchResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"results":{"k":"o","x":{"r":"CloudRecordBatchQueryResult"}}}}}},"CloudStreamProgramView":{"k":"o","p":{"revision":{"k":"j"},"activeRelease":{"k":"j"},"createdAt":{"k":"j"},"updatedAt":{"k":"j"},"document":{"k":"o","p":{"timeoutMs":{"k":"j"}}},"platformReadiness":{"r":"CloudPlatformReadiness"}}},"CloudStreamRunError":{"k":"o"},"UnsV2MetadataFindReq":{"k":"u","a":[{"k":"o","p":{"kinds":{"k":"a","i":{}},"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"},"projection":{"k":"o","x":{"k":"u","a":[{"k":"j"}]}},"page":{"k":"o","p":{"page":{"k":"j"},"size":{"k":"j"}}},"limit":{"k":"j"}}}]},"UnsV2MetadataFindResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"MetadataPage"}}},"UnsV2MetadataCountReq":{"k":"u","a":[{"k":"o","p":{"kinds":{"k":"a","i":{}},"filter":{"r":"UnsV2DataFilter"}}}]},"UnsV2MetadataCountResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"count":{"k":"j"}}}}},"UnsV2MetadataAggregateReq":{"k":"u","a":[{"k":"o","p":{"kinds":{"k":"a","i":{}},"filter":{"r":"UnsV2DataFilter"},"pipeline":{"k":"a","i":{"k":"u","a":[{"k":"o","p":{"$match":{"k":"o"}}},{"k":"o","p":{"$project":{"k":"o"}}},{"k":"o","p":{"$group":{"k":"o"}}},{"k":"o","p":{"$sort":{"r":"UnsV2PipelineSort"}}},{"k":"o","p":{"$skip":{"k":"j"}}},{"k":"o","p":{"$limit":{"k":"j"}}},{"k":"o"}]}},"page":{"k":"o","p":{"page":{"k":"j"},"size":{"k":"j"}}},"limit":{"k":"j"}}}]},"UnsV2MetadataAggregateResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"items":{"k":"a","i":{"k":"o"}},"pageInfo":{"r":"CloudPageInfo"}}}}},"UnsV2MetadataInsertOneReq":{"k":"u","a":[{"k":"o","p":{"data":{"k":"o"}}},{"k":"u","a":[{"k":"o"}]},{"k":"o","p":{"data":{"r":"MetadataDirectoryInput"}}},{"k":"o","p":{"data":{"r":"MetadataTopicInput"}}},{"k":"o","p":{"data":{"r":"MetadataCollectionInput"}}}]},"UnsV2MetadataInsertOneResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o"}}},"UnsV2MetadataUpdateOneReq":{"k":"u","a":[{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"},"expectedRevision":{"k":"j"},"update":{"k":"o","p":{"$set":{"k":"o"},"$unset":{"k":"o"},"$setOnInsert":{"k":"o"}}},"projection":{"k":"o","x":{"k":"u","a":[{"k":"j"}]}}}},{"k":"u","a":[{"k":"o"}]}]},"UnsV2MetadataUpdateOneResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"matchedCount":{"k":"j"},"modifiedCount":{"k":"j"},"value":{"r":"MetadataNullableDocument"}}}}},"UnsV2MetadataReplaceOneReq":{"k":"u","a":[{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"},"expectedRevision":{"k":"j"},"replacement":{"k":"o"},"projection":{"k":"o","x":{"k":"u","a":[{"k":"j"}]}}}},{"k":"u","a":[{"k":"o"}]},{"k":"o","p":{"replacement":{"r":"MetadataDirectoryInput"}}},{"k":"o","p":{"replacement":{"r":"MetadataTopicInput"}}},{"k":"o","p":{"replacement":{"r":"MetadataCollectionInput"}}}]},"UnsV2MetadataReplaceOneResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"matchedCount":{"k":"j"},"modifiedCount":{"k":"j"},"value":{"r":"MetadataNullableDocument"}}}}},"UnsV2MetadataDeleteOneReq":{"k":"u","a":[{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"},"expectedRevision":{"k":"j"},"projection":{"k":"o","x":{"k":"u","a":[{"k":"j"}]}}}},{"k":"u","a":[{"k":"o"}]}]},"UnsV2MetadataDeleteOneResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"deletedCount":{"k":"j"},"value":{"r":"MetadataNullableDocument"}}}}},"UnsV2MetadataUpdateManyReq":{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"update":{"k":"o","p":{"$set":{"k":"o"},"$unset":{"k":"o"},"$setOnInsert":{"k":"o"}}},"maxDocs":{"k":"j"}}},"UnsV2MetadataUpdateManyResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"matchedCount":{"k":"j"},"modifiedCount":{"k":"j"},"results":{"k":"a","i":{"r":"MetadataBulkResult"}},"errors":{"k":"a","i":{"k":"o","p":{"index":{"k":"j"},"error":{"r":"Fault"}}}}}}}},"UnsV2MetadataDeleteManyReq":{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"maxDocs":{"k":"j"}}},"UnsV2MetadataDeleteManyResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"deletedCount":{"k":"j"},"results":{"k":"a","i":{"r":"MetadataBulkResult"}},"errors":{"k":"a","i":{"k":"o","p":{"index":{"k":"j"},"error":{"r":"Fault"}}}}}}}},"UnsV2MetadataRestoreReq":{"k":"o","p":{"items":{"k":"a","i":{"k":"o","p":{"expectedRevision":{"k":"j"}}}}}},"UnsV2MetadataRestoreResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"restoredCount":{"k":"j"},"items":{"k":"a","i":{"r":"MetadataDocument"}}}}}},"UnsV2MetadataPurgeReq":{"k":"o","p":{"ids":{"k":"a","i":{}}}},"UnsV2MetadataPurgeResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"r":"Outcome"}}},"UnsV2MetadataBulkWriteReq":{"k":"o","p":{"operations":{"k":"a","i":{"k":"u","a":[{"k":"o","p":{"insertOne":{"r":"MetadataBulkInsertOne"}}},{"k":"o","p":{"updateOne":{"r":"MetadataBulkUpdateOne"}}},{"k":"o","p":{"replaceOne":{"r":"MetadataBulkReplaceOne"}}},{"k":"o","p":{"deleteOne":{"r":"MetadataBulkDeleteOne"}}},{"k":"o","p":{"restoreOne":{"r":"MetadataBulkRestoreOne"}}}]}}}},"UnsV2MetadataBulkWriteResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"insertedCount":{"k":"j"},"matchedCount":{"k":"j"},"modifiedCount":{"k":"j"},"deletedCount":{"k":"j"},"restoredCount":{"k":"j"},"upsertedCount":{"k":"j"},"insertedIds":{"k":"o"},"upsertedIds":{"k":"o"},"results":{"k":"a","i":{"r":"MetadataBulkResult"}},"errors":{"k":"a","i":{"k":"o","p":{"index":{"k":"j"},"error":{"r":"Fault"}}}},"nextIndex":{"k":"j"},"unknownUntil":{"k":"j"}}}}},"UnsV2MetadataTransactReq":{"k":"o","p":{"operations":{"k":"a","i":{"r":"MetadataTransactionOperation"}}}},"UnsV2MetadataTransactResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"results":{"k":"a","i":{"r":"MetadataTransactionResult"}}}}}},"CloudCollectionTTL":{"k":"o","p":{"expireAfterSeconds":{"k":"j"}}},"CloudAppDataLimits":{"k":"o","p":{"count":{"k":"o","p":{"defaultMax":{"k":"j"},"max":{"k":"j"}}},"total":{"k":"o","p":{"defaultMax":{"k":"j"},"max":{"k":"j"}}},"queryBatch":{"k":"o","p":{"maxQueries":{"k":"j"},"maxRows":{"k":"j"},"maxBytes":{"k":"j"}}},"get":{"k":"o","p":{"maxIds":{"k":"j"}}},"subscribe":{"k":"o","p":{"maxCollections":{"k":"j"},"maxRecordIds":{"k":"j"},"heartbeatMs":{"k":"j"},"retentionMs":{"k":"j"}}},"ttl":{"k":"o","p":{"minSeconds":{"k":"j"},"maxSeconds":{"k":"j"},"maxPerCollection":{"k":"j"}}},"concurrency":{"k":"o","p":{"reads":{"k":"j"},"writes":{"k":"j"},"queueMs":{"k":"j"}}},"idempotencyWindowMs":{"k":"j"}}},"ErrorRetry":{"k":"o","p":{"afterMs":{"k":"j"}}},"MetadataDocument":{"k":"o","p":{"revision":{"k":"j"},"createdAt":{"k":"j"},"updatedAt":{"k":"j"},"deletedAt":{"k":"j"},"data":{"k":"o"}}},"MetadataNullableDocument":{"k":"u","a":[{"r":"MetadataDocument"}]},"MetadataPage":{"k":"o","p":{"items":{"k":"a","i":{"r":"MetadataDocument"}},"pageInfo":{"r":"CloudPageInfo"}}},"MetadataDirectoryInput":{"k":"o","p":{"parentId":{"k":"u","a":[{"r":"UnsV2Identity"}]},"schemaVersion":{"k":"j"}}},"MetadataTopicInput":{"k":"o","p":{"collectionId":{"r":"UnsV2Identity"},"fields":{"k":"a","i":{"r":"FieldBinding"}},"parentId":{"k":"u","a":[{"r":"UnsV2Identity"}]},"schemaVersion":{"k":"j"}}},"MetadataCollectionInput":{"k":"o","p":{"indexes":{"k":"a","i":{"r":"IndexSpec"}},"recordSchema":{"r":"Schema"},"sampleSchema":{"r":"Schema"},"schemaVersion":{"k":"j"},"semantics":{"r":"CollectionSemantics"},"parentId":{"k":"u","a":[{"r":"UnsV2Identity"}]}}},"MetadataBulkResult":{"k":"o","p":{"index":{"k":"j"},"matchedCount":{"k":"j"},"modifiedCount":{"k":"j"},"deletedCount":{"k":"j"},"restoredCount":{"k":"j"},"value":{"r":"MetadataNullableDocument"},"error":{"r":"Fault"}}},"MetadataTransactionResult":{"k":"o","p":{"matchedCount":{"k":"j"},"modifiedCount":{"k":"j"},"deletedCount":{"k":"j"},"restoredCount":{"k":"j"},"value":{"r":"MetadataNullableDocument"}}},"MetadataBulkInsertOne":{"k":"o","p":{"data":{"k":"o"}}},"MetadataBulkUpdateOne":{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"},"expectedRevision":{"k":"j"},"update":{"k":"o","p":{"$set":{"k":"o"},"$unset":{"k":"o"},"$setOnInsert":{"k":"o"}}}}},"MetadataBulkReplaceOne":{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"},"expectedRevision":{"k":"j"},"replacement":{"k":"o"}}},"MetadataBulkDeleteOne":{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"},"expectedRevision":{"k":"j"}}},"MetadataBulkRestoreOne":{"k":"o","p":{"expectedRevision":{"k":"j"}}},"MetadataTransactionOperation":{"k":"u","a":[{"k":"o","p":{"filter":{"r":"UnsV2DataFilter"},"sort":{"r":"UnsV2PipelineSort"},"data":{"k":"o"},"update":{"k":"o","p":{"$set":{"k":"o"},"$unset":{"k":"o"},"$setOnInsert":{"k":"o"}}},"replacement":{"k":"o"},"expectedRevision":{"k":"j"},"dependsOn":{"k":"a","i":{}}}},{"k":"u","a":[{"k":"o","p":{"data":{"r":"MetadataDirectoryInput"},"replacement":{"r":"MetadataDirectoryInput"}}},{"k":"o","p":{"data":{"r":"MetadataTopicInput"},"replacement":{"r":"MetadataTopicInput"}}},{"k":"o","p":{"data":{"r":"MetadataCollectionInput"},"replacement":{"r":"MetadataCollectionInput"}}}]},{"k":"o"},{"k":"u","a":[{"k":"o"}]},{"k":"u","a":[{"k":"o"}]},{"k":"u","a":[{"k":"o"}]},{"k":"o"}]},"CloudSourceDocumentSummary":{"k":"o","p":{"revision":{"k":"j"},"createdAt":{"k":"j"},"updatedAt":{"k":"j"},"platformReadiness":{"r":"CloudPlatformReadiness"},"target":{"r":"StreamSourceTarget"},"configRevision":{"k":"j"}}},"CloudStreamDocumentSummary":{"k":"o","p":{"revision":{"k":"j"},"createdAt":{"k":"j"},"updatedAt":{"k":"j"},"activeRelease":{"k":"j"},"platformReadiness":{"r":"CloudPlatformReadiness"}}},"CloudPlatformReadiness":{"k":"o","p":{"retryAfterMs":{"k":"j"}}},"CloudEdgeSourceStateUpdateReq":{"k":"o","p":{"expectedRevision":{"k":"j"}}},"CloudEdgeSourceStateUpdateResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o"}}},"CloudEdgeNodesListReq":{"k":"o","p":{"page":{"k":"j"},"size":{"k":"j"}}},"CloudEdgeNodesListResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"list":{"k":"a","i":{"k":"o","p":{"lastOnlineAt":{"k":"j"},"lastOfflineAt":{"k":"j"}}}},"total":{"k":"j"},"page":{"k":"j"},"size":{"k":"j"}}}}},"CloudSourceResourceCatalogReq":{"k":"o","p":{"configRevision":{"k":"j"}}},"CloudSourceResourceCatalogResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"configRevision":{"k":"j"},"resources":{"k":"a","i":{"k":"o","p":{"modes":{"k":"a","i":{}},"inputSchema":{"k":"o"},"outputSchema":{"k":"o"},"requiredPermissions":{"k":"a","i":{}},"configRevision":{"k":"j"},"metadata":{"k":"o"}}}}}}}},"CloudSourceResourceReadReq":{"k":"o","p":{"configRevision":{"k":"j"},"params":{"k":"o","p":{"limit":{"k":"j"},"selectFields":{"k":"a","i":{}}}},"timeoutMs":{"k":"j"}}},"CloudSourceResourceReadResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o"}}},"CloudSourceResourceScanReq":{"k":"o","p":{"configRevision":{"k":"j"},"params":{"k":"o","p":{"maxItems":{"k":"j"},"selectFields":{"k":"a","i":{}}}},"limit":{"k":"j"},"timeoutMs":{"k":"j"}}},"CloudSourceResourceScanResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o","p":{"configRevision":{"k":"j"},"items":{"k":"a","i":{"k":"o"}},"collectedAt":{"k":"j"},"gaps":{"k":"a","i":{"k":"o","p":{"at":{"k":"j"}}}},"lastAttemptedId":{"k":"j"}}}}},"UnsV2SourceNativeOAuthCompleteResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o"}}},"UnsV2SourceNativeOAuthCompleteReq":{"k":"o"},"UnsV2SourceNativeOAuthStartResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o"}}},"UnsV2SourceNativeOAuthStartReq":{"k":"o"},"UnsV2SourceNativeCredentialsUpdateResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o"}}},"UnsV2SourceNativeCredentialsUpdateReq":{"k":"o","p":{"expectedRevision":{"k":"j"},"credentials":{"r":"SourceCredentials"}}},"SourceCredentials":{"k":"u","a":[{"k":"o","p":{"values":{"k":"o"}}}]},"UnsV2SourceDocumentDeleteResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o"}}},"UnsV2SourceDocumentDeleteReq":{"k":"o","p":{"expectedRevision":{"k":"j"}}},"CloudSourceDevicesListResponse":{"k":"o","p":{"code":{"k":"j"},"data":{"k":"o"}}},"CloudSourceDevicesListReq":{"k":"o"},"StreamSourceBinding":{"k":"u","a":[{"k":"o","p":{"configRevision":{"k":"j"},"target":{"r":"StreamSourceTarget"},"acquisition":{"k":"o"}}}]},"StreamSourceTarget":{"k":"o","p":{"configRevision":{"k":"j"}}},"StreamSourceAlias":{"k":"u","a":[{"k":"o","p":{"configRevision":{"k":"j"},"target":{"r":"StreamSourceTarget"},"acquisition":{"k":"o"},"resources":{"k":"a","i":{}}}}]},"StreamScript":{"k":"o","p":{"timeoutMs":{"k":"j"}}},"CloudSourceObservationsSummary":{"k":"o","p":{"items":{"k":"a","i":{"k":"o","p":{"revision":{"k":"j"},"lastDataAt":{"k":"i"}}}},"checkedAt":{"k":"i"}}},"CloudSourceObservationsFull":{"k":"o","p":{"items":{"k":"a","i":{"k":"o","p":{"revision":{"k":"j"},"acceptedCaptures":{"k":"j"},"committedWrites":{"k":"j"},"failedRuns":{"k":"j"},"lastDataAt":{"k":"i"}}}},"window":{"k":"o","p":{"from":{"k":"i"},"to":{"k":"i"}}},"checkedAt":{"k":"i"}}},"SourceDefinitionPatch":{"k":"o","p":{"extensions":{"k":"o","p":{"tls":{"k":"o"},"ingress":{"k":"o"}}},"file":{"r":"FileSourceOptions"},"http":{"r":"HTTPConnection"},"modbus":{"r":"ModbusOptions"},"mqtt":{"r":"MQTTOptions"},"opcua":{"r":"OPCUAOptions"},"openProtocol":{"r":"OpenProtocolOptions"},"sql":{"r":"SQLConnection"}}},"SQLConnection":{"k":"u","a":[{"k":"o","p":{"wms":{"r":"WMSMapping"},"queries":{"k":"o"}}}]},"WMSMapping":{"k":"o","p":{"fields":{"k":"a","i":{}}}},"OpenProtocolOptions":{"k":"o","p":{"bufferLimit":{"k":"j"},"cellId":{"k":"j"},"channelId":{"k":"j"},"historyEndId":{"k":"j"},"historyStartId":{"k":"j"}}},"FileSourceOptions":{"k":"u","a":[{"k":"o","p":{"directories":{"k":"a","i":{"r":"FileDirectory"}},"resources":{"k":"a","i":{"r":"FileSelection"}}}},{"k":"o"},{"k":"o"}]},"FileSelection":{"k":"o","p":{"tables":{"k":"a","i":{}}}},"FileDirectory":{"k":"o","p":{"extensions":{"k":"a","i":{}}}},"SalesforceQueryDeclaration":{"k":"o","p":{"fields":{"k":"a","i":{}}}},"TeamcenterFileSelection":{"k":"o"},"CloudSourceReferenceView":{"k":"o","p":{"revision":{"k":"j"},"configRevision":{"k":"j"},"target":{"r":"StreamSourceTarget"}}}} as const;
 
 export const UNS_V2_CONTRACT_PROVENANCE = {
   "repository": "FREEZONEX/Tier0-Backend",
@@ -3941,7 +4075,7 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
       "capability": "x-tier0-opcua-server: static available=false; online availability is workspace/registry authoritative"
     }
   },
-  "sourceDerivedContractSHA256": "3026d11144e564deb9f6aa211a14e8b43cadb17a4db3b9405b7490cb0be4fed3",
+  "sourceDerivedContractSHA256": "c2d145856d4c77d12fe387aa07a352667be48fd0e1306c50fa320dfec8326f94",
   "schemaUpdates": [
     {
       "revision": "8780ce2d6c07b6afee96409795c098e330c214dd",
@@ -3970,46 +4104,185 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
       }
     },
     {
-      "scope": "source-stream-acquisition",
+      "scope": "source-stream-public",
       "repository": "FREEZONEX/Tier0-Backend",
-      "revision": "8780ce2d6c07b6afee96409795c098e330c214dd",
+      "revision": "727c6395a8235aed184aced47f47b214f41ea014",
       "sourceKind": "committed",
-      "source": "share/unscontract/manifest.json",
-      "sourceSHA256": "14198b0f5bc109bdfc15505d8526d8bb4fbcaa436df9790de502e8e8be113769",
-      "sourceContractRevision": "cloud-source-impact/2+source-vendor/2+app-create-capability/1+data/3+record-reads/1+stream-receipt/1+stream-run-error/1+stream-deploy-guard/1+collection-namespace/1+business-name/1+http-acquisition/2+http-source-role/1+http-source-request/1+sql-inline-credentials/1+app-collection/2+collection-ownership/1+metadata/1+collection-purge/1+namespace-purge/1+app-context/4+collection-ttl/1+error-model/1+crud-consolidation/1+record-insert-return/1+lifecycle-consolidation/1+mutation-defaults/1+api-surface/2+source-stream-single-model+source-lifecycle/2+edge-discovery/1+edge-binding-status/1+edge-resource-discovery/1+app-data/3+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/2+http-in/1+app-resource-access/2+stream-control-probe-retirement/1+http-push-retirement/1",
-      "schemas": [
-        "CloudSourceCreateCredentials",
-        "CloudSourceDocumentCreateReq",
-        "CloudSourceDocumentUpdateReq",
-        "CloudStreamDocumentCreateReq",
-        "CloudStreamDocumentUpdateReq",
-        "UnsV2StreamProgramDeployReq"
-      ],
       "inputs": {
+        "contracts/uns-v2/contract.json": {
+          "path": "service/unssvr/internal/domain/unsv2/contract_generated.go",
+          "sourceSHA256": "7755363e8fe763044828a5ad9040c86f70d61afc1e7cafa0a6d7c0962ce3c5a0",
+          "baseSHA256": "3026d11144e564deb9f6aa211a14e8b43cadb17a4db3b9405b7490cb0be4fed3",
+          "resultSHA256": "c2d145856d4c77d12fe387aa07a352667be48fd0e1306c50fa320dfec8326f94"
+        },
         "contracts/uns-v2/manifest.json": {
           "path": "share/unscontract/manifest.json",
-          "sourceSHA256": "14198b0f5bc109bdfc15505d8526d8bb4fbcaa436df9790de502e8e8be113769",
+          "sourceSHA256": "1a183f9ce1e349dc2f7becc1be7ea5b10e06a0c0fb0e87cef7d9415371320a05",
           "baseSHA256": "14198b0f5bc109bdfc15505d8526d8bb4fbcaa436df9790de502e8e8be113769",
-          "resultSHA256": "14198b0f5bc109bdfc15505d8526d8bb4fbcaa436df9790de502e8e8be113769"
+          "resultSHA256": "fb95840a7665c8baead64b0bbb61bd3e194d5a41b4f94969a7d764fedfea112f"
         },
-        "contracts/uns-v2/contract.json": {
-          "path": "share/unscontract/manifest.json",
-          "sourceSHA256": "14198b0f5bc109bdfc15505d8526d8bb4fbcaa436df9790de502e8e8be113769",
-          "baseSHA256": "3026d11144e564deb9f6aa211a14e8b43cadb17a4db3b9405b7490cb0be4fed3",
-          "resultSHA256": "3026d11144e564deb9f6aa211a14e8b43cadb17a4db3b9405b7490cb0be4fed3"
+        "contracts/uns-v2/cloud-support.json": {
+          "path": "share/unscontract/cloud-support.json",
+          "sourceSHA256": "081d25133154c16d8657bac1821a1c3c8585805b3a944672fc15dde7a952c248",
+          "baseSHA256": "3acf81de18c88cb9447b482796dd66b73ab44727ae93f24dbe61af17f6b910e0",
+          "resultSHA256": "5bcd159e5b074e4a3d219f0d7d9c024bc1785545f52869df51af6c1392d25a52"
+        },
+        "contracts/uns-v2/registry_generated.go": {
+          "path": "share/unscontract/registry_generated.go",
+          "sourceSHA256": "eb2fb08cd5e357c6d45e9f3506488a6f1b8ab425b751afadf16b76473840bc8e",
+          "baseSHA256": "8ed5f48b375d61cecc6ea6a53121edbb4472af9e9f39778b26c35b1d13433563",
+          "resultSHA256": "609746bc12a6d3083bcf788e2ab51b2f1cec6beaa4d2a17dec3f2bdc44a19a86"
+        },
+        "contracts/uns-v2/source-protocols.json": {
+          "path": "share/unscontract/source-protocols.json",
+          "sourceSHA256": "b68b12311ebfe426dec54476eb1927074de835d5ed13cc40a16127f5617ad676",
+          "baseSHA256": "391980e644eb05938e150a1d87519a8181bb2516dad3095917a44bc8c6b91065",
+          "resultSHA256": "b68b12311ebfe426dec54476eb1927074de835d5ed13cc40a16127f5617ad676"
         }
-      }
+      },
+      "schemas": [
+        "CloudEdgeSourceStateUpdateReq",
+        "CloudEdgeSourceStateUpdateResponse",
+        "CloudPlatformReadiness",
+        "CloudPreviewResult",
+        "CloudSourceDevicesListReq",
+        "CloudSourceDevicesListResponse",
+        "CloudSourceDiscoverReq",
+        "CloudSourceDiscoverResponse",
+        "CloudSourceDocumentCreateReq",
+        "CloudSourceDocumentCreateResponse",
+        "CloudSourceDocumentGetReq",
+        "CloudSourceDocumentGetResponse",
+        "CloudSourceDocumentListReq",
+        "CloudSourceDocumentListResponse",
+        "CloudSourceDocumentSummary",
+        "CloudSourceDocumentUpdateReq",
+        "CloudSourceDocumentUpdateResponse",
+        "CloudSourceDocumentView",
+        "CloudSourceGitHubOAuthCompleteReq",
+        "CloudSourceGitHubOAuthCompleteResponse",
+        "CloudSourceGitHubOAuthStartReq",
+        "CloudSourceGitHubOAuthStartResponse",
+        "CloudSourceHistoryReq",
+        "CloudSourceHistoryResponse",
+        "CloudSourceImpactReq",
+        "CloudSourceImpactResponse",
+        "CloudSourceIngressGetReq",
+        "CloudSourceIngressGetResponse",
+        "CloudSourceIngressRevokeReq",
+        "CloudSourceIngressRevokeResponse",
+        "CloudSourceIngressRotateReq",
+        "CloudSourceIngressRotateResponse",
+        "CloudSourceMqttAuthCreateReq",
+        "CloudSourceMqttAuthCreateResponse",
+        "CloudSourceObservationsFull",
+        "CloudSourceObservationsGetReq",
+        "CloudSourceObservationsGetResponse",
+        "CloudSourceObservationsSummary",
+        "CloudSourceReferenceView",
+        "CloudSourceResourceCatalogReq",
+        "CloudSourceResourceCatalogResponse",
+        "CloudSourceResourceReadReq",
+        "CloudSourceResourceReadResponse",
+        "CloudSourceResourceScanReq",
+        "CloudSourceResourceScanResponse",
+        "CloudSourceSummaryView",
+        "CloudStreamDocument",
+        "CloudStreamDocumentCreateReq",
+        "CloudStreamDocumentCreateResponse",
+        "CloudStreamDocumentDisableReq",
+        "CloudStreamDocumentDisableResponse",
+        "CloudStreamDocumentGetReq",
+        "CloudStreamDocumentGetResponse",
+        "CloudStreamDocumentSummary",
+        "CloudStreamDocumentUpdateReq",
+        "CloudStreamDocumentUpdateResponse",
+        "CloudStreamDocumentValidateReq",
+        "CloudStreamDocumentValidateResponse",
+        "CloudStreamDocumentView",
+        "CloudStreamEntry",
+        "CloudStreamMessageDeclaration",
+        "CloudStreamObservationGetReq",
+        "CloudStreamObservationGetResponse",
+        "CloudStreamProgramDeleteReq",
+        "CloudStreamProgramDeleteResponse",
+        "CloudStreamProgramListReq",
+        "CloudStreamProgramListResponse",
+        "CloudStreamProgramSummary",
+        "CloudStreamProgramView",
+        "CloudStreamRequestDefinition",
+        "CloudStreamRequestGrantGetReq",
+        "CloudStreamRequestGrantGetResponse",
+        "CloudStreamRequestGrantInfo",
+        "CloudStreamRequestGrantMutation",
+        "CloudStreamRequestGrantSetReq",
+        "CloudStreamRequestGrantSetResponse",
+        "CloudStreamRequestGrantTargetInfo",
+        "CloudStreamRequestGrantTargetRevision",
+        "CloudStreamRunError",
+        "CloudStreamRunsListReq",
+        "CloudStreamRunsListResponse",
+        "CloudStreamSampleTestReq",
+        "CloudStreamSampleTestResponse",
+        "CloudStreamStopView",
+        "FileDirectory",
+        "FileSelection",
+        "FileSourceOptions",
+        "HTTPConnection",
+        "MQTTOptions",
+        "ModbusOptions",
+        "ModbusRange",
+        "OAuthConfig",
+        "OPCUAOptions",
+        "OPCUAServerNode",
+        "OpenProtocolOptions",
+        "RuntimeStreamDefinition",
+        "SQLConnection",
+        "SalesforceQueryDeclaration",
+        "SourceCredentials",
+        "SourceDefinition",
+        "SourceDefinitionPatch",
+        "StreamScript",
+        "StreamSourceAlias",
+        "StreamSourceBinding",
+        "StreamSourceTarget",
+        "TeamcenterFileSelection",
+        "UnsV2SourceDocumentDeleteReq",
+        "UnsV2SourceDocumentDeleteResponse",
+        "UnsV2SourceNativeCredentialsUpdateReq",
+        "UnsV2SourceNativeCredentialsUpdateResponse",
+        "UnsV2SourceNativeOAuthCompleteReq",
+        "UnsV2SourceNativeOAuthCompleteResponse",
+        "UnsV2SourceNativeOAuthStartReq",
+        "UnsV2SourceNativeOAuthStartResponse",
+        "UnsV2SourceProbeReq",
+        "UnsV2SourceProbeResponse",
+        "UnsV2SourceProtocolsListReq",
+        "UnsV2SourceProtocolsListResponse",
+        "UnsV2SourceRuntimeGetReq",
+        "UnsV2SourceRuntimeGetResponse",
+        "UnsV2SourceValidateReq",
+        "UnsV2SourceValidateResponse",
+        "UnsV2StreamProgramDeployReq",
+        "UnsV2StreamProgramDeployResponse",
+        "UnsV2StreamProgramRollbackReq",
+        "UnsV2StreamProgramRollbackResponse",
+        "UnsV2StreamProgramVersionsListReq",
+        "UnsV2StreamProgramVersionsListResponse",
+        "WMSMapping"
+      ],
+      "sourceContractRevision": "cloud-source-impact/2+source-vendor/2+app-create-capability/1+data/3+record-reads/1+stream-receipt/1+stream-run-error/1+stream-deploy-guard/1+collection-namespace/1+business-name/1+http-acquisition/2+http-source-role/1+http-source-request/1+sql-inline-credentials/1+app-collection/2+collection-ownership/1+metadata/1+collection-purge/1+namespace-purge/1+app-context/4+collection-ttl/1+error-model/1+crud-consolidation/1+record-insert-return/1+lifecycle-consolidation/1+mutation-defaults/1+api-surface/2+source-stream-single-model+source-lifecycle/2+edge-discovery/1+edge-binding-status/1+edge-resource-discovery/1+unified-source-stream/1+app-data/3+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/2+http-in/1+app-resource-access/2+stream-control-probe-retirement/1+http-push-retirement/1"
     }
   ],
-  "note": "Pinned base with reviewed acquisition schema updates; schemaUpdates records the exact source revision and hashes. Other data-model inputs remain pinned.",
+  "note": "Source/Stream public operations and transitive schemas are synchronized separately; unrelated operation contracts retain their pinned base.",
   "hashes": {
-    "contract": "3026d11144e564deb9f6aa211a14e8b43cadb17a4db3b9405b7490cb0be4fed3",
-    "cloudSupport": "3acf81de18c88cb9447b482796dd66b73ab44727ae93f24dbe61af17f6b910e0",
-    "manifest": "14198b0f5bc109bdfc15505d8526d8bb4fbcaa436df9790de502e8e8be113769",
-    "provenance": "6956b3221f9863c1b6f8d5c59d81e23645f898eea3ae2620cafe758796240dc1",
-    "registry": "8ed5f48b375d61cecc6ea6a53121edbb4472af9e9f39778b26c35b1d13433563"
+    "contract": "c2d145856d4c77d12fe387aa07a352667be48fd0e1306c50fa320dfec8326f94",
+    "cloudSupport": "5bcd159e5b074e4a3d219f0d7d9c024bc1785545f52869df51af6c1392d25a52",
+    "manifest": "fb95840a7665c8baead64b0bbb61bd3e194d5a41b4f94969a7d764fedfea112f",
+    "provenance": "e698ee5bbf503f2ee6f0b3bc6a5628e7ed9642b9e67058b2c5953c1051a83b32",
+    "registry": "609746bc12a6d3083bcf788e2ab51b2f1cec6beaa4d2a17dec3f2bdc44a19a86"
   },
-  "publicOperationCount": 87,
+  "publicOperationCount": 91,
   "streamOperationCount": 1,
-  "manifestOperationCount": 100
+  "manifestOperationCount": 105
 } as const;

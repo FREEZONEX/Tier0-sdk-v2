@@ -75,6 +75,14 @@ function generateRandomString(length = 8): string {
   return result;
 }
 
+function snapshotConfig(config?: MQTTConfig): MQTTConfig | undefined {
+  if (!config) return undefined;
+  const snapshot = { ...config };
+  // Preserve an explicitly supplied non-enumerable password as well.
+  if (Object.hasOwn(config, 'password') && !Object.hasOwn(snapshot, 'password')) snapshot.password = config.password;
+  return snapshot;
+}
+
 interface Subscription {
   topic: string;
   handler: TopicHandler;
@@ -118,6 +126,7 @@ export class Tier0MQClient {
   private connectWaiters: Array<{ resolve(): void; reject(error: Error): void }> = [];
 
   constructor(config?: MQTTConfig) {
+    config = snapshotConfig(config);
     this.explicitClientId = config?.clientId !== undefined;
     this.explicitUsername = config?.username !== undefined;
     const envHost = getEnvVar('TIER0_MQTT_URL') || getEnvVar('TIER0_MQTT_HOST');
@@ -126,12 +135,15 @@ export class Tier0MQClient {
     const host = config?.host || envHost || '';
     const port = config?.port || parseInt(envPort || '8084') || 8084;
     // The browser runtime supplies the password per connection; the node proxy puts in the App's key on the server.
-    const password = config?.password || (this.tokenSource() ? '' : getEnvVar('TIER0_API_KEY')) || '';
+    // An explicitly given password, even undefined, is never replaced by the environment key.
+    const password = config && Object.hasOwn(config, 'password')
+      ? config.password
+      : (this.tokenSource() ? '' : getEnvVar('TIER0_API_KEY')) || '';
 
     // 从 apiKey 解析 workspaceID，自动生成 clientId 和 username
     const workspaceID = config?.clientId && config?.username
       ? undefined
-      : parseWorkspaceIDFromApiKey(password);
+      : parseWorkspaceIDFromApiKey(password ?? '');
 
     const autoClientId = workspaceID
       ? `${workspaceID}&${generateRandomString(8)}`
@@ -503,9 +515,14 @@ export class Tier0MQClient {
 
   // 显式连接（需要等待连接完成时使用）
   async connect(config?: MQTTConfig): Promise<void> {
-    // Undefined fields mean no override, not a request to erase settings.
-    const update = config
-      ? Object.fromEntries(Object.entries(config).filter(([, value]) => value !== undefined)) as MQTTConfig
+    const snapshot = snapshotConfig(config);
+    // An explicitly missing password must never reuse a previous or environment key.
+    if (snapshot && Object.hasOwn(snapshot, 'password') && snapshot.password === undefined) {
+      throw new TypeError('MQTT password was explicitly undefined; provide a credential or omit the password field.');
+    }
+    // Other undefined fields mean no override, not a request to erase settings.
+    const update = snapshot
+      ? Object.fromEntries(Object.entries(snapshot).filter(([, value]) => value !== undefined)) as MQTTConfig
       : undefined;
     if (this.client || this.connectingPromise) {
       // mqtt.js snapshots its connection options. Changing our config while a

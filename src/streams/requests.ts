@@ -58,6 +58,8 @@ export interface StreamRequestErrorInfo {
   contractVersion?: string;
   runStatus?: string;
   replayed?: boolean;
+  /** Present when the SDK knows the request was not dispatched. */
+  execution?: 'notStarted';
 }
 
 /** No StreamRequest error is automatically retried, including authentication failures. */
@@ -68,6 +70,7 @@ export class StreamRequestError extends Error {
   readonly contractVersion?: string;
   readonly runStatus?: string;
   readonly replayed?: boolean;
+  readonly execution?: 'notStarted';
   readonly retryable = false;
   readonly outcomeUnknown: boolean = false;
 
@@ -80,6 +83,7 @@ export class StreamRequestError extends Error {
     this.contractVersion = info.contractVersion;
     this.runStatus = info.runStatus;
     this.replayed = info.replayed;
+    this.execution = info.execution;
   }
 }
 
@@ -158,8 +162,9 @@ export class StreamRequestsClient {
       response = await this.transport.post(path, body);
     } catch (error) {
       if (!(error instanceof StreamTransportError)) throw error;
-      const info = { status: error.status, errorCode: `STREAM_REQUEST_${error.kind}` };
-      if (invoked) throw new StreamRequestResultUnknownError(info);
+      const info: StreamRequestErrorInfo = { status: error.status, errorCode: `STREAM_REQUEST_${error.kind}`,
+        ...(error.notStarted ? { execution: 'notStarted' } : {}) };
+      if (invoked && !error.notStarted) throw new StreamRequestResultUnknownError(info);
       const message = error.kind === 'TRANSPORT_TIMEOUT' ? 'StreamRequest HTTP transport deadline exceeded.' :
         error.kind === 'PROTOCOL_ERROR' ? 'Invalid StreamRequest response.' : 'StreamRequest transport failed.';
       throw new StreamRequestError(message, info);

@@ -20,9 +20,11 @@ export interface MQTTConfig {
   clientId?: string;
   username?: string;
   /**
-   * API key or MQTT password. Before the first connection, `connect()` may
-   * change it and refreshes automatically derived identity fields; once a
-   * client exists, disconnect and create a new client to change it.
+   * API key or MQTT password. Explicit undefined is rejected by `connect()`;
+   * omit it to keep existing settings. Before the first connection,
+   * `connect()` may change it and refreshes automatically derived identity
+   * fields; once a client exists, disconnect and create a new client to
+   * change it.
    * Leave it unset in the platform. On the server no password is sent: the
    * node proxy puts in the App's key; username `<ws>&open` and clientId
    * `<ws>&h.<app>.<random>` come from `TIER0_WORKSPACE_ID` and

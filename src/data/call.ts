@@ -23,7 +23,7 @@
  * which owns reconnects.
  */
 import { randomUUID } from 'node:crypto';
-import { HttpClient, type ClientConfig } from '../openapi/client.js';
+import { HttpClient, snapshotClientConfig, type ClientConfig } from '../openapi/client.js';
 import {
   UnsV2ClientCore,
   UnsV2Error,
@@ -135,9 +135,10 @@ function pause(ms: number, signal: AbortSignal): Promise<boolean> {
 }
 
 export function createDataTransport(config: ClientConfig): { call: DataCall; openStream: DataOpenStream } {
-  const http = new HttpClient(config);
+  const snapshot = snapshotClientConfig(config, ['transportTimeoutMs']);
+  const http = new HttpClient(snapshot);
   const resolve = () => http;
-  const timeoutMs = config.transportTimeoutMs ?? DEFAULT_DATA_TIMEOUT_MS;
+  const timeoutMs = snapshot.transportTimeoutMs ?? DEFAULT_DATA_TIMEOUT_MS;
   const transport = { transportTimeoutMs: timeoutMs };
   const app = new UnsV2ClientCore(resolve, transport);
 
