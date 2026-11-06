@@ -8,7 +8,7 @@ Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交�
 
 本版同时补齐 Agent / App 凭证的查询说明及 App 读取示例：`namespace()` 仍走 OpenAPI，App Key 使用 `dataAppContext` 和集合数据接口，服务端授权规则保持不变。
 
-保留 `0.9.8` 的 App 集合业务目录声明 `directoryPath`，按已知业务范围创建或复用目录，已有集合保持位置。Source 创建后可直接使用，删除后停止后续使用；不再提供 `client.source.state.update`、启停能力与 `desiredState`。名称和描述修改无需影响确认，连接配置变更或删除存在引用时仍须确认；运行中的 Stream 可直接删除。
+保留 `0.9.8` 的 App 集合业务目录声明 `directoryPath`，按已知业务范围创建或复用目录，已有集合保持位置。Source 默认 enabled；原生状态入口为 `client.source.documents.state.update`，删除前必须先禁用 Source 本身，并按新 revision 评估删除影响。名称和描述修改无需影响确认，连接配置变更、禁用或删除存在引用时仍须显式确认。
 
 `0.9.3` 同步集合授权合同：授予既有集合访问权限时无需提供别名，并更新生成类型与使用说明。集合声明的 `name` / `alias` 要求保持不变。
 
@@ -18,7 +18,7 @@ Collection 声明必须同时提供业务名称 `name`（例如「生产工单�
 
 `0.7.x` 已移除旧 Controls 入口、生成操作、DTO 和错误类，不保留别名。能力发现不再以可选交互合同阻断 Namespace，未知核心合同仍严格拒绝。V2 的 `execution` / `retry` 和结果未知语义保持不变。
 
-`0.6.0` 的 HTTP Source 只保留 `protocol: http-api`，通过 `config.role: client | server` 区分主动请求与入站服务。旧 `http` / `http_push` 配置需要迁移；响应时机属于 Stream，不再建立独立异步 Source。同步 singlemodel 合同后，Source 配置不再带 configVersion，Stream 输入不再带 sdkVersion；保留完整 module.exports 程序与原生 script 对象/Runtime program 字符串两种既有形态，不能将旧 transform 函数体直接改名迁入。
+Source / Stream 管理已统一为 Enterprise 参数：SourceDefinition 使用顶层 role、endpoint、http/sql 等；Stream 的 document 与 program 均使用 script: {code,timeoutMs}。旧 config/options/material、script 字符串和旧删除/凭据创建路由不再受支持。
 
 `0.4.0` 版本变更：相对 0.3.x 移除已退役的 Stream 就绪探针且不保留别名，改用服务端现有统一权限，不再配置逐 Key Control scopes/codes。0.3.0 起统一使用 OpenAPI v2 并退役重复及旧接口；与 0.2.x 存在不兼容变更，迁移方式见下方“本次接口退役”。对应 UNS v2 契约 5.0.0，与 0.1.0 不兼容（新错误模型 `execution` / `retry`、封顶计数、删除 `recordChangesPoll` 等）。Collection 支持 int、float、double 和 datetime 声明；格式注解不新增数值范围或日期格式校验，Sample 外层 time 保持不变。使用时需确认目标环境已部署对应后端。要求 Node.js 20.19+。浏览器 HTTP、MQTT、React、Vue 和服务端身份验签分别提供独立入口。
 
@@ -114,7 +114,7 @@ SDK 不从 Key 前缀推断权限，也不在 403 后换凭证或回退内部接
 
 HTTP 调用统一使用 `/openapi/v2`。21 个重复 UNS 公共入口及生成方法直接移除，没有旧路由回退；升级 SDK 时需同时部署对应后端。
 
-- Source 的 list/get/create/update、connection.update 改用 documents.*；Stream 的 programs.get/create/update/validate/disable 改用 documents.*，停用同时携带 expectedRevision 与 expectedActiveRelease。
+- Source 的 list/get/create/update、connection.update 改用 documents.*；Stream 的 programs.get/create/update/validate/disable 改用 documents.*，停用同时携带 expectedRevision 与字符串 expectedActiveVersion。
 - 低层 findOneAnd* 改用 updateOne/replaceOne/deleteOne 的 returnDocument；批量新增用 bulkWrite 的 insertOne 项；元数据单条读取用 metadataFind + limit:1，去重用 aggregate。
 - App 数据层的 insertMany、findOneAnd*、distinct 等便捷方法保留，由 SDK 映射到当前入口；insertMany 仍是单次原子请求，最多 200 项。
 - Agent 的旧 nodes.searchSemantic/indexSync 和 relations.list/teach 没有 v2 契约，不再导出。旧 Controls 便捷入口、操作、DTO 和错误类不再导出，也没有兼容别名。
@@ -132,12 +132,12 @@ const sources = await tier0.source.documents.list({ page: 1, size: 20 });
 const programs = await tier0.stream.programs.list({ page: 1, size: 20 });
 ```
 
-HTTP Source 统一使用 `protocol: 'http-api'`，显式设置 `config.role: 'client'`（主动请求）或 `config.role: 'server'`（接收入站请求），与 Enterprise 一协议两角色保持一致；Cloud 管理文档的角色位于 config 内。Server 不能作为 Client 发起主动请求。HTTPServer 使用固定前缀 `/ingest/v1/{workspaceId}/{sourceId}`，业务路由注册在 Stream；普通返回在处理和提交完成后回复；HTTP `onRequest` 可通过一次 `await ctx.reply(...)` 先回复再继续，仍受超时、并发和权限限制，回复后不随客户端断线取消但可由 shutdown 取消，不保证崩溃重放。202 状态本身不证明处理完成。示例见 [HTTPServer Stream Skill](skills/tier0-sdk-v2/tier0-sdk-v2-stream/references/http-server.md)。使用 `source.protocols.list({})` 核对目标环境支持，再通过现有 `source.documents.*` 管理配置。HTTP Client 单条 inline 创建支持 Basic、Bearer、APIKey、OAuth 四类认证；普通创建省略 credentials.method，由服务端默认 REQUEST 基址绑定，真实 method/path/query 在 Stream 定义。Basic/Bearer 显式凭据方法同时限制精确 URL，OAuth 旧 GET 保留既有兼容语义，存量限制不自动扩大；独立 credentialCreate 仍为 coreOnly。SDK 不新增猜测的 HTTP In API；npm 管理 SDK 与执行器中的 Goja Stream 脚本 API 分开使用。
+HTTP Source 使用 protocol: 'http-api'、顶层 role: 'client' | 'server'；OAuth 使用 protocol: 'oauth2'。配置字段与 Enterprise 相同，http 保存认证模式、OAuth 非秘密配置及命名参数。Server 不能主动请求，托管 endpoint 为 http://managed；路由和响应时机由 Stream 定义。普通 handler 在提交后回复，ctx.reply 可提前回复但不保证崩溃重放。通过 source.protocols.list({}) 核对目标能力；npm 管理 SDK 与执行器脚本 API 分开使用。见 [Source Skill](skills/tier0-sdk-v2/tier0-sdk-v2-source/SKILL.md) 和 [HTTPServer Stream](skills/tier0-sdk-v2/tier0-sdk-v2-stream/references/http-server.md)。
 
 Source/Stream 仍保留 `{ code, msg, requestId, data }` 响应以及 `UnsV2Error` 错误类型。Source 配置统一使用 `source.documents`；Stream 草稿统一通过 `stream.documents` 创建、读取、校验和修改，输入 `program` 与 `document` 二选一。发布和回滚仍走 `stream.programs`。保存、部署、运行成功分别判断。
 
 - 已知 Source ID/revision 且没有 Stream 引用时，可 [直接 patch 或变更状态](skills/tier0-sdk-v2/tier0-sdk-v2-source/references/update.md)；有引用时仍按精确意图确认影响。
-- Stream 发布和回滚可携带并发守卫：有生效发布时使用 `expectedActiveRelease`，无生效发布时使用 `expectedReleaseState: 'inactive'`。[发布回执](skills/tier0-sdk-v2/tier0-sdk-v2-stream/references/deploy.md) 的 activeRelease 也可用于观察这次发布。
+- Stream 发布和回滚可携带并发守卫 `expectedActiveVersion`，取已读取回执的权威版本 ID 字符串，`'0'` 表示无生效发布。Cloud 的 `expectedReleaseState: 'inactive'` 是另一种互斥守卫。[发布回执](skills/tier0-sdk-v2/tier0-sdk-v2-stream/references/deploy.md) 的 activeRelease 是 Cloud 扩展的发布序号，只用于关联运行，不作为 activeVersion 使用。
 - 单条 Record 新增可用 [returnDocument:'after'](skills/tier0-sdk-v2/tier0-sdk-v2-uns/references/create.md) 同次取得创建快照；[App 数据层](skills/tier0-sdk-v2/tier0-sdk-v2-data/references/read-write.md) 支持相同选择及投影类型。
 
 从最初提交迁移：`uns.sourceList` → `source.documents.list`；`uns.sourceDocumentGet` → `source.documents.get`；`uns.streamProgramDeploy` → `stream.programs.deploy`；`uns.streamDocumentValidate` → `stream.documents.validate`。这些管理方法已移出主入口的 `uns`。底层 `createUnsV2Client()` 仍提供完整生成契约供契约工具使用；数据专用客户端可用 `createUnsDataClient()`。
@@ -301,7 +301,7 @@ node scripts/check-live-stream-runtime.mjs <consumer> <workspaceId> .tmp/live-st
 
 平台接口与能力发现的本地联调可分别运行 `node scripts/sync-contracts.mjs <backend> --worktree --platform-only` 和 `node scripts/sync-capability-contract.mjs <backend> --worktree`。预览来源明确记录基线和内容摘要，不能直接发布。Backend 提交后，将两条命令的 `--worktree` 替换为正式提交 SHA，再运行 `npm run generate && npm run check`；UNS 数据模型仍使用其独立固定输入。
 
-采集流程的 Source 创建/更新/状态变更、Stream 文档创建/更新/部署均可省略 `dryRun`（默认 false 提交）。SQL 新连接可在 `source.documents.create` 中直接传 `credentials.kind: usernamePassword` 与只写用户名/密码，不传 `credentials.method`；连接地址不携带秘密。`contracts/uns-v2/provenance.json` 的 `schemaUpdates` 记录这次有限合同更新，共享数据模型继续使用固定基础版本。
+Source 创建/更新与 Stream 创建/更新/部署的 dryRun 默认 false。凭据统一为 basic/oauth2/bearer/custom 等原生 kind，使用 username/secret/values，不使用 material/method。SQL 使用 edge-sql 与顶层 sql 固定查询。删除使用 source.documents.delete，换证使用 source.documents.credentials.update；远端 Edge 秘密在 Edge 本地预配。Stream 远端绑定传 target: {fleetNodeId,sourceId,configRevision}，服务端自动生成受控引用；不得与本地 sourceId/configRevision 同时传入。
 
 ## App Stream 交互与旧包迁移
 
@@ -325,3 +325,5 @@ node scripts/check-live-stream-runtime.mjs <consumer> <workspaceId> .tmp/live-st
 真实消息本地验收用 `npm run test:streams:artifact`（Go、Node.js 22+、`nats-server`，通过 `TIER0_STREAM_MESSAGES_BACKEND_DIR` 指向 Backend checkout）。脚本验证生产 Go issuer、TLS NATS、已安装 tarball 的 ESM/CJS 及浏览器依赖闭包；固定夹具身份不代表线上 SYS/Gateway/App 权限链路或浏览器端到端验收。
 
 代码存在不代表已发布。先构建并安装这次统一实现的不可变制品，更新 App 模板、依赖锁与存量 App，再移除旧包；不能用旧 npm 0.7.2 替代本分支构建。完整交互说明见 [Stream 交互](skills/tier0-sdk-v2/tier0-sdk-v2-streams/SKILL.md)。
+
+Source/Stream 定向契约同步使用 `node scripts/sync-source-stream-contract.mjs <backend> <commit>`，然后 `npm run generate && npm run check`。该生成流程同步相关公开操作、路由、协议目录及依赖 schema，保留其余数据模型与平台输入的固定版本；来源和摘要记录在 contracts/uns-v2/provenance.json 的 source-stream-public 条目。`--worktree` 仅供预览，发布前必须重新固定已提交 SHA。

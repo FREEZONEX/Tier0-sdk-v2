@@ -1,6 +1,108 @@
 {
   "operations": [
     {
+      "name": "appRegistrationCapabilities",
+      "permission": "workspace.api.manage",
+      "scope": "app:manage",
+      "minPermission": 3
+    },
+    {
+      "name": "appRegistrationList",
+      "permission": "workspace.api.manage",
+      "scope": "app:manage",
+      "minPermission": 3
+    },
+    {
+      "name": "appRegistrationGet",
+      "permission": "workspace.api.manage",
+      "scope": "app:manage",
+      "minPermission": 3
+    },
+    {
+      "name": "appRegistrationCreate",
+      "permission": "workspace.api.manage",
+      "scope": "app:manage",
+      "minPermission": 3
+    },
+    {
+      "name": "appRegistrationUpdate",
+      "permission": "workspace.api.manage",
+      "scope": "app:manage",
+      "minPermission": 3
+    },
+    {
+      "name": "appRegistrationPermissionsUpdate",
+      "permission": "workspace.api.manage",
+      "scope": "app:manage",
+      "minPermission": 3
+    },
+    {
+      "name": "appDataPolicyGet",
+      "permission": "uns.write",
+      "scope": "uns:update",
+      "minPermission": 3
+    },
+    {
+      "name": "appDataPolicyUpdate",
+      "permission": "uns.write",
+      "scope": "uns:update",
+      "minPermission": 3
+    },
+    {
+      "name": "appStreamPolicyGet",
+      "permission": "stream.requests.manage",
+      "scope": "stream.requests:manage",
+      "minPermission": 3
+    },
+    {
+      "name": "appStreamPolicyUpdate",
+      "permission": "stream.requests.manage",
+      "scope": "stream.requests:manage",
+      "minPermission": 3
+    },
+    {
+      "name": "appStreamAccessList",
+      "permission": "stream.requests.manage",
+      "scope": "stream.requests:manage",
+      "minPermission": 3
+    },
+    {
+      "name": "sourceDevicesList",
+      "permission": "uns.source.view",
+      "scope": "source:read",
+      "minPermission": 1
+    },
+    {
+      "name": "sourceNativeCredentialsUpdate",
+      "permission": "uns.source.credentials",
+      "scope": "source:manage",
+      "minPermission": 3
+    },
+    {
+      "name": "sourceResourceScan",
+      "permission": "uns.source.view",
+      "scope": "source:read",
+      "minPermission": 1
+    },
+    {
+      "name": "sourceResourceCatalog",
+      "permission": "uns.source.view",
+      "scope": "source:read",
+      "minPermission": 1
+    },
+    {
+      "name": "sourceResourceRead",
+      "permission": "uns.source.view",
+      "scope": "source:read",
+      "minPermission": 1
+    },
+    {
+      "name": "sourceDocumentStateUpdate",
+      "permission": "uns.source.manage",
+      "scope": "source:manage",
+      "minPermission": 3
+    },
+    {
       "name": "sourceMqttAuthCreate",
       "permission": "uns.source.manage",
       "scope": "source:manage",
@@ -46,12 +148,6 @@
       "name": "streamProgramRollback",
       "permission": "uns.stream.manage",
       "scope": "stream:manage",
-      "minPermission": 3
-    },
-    {
-      "name": "sourceDelete",
-      "permission": "uns.source.manage",
-      "scope": "source:manage",
       "minPermission": 3
     },
     {
@@ -133,12 +229,6 @@
       "minPermission": 1
     },
     {
-      "name": "sourceCredentialCreate",
-      "permission": "uns.source.manage",
-      "scope": "source:manage",
-      "minPermission": 3
-    },
-    {
       "name": "sourceIngressGet",
       "permission": "uns.source.view",
       "scope": "source:read",
@@ -181,66 +271,6 @@
       "minPermission": 3
     },
     {
-      "name": "appRegistrationCapabilities",
-      "permission": "workspace.api.manage",
-      "scope": "app:manage",
-      "minPermission": 3
-    },
-    {
-      "name": "appRegistrationList",
-      "permission": "workspace.api.manage",
-      "scope": "app:manage",
-      "minPermission": 3
-    },
-    {
-      "name": "appRegistrationGet",
-      "permission": "workspace.api.manage",
-      "scope": "app:manage",
-      "minPermission": 3
-    },
-    {
-      "name": "appRegistrationCreate",
-      "permission": "workspace.api.manage",
-      "scope": "app:manage",
-      "minPermission": 3
-    },
-    {
-      "name": "appRegistrationUpdate",
-      "permission": "workspace.api.manage",
-      "scope": "app:manage",
-      "minPermission": 3
-    },
-    {
-      "name": "appRegistrationPermissionsUpdate",
-      "permission": "workspace.api.manage",
-      "scope": "app:manage",
-      "minPermission": 3
-    },
-    {
-      "name": "appDataPolicyGet",
-      "permission": "uns.write",
-      "scope": "uns:update",
-      "minPermission": 3
-    },
-    {
-      "name": "appDataPolicyUpdate",
-      "permission": "uns.write",
-      "scope": "uns:update",
-      "minPermission": 3
-    },
-    {
-      "name": "appStreamPolicyGet",
-      "permission": "stream.requests.manage",
-      "scope": "stream.requests:manage",
-      "minPermission": 3
-    },
-    {
-      "name": "appStreamPolicyUpdate",
-      "permission": "stream.requests.manage",
-      "scope": "stream.requests:manage",
-      "minPermission": 3
-    },
-    {
       "name": "streamRequestGrantGet",
       "permission": "stream.requests.manage",
       "scope": "stream.requests:manage",
@@ -253,14 +283,38 @@
       "minPermission": 3
     },
     {
-      "name": "appStreamAccessList",
-      "permission": "stream.requests.manage",
-      "scope": "stream.requests:manage",
+      "name": "sourceDiscover",
+      "permission": "uns.source.manage",
+      "scope": "source:manage",
       "minPermission": 3
     },
     {
-      "name": "sourceDiscover",
+      "name": "sourceGitHubOAuthStart",
       "permission": "uns.source.manage",
+      "scope": "source:manage",
+      "minPermission": 3
+    },
+    {
+      "name": "sourceGitHubOAuthComplete",
+      "permission": "uns.source.manage",
+      "scope": "source:manage",
+      "minPermission": 3
+    },
+    {
+      "name": "sourceDocumentDelete",
+      "permission": "uns.source.manage",
+      "scope": "source:manage",
+      "minPermission": 3
+    },
+    {
+      "name": "sourceNativeOAuthStart",
+      "permission": "uns.source.credentials",
+      "scope": "source:manage",
+      "minPermission": 3
+    },
+    {
+      "name": "sourceNativeOAuthComplete",
+      "permission": "uns.source.credentials",
       "scope": "source:manage",
       "minPermission": 3
     }

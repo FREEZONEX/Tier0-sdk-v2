@@ -1,42 +1,25 @@
 # 协议与连接配置
 
-先调用 `source.protocols.list({})`。协议枚举存在不等于目标环境驱动或凭据解析器已就绪。HTTP Source 统一使用 `protocol: 'http-api'`，通过文档的 `config.role: 'client' | 'server'` 区分主动请求和入站服务，与 Enterprise 的一协议两角色模型一致。角色和协议能力以目标环境目录为准。
-
-| 配置字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| role | client / server | HTTP 示例显式指定 | 省略时为 client；Server 使用托管地址和空 options |
-| endpoint | string | 是 | 地址，不内嵌凭据 |
-| options | object | 是 | 协议专用选项 |
-| auth.kind | string | 有认证时 | basic/bearer/apiKey/usernamePassword/oauth2ClientCredentials |
-| auth.credentialRef | string | 有认证时 | 已存在且可用的凭据引用 |
-| tls.caRef / clientIdentityRef | string | 否 | 已存在的 CA/客户端身份引用 |
-
-以下只构造文档，不执行创建；实际地址、主题、设备 unitId 由任务上下文提供。需要预览配置问题时使用 documents.create 的 dryRun；正式创建本身执行校验。
+先调用 source.protocols.list({}) 核对目标能力。Cloud / Enterprise 统一使用 SourceDefinition：顶层 role、endpoint、runtimeLocation，以及协议专属 http/sql/mqtt/modbus 等。没有旧 config/options/auth/material 层。HTTP 使用 http-api，OAuth 使用 oauth2，SQL 使用 edge-sql，Modbus TCP 使用 modbus-tcp。角色默认 client；server 使用目标支持的托管 endpoint。
 
 ```ts
-import { createClient, type CloudSourceDocument } from '@tier0/sdk-v2';
+import { createClient, type SourceDefinition } from '@tier0/sdk-v2';
 
 export async function inspectProtocolExamples() {
   const capabilities = await createClient().source.protocols.list({});
-  const examples: CloudSourceDocument[] = [
-    { name: 'orders-http', protocol: 'http-api',
-      config: { role: 'client', endpoint: 'https://orders.example.com', options: {} } },
-    { name: 'line-plc', protocol: 'modbus',
-      config: { endpoint: 'tcp://plc.example.com:502', options: { unitId: 1 } } },
-    { name: 'line-mqtt', protocol: 'mqtt',
-      config: { endpoint: 'mqtt://broker.example.com:1883',
-        options: { clientId: 'tier0-line-reader', subscriptions: { 'factory/line1/status': 1 } } } },
+  const examples: SourceDefinition[] = [
+    { name: 'orders-http', protocol: 'http-api', role: 'client',
+      endpoint: 'https://orders.example.com', http: { anonymous: true } },
+    { name: 'line-plc', protocol: 'modbus-tcp', role: 'client',
+      endpoint: 'tcp://plc.example.com:502', modbus: { unitId: 1 } },
+    { name: 'line-mqtt', protocol: 'mqtt', role: 'client',
+      endpoint: 'mqtt://broker.example.com:1883',
+      mqtt: { clientId: 'tier0-line-reader', subscriptions: { 'factory/line1/status': 1 } } },
   ];
   return { capabilities: capabilities.data, examples };
 }
 ```
 
-HTTP Client 的 options 支持 headers 和 parameters；headers 可包含目录允许的非秘密自定义头，Accept/Content-Type 保留 MIME 校验，认证及传输头保留给服务端，不能塞 Authorization/Cookie。Modbus 寄存器范围和轮询频率在 Stream acquisition 中定义；MQTT QoS 为 0/1/2。认证创建见[创建](create.md)，修改时保留原 auth/tls 引用。
+http.headers 仅放非秘密业务头，不能塞 Authorization/Cookie；http.parameters 保存命名厂商配置。sql.query 或 sql.queries 选择固定声明查询，不在脚本执行任意 SQL。TLS 公共 CA 使用协议 caCertificate；秘密密钥经 credentials.values 本地预配，已有引用使用 credentialRef。extensions.tls 引用只有目标明确支持时可用，不自动关闭 TLS。
 
-SQL options 包含 tlsMode（verify-full/disable）和 queries（资源名→固定 SQL）；脚本不能替换任意 SQL。OPC UA、SAP、Teamcenter 等按能力和服务端校验配置，不从 HTTP 模板生造字段。不要为通过校验自动移除认证或关闭 TLS。
-
-HTTP Client 示例不能用于 Server。HTTPServer 通过 `source.documents.*` 配置监听源，固定前缀为 `/ingest/v1/{workspaceId}/{sourceId}`；Stream 注册相对业务路由和处理函数，见 [HTTPServer Stream](../../tier0-sdk-v2-stream/references/http-server.md)。响应时机在 Stream 层处理。
-
-Cloud 的角色位于 `config.role`；Enterprise 投影的顶层 `role` 不能直接抄入 Cloud 管理文档。Server 配置见[创建](create.md)，以 `http://managed` 和空 options 保存，不从 Client 模板推导。
-
-HTTP Client 的单条 inline 认证支持 basic / bearer / apiKey / oauth2ClientCredentials。普通创建省略 credentials.method，由服务端按 REQUEST 绑定 Source 基址；实际 method/path/query 在 Stream 设置。Basic/Bearer 显式凭据方法同时限制精确 URL，不覆盖基址下的子路径；存量绑定保持限制，不自动扩大权限。APIKey 材料为 headerName/value，OAuth 可提供 clientAuthentication，旧 OAuth GET 保留既有兼容语义。见[创建](create.md)。
+以上仅构造配置，不创建 Source。HTTP Server 使用 http://managed，业务路由在 Stream 注册，见[HTTPServer](../../tier0-sdk-v2-stream/references/http-server.md)。配置与凭据创建见[创建](create.md)。

@@ -386,8 +386,8 @@ describe('UNS v2 localhost HTTP fixture', () => {
     expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('064cdcdb688b18fb73295ac986380d84daa08188');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(UNS_V2_CONTRACT_PROVENANCE.sourceDerivedContractSHA256).toBe(UNS_V2_CONTRACT_PROVENANCE.hashes.contract);
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(82);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(95);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(90);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(104);
     expect(received.slice(start)).toHaveLength(1);
   });
 
@@ -449,11 +449,9 @@ describe('UNS v2 localhost HTTP fixture', () => {
     expect(received[start].path).toBe('/openapi/v2/uns/sources/impact');
     const history = await api.source.history({ id: '101', size: 20 });
     expect(history.data.sourceID).toBe('101');
-    await expect(api.source.delete({ dryRun: false, items: [{
-      id: '101', expectedRevision: 2, confirmedImpactRevision: review.data.impactRevision,
-    }] })).rejects.toBeInstanceOf(UnsV2Error);
+    await expect(api.source.documents.delete({ dryRun: false, id: '101', expectedRevision: 2, confirmedImpactRevision: review.data.impactRevision })).rejects.toBeInstanceOf(UnsV2Error);
     expect(received.length - start).toBe(3);
-    expect(JSON.parse(received[start + 2].body).items[0].confirmedImpactRevision).toBe('reviewed-token');
+    expect(JSON.parse(received[start + 2].body).confirmedImpactRevision).toBe('reviewed-token');
     expect(received[start + 2].body).not.toContain('workspace');
     expect(received[start + 2].body).not.toContain('tenant');
   });
@@ -678,11 +676,11 @@ describe('UNS v2 localhost HTTP fixture', () => {
     };
     const api = client();
     const created = await api.stream.documents.create({ dryRun: false, idempotencyKey: 'create-receipt',
-      program: { name: 'receipts', script: 'module.exports=api=>{};' } });
+      program: { name: 'receipts', script: { code: 'module.exports=api=>{};', timeoutMs: 5000 } } });
     if (!('id' in created.data)) throw new Error('Expected committed create receipt');
     expect(created.data).not.toHaveProperty('activeRelease');
     const deployed = await api.stream.programs.deploy({ id: created.data.id, expectedRevision: created.data.revision,
-      expectedReleaseState: 'inactive', dryRun: false, idempotencyKey: 'deploy-receipt' });
+      expectedActiveVersion: created.data.activeVersion, dryRun: false, idempotencyKey: 'deploy-receipt' });
     if (!('id' in deployed.data)) throw new Error('Expected committed deployment receipt');
     const runs = await api.stream.runs.list({ id: deployed.data.id, size: 10 });
     expect(runs.data.items.filter(run => String(run.release) === String(deployed.data.activeRelease)).map(run => run.id)).toEqual(['this']);
@@ -690,7 +688,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
       '/openapi/v2/uns/streams/documents/create', '/openapi/v2/uns/streams/program/deploy', '/openapi/v2/uns/streams/runs/list',
     ]);
     expect(JSON.parse(received[start + 1].body).expectedRevision).toBe(3);
-    expect(JSON.parse(received[start + 1].body).expectedReleaseState).toBe('inactive');
+    expect(JSON.parse(received[start + 1].body).expectedActiveVersion).toBe('0');
   });
 
   it('preserves inactive program receipts without an active release number', async () => {
@@ -698,7 +696,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
       status: 'disabled', executionState: 'disabled', createdAt: 1, updatedAt: 2 };
     respond = (_req, res) => send(res, { code: 200, msg: '', requestId: 'inactive', data: inactive });
     const api = client();
-    const stopped = await api.stream.documents.disable({ id: '301', expectedRevision: 3, expectedActiveRelease: 1,
+    const stopped = await api.stream.documents.disable({ id: '301', expectedRevision: 3, expectedActiveVersion: '991',
       dryRun: false, idempotencyKey: 'disable-receipt' });
     const current = await api.stream.documents.get({ id: '301', view: 'summary' });
     expect(stopped.data).toEqual(inactive);
