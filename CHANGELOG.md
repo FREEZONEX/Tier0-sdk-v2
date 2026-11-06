@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.9.11 (unreleased candidate)
+
+- Send the single authentication header required by the Cloud Gateway; whoami uses `X-API-Key`.
+- Support asynchronous per-request credential providers without sharing credentials or falling back after provider failure.
+- Include the native Source/Stream contract updates from the Cloud migration target.
 
 - Select the HTTP credential source by explicit configuration presence. Missing explicit credentials no longer fall back to another source or `TIER0_API_KEY`; omit all credential properties to retain the environment default.
 - Preserve non-enumerable explicit credentials and delegation settings in client configuration snapshots.

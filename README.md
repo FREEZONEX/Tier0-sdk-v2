@@ -2,6 +2,8 @@
 
 Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交互均使用 `@tier0/sdk-v2`。旧 SDK 不再作为依赖。
 
+`0.9.11` 为待发布候选：隔离显式凭据来源、支持逐请求异步凭据，并按 Gateway 合同发送单一认证头；Data 客户端在创建时绑定静态主体。发布和目标环境合同验收完成前请勿将候选视为正式版本。
+
 `0.9.10` 补齐个人 Key 本地接入指南与非 JSON 网关错误提示，并同步 Namespace 回收、删除和恢复说明；保留现有权限、请求地址和重试规则。
 
 `0.9.9` 新增 `client.uns.metadataPurge`，通过明确的已归档 Collection ID 提交永久删除，返回 `accepted` / `jobId` 并通过现有 `jobs` 查询逐项完成结果；`dryRun` 可选。集合删除保留 Record/Sample，支持恢复或继续永久清理。
@@ -28,13 +30,13 @@ Source / Stream 管理已统一为 Enterprise 参数：SourceDefinition 使用�
 
 ## 安装与初始化
 
-安装正式版本：
+正式发布后安装：
 
 ```sh
-npm install @tier0/sdk-v2@0.9.10
+npm install @tier0/sdk-v2@0.9.11
 ```
 
-维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。
+上述版本号为待发布候选；发布前请继续使用已验证的制品。维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。
 
 个人 Key 可直接读取已有集合，无需创建平台 App；网关配置、运行示例与排错见[本地连接指南](skills/tier0-sdk-v2/references/local-connection.md)。
 
