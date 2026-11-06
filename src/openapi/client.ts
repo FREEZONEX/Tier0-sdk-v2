@@ -17,6 +17,7 @@ export interface ClientConfig {
   transportTimeoutMs?: number;
 }
 export interface RequestOptions { signal?: AbortSignal }
+type AuthorizedInit = RequestInit & { headers: Headers | Record<string, string> };
 export interface Operation {
   method: string;
   path: string;
@@ -168,12 +169,12 @@ export class HttpClient {
    * `X-Tier0-SDK: 1`; otherwise a single `X-API-Key`, because Gateway enforce
    * mode rejects multiple credential sources.
    */
-  private authorize(headers: Headers | Record<string, string>, key: string | undefined, delegation: string | undefined): void {
+  private static authorize(headers: Headers | Record<string, string>, proxied: boolean, key: string | undefined, delegation: string | undefined): void {
     const set = (name: string, value: string) => {
       if (headers instanceof Headers) headers.set(name, value);
       else headers[name] = value;
     };
-    if (this.usesAppCredential()) set(SDK_HEADER, '1');
+    if (proxied) set(SDK_HEADER, '1');
     else if (key) set('X-API-Key', key);
     if (delegation !== undefined) {
       assertCompactToken(delegation, DELEGATION_HEADER);
@@ -182,9 +183,11 @@ export class HttpClient {
   }
 
   /**
-   * One platform request (design 21.7). Redirects are never followed.
-   * Callers resolve `key` before dispatch, so a credential failure never
-   * reaches the network.
+   * The sender of one platform request (design 21.7), frozen to this
+   * client's `fetch` and credential mode when the request starts: a default
+   * client reconfigured while the credential resolves does not change where
+   * the request goes. Redirects are never followed. Callers resolve `key`
+   * before dispatch, so a credential failure never reaches the network.
    *
    * In platform proxy mode an answer the node proxy produced itself
    * (`X-Tier0-Proxy: not-forwarded`) never reached the platform, so a `503`
@@ -192,21 +195,26 @@ export class HttpClient {
    * `retry_after_ms`, at most 3 times; writes repeat safely. Anything else,
    * a platform `5xx` included, is returned as is.
    */
-  async authorizedFetch(url: string, init: RequestInit & { headers: Headers | Record<string, string> }, key: string | undefined, delegation: string | undefined = currentDelegation()): Promise<Response> {
-    const { headers } = init;
-    this.authorize(headers, key, delegation);
-    const send = () => this.getFetch()(url, { ...init, headers, redirect: 'manual' });
-    if (!this.usesAppCredential()) return send();
-    for (let retry = 0; ; retry += 1) {
-      const response = await send();
-      if (retry >= PROXY_MAX_RETRIES || !proxyRetryable(response)) return response;
-      await sleep(await proxyRetryDelay(response, retry), init.signal);
-    }
+  sender(): (url: string, init: AuthorizedInit, key: string | undefined, delegation?: string) => Promise<Response> {
+    const fetch = this.getFetch();
+    const proxied = this.usesAppCredential();
+    return async (url, init, key, delegation = currentDelegation()) => {
+      const { headers } = init;
+      HttpClient.authorize(headers, proxied, key, delegation);
+      const send = () => fetch(url, { ...init, headers, redirect: 'manual' });
+      if (!proxied) return send();
+      for (let retry = 0; ; retry += 1) {
+        const response = await send();
+        if (retry >= PROXY_MAX_RETRIES || !proxyRetryable(response)) return response;
+        await sleep(await proxyRetryDelay(response, retry), init.signal);
+      }
+    };
   }
 
   private async exchange(path: string, init: RequestInit, options: RequestOptions, mutation: boolean): Promise<{ text: string; status: number; ok: boolean }> {
     if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\')) throw new TypeError('A relative API path is required');
     const url = this.getBaseURL() + path;
+    const send = this.sender();
     const staticKey = this.hasApiKeyProvider() ? undefined : this.getApiKey();
     const headers = new Headers(init.headers);
     headers.set('Content-Type', 'application/json');
@@ -230,7 +238,7 @@ export class HttpClient {
         const key = this.hasApiKeyProvider() ? await this.resolveApiKey(controller.signal) : staticKey;
         if (controller.signal.aborted) throw new TransportError(expired ? 'TIMEOUT' : 'ABORTED', false);
         started = true;
-        try { response = await this.authorizedFetch(url, { ...init, headers, redirect: 'manual', signal: controller.signal }, key); }
+        try { response = await send(url, { ...init, headers, redirect: 'manual', signal: controller.signal }, key); }
         catch (error) {
           if (error instanceof TypeError && /X-Tier0-Delegation/.test(error.message)) throw error;
           throw new TransportError(expired ? 'TIMEOUT' : controller.signal.aborted ? 'ABORTED' : 'NETWORK', mutation, response?.status);

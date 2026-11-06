@@ -6,7 +6,8 @@ import { bindUnsDataClient } from '../src/uns-v2/data-client.js';
 import { createUnsV2Client } from '../src/uns-v2/client.js';
 import { UNS_V2_OPERATIONS, type UnsV2OperationName } from '../src/uns-v2/generated.js';
 
-const NOT_IN_FACADES = ['edgeNodesList', 'sourceDocumentStateUpdate', 'sourceResourceCatalog', 'sourceResourceRead', 'sourceResourceScan'];
+// base exposes native Source state and Source resources since 0.9.11; the Edge inventory, which base's contract does not have yet, stays raw only.
+const NOT_IN_FACADES = ['edgeNodesList'];
 
 function functions(object: object): unknown[] {
   return Object.values(object).flatMap(value => typeof value === 'function' ? [value] : functions(value));
@@ -26,7 +27,7 @@ describe('Source, Stream and UNS domain clients', () => {
   it.each(['source', 'stream', 'uns'] as const)('exposes the %s facade operations exactly once in its domain', domain => {
     const raw = createUnsV2Client();
     const client = { source: bindSourceClient(raw), stream: bindStreamClient(raw), uns: bindUnsDataClient(raw) }[domain];
-    // The Backend's Edge inventory, native Edge Source state and Edge Source resource operations are in the raw table only, not in a facade.
+    // The Backend's Edge inventory operation is in the raw table only, not in a facade.
     const expected = Object.keys(UNS_V2_OPERATIONS).filter(name => !NOT_IN_FACADES.includes(name)).filter(name => domain === 'uns'
       ? !/^(source|stream|control)/.test(name) : name.startsWith(domain) && !name.startsWith('streamRequest'));
     const actual = functions(client);
@@ -34,7 +35,7 @@ describe('Source, Stream and UNS domain clients', () => {
     expect(new Set(actual)).toEqual(new Set(expected.map(name => raw[name as UnsV2OperationName])));
     expect(Object.isFrozen(client)).toBe(true);
   });
-  it('keeps the raw operation table complete while the facades omit Edge inventory, native Edge Source state and Edge Source resources', () => {
+  it('keeps the raw operation table complete while the facades omit the Edge inventory', () => {
     const raw = createUnsV2Client();
     for (const name of NOT_IN_FACADES) {
       expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(true);

@@ -92,9 +92,9 @@ describe('platform proxy mode (design 21.7)', () => {
     vi.stubEnv('TIER0_API_KEY', 'sk-app-ws1_local');
     expect(platformProxyMode()).toBe(false);
     await createClient().system.whoami();
-    expect(received.map(r => [r.headers.authorization, r.headers['x-tier0-sdk']])).toEqual([
-      ['Bearer sk-explicit', undefined],
-      ['Bearer sk-app-ws1_local', undefined],
+    expect(received.map(r => [r.headers.authorization, r.headers['x-api-key'], r.headers['x-tier0-sdk']])).toEqual([
+      [undefined, 'sk-explicit', undefined],
+      [undefined, 'sk-app-ws1_local', undefined],
     ]);
   });
 
@@ -157,16 +157,39 @@ describe('platform proxy mode (design 21.7)', () => {
     await createClient({ apiKey: 'sk-explicit' }).system.whoami();
     await createClient({ getApiKey: () => 'sk-callback' }).system.whoami();
     expect(received.map(r => [r.headers.authorization, r.headers['x-api-key'], r.headers['x-tier0-sdk']])).toEqual([
-      ['Bearer sk-explicit', 'sk-explicit', undefined],
-      ['Bearer sk-callback', 'sk-callback', undefined],
+      [undefined, 'sk-explicit', undefined],
+      [undefined, 'sk-callback', undefined],
     ]);
+  });
+
+  it('keeps an apiKeyProvider, without X-Tier0-SDK', async () => {
+    await createClient({ apiKeyProvider: async () => 'sk-provider' }).system.whoami();
+    expect([received[0].headers.authorization, received[0].headers['x-api-key'], received[0].headers['x-tier0-sdk']])
+      .toEqual([undefined, 'sk-provider', undefined]);
+  });
+
+  it('stays in platform proxy mode for an apiKey that is present but undefined', async () => {
+    // `apiKey: process.env.TIER0_API_KEY` in the VM: there is no key, so the node proxy puts in the App's.
+    await createClient({ apiKey: undefined }).system.whoami();
+    const { headers } = received[0];
+    expect(headers['x-tier0-sdk']).toBe('1');
+    expect(headers.authorization).toBeUndefined();
+    expect(headers['x-api-key']).toBeUndefined();
+  });
+
+  it('sends nothing for a getApiKey that returns undefined, and no X-Tier0-SDK', async () => {
+    await createClient({ getApiKey: () => undefined }).system.whoami();
+    const { headers } = received[0];
+    expect(headers['x-tier0-sdk']).toBeUndefined();
+    expect(headers.authorization).toBeUndefined();
+    expect(headers['x-api-key']).toBeUndefined();
   });
 
   it('keeps TIER0_API_KEY for local development', async () => {
     vi.stubEnv('TIER0_RUNTIME', undefined);
     vi.stubEnv('TIER0_API_KEY', 'sk-app-ws1_local');
     await createClient().system.whoami();
-    expect(received[0].headers.authorization).toBe('Bearer sk-app-ws1_local');
+    expect(received[0].headers.authorization).toBeUndefined();
     expect(received[0].headers['x-api-key']).toBe('sk-app-ws1_local');
     expect(received[0].headers['x-tier0-sdk']).toBeUndefined();
   });

@@ -83,6 +83,7 @@ export class CloudTransport {
     options.signal?.throwIfAborted();
     const client = this.resolveClient();
     const url = `${client.getBaseURL()}${path}`;
+    const send = client.sender();
     const timeoutMs = this.configuredTimeoutMs ?? client.timeoutMs;
     const staticKey = client.hasApiKeyProvider() ? undefined : client.getApiKey();
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -115,7 +116,7 @@ export class CloudTransport {
       if (controller.signal.aborted) throw new CloudTransportError('TRANSPORT_ABORTED', undefined, !dispatched);
       try {
         dispatched = true;
-        response = await client.authorizedFetch(url, { method: 'POST', headers, body, redirect: 'manual', signal: controller.signal }, key, this.#delegation ?? currentDelegation());
+        response = await send(url, { method: 'POST', headers, body, redirect: 'manual', signal: controller.signal }, key, this.#delegation ?? currentDelegation());
       } catch (error) {
         if (error instanceof TypeError && /X-Tier0-Delegation/.test(error.message)) throw error;
         throw new CloudTransportError('TRANSPORT_ERROR');
@@ -189,6 +190,7 @@ export class CloudTransport {
     options.signal?.throwIfAborted();
     const client = this.resolveClient();
     const url = `${client.getBaseURL()}${path}`;
+    const send = client.sender();
     const timeoutMs = this.configuredTimeoutMs ?? client.timeoutMs;
     const staticKey = client.hasApiKeyProvider() ? undefined : client.getApiKey();
     const headers: Record<string, string> = { Accept: 'text/event-stream' };
@@ -221,7 +223,7 @@ export class CloudTransport {
       throw error;
     }
     try {
-      response = await client.authorizedFetch(url, { method: 'GET', headers, redirect: 'manual', signal: controller.signal }, key, this.#delegation ?? currentDelegation());
+      response = await send(url, { method: 'GET', headers, redirect: 'manual', signal: controller.signal }, key, this.#delegation ?? currentDelegation());
     } catch (error) {
       clearTimeout(timer);
       close();
@@ -268,6 +270,7 @@ export class CloudTransport {
     const timeoutMs = this.configuredTimeoutMs ?? resolved.timeoutMs;
     const client = runtime ? undefined : resolved;
     const url = client ? `${client.getBaseURL()}${path}` : '';
+    const send = client?.sender();
     const controller = new AbortController();
     const abort = () => controller.abort();
     signal?.addEventListener('abort', abort, { once: true });
@@ -288,7 +291,7 @@ export class CloudTransport {
           if (controller.signal.aborted) throw new CloudTransportError('TRANSPORT_ABORTED');
           const headers: Record<string, string> = { 'Content-Type': 'application/json' };
           dispatched = true;
-          response = await client!.authorizedFetch(url, { method: 'POST', headers, body: serialized, redirect: 'manual', signal: controller.signal }, key, this.#delegation ?? currentDelegation());
+          response = await send!(url, { method: 'POST', headers, body: serialized, redirect: 'manual', signal: controller.signal }, key, this.#delegation ?? currentDelegation());
         }
       } catch {
         throw new CloudTransportError('TRANSPORT_ERROR', undefined, !dispatched);

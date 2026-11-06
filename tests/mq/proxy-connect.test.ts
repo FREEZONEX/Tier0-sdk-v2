@@ -116,6 +116,14 @@ describe('MQTT through the node proxy, real mqtt.js (design 21.7)', () => {
     expect(connect.level).toBe(4);
   });
 
+  it('stays on the proxy for a password that is present but undefined', async () => {
+    // `password: process.env.TIER0_API_KEY` in the VM: there is no key, so the node proxy puts in the App's.
+    sdk = new Tier0MQClient({ password: undefined });
+    await sdk.connect();
+    expect(broker.connects[0]).toMatchObject({ username: '7205759403792793999&open', password: undefined });
+    expect(broker.connects[0].clientId).toMatch(/^7205759403792793999&h\.app_1\.[a-z0-9]{16}$/);
+  });
+
   it('connects a Preview exactly like a deployment', async () => {
     vi.stubEnv('TIER0_RUNTIME', 'preview');
     vi.stubEnv('TIER0_RELEASE', undefined);
