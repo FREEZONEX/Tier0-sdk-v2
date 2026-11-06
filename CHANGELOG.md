@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased (aenv-next, not yet versioned)
+
+- Merge the base 0.9.11 release candidate (base `593042c`) into the aenv-next line: per-request `apiKeyProvider`, explicit credential sources that never fall back to another source or `TIER0_API_KEY`, a single `X-API-Key` header (no `Authorization: Bearer`), Data clients bound to the host and static key resolved at creation, and MQTT `connect()` rejecting an explicitly undefined password.
+- Platform proxy mode is unchanged: a client without an `apiKey` value, `getApiKey` or `apiKeyProvider` sends no credential, only `X-Tier0-SDK: 1`, and keeps the proxy retries. `createDataClient` fixes `apiKey` from the environment at creation, which is `undefined` in the platform, so it stays in proxy mode. Outside the platform the base credential rules apply as is.
+- Source/Stream public operations and their schemas are synchronized from Backend `727c6395a` (as on base) over the aenv-next contract pin `8780ce2d6`; every other operation keeps the aenv-next pin. 91 public / 105 manifest operations.
+
 ## 0.10.0-aenv.9 (local aenv-next prerelease)
 
 - Merge the base MQTT and data fixes of 2026-11-05 (base `d0276cf`) into the aenv-next line. MQTT: callbacks are bound to the connection generation, mqtt.js resubscription is off and every topic checks its SUBACK grant (MQTT 3.1.1 and 5), connection settings are preflighted and rolled back on failure, settings cannot change while a client exists, and a failed first connect drops the subscriptions it registered. aenv-next keeps its own reconnect model: the SDK reconnects itself, a browser fetches a fresh token on every reconnect, new subscriptions and publishes wait for the reconnect instead of failing, and `disconnect()` also rejects the waiting calls.
@@ -30,6 +36,17 @@ This prerelease is built locally for the aenv-next scaffold and is not published
 - The Backend's `edgeNodesList` and `sourceDocumentStateUpdate` stay in the raw operation table only; neither `client.source` nor `client.uns` exposes them. The four contract baseline tests (operation counts 84/97, the Namespace digest and the Source facade membership) are re-pinned to the current contract.
 
 This prerelease is built locally for the aenv-next scaffold and is not published to npm.
+
+## 0.9.11 (unreleased candidate)
+
+- Send the single authentication header required by the Cloud Gateway; whoami uses `X-API-Key`.
+- Support asynchronous per-request credential providers without sharing credentials or falling back after provider failure.
+- Include the native Source/Stream contract updates from the Cloud migration target.
+
+- Select the HTTP credential source by explicit configuration presence. Missing explicit credentials no longer fall back to another source or `TIER0_API_KEY`; omit all credential properties to retain the environment default.
+- Preserve non-enumerable explicit credentials and delegation settings in client configuration snapshots.
+- Bind each high-level Data client to the host and static credential resolved at creation, and reject dynamic credential callbacks so cached bootstrap and subscriptions cannot switch principals.
+- Reject an explicitly undefined MQTT connect-time password instead of silently reusing a saved or environment credential.
 
 ## 0.9.10 (2026-11-04)
 

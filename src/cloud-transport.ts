@@ -36,7 +36,7 @@ type Failure = 'TRANSPORT_ERROR' | 'PROTOCOL_ERROR' | 'TRANSPORT_TIMEOUT' | 'TRA
 
 /** Internal redacted failure, translated by each public contract client. */
 export class CloudTransportError extends Error {
-  constructor(readonly kind: Failure, readonly status?: number) {
+  constructor(readonly kind: Failure, readonly status?: number, readonly notStarted = false) {
     super(kind);
     this.name = 'CloudTransportError';
   }
@@ -50,17 +50,17 @@ const notForwarded = (response: Response) => response.headers.get(PROXY_HEADER) 
  */
 export class CloudTransport {
   private readonly configuredTimeoutMs: number | undefined;
-  private get timeoutMs(): number { return this.configuredTimeoutMs ?? this.resolveClient().timeoutMs; }
   private readonly unsV2MaxResponseBytes: number;
   readonly #unsV2AppDataSubject: string | undefined;
   readonly #delegation: string | undefined;
 
   constructor(private readonly resolveClient: () => HttpClient = getClient, config: CloudTransportConfig = {}) {
-    const timeout = config.transportTimeoutMs ?? DEFAULT_CLOUD_TRANSPORT_TIMEOUT_MS;
+    const configuredTimeout = config.transportTimeoutMs;
+    const timeout = configuredTimeout ?? DEFAULT_CLOUD_TRANSPORT_TIMEOUT_MS;
     if (!Number.isInteger(timeout) || timeout < 1 || timeout > 2_147_483_647) {
       throw new TypeError('Tier0 SDK: transportTimeoutMs must be an integer between 1 and 2147483647.');
     }
-    this.configuredTimeoutMs = config.transportTimeoutMs;
+    this.configuredTimeoutMs = configuredTimeout;
     const maxResponseBytes = config.unsV2MaxResponseBytes ?? UNS_V2_MAX_RESPONSE_BYTES;
     if (!Number.isInteger(maxResponseBytes) || maxResponseBytes < 1 || maxResponseBytes > UNS_V2_MAX_RESPONSE_BYTES) {
       throw new TypeError('Tier0 SDK: unsV2MaxResponseBytes must be an integer between 1 and 20971520.');
@@ -83,6 +83,8 @@ export class CloudTransport {
     options.signal?.throwIfAborted();
     const client = this.resolveClient();
     const url = `${client.getBaseURL()}${path}`;
+    const timeoutMs = this.configuredTimeoutMs ?? client.timeoutMs;
+    const staticKey = client.hasApiKeyProvider() ? undefined : client.getApiKey();
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     // The registered operation determines data delegation, never a route blacklist.
     if (operation !== undefined && Object.hasOwn(UNS_V2_OPERATIONS, operation) &&
@@ -92,6 +94,7 @@ export class CloudTransport {
     }
     const controller = new AbortController();
     let response: Response | undefined;
+    let dispatched = false;
     let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let rejectAbort: (error: Error) => void = () => undefined;
@@ -99,12 +102,20 @@ export class CloudTransport {
     const onAbort = () => {
       controller.abort();
       void reader?.cancel().catch(() => undefined);
-      rejectAbort(new CloudTransportError('TRANSPORT_ABORTED', response?.status));
+      rejectAbort(new CloudTransportError('TRANSPORT_ABORTED', response?.status, !dispatched));
     };
     options.signal?.addEventListener('abort', onAbort, { once: true });
+    if (options.signal?.aborted) onAbort();
     const exchange = async () => {
+      let key = staticKey;
+      if (client.hasApiKeyProvider()) {
+        try { key = await client.resolveApiKey(controller.signal); }
+        catch { throw new CloudTransportError('TRANSPORT_ERROR', undefined, true); }
+      }
+      if (controller.signal.aborted) throw new CloudTransportError('TRANSPORT_ABORTED', undefined, !dispatched);
       try {
-        response = await client.authorizedFetch(url, { method: 'POST', headers, body, redirect: 'manual', signal: controller.signal }, this.#delegation ?? currentDelegation());
+        dispatched = true;
+        response = await client.authorizedFetch(url, { method: 'POST', headers, body, redirect: 'manual', signal: controller.signal }, key, this.#delegation ?? currentDelegation());
       } catch (error) {
         if (error instanceof TypeError && /X-Tier0-Delegation/.test(error.message)) throw error;
         throw new CloudTransportError('TRANSPORT_ERROR');
@@ -151,13 +162,13 @@ export class CloudTransport {
         timer = setTimeout(() => {
           controller.abort();
           void reader?.cancel().catch(() => undefined);
-          reject(new CloudTransportError('TRANSPORT_TIMEOUT', response?.status));
-        }, this.timeoutMs);
+          reject(new CloudTransportError('TRANSPORT_TIMEOUT', response?.status, !dispatched));
+        }, timeoutMs);
       });
       // Also bounds custom transports which ignore AbortSignal.
       return await Promise.race([exchange(), deadline, cancelled]);
     } catch (error) {
-      if (controller.signal.aborted) throw new CloudTransportError(options.signal?.aborted ? 'TRANSPORT_ABORTED' : 'TRANSPORT_TIMEOUT', response?.status);
+      if (controller.signal.aborted) throw new CloudTransportError(options.signal?.aborted ? 'TRANSPORT_ABORTED' : 'TRANSPORT_TIMEOUT', response?.status, !dispatched);
       throw error;
     } finally {
       clearTimeout(timer);
@@ -178,6 +189,8 @@ export class CloudTransport {
     options.signal?.throwIfAborted();
     const client = this.resolveClient();
     const url = `${client.getBaseURL()}${path}`;
+    const timeoutMs = this.configuredTimeoutMs ?? client.timeoutMs;
+    const staticKey = client.hasApiKeyProvider() ? undefined : client.getApiKey();
     const headers: Record<string, string> = { Accept: 'text/event-stream' };
     if (operation !== undefined && Object.hasOwn(UNS_V2_STREAM_OPERATIONS, operation) &&
         UNS_V2_STREAM_OPERATIONS[operation].scope.startsWith('uns:') && this.#unsV2AppDataSubject !== undefined && !client.usesAppCredential()) {
@@ -191,13 +204,24 @@ export class CloudTransport {
       controller.abort();
     };
     options.signal?.addEventListener('abort', onAbort, { once: true });
+    if (options.signal?.aborted) onAbort();
     let expired = false;
-    const timer = setTimeout(() => { expired = true; controller.abort(); }, this.timeoutMs);
+    const timer = setTimeout(() => { expired = true; controller.abort(); }, timeoutMs);
     const failure = (kind: Failure, status?: number) =>
       new CloudTransportError(expired ? 'TRANSPORT_TIMEOUT' : controller.signal.aborted ? 'TRANSPORT_ABORTED' : kind, status);
     let response: Response;
+    let key: string | undefined;
     try {
-      response = await client.authorizedFetch(url, { method: 'GET', headers, redirect: 'manual', signal: controller.signal }, this.#delegation ?? currentDelegation());
+      key = client.hasApiKeyProvider() ? await client.resolveApiKey(controller.signal) : staticKey;
+      if (controller.signal.aborted) throw failure('TRANSPORT_ABORTED');
+    } catch (error) {
+      clearTimeout(timer);
+      close();
+      if (expired || options.signal?.aborted) throw failure('TRANSPORT_ABORTED');
+      throw error;
+    }
+    try {
+      response = await client.authorizedFetch(url, { method: 'GET', headers, redirect: 'manual', signal: controller.signal }, key, this.#delegation ?? currentDelegation());
     } catch (error) {
       clearTimeout(timer);
       close();
@@ -239,27 +263,35 @@ export class CloudTransport {
 
   async post(path: string, body: unknown, signal?: AbortSignal, runtime?: AppRuntime): Promise<{ value: unknown; status: number; ok: boolean }> {
     const serialized = JSON.stringify(body);
+    // Outside the transport catch: a configuration error (host, TIER0_RUNTIME) must surface as itself.
+    const resolved = this.resolveClient();
+    const timeoutMs = this.configuredTimeoutMs ?? resolved.timeoutMs;
+    const client = runtime ? undefined : resolved;
+    const url = client ? `${client.getBaseURL()}${path}` : '';
     const controller = new AbortController();
     const abort = () => controller.abort();
     signal?.addEventListener('abort', abort, { once: true });
     if (signal?.aborted) controller.abort();
     let response: Response | undefined;
+    let dispatched = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    // Outside the transport catch: a configuration error (host, TIER0_RUNTIME) must surface as itself.
-    const client = runtime ? undefined : this.resolveClient();
-    const url = client ? `${client.getBaseURL()}${path}` : '';
     const exchange = async () => {
       try {
         if (runtime) {
+          if (controller.signal.aborted) throw new CloudTransportError('TRANSPORT_ABORTED', undefined, true);
+          dispatched = true;
           response = await runtime.request(path, body, { signal: controller.signal });
           reportAuthError(platformErrorCode(response));
         }
         else {
+          const key = client!.hasApiKeyProvider() ? await client!.resolveApiKey(controller.signal) : client!.getApiKey();
+          if (controller.signal.aborted) throw new CloudTransportError('TRANSPORT_ABORTED');
           const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-          response = await client!.authorizedFetch(url, { method: 'POST', headers, body: serialized, redirect: 'manual', signal: controller.signal }, this.#delegation ?? currentDelegation());
+          dispatched = true;
+          response = await client!.authorizedFetch(url, { method: 'POST', headers, body: serialized, redirect: 'manual', signal: controller.signal }, key, this.#delegation ?? currentDelegation());
         }
       } catch {
-        throw new CloudTransportError('TRANSPORT_ERROR');
+        throw new CloudTransportError('TRANSPORT_ERROR', undefined, !dispatched);
       }
       let value: unknown;
       try {
@@ -271,13 +303,13 @@ export class CloudTransport {
     };
     try {
       const deadline = new Promise<never>((_resolve, reject) => {
-        const stopped = () => reject(new CloudTransportError('TRANSPORT_ERROR', response?.status));
+        const stopped = () => reject(new CloudTransportError('TRANSPORT_ERROR', response?.status, !dispatched));
         controller.signal.addEventListener('abort', stopped, { once: true });
         if (controller.signal.aborted) stopped();
         timer = setTimeout(() => {
-          reject(new CloudTransportError('TRANSPORT_TIMEOUT', response?.status));
+          reject(new CloudTransportError('TRANSPORT_TIMEOUT', response?.status, !dispatched));
           controller.abort();
-        }, this.timeoutMs);
+        }, timeoutMs);
       });
       // Also bounds custom transports which ignore AbortSignal.
       return await Promise.race([exchange(), deadline]);

@@ -41,7 +41,9 @@ export async function inspectConnection() {
 
 也可传 `apiHost`、`apiKey` 或 `getApiHost` / `getApiKey` 回调。API Key 留在服务端；不要生成 `VITE_*KEY` 或让页面携带 App Key。浏览器通过自己的服务端接口访问平台；App Stream 交互使用根入口 `client` 和受信宿主注入，无需设置密钥。消息要求 WebSocket（Node.js 22+ 或浏览器）。
 
-**Tier0 预览和部署里不需要、也读不到凭据**：VM 里没有 `TIER0_API_KEY`，也没有凭据文件，节点代理按 VM 源地址注入 App 的长期 Key，SDK 不持有它；预览和正式用同一把 Key，行为相同。`TIER0_RUNTIME` 为 `deployed` / `preview`、没有 `TIER0_API_KEY` 时 SDK 不发任何凭据头（`TIER0_RUNTIME` 是其他非空值时直接报配置错误），每个请求带 `X-Tier0-SDK: 1`。不要去找、生成或硬编码 Key。身份读平台设置的 `TIER0_WORKSPACE_ID`、`TIER0_APP_ID`。
+凭证来源按属性存在性选择，优先顺序为 `apiKeyProvider`、`apiKey`、`getApiKey`；只有都未提供才读取 `TIER0_API_KEY`。显式 `undefined` 或 getter 返回 `undefined` 不会回退到环境 Key。每个用户请求使用独立客户端，不要把全局 `configureClient` 当作请求身份。
+
+**Tier0 预览和部署里不需要、也读不到凭据**：VM 里没有 `TIER0_API_KEY`，也没有凭据文件，节点代理按 VM 源地址注入 App 的长期 Key，SDK 不持有它；预览和正式用同一把 Key，行为相同。`TIER0_RUNTIME` 为 `deployed` / `preview`、没有 `TIER0_API_KEY`，且客户端没给有值的 `apiKey`、`getApiKey` 或 `apiKeyProvider` 时，SDK 不发任何凭据头（`TIER0_RUNTIME` 是其他非空值时直接报配置错误），每个请求带 `X-Tier0-SDK: 1`。不要去找、生成或硬编码 Key。身份读平台设置的 `TIER0_WORKSPACE_ID`、`TIER0_APP_ID`。
 
 不经 SDK、直接用 `fetch` / `curl` 调平台时，必须自己带 `X-Tier0-SDK: 1`、不带 `Authorization`，否则代理回 403 `sbx_proxy_forbidden`：
 
