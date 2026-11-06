@@ -21,7 +21,7 @@ const server = createServer(async (req, res) => {
   for await (const chunk of req) body += chunk;
   requests++;
   invalidRequest ||= req.url !== '/openapi/v2/capabilities/discover' || req.method !== 'POST' || body !== '{}' ||
-    req.headers.authorization !== 'Bearer installed-sdk-fixture' || req.headers['x-api-key'] !== 'installed-sdk-fixture' ||
+    req.headers.authorization !== undefined || req.headers['x-api-key'] !== 'installed-sdk-fixture' ||
     req.headers['x-tier0-app-data-subject'] !== undefined || req.headers['idempotency-key'] !== undefined;
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(response));

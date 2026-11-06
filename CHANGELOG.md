@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.11 (unreleased candidate)
+
+- Send the single authentication header required by the Cloud Gateway; whoami uses `X-API-Key`.
+- Support asynchronous per-request credential providers without sharing credentials or falling back after provider failure.
+- Include the native Source/Stream contract updates from the Cloud migration target.
+
+- Select the HTTP credential source by explicit configuration presence. Missing explicit credentials no longer fall back to another source or `TIER0_API_KEY`; omit all credential properties to retain the environment default.
+- Preserve non-enumerable explicit credentials and delegation settings in client configuration snapshots.
+- Bind each high-level Data client to the host and static credential resolved at creation, and reject dynamic credential callbacks so cached bootstrap and subscriptions cannot switch principals.
+- Reject an explicitly undefined MQTT connect-time password instead of silently reusing a saved or environment credential.
+
 ## 0.9.10 (2026-11-04)
 
 - Add a local connection guide for Personal keys, explicit OpenAPI gateway configuration and reading existing collections without a platform App.

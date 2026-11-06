@@ -109,7 +109,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
     expect(received.slice(start)).toHaveLength(2);
     for (const row of received.slice(start)) {
       expect(row.headers['x-tier0-app-data-subject']).toBe(row.path?.includes('user-a') ? proofA : proofB);
-      expect(row.headers.authorization).toBe('Bearer workspace-bound-key');
+      expect(row.headers.authorization).toBeUndefined();
       expect(row.headers['x-api-key']).toBe('workspace-bound-key');
     }
     respond = (_req, res) => send(res, { code: 200, msg: '', requestId: 'plain', data: {} });
@@ -326,7 +326,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
       '/openapi/v2/uns/sources/observations/get', '/openapi/v2/uns/streams/observation/get', '/openapi/v2/uns/streams/runs/list',
     ]);
     expect(JSON.parse(received[start + 2].body)).toEqual({ id: '202', size: 10, cursor: 'opaque-cursor' });
-    expect(received.slice(start).every(row => row.headers['x-api-key'] === 'workspace-bound-key')).toBe(true);
+    expect(received.slice(start).every(row => row.headers['x-api-key'] === 'workspace-bound-key' && row.headers.authorization === undefined)).toBe(true);
   });
 
   it('preserves per-run failure diagnostics, unknown results and legacy records in a successful runs query', async () => {
@@ -478,11 +478,11 @@ describe('UNS v2 localhost HTTP fixture', () => {
       method: 'POST', path: '/openapi/v2/uns/collections/orders/records:find',
       body: '{"collectionId":"orders","limit":20,"cursor":"opaque"}',
       headers: {
-        authorization: 'Bearer workspace-bound-key',
         'x-api-key': 'workspace-bound-key',
         'content-type': 'application/json',
       },
     });
+    expect(received[start].headers.authorization).toBeUndefined();
   });
 
   it('preserves numeric and prototype-shaped business fields over HTTP', async () => {
@@ -990,6 +990,8 @@ describe('records:subscribe over the isolated HTTP transport', () => {
     expect(sent.method).toBe('GET');
     expect(sent.path).toBe('/openapi/v2/uns/records:subscribe?collectionIds=orders&recordIds=o-1&recordIds=o-2');
     expect(sent.headers.accept).toBe('text/event-stream');
+    expect(sent.headers['x-api-key']).toBe('workspace-bound-key');
+    expect(sent.headers.authorization).toBeUndefined();
     expect(sent.headers['last-event-id']).toBe('p-0');
     expect(sent.headers['x-tier0-app-data-subject']).toBe(proof);
   });

@@ -297,6 +297,17 @@ describe('Tier0MQClient', () => {
     client.disconnect();
   });
 
+  it('rejects an undefined password while the first connection is still pending', async () => {
+    const client = new Tier0MQClient({ host: 'broker', password: 'sk-per-ws1_original' });
+    const first = client.connect();
+    await expect(client.connect({ password: undefined })).rejects.toThrow('explicitly undefined');
+    expect(mqtt.connect).toHaveBeenCalledTimes(1);
+    emit('connect');
+    await first;
+    expect(mqtt.connect).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ password: 'sk-per-ws1_original' }));
+    client.disconnect();
+  });
+
   it('does not replace a reconnecting client after an initial error', async () => {
     const client = new Tier0MQClient({ host: 'broker', reconnectPeriod: 1000 });
     const first = client.connect();
@@ -308,12 +319,12 @@ describe('Tier0MQClient', () => {
     expect(mockMqttClient.end).toHaveBeenCalledTimes(1);
   });
 
-  it('does not erase a saved password when the override is undefined', async () => {
+  it('rejects an undefined password override without changing an established connection', async () => {
     const client = new Tier0MQClient({ host: 'broker', password: 'sk-per-ws1_original' });
     let connecting = client.connect();
     emit('connect');
     await connecting;
-    await client.connect({ password: undefined });
+    await expect(client.connect({ password: undefined })).rejects.toThrow('explicitly undefined');
     client.disconnect();
     connecting = client.connect();
     emit('connect');

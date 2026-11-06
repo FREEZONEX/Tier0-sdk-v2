@@ -2,6 +2,8 @@
 
 Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交互均使用 `@tier0/sdk-v2`。旧 SDK 不再作为依赖。
 
+`0.9.11` 为待发布候选：隔离显式凭据来源、支持逐请求异步凭据，并按 Gateway 合同发送单一认证头；Data 客户端在创建时绑定静态主体。发布和目标环境合同验收完成前请勿将候选视为正式版本。
+
 `0.9.10` 补齐个人 Key 本地接入指南与非 JSON 网关错误提示，并同步 Namespace 回收、删除和恢复说明；保留现有权限、请求地址和重试规则。
 
 `0.9.9` 新增 `client.uns.metadataPurge`，通过明确的已归档 Collection ID 提交永久删除，返回 `accepted` / `jobId` 并通过现有 `jobs` 查询逐项完成结果；`dryRun` 可选。集合删除保留 Record/Sample，支持恢复或继续永久清理。
@@ -28,13 +30,13 @@ Source / Stream 管理已统一为 Enterprise 参数：SourceDefinition 使用�
 
 ## 安装与初始化
 
-安装正式版本：
+正式发布后安装：
 
 ```sh
-npm install @tier0/sdk-v2@0.9.10
+npm install @tier0/sdk-v2@0.9.11
 ```
 
-维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。
+上述版本号为待发布候选；发布前请继续使用已验证的制品。维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。
 
 个人 Key 可直接读取已有集合，无需创建平台 App；网关配置、运行示例与排错见[本地连接指南](skills/tier0-sdk-v2/references/local-connection.md)。
 
@@ -46,6 +48,30 @@ const tier0 = createClient();
 ```
 
 也可显式配置 `{ apiHost, apiKey, transportTimeoutMs, fetch }`，或提供 `getApiHost` / `getApiKey` 回调。裸域名默认使用 HTTPS；本地 HTTP 测试请显式写 `http://127.0.0.1:端口`。不自动向浏览器注入或读取 `VITE_` API Key。
+
+底层 HTTP 凭证来源按配置属性是否存在固定：`apiKeyProvider` 优先于 `apiKey`，再优先于 `getApiKey`；只有三者均未提供时才读取 `TIER0_API_KEY`。显式传入 `undefined`、空 Key，或同步 getter 返回 `undefined` 时不会回退到其他 Key，底层请求不带认证头；异步 provider 返回无效值会在发送前失败。Data 客户端对动态来源及缺失 Key 的处理见下文。此前依赖这些空值回退环境 Key 的调用方，需要去掉对应属性，或显式提供所需 Key。每个用户或请求应创建自己的客户端，不能用全局 `configureClient` 保存每请求身份。
+
+SDK 访问平台 API 时仅发送 `X-API-Key`，不同时发送 `Authorization`；Cloud Gateway 的 enforce 模式会拒绝多来源凭据。`whoami` 同样使用单个 `X-API-Key`。API Key 应留在服务端，浏览器通过应用服务端调用平台 API；网关默认 CORS 配置可能不允许跨源 `X-API-Key`。
+
+服务端底层 HTTP 客户端也可配置 `apiKeyProvider: async ({ signal }) => ...`，每次 HTTP 请求或 SSE 连接分别解析一次 API Key。provider 必须返回非空的可打印 ASCII 字符串；失败、取消或超时会终止该次请求，不回退到静态 Key 或环境变量。provider 应使用 `signal` 停止自己的异步工作。SDK 不缓存 provider 返回的 Key，也不会因此重放请求；调用者须确保重试期间身份和幂等作用域一致。`@tier0/sdk-v2/data` 的 `createDataClient` 不支持 `apiKeyProvider` 或 `getApiKey`，会直接拒绝；它在创建时固定静态 Key 和 Host，包括从环境变量取得的值。需要更换身份或环境配置时须新建 Data 客户端，不能复用原有 bootstrap、重试和订阅状态。员工数据委托仍按请求绑定，不改变 App Key。该接口只提供现有 API Key 的动态获取，并不表示服务端支持委托凭据。
+
+服务端已有经授权的主体 Key 时，可以为每个可信主体创建独立 Data 客户端，并按实际权限访问已有集合：
+
+```ts
+import { createDataClient } from '@tier0/sdk-v2/data';
+
+export function dataForPrincipal(apiHost: string, apiKey: string) {
+  if (!apiHost.trim() || !apiKey.trim()) throw new Error('A host and principal key are required');
+  return createDataClient({ apiHost, apiKey });
+}
+
+// 从可信服务端身份链取得该主体已获授权的 Key 和集合 ID 后：
+// const count = await dataForPrincipal(apiHost, apiKey).collection({ collectionId }).countDocuments();
+```
+
+不要从客户端自报的主体推导 Key，也不要跨主体复用客户端；Key 轮换后创建新实例。声明集合的 ensure/seed 是否允许由服务端凭证和权限决定，此例不声明集合。App 共用固定 App Key 时，可用受信 Gateway 的员工断言按请求收窄数据访问；它不是签发或验证个人 Key 的途径。
+
+Data 高层会跨请求复用 ensure 结果、重放带幂等键的 seed、恢复 stale 集合和续接 SSE。现有 whoami 不返回权威 App ID，同一工作空间和创建者的不同 App Key 可能具有相同的 workspace/user/type；名称、前缀或 provider 自报的身份不能证明不同 Key 属于同一主体。移除高层拒绝前，需要与实际请求凭据绑定、可验证且覆盖 App、员工委托及幂等作用域的服务端身份合同，并将这些跨请求状态隔离到已确认主体。`scripts/check-data-principal-boundary.mjs` 可在受控环境中用真实 Gateway 和两个不同 App 的临时 Key 验证此边界；脚本开头列出输入，Key 文件由调用方在验证后撤销和清理。
 
 `createClient()` 实例之间不共享配置；推荐在一个稳定身份的服务生命周期内复用实例。员工数据委托必须为每个请求创建新实例，传入受信网关的 `unsV2AppDataSubject`。App Key 只代表 App，不能替代当前用户身份，也不能下发到浏览器。浏览器页面应调用自己的服务端 API。
 
@@ -200,6 +226,8 @@ mq.subscribe('平台授权的主题', (_topic, payload) => { /* 处理消息 */ 
 ```
 
 完整凭证只在创建时返回一次。也支持从编码 Workspace 的平台 API Key 推导 MQTT 身份；无法解析的 Key 会拒绝连接，不回退到 Enterprise 身份。MQTT 自身的连接恢复/QoS 语义与 HTTP 的“不自动重试写入”是不同机制。
+
+MQTT 未配置 `password` 时可使用进程环境的 `TIER0_API_KEY`；显式传入 `password: undefined` 不会选择环境或已保存的 Key，`connect` 会拒绝。省略该字段则保留已有设置。已连接或自动重连中的客户端拒绝变更凭据时保持原连接及其身份，调用方必须处理错误；需要切换身份时先断开并创建新客户端。
 
 MQTT 连接建立后，凭据和连接设置由底层客户端持有，包括自动重连期间。调用 `connect` 修改这些设置会报错，不会替换正在使用的凭据。换证时应停止旧客户端的业务操作、调用 `disconnect()`，再使用新凭据创建一个新的 `Tier0MQClient` 并重新注册订阅。旧客户端的 `disconnect()` 会清除 SDK 的订阅列表；它不是等待 Broker 确认断开的异步屏障。换证期间的消息可能丢失或重复，在途发布的结果也可能未知，应用需按业务协议处理，不能假定 SDK 已重放或恰好执行一次。Broker 撤销已经建立连接的生效时机取决于服务端认证、ACL 和缓存策略；仅更换客户端不能证明旧连接已被撤权。
 

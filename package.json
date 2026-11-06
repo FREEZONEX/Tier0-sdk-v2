@@ -1,6 +1,6 @@
 {
   "name": "@tier0/sdk-v2",
-  "version": "0.9.10",
+  "version": "0.9.11",
   "description": "Tier0 Cloud new-architecture SDK for TypeScript and JavaScript",
   "license": "MIT",
   "type": "module",
@@ -183,6 +183,7 @@
     "build": "node scripts/build.mjs",
     "prepare": "npm run build",
     "test": "vitest run",
+    "test:gateway-enforce": "node scripts/test-gateway-enforce.mjs",
     "check": "npm run check:contracts && npm run check:skills && npm run typecheck && npm test && npm run build && node scripts/check-package.mjs",
     "prepack": "node scripts/sync-stream-contract.mjs --check --committed && node scripts/check-contracts.mjs --committed && npm run check:contracts && npm run check:skills && npm run build",
     "prepublishOnly": "node scripts/sync-stream-contract.mjs --check --committed && node scripts/check-contracts.mjs --committed && npm run check",

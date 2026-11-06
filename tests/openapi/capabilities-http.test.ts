@@ -40,7 +40,8 @@ describe('capability real HTTP fixture (no device execution or external credenti
     expect(await client().capabilities.discover()).toEqual(fixture);
     expect(received.length - start).toBe(1);
     expect(received[start]).toMatchObject({ path: '/openapi/v2/capabilities/discover', method: 'POST', body: '{}',
-      headers: { authorization: 'Bearer fixture-workspace-key', 'x-api-key': 'fixture-workspace-key', 'content-type': 'application/json' } });
+      headers: { 'x-api-key': 'fixture-workspace-key', 'content-type': 'application/json' } });
+    expect(received[start].headers.authorization).toBeUndefined();
     expect(received[start].headers['idempotency-key']).toBeUndefined();
   });
 

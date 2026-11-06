@@ -31,6 +31,7 @@ it('uploads signed form fields before the file without leaking platform credenti
   const saved = await sdk().files.upload(new File(['report-data'], 'report.txt', { type: 'text/plain' }));
   expect(saved.filePath).toBe('saved/report.txt');
   expect(platformRequests[0].headers['x-api-key']).toBe('platform-only-key');
+  expect(platformRequests[0].headers.authorization).toBeUndefined();
   expect(storageRequests[0].headers['x-api-key']).toBeUndefined();
   expect(storageRequests[0].headers.authorization).toBeUndefined();
   expect(storageRequests[0].body.indexOf('name="policy"')).toBeLessThan(storageRequests[0].body.indexOf('name="file"'));
@@ -61,6 +62,7 @@ it('performs multipart upload once, passes ETags and preserves completion uncert
   const result = await sdk().files.uploadMultipart(new File(['x'], 'data.bin'), { partSize: size });
   expect(result.filePath).toBe('saved');
   expect(platformRequests).toHaveLength(3);
+  expect(platformRequests.every(r => r.headers['x-api-key'] === 'platform-only-key' && r.headers.authorization === undefined)).toBe(true);
   expect(storageRequests).toHaveLength(1);
   platformReply = url => url.endsWith('/init') ? { fileKey: 'key', filePath: 'file', uploadId: 'upload', partSize: size, partCount: 1 } : { partUrls: [] };
   const failure = await sdk().files.uploadMultipart(new File(['x'], 'data.bin'), { partSize: size }).catch(e => e);

@@ -56,6 +56,8 @@ export async function revokeMqttCredential(id: number | bigint) {
 
 仅在任务需要创建凭证时使用 create，普通订阅重用已有受控凭证。完整 username/password/clientID 只在创建时返回一次，按秘密管理，别写日志。SDK 配置的 clientId 小写 d，接口回执的 clientID 大写 ID。
 
+仅在未提供 `password` 时使用进程环境 Key。`connect({ password: undefined })` 会拒绝，不使用已保存的身份；省略该字段仍沿用现有配置。拒绝不会改变现有连接或其自动重连身份，切换身份前须断开并创建新客户端。
+
 也可从编码了 Workspace 的平台 Key 推导 MQTT 身份；无法解析的 Key 会拒绝连接，不回退到 Enterprise 身份。浏览器场景须使用针对当前用户/主题授权的凭证方案，不能为了省事下发长期 App Key。
 
 ## 发布与确认边界
