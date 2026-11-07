@@ -34,7 +34,7 @@ export async function sendCompletedOrder(
 }
 ```
 
-sender.id 来自真实 APP_ID UUID。需带链接时传已验证可访问的业务 https 地址，或确认目标前端支持的相对路由。
+sender.id 来自 getCurrentAppId()（平台设置的 TIER0_APP_ID）。需带链接时传已验证可访问的业务 https 地址，或确认目标前端支持的相对路由。
 
 other 发送者应给人读名称，如 `{type:'other',name:'库存同步服务'}`。app 不重复硬编码名称。sender/meta/link 都是展示导航提示，不是授权证明。meta 值为字符串，序列化最多 500 字节；sender.name 最多100字符。source 是废弃别名，不用于新代码。
 

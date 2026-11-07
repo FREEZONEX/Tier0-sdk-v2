@@ -80,7 +80,7 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
   ensure.description = ensure.description.split(' New aliases require directoryPath:')[0];
   expect(ensure.example.collections[0].directoryPath).toEqual(['示例工厂', '生产车间']);
   delete ensure.example.collections[0].directoryPath;
-  expect(baselineOperations.metadataDeleteOne.description).toBe('软删除有效对象，不级联清除 Record/Sample。Collection 有数据或配置引用不阻止明确删除；保留引用方，其数据访问返回目标已删除。Directory/Topic 保留子节点和引用约束。');
+  expect(baselineOperations.metadataDeleteOne.description).toBe('软删除将对象移入回收站；删除目录时原子回收整棵有效子树。引用不阻止删除，引用方配置和 Record/Sample 保留；回收期间历史数据按既有授权可读，禁止写入。');
   baselineOperations.metadataDeleteOne.description = '软删除有效对象，执行引用和子节点校验，不级联清除 Record/Sample。';
   expect(baselineOperations.appStreamAccessList.resource).toBe('stream');
   baselineOperations.appStreamAccessList.resource = 'control';
@@ -94,5 +94,10 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
     reason === 'app_stream_ceiling' ? 'app_control_ceiling' : reason);
   const digest = createHash('sha256').update(JSON.stringify(canonical({ operations: baselineOperations, schemas: baselineSchemas }))).digest('hex');
   // Explicitly checked directory declarations above; unrelated Namespace operations stay pinned.
-  expect(digest).toBe('58ed03b8c6ef045be2c8a374875393ad993dec78371dec31de9ff3f1e84ac3b3');
+  // Re-pinned for Backend c63783eb4. The digest covers the Namespace operations and their reachable schemas only (the two Edge
+  // operations are not part of it); what moved is the base merge: reworded appCollectionsArchive/Restore and metadataDelete*/Restore/
+  // BulkWrite descriptions, and name, directoryPath (required), description and ownerAppId on the appCollectionsList item.
+  // Re-pinned again for Backend 8780ce2d6 (base 2f79a4f87): the only reachable change is three more ensure schema-note reasons
+  // (DIRECTORY_PATH_NOT_APPLIED, TTL_RETAINED, OWNER_APP_TRASHED on CloudAppCollectionSchemaNote, Backend 5d6ae2834).
+  expect(digest).toBe('224928eea6c848bb86b214133113c06ad64aa153303159fb4770bcd4f1cbb567');
 });

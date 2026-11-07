@@ -26,6 +26,8 @@ describe('Tier0MQClient', () => {
 
     mockMqttClient = {
       connected: false,
+      options: {},
+      reconnect: vi.fn(),
       subscribe: vi.fn((topic: string, opts: any, cb: Function) => {
         subscribeCallbacks.push({ topic, opts, cb });
         if (typeof cb === 'function') cb(null, [{ topic, qos: 1 }]);
@@ -63,6 +65,9 @@ describe('Tier0MQClient', () => {
     const subscribeCallbacks: Function[] = [];
     const unsubscribeCallbacks: Function[] = [];
     return {
+      // The SDK reconnects the same client itself (aenv-next): mqtt.js options and reconnect().
+      options: {} as Record<string, unknown>,
+      reconnect: vi.fn(),
       on: vi.fn((event: string, fn: Function) => { (handlers[event] ||= []).push(fn); }),
       end: vi.fn(),
       subscribe: vi.fn((_topic: string, _opts: unknown, cb: Function) => { subscribeCallbacks.push(cb); }),
@@ -313,8 +318,12 @@ describe('Tier0MQClient', () => {
     const first = client.connect();
     emit('error', new Error('broker unavailable'));
     await expect(first).rejects.toThrow('broker unavailable');
-    await expect(client.connect()).rejects.toThrow('disconnect and create a new client');
+    // aenv-next: the SDK keeps reconnecting the same client; connect() waits for it.
+    const second = client.connect();
+    emit('connect');
+    await second;
     expect(mqtt.connect).toHaveBeenCalledTimes(1);
+    await expect(client.connect({ password: 'sk-per-ws2_new' })).rejects.toThrow('disconnect and create a new client');
     client.disconnect();
     expect(mockMqttClient.end).toHaveBeenCalledTimes(1);
   });
@@ -371,15 +380,14 @@ describe('Tier0MQClient', () => {
     const nextClient = lifecycleClient();
     (mqtt.connect as any).mockReturnValueOnce(old).mockReturnValueOnce(nextClient);
     const client = new Tier0MQClient({ host: 'broker', password: 'sk-per-ws1_old' });
-    const initial = client.connect();
-    old.emit('connect');
-    await initial;
+    // aenv-next hands a publish to an existing client at once (it queues while
+    // reconnecting), so the only in-flight window is the first connection.
     const pendingPublish = client.publish('topic', 'old identity message');
     client.disconnect();
     const next = client.connect({ password: 'sk-per-ws2_new' });
     nextClient.emit('connect');
     await next;
-    await expect(pendingPublish).rejects.toThrow('connection changed before publish');
+    await expect(pendingPublish).rejects.toThrow(/cancelled by disconnect|connection changed before publish/);
     expect(old.publish).not.toHaveBeenCalled();
     expect(nextClient.publish).not.toHaveBeenCalled();
     await client.publish('topic', 'new identity message');
@@ -402,7 +410,7 @@ describe('Tier0MQClient', () => {
     client.disconnect();
   });
 
-  it('rejects new subscriptions during reconnect without retaining them, then allows retry', async () => {
+  it('keeps a subscription made during reconnect and restores it once, after reconnect', async () => {
     const transport = lifecycleClient();
     (mqtt.connect as any).mockReturnValue(transport);
     const client = new Tier0MQClient({ host: 'broker' });
@@ -414,19 +422,36 @@ describe('Tier0MQClient', () => {
     await initial;
     transport.emit('close');
 
+    // aenv-next: the SDK reconnects this same client, so the subscription waits for it.
     client.subscribe('retry', handler);
     await Promise.resolve();
-    expect(errors).toHaveBeenCalledTimes(1);
-    expect(client.subscribedTopics).toEqual([]);
+    expect(errors).not.toHaveBeenCalled();
+    expect(client.subscribedTopics).toEqual(['retry']);
     expect(transport.subscribe).not.toHaveBeenCalled();
 
     transport.emit('connect');
-    expect(transport.subscribe).not.toHaveBeenCalled();
-    client.subscribe('retry', handler);
     expect(transport.subscribe).toHaveBeenCalledTimes(1);
     expect(transport.subscribe).toHaveBeenCalledWith('retry', expect.anything(), expect.any(Function));
     client.unsubscribe('retry', handler);
     expect(client.subscribedTopics).toEqual([]);
+    client.disconnect();
+  });
+
+  it('keeps a subscription made during reconnect when a reconnect attempt fails', async () => {
+    const transport = lifecycleClient();
+    (mqtt.connect as any).mockReturnValue(transport);
+    const client = new Tier0MQClient({ host: 'broker' });
+    client.on('error', () => undefined);
+    const initial = client.connect();
+    transport.emit('connect');
+    await initial;
+    transport.emit('close');
+    client.subscribe('retry', vi.fn());
+    // Only subscriptions made before the first connection are undone by a failed attempt.
+    transport.emit('error', new Error('broker unavailable'));
+    expect(client.subscribedTopics).toEqual(['retry']);
+    transport.emit('connect');
+    expect(transport.subscribe).toHaveBeenCalledWith('retry', expect.anything(), expect.any(Function));
     client.disconnect();
   });
 
@@ -440,7 +465,8 @@ describe('Tier0MQClient', () => {
     await initial;
     client.subscribe('topic', (() => false) as any);
     old.emit('close');
-    await expect(client.connect({ username: '1&open', maxBackpressuredDeliveries: 1 })).rejects.toThrow('reconnecting');
+    // aenv-next waits for the SDK's reconnect; a connection setting change is still refused.
+    await expect(client.connect({ username: '9&open', maxBackpressuredDeliveries: 1 })).rejects.toThrow('cannot change while a client exists');
     old.emit('connect');
     old.emit('message', 'topic', Buffer.from('one'));
     expect(client.subscribedTopics).toEqual(['topic']);
@@ -734,9 +760,10 @@ describe('Tier0MQClient', () => {
     expect(mqtt.connect).toHaveBeenCalledWith(
       'ws://localhost:8080/mqtt',
       expect.objectContaining({
-        reconnectPeriod: 5000,
+        reconnectPeriod: 0,
+      reconnectOnConnackError: true,
         connectTimeout: 30000,
-        clean: true,
+        clean: false,
       })
     );
   });
@@ -827,7 +854,8 @@ describe('Tier0MQClient', () => {
       clientId: 'test-client',
       username: 'user',
       password: 'pass',
-      reconnectPeriod: 1000,
+      reconnectPeriod: 0,
+      reconnectOnConnackError: true,
       connectTimeout: 5000,
       clean: false,
     });
@@ -841,7 +869,8 @@ describe('Tier0MQClient', () => {
         clientId: 'test-client',
         username: 'user',
         password: 'pass',
-        reconnectPeriod: 1000,
+        reconnectPeriod: 0,
+      reconnectOnConnackError: true,
         connectTimeout: 5000,
         clean: false,
       })

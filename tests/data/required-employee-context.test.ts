@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createDataClient, currentDataSubject, runAsApp, runWithRequestContext, runWithRequiredEmployeeContext } from '../../src/data/index.js';
+import { createDataClient, currentDataSubject, currentDelegation, runAsApp, runWithRequestContext, runWithRequiredEmployeeContext } from '../../src/data/index.js';
 
 const header = 'X-Tier0-App-Data-Subject';
 
@@ -78,5 +78,26 @@ describe('required employee request context', () => {
       runAsApp(() => data.collection({ collectionId: 'existing' }).countDocuments()),
     );
     expect(sent.map(headers => headers.get(header))).toEqual([null, null]);
+  });
+});
+
+describe('required employee request context through the front door', () => {
+  const delegationHeader = 'X-Tier0-Delegation';
+
+  it('accepts the front door delegation without a data subject', () => {
+    const seen = runWithRequiredEmployeeContext(new Headers({ [delegationHeader]: 'a.employee.c' }), () => currentDelegation());
+    expect(seen).toBe('a.employee.c');
+  });
+
+  it.each([
+    ['not-a-token', undefined],
+    ['a.b.', 'a.employee.c'],
+    ['a.employee.c', 'not-a-token'],
+  ])('rejects a malformed assertion even beside a valid one: delegation %s, subject %s', (delegation, subject) => {
+    const headers = new Headers({ [delegationHeader]: delegation });
+    if (subject !== undefined) headers.set(header, subject);
+    let invoked = false;
+    expect(() => runWithRequiredEmployeeContext(headers, () => { invoked = true; })).toThrow('employee data subject is required');
+    expect(invoked).toBe(false);
   });
 });

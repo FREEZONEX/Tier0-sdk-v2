@@ -66,7 +66,7 @@ purge.then(response => {
   const jobId: string | undefined = response.data.jobId;
   void jobId;
 });
-// @ts-expect-error Permanent deletion is available for collections only.
+// Backend ae62b5e18 also accepts recycle-bin directories and topics; the Skills still document collection purges only.
 client.uns.metadataPurge({ kind: 'directory', ids: ['old-folder'] });
 // @ts-expect-error Explicit target IDs are required; an empty filter is not a purge target.
 client.uns.metadataPurge({ kind: 'collection', filter: {} });

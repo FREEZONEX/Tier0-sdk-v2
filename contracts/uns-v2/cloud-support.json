@@ -50,14 +50,14 @@
     },
     {
       "name": "appStreamPolicyGet",
-      "permission": "stream.requests.manage",
-      "scope": "stream.requests:manage",
+      "permission": "uns.write",
+      "scope": "uns:update",
       "minPermission": 3
     },
     {
       "name": "appStreamPolicyUpdate",
-      "permission": "stream.requests.manage",
-      "scope": "stream.requests:manage",
+      "permission": "uns.write",
+      "scope": "uns:update",
       "minPermission": 3
     },
     {

@@ -46,6 +46,8 @@ const BACKOFF_BASE_MS = 250;
 export interface CallOptions {
   /** Employee assertion forwarded from the current business request. */
   dataSubject?: string;
+  /** Delegation captured for a stream, which outlives the call that opened it. */
+  delegation?: string;
   /** Abort of the current business request: a queued call leaves the queue, an in-flight one is cancelled. */
   signal?: AbortSignal;
 }
@@ -144,13 +146,13 @@ export function createDataTransport(config: ClientConfig): { call: DataCall; ope
     let problem: string | undefined;
     try {
       http.getBaseURL();
-      if (!http.getApiKey()?.trim()) problem = 'TIER0_API_KEY is not set';
+      if (!http.usesAppCredential() && !http.getApiKey()?.trim()) problem = 'TIER0_API_KEY is not set';
     } catch (error) {
       problem = error instanceof Error ? error.message : String(error);
     }
     if (problem) {
       throw new DataError({
-        message: `${problem}. Check the runtime configuration and your access with the workspace administrator. For local development, configure the API host and an authorized key before starting the App.`,
+        message: `${problem}. Check the runtime configuration and your access with the workspace administrator. In a Tier0 Preview or deployment the platform sets TIER0_API_HOST and its node proxy injects the App's key; for local development, configure the API host and an authorized key before starting the App.`,
         status: 503,
         code: 'DATA_NOT_CONFIGURED',
       });
@@ -158,8 +160,10 @@ export function createDataTransport(config: ClientConfig): { call: DataCall; ope
   }
 
   // The SDK binds a data subject to one client; App-level calls use the shared one without it.
-  const coreFor = (dataSubject: string | undefined) =>
-    dataSubject ? new UnsV2ClientCore(resolve, { ...transport, unsV2AppDataSubject: dataSubject }) : app;
+  const coreFor = ({ dataSubject, delegation }: CallOptions) =>
+    dataSubject || delegation
+      ? new UnsV2ClientCore(resolve, { ...transport, ...(dataSubject ? { unsV2AppDataSubject: dataSubject } : {}), ...(delegation ? { delegation } : {}) })
+      : app;
 
   async function call<T>(operation: UnsV2OperationName, request: Record<string, unknown>, options: CallOptions = {}): Promise<T> {
     assertConfigured();
@@ -222,7 +226,7 @@ export function createDataTransport(config: ClientConfig): { call: DataCall; ope
   ): AsyncGenerator<UnsV2SubscriptionEvent> {
     assertConfigured();
     try {
-      yield* coreFor(options.dataSubject).subscribeRecords(request, options);
+      yield* coreFor(options).subscribeRecords(request, options);
     } catch (error) {
       throw error instanceof UnsV2Error ? toDataError(error) : error;
     }

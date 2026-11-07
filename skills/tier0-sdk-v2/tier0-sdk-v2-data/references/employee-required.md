@@ -1,6 +1,6 @@
 # 员工请求必须携带身份
 
-仅允许员工发起的服务端业务入口可用 `runWithRequiredEmployeeContext`，在员工断言缺失或格式错误时，在运行 handler 之前失败；不要捕获错误后改用 App 身份重试。
+仅允许员工发起的服务端业务入口可用 `runWithRequiredEmployeeContext`，在员工断言缺失或格式错误时，在运行 handler 之前失败；不要捕获错误后改用 App 身份重试。员工断言是平台前门签发的 `X-Tier0-Delegation`，用 API Key 接入时是 `X-Tier0-App-Data-Subject`；至少要有一个，出现的都必须格式正确。
 
 ```typescript
 import { runWithRequiredEmployeeContext } from '@tier0/sdk-v2/data';

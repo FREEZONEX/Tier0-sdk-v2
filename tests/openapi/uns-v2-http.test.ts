@@ -380,14 +380,14 @@ describe('UNS v2 localhost HTTP fixture', () => {
       'cloud-source-impact/2', 'app-create-capability/1', 'data/3', 'collection-namespace/1', 'http-acquisition/2',
       'app-collection/2', 'metadata/1', 'app-data/3', 'hosted-control/1', 'source-bindings/1',
       'record-notifications/1', 'record-delete-samples/1', 'stream-history/1',
-      'record-reads/1', 'app-context/3', 'collection-ttl/1', 'error-model/1', 'record-insert-return/1', 'stream-run-error/1',
+      'record-reads/1', 'app-context/4', 'collection-ttl/1', 'error-model/1', 'record-insert-return/1', 'stream-run-error/1',
       'source-lifecycle/2', 'app-collections/2',
     ]));
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('064cdcdb688b18fb73295ac986380d84daa08188');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('8780ce2d6c07b6afee96409795c098e330c214dd');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(UNS_V2_CONTRACT_PROVENANCE.sourceDerivedContractSHA256).toBe(UNS_V2_CONTRACT_PROVENANCE.hashes.contract);
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(90);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(104);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(91);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(105);
     expect(received.slice(start)).toHaveLength(1);
   });
 

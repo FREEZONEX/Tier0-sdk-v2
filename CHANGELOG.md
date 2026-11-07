@@ -1,5 +1,42 @@
 # Changelog
 
+## Unreleased (aenv-next, not yet versioned)
+
+- Merge the base 0.9.11 release candidate (base `593042c`) into the aenv-next line: per-request `apiKeyProvider`, explicit credential sources that never fall back to another source or `TIER0_API_KEY`, a single `X-API-Key` header (no `Authorization: Bearer`), Data clients bound to the host and static key resolved at creation, and MQTT `connect()` rejecting an explicitly undefined password.
+- Platform proxy mode is unchanged: a client without an `apiKey` value, `getApiKey` or `apiKeyProvider` sends no credential, only `X-Tier0-SDK: 1`, and keeps the proxy retries. `createDataClient` fixes `apiKey` from the environment at creation, which is `undefined` in the platform, so it stays in proxy mode. Outside the platform the base credential rules apply as is.
+- Source/Stream public operations and their schemas are synchronized from Backend `727c6395a` (as on base) over the aenv-next contract pin `8780ce2d6`; every other operation keeps the aenv-next pin. 91 public / 105 manifest operations.
+
+## 0.10.0-aenv.9 (local aenv-next prerelease)
+
+- Merge the base MQTT and data fixes of 2026-11-05 (base `d0276cf`) into the aenv-next line. MQTT: callbacks are bound to the connection generation, mqtt.js resubscription is off and every topic checks its SUBACK grant (MQTT 3.1.1 and 5), connection settings are preflighted and rolled back on failure, settings cannot change while a client exists, and a failed first connect drops the subscriptions it registered. aenv-next keeps its own reconnect model: the SDK reconnects itself, a browser fetches a fresh token on every reconnect, new subscriptions and publishes wait for the reconnect instead of failing, and `disconnect()` also rejects the waiting calls.
+- `runWithRequiredEmployeeContext` accepts either `X-Tier0-App-Data-Subject` (base) or `X-Tier0-Delegation` (aenv-next employee identity); whichever is present must be well formed.
+- Notifications are sent without `mode`; the platform derives test or live from the App Key's runtime (session sandboxes carry the preview key).
+
+This prerelease is built locally for the aenv-next scaffold and is not published to npm.
+
+## 0.10.0-aenv.8 (local aenv-next prerelease)
+
+- Visitor tokens on AENV Apps: when `TIER0_JWKS_DIR` does not exist (published Apps have no guest agent writing it), `createVisitorTokenVerifier()` fetches the front door keys from `TIER0_JWKS_URL` (`https://<app>.<apps domain>/__tier0/jwks.json`, set by the platform) with the new `frontdoorKeysFromUrl()`: refreshed every 60 s, early when a token names an unknown `kid` (at most every 10 s), the last good set kept when a fetch fails, `dev-` kids never trusted. Until the first fetch lands every token is refused; `ready()` waits for it. `frontdoorKeys()` is the new default source; `frontdoorKeysFromDir()` is unchanged.
+
+This prerelease is built locally for the aenv-next scaffold and is not published to npm.
+
+## 0.10.0-aenv.7 (local aenv-next prerelease)
+
+- Merge base 0.9.9 and 0.9.10 into the aenv-next line (`0.10.0-aenv.6` + base `0.9.10`): the Personal key local connection guide, non-JSON gateway error diagnostics, App versus workspace credential query guidance and the Namespace trash / delete / restore wording. The node-proxy credential model is unchanged: there is no `TIER0_API_KEY` in the VM, every platform request carries `X-Tier0-SDK: 1`, and the proxy error reference stays.
+- Pin every contract input to Backend `8780ce2d6c07b6afee96409795c098e330c214dd` (the merge of base `2f79a4f87` into aenv-next).
+- The Backend's new `sourceResourceCatalog`, `sourceResourceRead` and `sourceResourceScan` stay in the raw operation table only, like `edgeNodesList` and `sourceDocumentStateUpdate`; `client.source` does not expose them (base 0.9.10 does not either). The four contract baselines are re-pinned to the current contract: operation counts 87/100, the Namespace digest (its only reachable change is three more ensure schema-note reasons) and the facade membership test. `metadataPurge` now also accepts `directory` / `topic` (Backend `ae62b5e18`), so the type test no longer rejects a directory purge; the Skills still document collection purges only.
+
+This prerelease is built locally for the aenv-next scaffold and is not published to npm.
+
+## 0.10.0-aenv.6 (local aenv-next prerelease)
+
+- Merge base 0.9.8 into the aenv-next line: `metadataPurge`, `directoryPath` App collection declarations and the shorter Source lifecycle, on top of aenv-next's node-proxy credential model (no `TIER0_API_KEY` in the VM).
+- Pin every contract input to Backend `c63783eb485e99167fec3a1c6ffb034ada4170e1` (the merge of base into aenv-next). The App stream policy operations require `uns.write` there.
+- `members.listApp` is available through the node proxy again (the proxy allowlists `/openapi/v2/apps/access-members/list`); the Backend authorizes a hosted App key by the App's `platform.users.read` like `platform/getMembers` and omits `email` from the response.
+- The Backend's `edgeNodesList` and `sourceDocumentStateUpdate` stay in the raw operation table only; neither `client.source` nor `client.uns` exposes them. The four contract baseline tests (operation counts 84/97, the Namespace digest and the Source facade membership) are re-pinned to the current contract.
+
+This prerelease is built locally for the aenv-next scaffold and is not published to npm.
+
 ## 0.9.11 (unreleased candidate)
 
 - Send the single authentication header required by the Cloud Gateway; whoami uses `X-API-Key`.

@@ -999,6 +999,7 @@ export interface components {
         };
         SendNotificationReq: {
             channels?: ("web" | "mobile")[];
+            /** @description 纯文本，含 HTML 标签会被拒绝（400） */
             content: string;
             idempotencyKey: string;
             link?: string;
@@ -1007,6 +1008,7 @@ export interface components {
             sender?: components["schemas"]["NotificationSender"];
             /** @description 已废弃：过渡期作 sender.name 别名（sender.name 优先），后续移除 */
             source?: string;
+            /** @description 纯文本，含 HTML 标签会被拒绝（400） */
             title: string;
             type: string;
         };
@@ -1020,7 +1022,7 @@ export interface components {
             /** @description 人读显示名（接替废弃的 source），≤100字符 */
             name?: string;
             /**
-             * @description 枚举 app/other/system，缺省 other；system 仅平台内部发送方（如 UNS Agent）可用；App 凭证不能使用 system，sender.type=app 时 sender.id 以凭证绑定的 App 为准；建信归 workspace 分组（System tab）
+             * @description 枚举 app/other/system，缺省 other；system 仅平台内部发送方（如 UNS Agent）可用；App 凭证不能使用 system，sender.type=app 时 sender.id 以凭证绑定的 App 为准；只有 App 绑定凭证或平台 App 凭证发出的 type=app 才会作为 App 展示，其他 Key 自报 type=app 会被降级为 other，接口照常返回成功；建信归 workspace 分组（System tab）
              * @default other
              * @enum {string}
              */

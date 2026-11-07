@@ -2,7 +2,11 @@
 
 Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交互均使用 `@tier0/sdk-v2`。旧 SDK 不再作为依赖。
 
-`0.9.11` 为待发布候选：隔离显式凭据来源、支持逐请求异步凭据，并按 Gateway 合同发送单一认证头；Data 客户端在创建时绑定静态主体。发布和目标环境合同验收完成前请勿将候选视为正式版本。
+`0.10.0-aenv.9` 是 aenv-next 的本地预发布版本，基于 `0.9.10` 和 base 2026-11-05 的 MQTT 修复（含 `0.9.9` 的 `metadataPurge` 与凭证查询说明、`0.9.8` 的 App 集合业务目录声明 `directoryPath`），未发布到 npm；内容见下方「aenv-next 运行环境」。
+
+**`0.10.0-aenv.2` 起是破坏性变更**：`TIER0_CREDENTIALS_FILE` 不再读取，SDK 在平台里不持有、不发送任何凭据，由节点代理注入 App 的长期 Key；必须和新的 AgentENV（`sbx-api-proxy`）一起上线，在旧 VM 上请求会被拒绝。`0.10.0-aenv.3` 起 `TIER0_RUNTIME` 只接受 `deployed` / `preview`，其他非空值（且没有 Key）直接报配置错误。`0.10.0-aenv.4` 起 MQTT 改用 `<ws>&open` / `<ws>&h.<app>.<随机>`，预览和正式同一行为（种子不再等委托请求，`appCredentialRuntime()` 已删除）。`0.10.0-aenv.5` 合入 base 的 `0.9.7`、`0.9.8`。`0.10.0-aenv.6` 起 `members.listApp` 经节点代理可用（托管 Key 按 `platform.users.read`，响应不带邮箱）。`0.10.0-aenv.7` 合入 base 的 `0.9.9`、`0.9.10`（个人 Key 本地接入指南、非 JSON 网关错误提示、Namespace 回收说明），节点代理凭据模型不变。`0.10.0-aenv.8` 起已发布的 App（AENV，没有 `TIER0_JWKS_DIR`）从 `TIER0_JWKS_URL`（前门的 `/__tier0/jwks.json`）拉访问者令牌公钥并定期刷新。`0.10.0-aenv.9` 合入 base 2026-11-05 的 MQTT 修复（按连接代次丢弃过期回调、逐个 topic 校验订阅确认、连接设置预检回滚），重连期间新订阅和发布仍等待重连。
+
+本分支已合入 base 的 `0.9.11` 待发布候选（版本号仍是 `0.10.0-aenv.9`，随下一个 aenv 预发布号一起发布）：隔离显式凭据来源、支持逐请求异步凭据（`apiKeyProvider`），并按 Gateway 合同只发送 `X-API-Key`；Data 客户端在创建时绑定静态主体；Source / Stream 公开合同同步到 Backend 的原生文档模型。平台代理模式（见「aenv-next 运行环境」）不变。
 
 `0.9.10` 补齐个人 Key 本地接入指南与非 JSON 网关错误提示，并同步 Namespace 回收、删除和恢复说明；保留现有权限、请求地址和重试规则。
 
@@ -30,20 +34,20 @@ Source / Stream 管理已统一为 Enterprise 参数：SourceDefinition 使用�
 
 ## 安装与初始化
 
-正式发布后安装：
+维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。本分支的功能应使用检查通过的 `tier0-sdk-v2-0.10.0-aenv.9.tgz` 在业务项目中验证：
 
 ```sh
-npm install @tier0/sdk-v2@0.9.11
+npm install /path/to/tier0-sdk-v2-0.10.0-aenv.9.tgz
 ```
 
-上述版本号为待发布候选；发布前请继续使用已验证的制品。维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。
+`0.10.0-aenv.9` 正式发布后再使用 `npm install @tier0/sdk-v2@0.10.0-aenv.9`。发布前，npm 的既有版本和 `next` 标签不代表本分支的完整功能。
 
 个人 Key 可直接读取已有集合，无需创建平台 App；网关配置、运行示例与排错见[本地连接指南](skills/tier0-sdk-v2/references/local-connection.md)。
 
 ```ts
 import { createClient } from '@tier0/sdk-v2';
 
-// 服务端环境注入 TIER0_API_HOST 和 TIER0_API_KEY。
+// 平台里只需 TIER0_API_HOST（平台已设置）；本地开发另设 TIER0_API_KEY。
 const tier0 = createClient();
 ```
 
@@ -75,6 +79,60 @@ Data 高层会跨请求复用 ensure 结果、重放带幂等键的 seed、恢�
 
 `createClient()` 实例之间不共享配置；推荐在一个稳定身份的服务生命周期内复用实例。员工数据委托必须为每个请求创建新实例，传入受信网关的 `unsV2AppDataSubject`。App Key 只代表 App，不能替代当前用户身份，也不能下发到浏览器。浏览器页面应调用自己的服务端 API。
 
+## aenv-next 运行环境
+
+**平台里不需要、也读不到凭据。** Tier0 预览和部署的 VM 里没有 `TIER0_API_KEY`，也没有任何凭据文件。节点代理（`sbx-api-proxy`）按 VM 的源地址认出 App，转发到平台时注入这个 App 的长期 Key；SDK 不持有它。**预览和正式用同一把 Key，行为相同**：预览里 App 同样能读写自己的数据，种子在 ensure 时以 App 身份写入。
+
+`TIER0_RUNTIME` 为 `deployed` 或 `preview`、没有 `TIER0_API_KEY` 时，SDK 进入「平台代理模式」（传了有值的 `apiKey`，或给了 `getApiKey` / `apiKeyProvider` 的客户端仍按显式配置；`apiKey: undefined`，例如 `apiKey: process.env.TIER0_API_KEY`，在平台里仍走平台代理模式。`createDataClient` 在创建时把环境里的 Key 固定成 `apiKey`，平台里它是 `undefined`，同样走代理）。没有 `TIER0_API_KEY` 而 `TIER0_RUNTIME` 是其他非空值时，SDK 抛出配置错误，不猜测模式。平台代理模式下：
+
+- 不读任何凭据，不发 `Authorization`、`X-API-Key`、`X-Tier0-App-Data-Subject`；
+- 每个请求带 `X-Tier0-SDK: 1`，代理拒绝不带它的请求；
+- 不跟随重定向；
+- 只对代理自己产生的 `503`、`429`（带 `X-Tier0-Proxy: not-forwarded`）按响应体的 `retry_after_ms` 重试，最多 3 次。这类请求没有到达平台，写操作重发也安全。平台返回的 5xx 不重试；
+- `runWithRequestContext` 把收到的 `X-Tier0-Delegation` 原样转发到所有平台接口，`runAsApp` 不带。
+
+平台设置的环境变量（都是标识，不是秘密）：
+
+| 变量 | 值 |
+| --- | --- |
+| `TIER0_API_HOST` | `http://api.sbx.internal:8080`，带 scheme。不带 scheme 的主机名仍按 `https://` 处理，给本地开发用 |
+| `TIER0_MQTT_URL` | `mqtt://mqtt.sbx.internal:1883` |
+| `TIER0_WORKSPACE_ID` | 工作区 ID，SDK 以它为准 |
+| `TIER0_APP_ID` | App ID，SDK 以它为准（`getCurrentAppId()` 先读它，再读旧的 `APP_ID`） |
+| `TIER0_RUNTIME` | `deployed` 或 `preview`，只用来判断是否在平台里；两者行为相同 |
+| `TIER0_JWKS_DIR` | 前门公钥目录，`createVisitorTokenVerifier()` 读取 |
+
+**直接用 `fetch` / `curl` 调平台**（不经过 SDK）时，必须自己带 `X-Tier0-SDK: 1`，不要带 `Authorization`；`Forwarded`、`X-Forwarded-*`、`X-Real-IP` 会被拒绝：
+
+```sh
+curl -sS -X POST "$TIER0_API_HOST/openapi/v2/info" -H 'X-Tier0-SDK: 1' -H 'Content-Type: application/json' -d '{}'
+```
+
+代理只转发 `/openapi/v2/uns/**`、`assets/**`、`notifications/send`、`notifications/get`、`platform/getMembers`（`members.listWorkspace()`）、`apps/access-members/list`（`members.listApp()`）、`info`。白名单外的接口（`system.whoami()`、`mqttAuth`、`capabilities`、`agent`、`client.streams` 的 Stream 请求和消息）回 404 `sbx_proxy_not_found`；Source / Stream 管理接口虽在 `/openapi/v2/uns/**` 下会被转发，但 App 的 Key 无权调用，Backend 回 403。代理自己产生的错误带 `X-Tier0-Proxy: not-forwarded`，响应体 `{code, message, retry_after_ms?}`：
+
+| `code` | 状态 | 含义 |
+| --- | --- | --- |
+| `sbx_proxy_not_ready` | 503 | 代理刚启动、还没拿到绑定；SDK 自动重试 |
+| `sbx_proxy_credential_pending` | 503 | 绑定在，但 App 的 Key 还没送到代理；SDK 自动重试 |
+| `sbx_proxy_limited` | 429 | 超过这个 VM 的并发或速率上限；SDK 自动重试 |
+| `sbx_proxy_no_credential` | 403 | 这个 VM 永远没有 Key（会话没有绑定 App，只能调 `/openapi/v2/info`）；不重试 |
+| `sbx_proxy_unbound` | 403 | 这个 VM 没有绑定（实例正在启动或已停止） |
+| `sbx_proxy_bad_request` | 400 | 请求格式被拒（absolute-form、`Upgrade`、路径含 `..` / `%2f` 等、多个 `X-Tier0-Delegation`） |
+| `sbx_proxy_forbidden` | 403 | 缺 `X-Tier0-SDK: 1`，或带了 `Forwarded` / `X-Forwarded-*` / `X-Real-IP` |
+| `sbx_proxy_not_found` | 404 | 路径不在白名单里 |
+
+`ApiError.errorCode`、`UnsV2Error.code` 是上表的 `code`；UNS 调用的 `execution` 为 `notStarted`。
+
+平台权限（十项）和消息主题由工作区管理员在 App 设置里管理，改了立即生效；外部集合仍在发布时确认。
+
+本地开发（没有 `TIER0_RUNTIME`）照旧设 `TIER0_API_HOST`、`TIER0_API_KEY`。
+
+- `@tier0/sdk-v2/server`：`createVisitorTokenVerifier()` 校验 `X-Tier0-Visitor`（契约 v2，公钥从 `TIER0_JWKS_DIR` 读最新集合，`aud` 按 `TIER0_APP_ID`）。
+- `@tier0/sdk-v2/page-runtime`：页面运行时 v1 和平台错误（`x-sbx-error`）。
+- `@tier0/sdk-v2/event-stream`：基于 fetch 的 SSE。App 休眠时停止，`resumed` 后重建，节点 agent 重启时透明重连。`EventSource` 遇到 503 不重试，手写时要订阅 `resumed` 后重建。
+
+**MQTT**：服务端在平台代理模式下不发 password，由代理填入 App 的 Key；username 为 `<ws>&open`，clientId 为 `<ws>&h.<app>.<16 位随机>`，由 `TIER0_WORKSPACE_ID`、`TIER0_APP_ID` 拼出，预览和正式相同。只有用平台给的 `TIER0_MQTT_URL`（`mqtt://`）时才走 TCP 经过代理；显式传 `host` 会改用 WebSocket，经代理连不上，平台里不要传。浏览器照旧每次连接从页面运行时取 MQTT 令牌。`clean` 默认 `false`；服务端按指数退避一直重连，上限 5 分钟，Key 轮换时代理断开连接、SDK 重连后用新 Key；浏览器在令牌接口返回 401/403，或连续 3 次 CONNACK 认证失败时停止，`resumed` 后恢复。持久会话、QoS 1 下重连不丢消息，但断开期间的积压超过 EMQX 离线队列（默认 `max_mqueue_len=1000`）仍会丢。
+
 ## 能力与入口
 
 | 入口 | 能力 |
@@ -84,7 +142,7 @@ Data 高层会跨请求复用 ensure 结果、重放带幂等键的 seed、恢�
 | `tier0.streams` | App 请求、实时业务消息与独立交互能力发现 |
 | `tier0.uns` | 目录、Topic、Collection、Record、Sample、事务与 App 数据上下文 |
 | `tier0.system` | `whoami()`、`info()` |
-| `tier0.members` | `listWorkspace()` 用于 Workspace 级成员选择；`listApp({ appId })` 查询能使用指定 App 的成员（Builder 预览按草稿角色，部署后按线上版本，`scope` 由 SDK 自动带上） |
+| `tier0.members` | `listWorkspace()` 用于 Workspace 级成员选择；`listApp({ appId })` 查询能使用指定 App 的成员（Builder 预览按草稿角色，部署后按线上版本，`scope` 由 SDK 自动带上）（Tier0 App 里经节点代理可用；托管 App Key 按 App 的平台权限 `platform.users.read` 放行，响应不带邮箱） |
 | `tier0.notifications` | `send()`、`get()` |
 | `tier0.files` | `upload()`、`uploadMultipart()`、`resumeMultipart()`、`url()`、`download()`、`delete()`、`multipart` 原子接口 |
 | `tier0.mqttAuth` | 创建、删除 MQTT 凭证 |
@@ -231,11 +289,11 @@ MQTT 未配置 `password` 时可使用进程环境的 `TIER0_API_KEY`；显式�
 
 MQTT 连接建立后，凭据和连接设置由底层客户端持有，包括自动重连期间。调用 `connect` 修改这些设置会报错，不会替换正在使用的凭据。换证时应停止旧客户端的业务操作、调用 `disconnect()`，再使用新凭据创建一个新的 `Tier0MQClient` 并重新注册订阅。旧客户端的 `disconnect()` 会清除 SDK 的订阅列表；它不是等待 Broker 确认断开的异步屏障。换证期间的消息可能丢失或重复，在途发布的结果也可能未知，应用需按业务协议处理，不能假定 SDK 已重放或恰好执行一次。Broker 撤销已经建立连接的生效时机取决于服务端认证、ACL 和缓存策略；仅更换客户端不能证明旧连接已被撤权。
 
-首次连接正在建立时，`subscribe` 会等待连接；连接失败时撤销该订阅并报告错误。自动重连期间的新订阅会报告错误且不会登记，调用方可在连接恢复后重试。连接中断前已登记的订阅仍会在重连后恢复，也可在恢复前取消。
+首次连接正在建立时，`subscribe` 会等待连接；首次连接失败时撤销该订阅并报告错误。SDK 自己负责重连（见上文「aenv-next 运行环境」）：自动重连期间 `subscribe`、`connect` 等待重连完成，新订阅会登记，重连后与中断前已登记的订阅一起恢复，也可在恢复前取消；`publish` 交给同一底层客户端排队，重连后发出。客户端停止重连（浏览器授权失败）或调用 `disconnect()` 时，等待中的调用报错，等待中的新订阅撤销。
 
 同一 topic 的多个 handler 共用一次 Broker 订阅和 SUBACK。SDK 同时检查报文及 mqtt.js 的授权结果；首次订阅或重连恢复若被 Broker 拒绝或确认不合法，该 topic 的 handler 会被移除，`error` 事件包含 topic，调用方可在处理原因后重新注册；其他 topic 不受影响。`connect` 事件仅表示连接建立，不表示所有订阅已获 Broker 确认。
 
-`connect` 在启动底层客户端前检查地址和凭据；本地预检失败不会保存本次传入的设置。底层客户端已创建后若连接失败，其连接设置仍由该客户端持有，自动重连会继续使用这些设置；要改变凭据，需先断开并按上述方式重建。
+`connect` 在启动底层客户端前检查地址和凭据；本地预检失败不会保存本次传入的设置。底层客户端已创建后若连接失败，其连接设置仍由该客户端持有，自动重连会继续使用这些设置（浏览器每次重连取新令牌，平台代理模式由节点代理填入 App 的 Key）；要改变凭据，需先断开并按上述方式重建。
 
 ## React / Vue
 

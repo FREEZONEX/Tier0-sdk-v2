@@ -1,3 +1,5 @@
+import { platformProxyMode, PROXY_HEADER, PROXY_NOT_FORWARDED, SDK_HEADER } from '../platform-proxy.js';
+import { assertCompactToken, currentDelegation, DELEGATION_HEADER } from '../request-context.js';
 import { getEnvVar } from '../runtime-env.js';
 import { invalidResponseHint } from '../connection-diagnostics.js';
 import { decodeUnsV2JSON, encodeUnsV2JSON } from '../uns-v2/codec.js';
@@ -15,6 +17,7 @@ export interface ClientConfig {
   transportTimeoutMs?: number;
 }
 export interface RequestOptions { signal?: AbortSignal }
+type AuthorizedInit = RequestInit & { headers: Headers | Record<string, string> };
 export interface Operation {
   method: string;
   path: string;
@@ -47,6 +50,9 @@ export class TransportError extends ApiError {
   }
 }
 const record = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v);
+/** `sbx_proxy_*` of an answer the node proxy produced itself (design 21.28). */
+const proxyCode = (value: unknown) =>
+  record(value) && typeof value.code === 'string' && /^sbx_proxy_[a-z_]+$/.test(value.code) ? value.code : undefined;
 /** Snapshot all own properties once, including non-enumerable credential and delegation fields. */
 export function snapshotClientConfig<T extends ClientConfig>(config: T, inherited: readonly (keyof T)[] = []): T {
   const snapshot = { ...config };
@@ -65,7 +71,35 @@ export function snapshotClientConfig<T extends ClientConfig>(config: T, inherite
 export function responseError(status: number, value: unknown, fallback = 'Request failed'): ApiError {
   return new ApiError(status, record(value) && typeof value.code === 'number' ? value.code : 0,
     record(value) && typeof value.message === 'string' ? value.message : record(value) && typeof value.msg === 'string' ? value.msg : fallback,
-    { errorCode: record(value) && typeof value.errorCode === 'string' ? value.errorCode : undefined });
+    { errorCode: record(value) && typeof value.errorCode === 'string' ? value.errorCode : proxyCode(value) });
+}
+
+/** Design 21.28: retries of an answer the node proxy produced itself. */
+const PROXY_MAX_RETRIES = 3;
+const PROXY_DEFAULT_RETRY_MS = [250, 500, 1_000];
+const PROXY_MAX_RETRY_MS = 10_000;
+
+function proxyRetryable(response: Response): boolean {
+  return (response.status === 503 || response.status === 429) && response.headers.get(PROXY_HEADER) === PROXY_NOT_FORWARDED;
+}
+
+/** `retry_after_ms` of the proxy's body `{code, message, retry_after_ms?}`, else a short backoff. */
+async function proxyRetryDelay(response: Response, retry: number): Promise<number> {
+  let value: unknown;
+  try { value = JSON.parse(await response.text()); } catch { value = undefined; }
+  const ms = record(value) ? value.retry_after_ms : undefined;
+  if (typeof ms === 'number' && Number.isFinite(ms) && ms >= 0) return Math.min(ms, PROXY_MAX_RETRY_MS);
+  return PROXY_DEFAULT_RETRY_MS[Math.min(retry, PROXY_DEFAULT_RETRY_MS.length - 1)];
+}
+
+function sleep(ms: number, signal: AbortSignal | null | undefined): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(signal.reason); return; }
+    const done = () => { signal?.removeEventListener('abort', abort); resolve(); };
+    const abort = () => { clearTimeout(timer); reject(signal!.reason); };
+    const timer = setTimeout(done, ms);
+    signal?.addEventListener('abort', abort, { once: true });
+  });
 }
 
 /** An immutable configuration snapshot. Each request resolves optional credential callbacks once. */
@@ -78,6 +112,8 @@ export class HttpClient {
     if (!Number.isInteger(this.timeoutMs) || this.timeoutMs < 1 || this.timeoutMs > 2_147_483_647) throw new TypeError('Invalid transportTimeoutMs');
   }
   getBaseURL(): string {
+    // An invalid TIER0_RUNTIME throws here, before any transport catch can turn it into a network failure.
+    this.usesAppCredential();
     const host = this.config.apiHost ?? this.config.getApiHost?.() ?? getEnvVar('TIER0_API_HOST');
     if (!host?.trim()) throw new Error('Tier0 SDK v2: apiHost or TIER0_API_HOST is required.');
     const base = host.trim().replace(/\/+$/, '');
@@ -85,9 +121,23 @@ export class HttpClient {
     if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new TypeError('Invalid apiHost');
     return url.href.replace(/\/+$/, '');
   }
+  /**
+   * True in platform proxy mode: the node proxy injects the App's key, so
+   * this client sends no credential of its own. A client given an `apiKey`
+   * value, a `getApiKey` callback or an `apiKeyProvider` never is.
+   */
+  usesAppCredential(): boolean {
+    return this.config.apiKey === undefined && this.config.getApiKey === undefined &&
+      this.config.apiKeyProvider === undefined && platformProxyMode();
+  }
+  /**
+   * The key of the static source selected by property presence (`apiKey`,
+   * then `getApiKey`, then `TIER0_API_KEY` only when neither is present).
+   * Always undefined with `apiKeyProvider` and in platform proxy mode.
+   */
   getApiKey(): string | undefined {
     // An explicitly selected source must never fall through to a shared identity.
-    if (this.hasApiKeyProvider()) return undefined;
+    if (this.hasApiKeyProvider() || this.usesAppCredential()) return undefined;
     if (Object.hasOwn(this.config, 'apiKey')) return this.config.apiKey;
     if (Object.hasOwn(this.config, 'getApiKey')) return this.config.getApiKey?.();
     return getEnvVar('TIER0_API_KEY');
@@ -113,9 +163,58 @@ export class HttpClient {
   }
   getFetch(): typeof globalThis.fetch { return this.config.fetch ?? globalThis.fetch; }
 
+  /**
+   * `key` is the one resolved for this attempt (static source or
+   * `apiKeyProvider`). Platform proxy mode sends no credential, only
+   * `X-Tier0-SDK: 1`; otherwise a single `X-API-Key`, because Gateway enforce
+   * mode rejects multiple credential sources.
+   */
+  private static authorize(headers: Headers | Record<string, string>, proxied: boolean, key: string | undefined, delegation: string | undefined): void {
+    const set = (name: string, value: string) => {
+      if (headers instanceof Headers) headers.set(name, value);
+      else headers[name] = value;
+    };
+    if (proxied) set(SDK_HEADER, '1');
+    else if (key) set('X-API-Key', key);
+    if (delegation !== undefined) {
+      assertCompactToken(delegation, DELEGATION_HEADER);
+      set(DELEGATION_HEADER, delegation);
+    }
+  }
+
+  /**
+   * The sender of one platform request (design 21.7), frozen to this
+   * client's `fetch` and credential mode when the request starts: a default
+   * client reconfigured while the credential resolves does not change where
+   * the request goes. Redirects are never followed. Callers resolve `key`
+   * before dispatch, so a credential failure never reaches the network.
+   *
+   * In platform proxy mode an answer the node proxy produced itself
+   * (`X-Tier0-Proxy: not-forwarded`) never reached the platform, so a `503`
+   * (proxy not ready, key pending) or `429` (proxy limit) is sent again after
+   * `retry_after_ms`, at most 3 times; writes repeat safely. Anything else,
+   * a platform `5xx` included, is returned as is.
+   */
+  sender(): (url: string, init: AuthorizedInit, key: string | undefined, delegation?: string) => Promise<Response> {
+    const fetch = this.getFetch();
+    const proxied = this.usesAppCredential();
+    return async (url, init, key, delegation = currentDelegation()) => {
+      const { headers } = init;
+      HttpClient.authorize(headers, proxied, key, delegation);
+      const send = () => fetch(url, { ...init, headers, redirect: 'manual' });
+      if (!proxied) return send();
+      for (let retry = 0; ; retry += 1) {
+        const response = await send();
+        if (retry >= PROXY_MAX_RETRIES || !proxyRetryable(response)) return response;
+        await sleep(await proxyRetryDelay(response, retry), init.signal);
+      }
+    };
+  }
+
   private async exchange(path: string, init: RequestInit, options: RequestOptions, mutation: boolean): Promise<{ text: string; status: number; ok: boolean }> {
     if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\')) throw new TypeError('A relative API path is required');
     const url = this.getBaseURL() + path;
+    const send = this.sender();
     const staticKey = this.hasApiKeyProvider() ? undefined : this.getApiKey();
     const headers = new Headers(init.headers);
     headers.set('Content-Type', 'application/json');
@@ -138,11 +237,12 @@ export class HttpClient {
       const request = async () => {
         const key = this.hasApiKeyProvider() ? await this.resolveApiKey(controller.signal) : staticKey;
         if (controller.signal.aborted) throw new TransportError(expired ? 'TIMEOUT' : 'ABORTED', false);
-        // Gateway enforce mode rejects multiple credential sources; whoami accepts this header.
-        if (key) headers.set('X-API-Key', key);
         started = true;
-        try { response = await this.getFetch()(url, { ...init, headers, redirect: 'manual', signal: controller.signal }); }
-        catch { throw new TransportError(expired ? 'TIMEOUT' : controller.signal.aborted ? 'ABORTED' : 'NETWORK', mutation, response?.status); }
+        try { response = await send(url, { ...init, headers, redirect: 'manual', signal: controller.signal }, key); }
+        catch (error) {
+          if (error instanceof TypeError && /X-Tier0-Delegation/.test(error.message)) throw error;
+          throw new TransportError(expired ? 'TIMEOUT' : controller.signal.aborted ? 'ABORTED' : 'NETWORK', mutation, response?.status);
+        }
         const maxBytes = 20 * 1024 * 1024;
         if (Number(response.headers.get('content-length')) > maxBytes) { await response.body?.cancel(); throw new TransportError('PROTOCOL', mutation, response.status); }
         if (!response.body) return { text: '', status: response.status, ok: response.ok };

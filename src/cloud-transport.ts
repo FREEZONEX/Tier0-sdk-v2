@@ -1,3 +1,6 @@
+import { platformErrorCode, reportAuthError } from './page-runtime.js';
+import { PROXY_HEADER, PROXY_NOT_FORWARDED } from './platform-proxy.js';
+import { assertCompactToken, currentDelegation } from './request-context.js';
 import type { AppRuntime } from './runtime.js';
 import { getClient, type HttpClient, type RequestOptions } from './openapi/client.js';
 import { UNS_V2_OPERATIONS, UNS_V2_STREAM_OPERATIONS, type UnsV2OperationName, type UnsV2StreamOperationName } from './uns-v2/generated.js';
@@ -15,6 +18,12 @@ export interface CloudTransportConfig {
    * Do not automatically forward the runtime App request assertion: its audience differs.
    */
   unsV2AppDataSubject?: string;
+  /**
+   * Fixed `X-Tier0-Delegation` for this client, for work that outlives the
+   * call that started it (`data.subscribe`). Every other call takes it from
+   * the request context.
+   */
+  delegation?: string;
 }
 
 export const DEFAULT_CLOUD_TRANSPORT_TIMEOUT_MS = 60_000;
@@ -33,11 +42,17 @@ export class CloudTransportError extends Error {
   }
 }
 
-/** Single fetch, no redirects/retries; one deadline covers both headers and body. */
+const notForwarded = (response: Response) => response.headers.get(PROXY_HEADER) === PROXY_NOT_FORWARDED;
+
+/**
+ * No redirects; one deadline covers both headers and body. The only retries are
+ * the HTTP client's, of answers the node proxy produced itself.
+ */
 export class CloudTransport {
   private readonly configuredTimeoutMs: number | undefined;
   private readonly unsV2MaxResponseBytes: number;
   readonly #unsV2AppDataSubject: string | undefined;
+  readonly #delegation: string | undefined;
 
   constructor(private readonly resolveClient: () => HttpClient = getClient, config: CloudTransportConfig = {}) {
     const configuredTimeout = config.transportTimeoutMs;
@@ -52,27 +67,30 @@ export class CloudTransport {
     }
     this.unsV2MaxResponseBytes = maxResponseBytes;
     const subject = config.unsV2AppDataSubject;
-    // ASCII-only syntax makes string length equal byte length. Do not trim or decode.
-    if (subject !== undefined && (typeof subject !== 'string' || subject.length > 8192 || /[^A-Za-z0-9_.-]/.test(subject) ||
-        !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(subject))) {
-      throw new TypeError('Tier0 SDK: unsV2AppDataSubject must be a compact three-segment base64url token of at most 8192 ASCII bytes.');
+    if (subject !== undefined) {
+      if (typeof subject !== 'string') throw new TypeError('Tier0 SDK: unsV2AppDataSubject must be a compact three-segment base64url token of at most 8192 ASCII bytes.');
+      assertCompactToken(subject, 'unsV2AppDataSubject');
     }
     this.#unsV2AppDataSubject = subject;
+    this.#delegation = config.delegation;
   }
 
-  /** `retryAfter`: the raw `Retry-After` header, for answers without a UNS error body. */
-  async postText(path: string, body: string, options: RequestOptions = {}, operation?: UnsV2OperationName): Promise<{ text: string; status: number; ok: boolean; retryAfter?: string }> {
+  /**
+   * `retryAfter`: the raw `Retry-After` header, for answers without a UNS error body.
+   * `notForwarded`: the node proxy answered itself (`X-Tier0-Proxy: not-forwarded`), the platform never saw the request.
+   */
+  async postText(path: string, body: string, options: RequestOptions = {}, operation?: UnsV2OperationName): Promise<{ text: string; status: number; ok: boolean; retryAfter?: string; notForwarded?: true }> {
     options.signal?.throwIfAborted();
     const client = this.resolveClient();
     const url = `${client.getBaseURL()}${path}`;
-    const fetch = client.getFetch();
+    const send = client.sender();
     const timeoutMs = this.configuredTimeoutMs ?? client.timeoutMs;
     const staticKey = client.hasApiKeyProvider() ? undefined : client.getApiKey();
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     // The registered operation determines data delegation, never a route blacklist.
     if (operation !== undefined && Object.hasOwn(UNS_V2_OPERATIONS, operation) &&
         UNS_V2_OPERATIONS[operation].scope.startsWith('uns:') &&
-        this.#unsV2AppDataSubject !== undefined) {
+        this.#unsV2AppDataSubject !== undefined && !client.usesAppCredential()) {
       headers[UNS_V2_APP_DATA_SUBJECT_HEADER] = this.#unsV2AppDataSubject;
     }
     const controller = new AbortController();
@@ -96,13 +114,11 @@ export class CloudTransport {
         catch { throw new CloudTransportError('TRANSPORT_ERROR', undefined, true); }
       }
       if (controller.signal.aborted) throw new CloudTransportError('TRANSPORT_ABORTED', undefined, !dispatched);
-      if (key) {
-        headers['X-API-Key'] = key;
-      }
       try {
         dispatched = true;
-        response = await fetch(url, { method: 'POST', headers, body, redirect: 'manual', signal: controller.signal });
-      } catch {
+        response = await send(url, { method: 'POST', headers, body, redirect: 'manual', signal: controller.signal }, key, this.#delegation ?? currentDelegation());
+      } catch (error) {
+        if (error instanceof TypeError && /X-Tier0-Delegation/.test(error.message)) throw error;
         throw new CloudTransportError('TRANSPORT_ERROR');
       }
       const declaredLength = response.headers.get('content-length');
@@ -136,7 +152,11 @@ export class CloudTransport {
         reader = undefined;
       }
       const retryAfter = response.headers.get('retry-after') ?? undefined;
-      return { text: chunks.join(''), status: response.status, ok: response.ok, ...(retryAfter === undefined ? {} : { retryAfter }) };
+      return {
+        text: chunks.join(''), status: response.status, ok: response.ok,
+        ...(retryAfter === undefined ? {} : { retryAfter }),
+        ...(notForwarded(response) ? { notForwarded: true as const } : {}),
+      };
     };
     try {
       const deadline = new Promise<never>((_resolve, reject) => {
@@ -166,16 +186,16 @@ export class CloudTransport {
    * link to `signal`, which also ends it.
    */
   async getEventStream(path: string, options: { lastEventId?: string; signal?: AbortSignal } = {}, operation?: UnsV2StreamOperationName):
-    Promise<{ status: number; stream: ReadableStream<Uint8Array>; close(): void } | { status: number; text: string }> {
+    Promise<{ status: number; stream: ReadableStream<Uint8Array>; close(): void } | { status: number; text: string; notForwarded?: true }> {
     options.signal?.throwIfAborted();
     const client = this.resolveClient();
     const url = `${client.getBaseURL()}${path}`;
-    const fetch = client.getFetch();
+    const send = client.sender();
     const timeoutMs = this.configuredTimeoutMs ?? client.timeoutMs;
     const staticKey = client.hasApiKeyProvider() ? undefined : client.getApiKey();
     const headers: Record<string, string> = { Accept: 'text/event-stream' };
     if (operation !== undefined && Object.hasOwn(UNS_V2_STREAM_OPERATIONS, operation) &&
-        UNS_V2_STREAM_OPERATIONS[operation].scope.startsWith('uns:') && this.#unsV2AppDataSubject !== undefined) {
+        UNS_V2_STREAM_OPERATIONS[operation].scope.startsWith('uns:') && this.#unsV2AppDataSubject !== undefined && !client.usesAppCredential()) {
       headers[UNS_V2_APP_DATA_SUBJECT_HEADER] = this.#unsV2AppDataSubject;
     }
     if (options.lastEventId !== undefined) headers['Last-Event-ID'] = options.lastEventId;
@@ -192,12 +212,10 @@ export class CloudTransport {
     const failure = (kind: Failure, status?: number) =>
       new CloudTransportError(expired ? 'TRANSPORT_TIMEOUT' : controller.signal.aborted ? 'TRANSPORT_ABORTED' : kind, status);
     let response: Response;
+    let key: string | undefined;
     try {
-      const key = client.hasApiKeyProvider() ? await client.resolveApiKey(controller.signal) : staticKey;
+      key = client.hasApiKeyProvider() ? await client.resolveApiKey(controller.signal) : staticKey;
       if (controller.signal.aborted) throw failure('TRANSPORT_ABORTED');
-      if (key) {
-        headers['X-API-Key'] = key;
-      }
     } catch (error) {
       clearTimeout(timer);
       close();
@@ -205,10 +223,11 @@ export class CloudTransport {
       throw error;
     }
     try {
-      response = await fetch(url, { method: 'GET', headers, redirect: 'manual', signal: controller.signal });
-    } catch {
+      response = await send(url, { method: 'GET', headers, redirect: 'manual', signal: controller.signal }, key, this.#delegation ?? currentDelegation());
+    } catch (error) {
       clearTimeout(timer);
       close();
+      if (error instanceof TypeError && /X-Tier0-Delegation/.test(error.message)) throw error;
       throw failure('TRANSPORT_ERROR');
     }
     const type = response.headers.get('content-type') ?? '';
@@ -217,7 +236,8 @@ export class CloudTransport {
       return { status: response.status, stream: response.body, close };
     }
     try {
-      if (!response.body) return { status: response.status, text: '' };
+      const proxied = notForwarded(response) ? { notForwarded: true as const } : {};
+      if (!response.body) return { status: response.status, text: '', ...proxied };
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8', { fatal: true });
       const chunks: string[] = [];
@@ -233,7 +253,7 @@ export class CloudTransport {
         chunks.push(decoder.decode(value, { stream: true }));
       }
       chunks.push(decoder.decode());
-      return { status: response.status, text: chunks.join('') };
+      return { status: response.status, text: chunks.join(''), ...proxied };
     } catch (error) {
       if (error instanceof CloudTransportError) throw error;
       throw failure('PROTOCOL_ERROR', response.status);
@@ -245,8 +265,12 @@ export class CloudTransport {
 
   async post(path: string, body: unknown, signal?: AbortSignal, runtime?: AppRuntime): Promise<{ value: unknown; status: number; ok: boolean }> {
     const serialized = JSON.stringify(body);
-    const client = this.resolveClient();
-    const timeoutMs = this.configuredTimeoutMs ?? client.timeoutMs;
+    // Outside the transport catch: a configuration error (host, TIER0_RUNTIME) must surface as itself.
+    const resolved = this.resolveClient();
+    const timeoutMs = this.configuredTimeoutMs ?? resolved.timeoutMs;
+    const client = runtime ? undefined : resolved;
+    const url = client ? `${client.getBaseURL()}${path}` : '';
+    const send = client?.sender();
     const controller = new AbortController();
     const abort = () => controller.abort();
     signal?.addEventListener('abort', abort, { once: true });
@@ -260,18 +284,14 @@ export class CloudTransport {
           if (controller.signal.aborted) throw new CloudTransportError('TRANSPORT_ABORTED', undefined, true);
           dispatched = true;
           response = await runtime.request(path, body, { signal: controller.signal });
+          reportAuthError(platformErrorCode(response));
         }
         else {
-          const url = `${client.getBaseURL()}${path}`;
-          const fetch = client.getFetch();
-          const key = client.hasApiKeyProvider() ? await client.resolveApiKey(controller.signal) : client.getApiKey();
+          const key = client!.hasApiKeyProvider() ? await client!.resolveApiKey(controller.signal) : client!.getApiKey();
           if (controller.signal.aborted) throw new CloudTransportError('TRANSPORT_ABORTED');
           const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-          if (key) {
-            headers['X-API-Key'] = key;
-          }
           dispatched = true;
-          response = await fetch(url, { method: 'POST', headers, body: serialized, redirect: 'manual', signal: controller.signal });
+          response = await send!(url, { method: 'POST', headers, body: serialized, redirect: 'manual', signal: controller.signal }, key, this.#delegation ?? currentDelegation());
         }
       } catch {
         throw new CloudTransportError('TRANSPORT_ERROR', undefined, !dispatched);
