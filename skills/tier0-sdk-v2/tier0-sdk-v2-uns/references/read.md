@@ -36,13 +36,10 @@ export async function readAppRecords(alias: string, client: Tier0Client = create
 import { createClient, type Tier0Client } from '@tier0/sdk-v2';
 
 export async function readDevices(collectionId: string, client: Tier0Client = createClient()) {
-  const collection = await client.uns.metadataFind({ kind: 'collection', filter: { _id: collectionId }, limit: 1 });
-  const definition = collection.data.items[0];
-  if (!definition) throw new Error('集合不存在或不可见');
   const records = await client.uns.recordFind({
     collectionId, filter: { enabled: true }, sort: [['name', 1]], limit: 20,
   });
-  return { definition: definition.data, items: records.data.items, pageInfo: records.data.pageInfo };
+  return { items: records.data.items, pageInfo: records.data.pageInfo };
 }
 
 export async function listCollections(page = 1, client: Tier0Client = createClient()) {
@@ -54,7 +51,9 @@ export async function listCollections(page = 1, client: Tier0Client = createClie
 
 按 pageInfo.hasMore/nextPage 继续元数据分页；不要把第一页当全量。recordFind 的游标循环见[数据工作流](data-workflows.md)。sort 是数组元组。
 
-以上 metadataFind 示例用于 Workspace 集成（会话、personal / agent Key）。App 凭证不能调用 metadataFind：用 dataAppContext 精确选择授权 alias，集合的 revision、indexStatus、ttl 也在其中。数据授权不等于元数据管理授权。网络/权限错误必须传播，不能用空数组掩盖错误。
+已知 collectionId 时直接读取记录，由服务端校验集合及操作权限；不先调用 metadataFind、dataAppContext、collectionDescribe 或 ensure。需要选择集合或查看结构时，再单独读取对应上下文。
+
+listCollections 的 metadataFind 仅用于 Workspace 集成（会话、personal / agent Key）。App 凭证不能调用 metadataFind；未知 collectionId 时用 dataAppContext 选择已授权集合，集合的 revision、indexStatus、ttl 也在其中。readDevices 只需要目标集合的记录读取权限。网络/权限错误必须传播，不能用空数组掩盖错误。
 
 ## 回收集合的历史读取
 

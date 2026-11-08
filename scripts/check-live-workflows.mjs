@@ -70,7 +70,7 @@ const collectionUpdate = example('uns', 'update');
 const recordDelete = example('uns', 'delete');
 const collectionDelete = example('uns', 'delete', 1);
 const restore = example('uns', 'restore');
-let sourceId, sourceRevision, sourceCurrent, streamId, streamCurrent, collectionId, filePath;
+let sourceId, sourceRevision, sourceCurrent, streamId, streamCurrent, collectionId, inventoryCollectionId, filePath;
 save();
 
 try {
@@ -90,10 +90,24 @@ try {
       sourceCurrent = result.current;
       assert.equal(result.current.document.name, prefix + '-edited');
     });
-    await step('Skill Source observations', () => example('source', 'read').readSource(sourceId, client));
+    await step('Source observations from saved revision', () => client.source.observations.get({
+      items: [{ id: sourceId, expectedRevision: sourceRevision }],
+    }));
     if (domains.has('stream')) {
+    await step('Stream inventory collection fixture', async () => {
+      const id = prefix + '-inventory';
+      const result = await client.uns.metadataInsertOne({
+        kind: 'collection', id, idempotencyKey: intent('inventory-create'),
+        data: { name: prefix + '-inventory', parentId: null,
+          recordSchema: { type: 'object', additionalProperties: false, required: ['sku', 'quantity'],
+            properties: { sku: { type: 'string' }, quantity: { type: 'number', format: 'double' } } } },
+      });
+      assert.equal(result.data.status, 'committed');
+      inventoryCollectionId = id;
+      report.fixtures.inventory = { id, state: 'created' };
+    });
     await step('Skill Stream create with receipt', async () => {
-      const result = await streamCreate.createHttpStream(sourceCurrent, prefix, intent('stream-create'), client);
+      const result = await streamCreate.createHttpStream(sourceCurrent, inventoryCollectionId, prefix, intent('stream-create'), client);
       streamId = result.current.id;
       streamCurrent = result.current;
       report.fixtures.stream = { id: streamId, state: 'draft' };
@@ -104,7 +118,7 @@ try {
       streamCurrent = result.current;
       assert.equal(result.current.document.description, 'SDK acceptance draft');
     });
-    await step('Skill Stream draft + summary + observations', () => example('stream', 'read').readStream(streamId, client));
+    await step('Stream observations', () => client.stream.observations.get({ id: streamId }));
     }
   } catch { /* Preserve failures and continue independent domains; cleanup below. */ }
   finally {
@@ -126,6 +140,13 @@ try {
         const result = await sourceDelete.deleteSource(sourceId, sourceRevision, intent('source-delete'), client);
         assert.equal(result.state, 'archived');
         report.fixtures.source.state = 'archived';
+      }); } catch { /* Report retains cleanup failure. */ }
+    }
+    if (inventoryCollectionId && (!streamId || report.fixtures.stream?.state === 'archived')) {
+      try { await step('Stream inventory collection cleanup', async () => {
+        const result = await collectionDelete.deleteCollection(inventoryCollectionId, intent('inventory-delete'), client);
+        assert.equal(result.state, 'deleted');
+        report.fixtures.inventory.state = 'archived';
       }); } catch { /* Report retains cleanup failure. */ }
     }
   }
@@ -159,7 +180,7 @@ try {
   if (domains.has('uns')) try {
     const id = prefix + '-collection';
     await step('Skill UNS collection create + read', async () => {
-      const result = await unsCreate.createDeviceCollection(id, prefix, intent('collection-create'), client);
+      const result = await unsCreate.createDeviceCollection(id, prefix, null, intent('collection-create'), client);
       assert.equal(result.state, 'committed');
       collectionId = id;
       report.fixtures.collection = { id, state: 'created' };

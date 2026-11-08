@@ -23,12 +23,11 @@ export async function* listSources(client: Tier0Client = createClient()) {
   }
 }
 export async function readSource(id: string, client: Tier0Client = createClient()) {
-  const current = await client.source.documents.get({ id });
-  const observation = await client.source.observations.get({
-    items: [{ id, expectedRevision: current.data.revision }],
-  });
-  return { current: current.data, observation: observation.data };
+  const current = await client.source.documents.get({ id, view: 'summary' });
+  return { current: current.data };
 }
 ```
+
+查询摘要只需一次请求。需要完整配置时显式使用 `documents.get({ id, view: 'full' })`；需要运行观测时使用已有摘要或写回执的 `id/revision` 调用 `observations.get({ items: [{ id, expectedRevision: revision }] })`，无需再次读取详情。
 
 ID 不得转 Number；跨页不是稳定快照。权限错误、网络故障与不存在应分别处理，不能把任何 get 失败当成删除成功。probe 可能触达外部系统，不属于单纯读取。
