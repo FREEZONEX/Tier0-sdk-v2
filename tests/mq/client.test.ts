@@ -26,9 +26,11 @@ describe('Tier0MQClient', () => {
 
     mockMqttClient = {
       connected: false,
+      options: {},
+      reconnect: vi.fn(),
       subscribe: vi.fn((topic: string, opts: any, cb: Function) => {
         subscribeCallbacks.push({ topic, opts, cb });
-        if (typeof cb === 'function') cb(null);
+        if (typeof cb === 'function') cb(null, [{ topic, qos: 1 }]);
       }),
       publish: vi.fn(),
       unsubscribe: vi.fn((topic: string, cb: Function) => {
@@ -57,6 +59,166 @@ describe('Tier0MQClient', () => {
     const handlers = eventHandlers[event] || [];
     handlers.forEach((h) => h(...args));
   }
+
+  function lifecycleClient() {
+    const handlers: Record<string, Function[]> = {};
+    const subscribeCallbacks: Function[] = [];
+    const unsubscribeCallbacks: Function[] = [];
+    return {
+      // The SDK reconnects the same client itself (aenv-next): mqtt.js options and reconnect().
+      options: {} as Record<string, unknown>,
+      reconnect: vi.fn(),
+      on: vi.fn((event: string, fn: Function) => { (handlers[event] ||= []).push(fn); }),
+      end: vi.fn(),
+      subscribe: vi.fn((_topic: string, _opts: unknown, cb: Function) => { subscribeCallbacks.push(cb); }),
+      unsubscribe: vi.fn((_topic: string, cb: Function) => { unsubscribeCallbacks.push(cb); }),
+      publish: vi.fn(), subscribeCallbacks, unsubscribeCallbacks,
+      emit(event: string, ...args: unknown[]) { (handlers[event] || []).forEach((fn) => fn(...args)); },
+    };
+  }
+
+  it('ignores a same-client SUBACK after unsubscribe and replacement', async () => {
+    const transport = lifecycleClient();
+    (mqtt.connect as any).mockReturnValue(transport);
+    const client = new Tier0MQClient({ host: 'broker' });
+    const errors = vi.fn();
+    const first = vi.fn();
+    const replacement = vi.fn();
+    client.on('error', errors);
+    const connected = client.connect();
+    transport.emit('connect');
+    await connected;
+    client.subscribe('topic', first);
+    client.unsubscribe('topic', first);
+    client.subscribe('topic', replacement);
+    transport.subscribeCallbacks[0](new Error('old SUBACK'));
+    expect(errors).not.toHaveBeenCalled();
+    expect(client.subscribedTopics).toEqual(['topic']);
+    transport.subscribeCallbacks[1](null, [{ topic: 'topic', qos: 1 }]);
+    transport.emit('message', 'topic', Buffer.from('ok'));
+    expect(replacement).toHaveBeenCalledWith('topic', 'ok');
+    client.disconnect();
+  });
+
+  it.each([
+    ['missing', undefined],
+    ['null', null],
+    ['empty', []],
+    ['wrong topic', [{ topic: 'other', qos: 1 }]],
+    ['multiple grants', [{ topic: 'topic', qos: 1 }, { topic: 'other', qos: 1 }]],
+    ['failure code', [{ topic: 'topic', qos: 128 }]],
+    ['invalid QoS', [{ topic: 'topic', qos: 2 }]],
+    ['missing QoS', [{ topic: 'topic' }]],
+  ])('rejects %s SUBACK grants for every handler and allows retry', async (_name, granted) => {
+    const transport = lifecycleClient();
+    (mqtt.connect as any).mockReturnValue(transport);
+    const client = new Tier0MQClient({ host: 'broker' });
+    const errors = vi.fn();
+    const first = vi.fn();
+    const second = vi.fn();
+    client.on('error', errors);
+    const connected = client.connect();
+    transport.emit('connect');
+    await connected;
+    client.subscribe('topic', first);
+    client.subscribe('topic', second);
+    expect(transport.subscribeCallbacks).toHaveLength(1);
+    transport.subscribeCallbacks[0](null, granted);
+    expect(errors).toHaveBeenCalledTimes(1);
+    expect(client.subscribedTopics).toEqual([]);
+    client.subscribe('topic', first);
+    client.subscribe('topic', second);
+    expect(transport.subscribeCallbacks).toHaveLength(2);
+    transport.subscribeCallbacks[1](null, [{ topic: 'topic', qos: 0 }]);
+    transport.emit('message', 'topic', Buffer.from('ok'));
+    expect(first).toHaveBeenCalledWith('topic', 'ok');
+    expect(second).toHaveBeenCalledWith('topic', 'ok');
+    client.disconnect();
+  });
+
+  it('ignores the previous connection cycle SUBACK on the same transport', async () => {
+    const transport = lifecycleClient();
+    (mqtt.connect as any).mockReturnValue(transport);
+    const client = new Tier0MQClient({ host: 'broker' });
+    const errors = vi.fn();
+    client.on('error', errors);
+    const connected = client.connect();
+    transport.emit('connect');
+    await connected;
+    client.subscribe('topic', vi.fn());
+    transport.emit('close');
+    transport.emit('connect');
+    expect(transport.subscribeCallbacks).toHaveLength(2);
+    transport.subscribeCallbacks[0](new Error('late old SUBACK'));
+    expect(errors).not.toHaveBeenCalled();
+    expect(client.subscribedTopics).toEqual(['topic']);
+    transport.subscribeCallbacks[1](new Error('current SUBACK'));
+    expect(errors).toHaveBeenCalledTimes(1);
+    expect(client.subscribedTopics).toEqual([]);
+    client.disconnect();
+  });
+
+  it('ignores a malformed wire SUBACK from an unsubscribed attempt on the same client', async () => {
+    const transport = lifecycleClient();
+    (mqtt.connect as any).mockReturnValue(transport);
+    const client = new Tier0MQClient({ host: 'broker' });
+    const errors = vi.fn();
+    const oldHandler = vi.fn();
+    const newHandler = vi.fn();
+    client.on('error', errors);
+    const connected = client.connect();
+    transport.emit('connect');
+    await connected;
+    client.subscribe('topic', oldHandler);
+    transport.emit('packetsend', { cmd: 'subscribe', messageId: 11, subscriptions: [{ topic: 'topic' }] });
+    client.unsubscribe('topic', oldHandler);
+    client.subscribe('topic', newHandler);
+    transport.emit('packetsend', { cmd: 'subscribe', messageId: 12, subscriptions: [{ topic: 'topic' }] });
+    transport.emit('packetreceive', { cmd: 'suback', messageId: 11, granted: [] });
+    transport.subscribeCallbacks[0](null, [{ topic: 'topic', qos: 1 }]);
+    transport.emit('packetreceive', { cmd: 'suback', messageId: 12, granted: [1] });
+    transport.subscribeCallbacks[1](null, [{ topic: 'topic', qos: 1 }]);
+    expect(errors).not.toHaveBeenCalled();
+    expect(client.subscribedTopics).toEqual(['topic']);
+    transport.emit('message', 'topic', Buffer.from('ok'));
+    expect(newHandler).toHaveBeenCalledWith('topic', 'ok');
+    client.disconnect();
+  });
+
+  it('allows a synchronous retry from a rejected topic error listener', async () => {
+    const transport = lifecycleClient();
+    (mqtt.connect as any).mockReturnValue(transport);
+    const client = new Tier0MQClient({ host: 'broker' });
+    const handler = vi.fn();
+    const errors = vi.fn(() => client.subscribe('topic', handler));
+    client.on('error', errors);
+    const connected = client.connect();
+    transport.emit('connect');
+    await connected;
+    client.subscribe('topic', handler);
+    transport.subscribeCallbacks[0](new Error('rejected'));
+    expect(errors).toHaveBeenCalledTimes(1);
+    expect(transport.subscribeCallbacks).toHaveLength(2);
+    transport.subscribeCallbacks[1](null, [{ topic: 'topic', qos: 1 }]);
+    expect(client.subscribedTopics).toEqual(['topic']);
+    client.disconnect();
+  });
+
+  it('does not resubscribe a topic removed by another topic error listener', async () => {
+    const transport = lifecycleClient();
+    transport.subscribe.mockImplementation((topic: string, _opts: unknown, cb: Function) => {
+      if (topic === 'first') cb(new Error('rejected'));
+    });
+    (mqtt.connect as any).mockReturnValue(transport);
+    const client = new Tier0MQClient({ host: 'broker' });
+    client.on('error', () => client.unsubscribe('second'));
+    client.subscribe('first', vi.fn());
+    client.subscribe('second', vi.fn());
+    transport.emit('connect');
+    expect(transport.subscribe).toHaveBeenCalledTimes(1);
+    expect(client.subscribedTopics).toEqual([]);
+    client.disconnect();
+  });
 
   it.each([
     [undefined, 'sk-per-ws1_test', '1'],
@@ -103,6 +265,446 @@ describe('Tier0MQClient', () => {
       password: 'sk-per-ws2_test', username: 'custom-user',
       clientId: expect.stringMatching(/^2&[a-z0-9]{8}$/),
     }));
+  });
+
+  it.each(['connecting', 'connected', 'reconnecting'] as const)(
+    'rejects a credential change while %s without changing the active client', async (state) => {
+      const client = new Tier0MQClient({ host: 'broker', password: 'sk-per-ws1_original' });
+      const first = client.connect();
+      if (state !== 'connecting') {
+        emit('connect');
+        await first;
+      }
+      if (state === 'reconnecting') emit('close');
+
+      await expect(client.connect({ password: 'sk-per-ws2_replacement' })).rejects.toThrow(
+        'disconnect and create a new client',
+      );
+      expect(mqtt.connect).toHaveBeenCalledTimes(1);
+      if (state === 'connecting') {
+        emit('connect');
+        await first;
+      }
+      expect(mqtt.connect).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
+        password: 'sk-per-ws1_original', username: '1&open',
+      }));
+      client.disconnect();
+    },
+  );
+
+  it('permits idempotent connect with the same credentials', async () => {
+    const client = new Tier0MQClient({ host: 'broker', password: 'sk-per-ws1_original' });
+    const first = client.connect();
+    emit('connect');
+    await first;
+    await client.connect({ password: 'sk-per-ws1_original' });
+    expect(mqtt.connect).toHaveBeenCalledTimes(1);
+    client.disconnect();
+  });
+
+  it('rejects an undefined password while the first connection is still pending', async () => {
+    const client = new Tier0MQClient({ host: 'broker', password: 'sk-per-ws1_original' });
+    const first = client.connect();
+    await expect(client.connect({ password: undefined })).rejects.toThrow('explicitly undefined');
+    expect(mqtt.connect).toHaveBeenCalledTimes(1);
+    emit('connect');
+    await first;
+    expect(mqtt.connect).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ password: 'sk-per-ws1_original' }));
+    client.disconnect();
+  });
+
+  it('does not replace a reconnecting client after an initial error', async () => {
+    const client = new Tier0MQClient({ host: 'broker', reconnectPeriod: 1000 });
+    const first = client.connect();
+    emit('error', new Error('broker unavailable'));
+    await expect(first).rejects.toThrow('broker unavailable');
+    // aenv-next: the SDK keeps reconnecting the same client; connect() waits for it.
+    const second = client.connect();
+    emit('connect');
+    await second;
+    expect(mqtt.connect).toHaveBeenCalledTimes(1);
+    await expect(client.connect({ password: 'sk-per-ws2_new' })).rejects.toThrow('disconnect and create a new client');
+    client.disconnect();
+    expect(mockMqttClient.end).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects an undefined password override without changing an established connection', async () => {
+    const client = new Tier0MQClient({ host: 'broker', password: 'sk-per-ws1_original' });
+    let connecting = client.connect();
+    emit('connect');
+    await connecting;
+    await expect(client.connect({ password: undefined })).rejects.toThrow('explicitly undefined');
+    client.disconnect();
+    connecting = client.connect();
+    emit('connect');
+    await connecting;
+    expect(mqtt.connect).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({
+      password: 'sk-per-ws1_original', username: '1&open',
+    }));
+    client.disconnect();
+  });
+
+  it('rejects a cancelled connection and ignores events from the retired client', async () => {
+    function fake() {
+      const handlers: Record<string, Function[]> = {};
+      return {
+        handlers,
+        on: vi.fn((event: string, handler: Function) => { (handlers[event] ||= []).push(handler); }),
+        end: vi.fn(), subscribe: vi.fn(), publish: vi.fn(), unsubscribe: vi.fn(),
+        emit(event: string, ...args: unknown[]) { (handlers[event] || []).forEach((fn) => fn(...args)); },
+      };
+    }
+    const old = fake();
+    const current = fake();
+    (mqtt.connect as any).mockReturnValueOnce(old).mockReturnValueOnce(current);
+    const client = new Tier0MQClient({ host: 'broker' });
+    const first = client.connect();
+    client.disconnect();
+    await expect(first).rejects.toThrow('cancelled by disconnect');
+    const next = client.connect();
+    old.emit('connect');
+    old.emit('close');
+    old.emit('error', new Error('late error'));
+    expect(client.isConnected).toBe(false);
+    current.emit('connect');
+    await next;
+    old.emit('close');
+    expect(client.isConnected).toBe(true);
+    client.disconnect();
+    expect(old.end).toHaveBeenCalledTimes(1);
+    expect(current.end).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects an in-flight publish when the client is replaced before dispatch', async () => {
+    const old = lifecycleClient();
+    const nextClient = lifecycleClient();
+    (mqtt.connect as any).mockReturnValueOnce(old).mockReturnValueOnce(nextClient);
+    const client = new Tier0MQClient({ host: 'broker', password: 'sk-per-ws1_old' });
+    // aenv-next hands a publish to an existing client at once (it queues while
+    // reconnecting), so the only in-flight window is the first connection.
+    const pendingPublish = client.publish('topic', 'old identity message');
+    client.disconnect();
+    const next = client.connect({ password: 'sk-per-ws2_new' });
+    nextClient.emit('connect');
+    await next;
+    await expect(pendingPublish).rejects.toThrow(/cancelled by disconnect|connection changed before publish/);
+    expect(old.publish).not.toHaveBeenCalled();
+    expect(nextClient.publish).not.toHaveBeenCalled();
+    await client.publish('topic', 'new identity message');
+    expect(nextClient.publish).toHaveBeenCalledTimes(1);
+    client.disconnect();
+  });
+
+  it('does not report an old connect as successful after replacement', async () => {
+    const old = lifecycleClient();
+    const nextClient = lifecycleClient();
+    (mqtt.connect as any).mockReturnValueOnce(old).mockReturnValueOnce(nextClient);
+    const client = new Tier0MQClient({ host: 'broker' });
+    const initial = client.connect();
+    old.emit('connect');
+    client.disconnect();
+    const next = client.connect({ password: 'sk-per-ws2_new' });
+    nextClient.emit('connect');
+    await next;
+    await expect(initial).rejects.toThrow('connection changed before connect completed');
+    client.disconnect();
+  });
+
+  it('keeps a subscription made during reconnect and restores it once, after reconnect', async () => {
+    const transport = lifecycleClient();
+    (mqtt.connect as any).mockReturnValue(transport);
+    const client = new Tier0MQClient({ host: 'broker' });
+    const errors = vi.fn();
+    const handler = vi.fn();
+    client.on('error', errors);
+    const initial = client.connect();
+    transport.emit('connect');
+    await initial;
+    transport.emit('close');
+
+    // aenv-next: the SDK reconnects this same client, so the subscription waits for it.
+    client.subscribe('retry', handler);
+    await Promise.resolve();
+    expect(errors).not.toHaveBeenCalled();
+    expect(client.subscribedTopics).toEqual(['retry']);
+    expect(transport.subscribe).not.toHaveBeenCalled();
+
+    transport.emit('connect');
+    expect(transport.subscribe).toHaveBeenCalledTimes(1);
+    expect(transport.subscribe).toHaveBeenCalledWith('retry', expect.anything(), expect.any(Function));
+    client.unsubscribe('retry', handler);
+    expect(client.subscribedTopics).toEqual([]);
+    client.disconnect();
+  });
+
+  it('keeps a subscription made during reconnect when a reconnect attempt fails', async () => {
+    const transport = lifecycleClient();
+    (mqtt.connect as any).mockReturnValue(transport);
+    const client = new Tier0MQClient({ host: 'broker' });
+    client.on('error', () => undefined);
+    const initial = client.connect();
+    transport.emit('connect');
+    await initial;
+    transport.emit('close');
+    client.subscribe('retry', vi.fn());
+    // Only subscriptions made before the first connection are undone by a failed attempt.
+    transport.emit('error', new Error('broker unavailable'));
+    expect(client.subscribedTopics).toEqual(['retry']);
+    transport.emit('connect');
+    expect(transport.subscribe).toHaveBeenCalledWith('retry', expect.anything(), expect.any(Function));
+    client.disconnect();
+  });
+
+  it('does not apply settings or mark derived identity explicit when connect fails during reconnect', async () => {
+    const old = lifecycleClient();
+    const nextClient = lifecycleClient();
+    (mqtt.connect as any).mockReturnValueOnce(old).mockReturnValueOnce(nextClient);
+    const client = new Tier0MQClient({ host: 'broker', password: 'sk-per-ws1_old', maxBackpressuredDeliveries: 2 });
+    const initial = client.connect();
+    old.emit('connect');
+    await initial;
+    client.subscribe('topic', (() => false) as any);
+    old.emit('close');
+    // aenv-next waits for the SDK's reconnect; a connection setting change is still refused.
+    await expect(client.connect({ username: '9&open', maxBackpressuredDeliveries: 1 })).rejects.toThrow('cannot change while a client exists');
+    old.emit('connect');
+    old.emit('message', 'topic', Buffer.from('one'));
+    expect(client.subscribedTopics).toEqual(['topic']);
+    expect(old.unsubscribe).not.toHaveBeenCalled();
+
+    client.disconnect();
+    const next = client.connect({ password: 'sk-per-ws2_new' });
+    nextClient.emit('connect');
+    await next;
+    expect(mqtt.connect).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({
+      username: '2&open', password: 'sk-per-ws2_new',
+    }));
+    client.disconnect();
+  });
+
+  it('does not commit settings when an in-flight connect is replaced', async () => {
+    const old = lifecycleClient();
+    const nextClient = lifecycleClient();
+    (mqtt.connect as any).mockReturnValueOnce(old).mockReturnValueOnce(nextClient);
+    const client = new Tier0MQClient({ host: 'broker', password: 'sk-per-ws1_old', maxBackpressuredDeliveries: 2 });
+    const initial = client.connect();
+    const pending = client.connect({ username: '1&open', maxBackpressuredDeliveries: 1 });
+    old.emit('connect');
+    client.disconnect();
+    const next = client.connect({ password: 'sk-per-ws2_new' });
+    nextClient.emit('connect');
+    await next;
+    await expect(initial).rejects.toThrow('connection changed');
+    await expect(pending).rejects.toThrow('connection changed');
+    expect(mqtt.connect).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({ username: '2&open' }));
+    client.subscribe('topic', (() => false) as any);
+    nextClient.emit('message', 'topic', Buffer.from('one'));
+    expect(client.subscribedTopics).toEqual(['topic']);
+    client.disconnect();
+  });
+
+  it('preserves the original identity when local host preflight fails', async () => {
+    const client = new Tier0MQClient({ password: 'sk-per-ws1_old' });
+    await expect(client.connect({ password: 'sk-per-ws2_new', username: '2&open' })).rejects.toThrow('MQTT host is required');
+    expect(mqtt.connect).not.toHaveBeenCalled();
+    const connecting = client.connect({ host: 'broker' });
+    emit('connect');
+    await connecting;
+    expect(mqtt.connect).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
+      password: 'sk-per-ws1_old', username: '1&open',
+    }));
+    client.disconnect();
+  });
+
+  it('does not retain an explicit username after credential preflight fails', async () => {
+    vi.stubEnv('TIER0_API_KEY', undefined);
+    const client = new Tier0MQClient({ host: 'broker' });
+    await expect(client.connect({ username: 'custom-user' })).rejects.toThrow('provide a workspace-encoded API key');
+    const connecting = client.connect({ password: 'sk-per-ws2_new' });
+    emit('connect');
+    await connecting;
+    expect(mqtt.connect).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ username: '2&open' }));
+    client.disconnect();
+  });
+
+  it('keeps transport settings after a started client reports a connection failure', async () => {
+    const client = new Tier0MQClient({ host: 'broker', password: 'sk-per-ws1_old' });
+    const failed = client.connect({ password: 'sk-per-ws2_new' });
+    emit('error', new Error('broker rejected connection'));
+    await expect(failed).rejects.toThrow('broker rejected connection');
+    client.disconnect();
+    const retry = client.connect();
+    emit('connect');
+    await retry;
+    expect(mqtt.connect).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({
+      password: 'sk-per-ws2_new', username: '2&open',
+    }));
+    client.disconnect();
+  });
+
+  it('restores settings if transport creation throws before returning a client', async () => {
+    (mqtt.connect as any).mockImplementationOnce(() => { throw new Error('transport creation failed'); });
+    const client = new Tier0MQClient({ host: 'broker', password: 'sk-per-ws1_old' });
+    await expect(client.connect({ password: 'sk-per-ws2_new' })).rejects.toThrow('transport creation failed');
+    const retry = client.connect();
+    emit('connect');
+    await retry;
+    expect(mqtt.connect).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({
+      password: 'sk-per-ws1_old', username: '1&open',
+    }));
+    client.disconnect();
+  });
+
+  it('rolls back a synchronous transport throw before disconnect can change generation', async () => {
+    (mqtt.connect as any).mockImplementationOnce(() => { throw new Error('transport creation failed'); });
+    const client = new Tier0MQClient({ host: 'broker', password: 'sk-per-ws1_old' });
+    const failed = client.connect({ password: 'sk-per-ws2_new', username: '2&open' });
+    client.disconnect();
+    await expect(failed).rejects.toThrow('transport creation failed');
+    const retry = client.connect();
+    emit('connect');
+    await retry;
+    expect(mqtt.connect).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({
+      password: 'sk-per-ws1_old', username: '1&open',
+    }));
+    client.disconnect();
+  });
+
+  it('does not overwrite a newer connect after synchronous transport failure', async () => {
+    (mqtt.connect as any).mockImplementationOnce(() => { throw new Error('transport creation failed'); });
+    const client = new Tier0MQClient({ host: 'broker', password: 'sk-per-ws1_old' });
+    const failed = client.connect({ password: 'sk-per-ws2_new' });
+    client.disconnect();
+    const next = client.connect({ password: 'sk-per-ws3_new' });
+    emit('connect');
+    await next;
+    await expect(failed).rejects.toThrow('transport creation failed');
+    expect(mqtt.connect).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({
+      password: 'sk-per-ws3_new', username: '3&open',
+    }));
+    client.disconnect();
+  });
+
+  it('allows an immediate corrected retry after synchronous transport creation failure', async () => {
+    (mqtt.connect as any).mockImplementationOnce(() => { throw new Error('transport creation failed'); });
+    const client = new Tier0MQClient({ host: 'broker', password: 'sk-per-ws1_old' });
+    const failed = client.connect({ password: 'sk-per-ws2_new' });
+    const retry = client.connect({ password: 'sk-per-ws3_new' });
+    emit('connect');
+    await retry;
+    await expect(failed).rejects.toThrow('transport creation failed');
+    expect(mqtt.connect).toHaveBeenCalledTimes(2);
+    expect(mqtt.connect).toHaveBeenLastCalledWith(expect.any(String), expect.objectContaining({
+      password: 'sk-per-ws3_new', username: '3&open',
+    }));
+    client.disconnect();
+  });
+
+  it('removes a pending initial subscription if the connection fails', async () => {
+    const transport = lifecycleClient();
+    (mqtt.connect as any).mockReturnValue(transport);
+    const client = new Tier0MQClient({ host: 'broker' });
+    const errors = vi.fn();
+    client.on('error', errors);
+    client.subscribe('pending', vi.fn());
+    transport.emit('error', new Error('broker unavailable'));
+    await vi.waitFor(() => expect(client.subscribedTopics).toEqual([]));
+    expect(errors).toHaveBeenCalled();
+    transport.emit('connect');
+    expect(transport.subscribe).not.toHaveBeenCalled();
+    client.disconnect();
+  });
+
+  it('removes a pending subscription before an immediate reconnect in the error listener', async () => {
+    const transport = lifecycleClient();
+    (mqtt.connect as any).mockReturnValue(transport);
+    const client = new Tier0MQClient({ host: 'broker' });
+    const errors = vi.fn(() => transport.emit('connect'));
+    client.on('error', errors);
+    client.subscribe('pending', vi.fn());
+    transport.emit('error', new Error('broker unavailable'));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(errors).toHaveBeenCalledTimes(1);
+    expect(client.subscribedTopics).toEqual([]);
+    expect(transport.subscribe).not.toHaveBeenCalled();
+    client.disconnect();
+  });
+
+  it.each(['host', 'credential'] as const)(
+    'disconnect clears pending subscriptions after missing %s preflight failure', async (missing) => {
+      if (missing === 'credential') vi.stubEnv('TIER0_API_KEY', undefined);
+      const client = new Tier0MQClient(missing === 'host' ? {} : { host: 'broker' });
+      const errors = vi.fn();
+      const handler = vi.fn();
+      client.on('error', errors);
+      client.subscribe('cancelled', handler);
+      client.unsubscribe('cancelled', handler);
+      client.subscribe('stale', handler);
+      client.disconnect();
+      expect(client.subscribedTopics).toEqual([]);
+
+      const next = client.connect(missing === 'host'
+        ? { host: 'broker' }
+        : { password: 'sk-per-ws1_fixture' });
+      emit('connect');
+      await next;
+      await Promise.resolve();
+      expect(mockMqttClient.subscribe).not.toHaveBeenCalled();
+      expect(errors).not.toHaveBeenCalled();
+      client.subscribe('fresh', handler);
+      expect(mockMqttClient.subscribe).toHaveBeenCalledTimes(1);
+      client.disconnect();
+    },
+  );
+
+  it('does not let retired subscription callbacks alter new subscriptions or report errors', async () => {
+    const old = lifecycleClient();
+    const nextClient = lifecycleClient();
+    (mqtt.connect as any).mockReturnValueOnce(old).mockReturnValueOnce(nextClient);
+    const client = new Tier0MQClient({ host: 'broker' });
+    const errors = vi.fn();
+    const handler = vi.fn();
+    client.on('error', errors);
+    const initial = client.connect();
+    old.emit('connect');
+    await initial;
+    client.subscribe('topic', handler);
+    client.unsubscribe('another');
+    client.disconnect();
+    const next = client.connect({ password: 'sk-per-ws2_new' });
+    nextClient.emit('connect');
+    await next;
+    client.subscribe('topic', handler);
+    old.subscribeCallbacks[0](new Error('late subscribe failure'));
+    old.unsubscribeCallbacks[0](new Error('late unsubscribe failure'));
+    expect(client.subscribedTopics).toEqual(['topic']);
+    expect(errors).not.toHaveBeenCalled();
+    client.disconnect();
+  });
+
+  it('stops dispatching an old message after a handler replaces the client', async () => {
+    const old = lifecycleClient();
+    const nextClient = lifecycleClient();
+    (mqtt.connect as any).mockReturnValueOnce(old).mockReturnValueOnce(nextClient);
+    const client = new Tier0MQClient({ host: 'broker', maxBackpressuredDeliveries: 1 });
+    const initial = client.connect();
+    old.emit('connect');
+    await initial;
+    const second = vi.fn();
+    let next: Promise<void> | undefined;
+    client.subscribe('topic', (() => {
+      client.disconnect();
+      next = client.connect({ password: 'sk-per-ws2_new' });
+      return false;
+    }) as any);
+    client.subscribe('topic', second);
+    old.emit('message', 'topic', Buffer.from('payload'));
+    nextClient.emit('connect');
+    await next;
+    expect(second).not.toHaveBeenCalled();
+    expect(nextClient.unsubscribe).not.toHaveBeenCalled();
+    client.disconnect();
   });
 
   it.each([
@@ -158,9 +760,10 @@ describe('Tier0MQClient', () => {
     expect(mqtt.connect).toHaveBeenCalledWith(
       'ws://localhost:8080/mqtt',
       expect.objectContaining({
-        reconnectPeriod: 5000,
+        reconnectPeriod: 0,
+      reconnectOnConnackError: true,
         connectTimeout: 30000,
-        clean: true,
+        clean: false,
       })
     );
   });
@@ -251,7 +854,8 @@ describe('Tier0MQClient', () => {
       clientId: 'test-client',
       username: 'user',
       password: 'pass',
-      reconnectPeriod: 1000,
+      reconnectPeriod: 0,
+      reconnectOnConnackError: true,
       connectTimeout: 5000,
       clean: false,
     });
@@ -265,7 +869,8 @@ describe('Tier0MQClient', () => {
         clientId: 'test-client',
         username: 'user',
         password: 'pass',
-        reconnectPeriod: 1000,
+        reconnectPeriod: 0,
+      reconnectOnConnackError: true,
         connectTimeout: 5000,
         clean: false,
       })

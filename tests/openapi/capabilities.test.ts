@@ -12,7 +12,7 @@ describe('capability discovery contract 2.0', () => {
     expect(await client().discover()).toEqual(fixture());
     expect(fetch).toHaveBeenCalledExactlyOnceWith('https://cloud.example/openapi/v2/capabilities/discover', {
       method: 'POST', redirect: 'manual', signal: expect.any(AbortSignal), body: '{}',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer fixture-key', 'X-API-Key': 'fixture-key' },
+      headers: { 'Content-Type': 'application/json', 'X-API-Key': 'fixture-key' },
     });
   });
   it.each(['disabled', 'not_supported', 'unavailable', 'readiness_unknown', 'ready'])('preserves %s with its reason instead of deriving another boolean', async state => {

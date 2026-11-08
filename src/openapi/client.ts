@@ -1,15 +1,23 @@
+import { platformProxyMode, PROXY_HEADER, PROXY_NOT_FORWARDED, SDK_HEADER } from '../platform-proxy.js';
+import { assertCompactToken, currentDelegation, DELEGATION_HEADER } from '../request-context.js';
 import { getEnvVar } from '../runtime-env.js';
+import { invalidResponseHint } from '../connection-diagnostics.js';
 import { decodeUnsV2JSON, encodeUnsV2JSON } from '../uns-v2/codec.js';
 
 export interface ClientConfig {
   apiHost?: string;
+  /** Explicit credential sources are selected by property presence; no environment fallback. */
   apiKey?: string;
   getApiHost?: () => string | undefined;
+  /** Evaluated per request; an absent result does not use another credential. */
   getApiKey?: () => string | undefined;
+  /** Resolve an API key for each HTTP attempt. Failure never falls back to other credentials. */
+  apiKeyProvider?: (options: { signal: AbortSignal }) => Promise<string>;
   fetch?: typeof globalThis.fetch;
   transportTimeoutMs?: number;
 }
 export interface RequestOptions { signal?: AbortSignal }
+type AuthorizedInit = RequestInit & { headers: Headers | Record<string, string> };
 export interface Operation {
   method: string;
   path: string;
@@ -42,10 +50,56 @@ export class TransportError extends ApiError {
   }
 }
 const record = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v);
+/** `sbx_proxy_*` of an answer the node proxy produced itself (design 21.28). */
+const proxyCode = (value: unknown) =>
+  record(value) && typeof value.code === 'string' && /^sbx_proxy_[a-z_]+$/.test(value.code) ? value.code : undefined;
+/** Snapshot all own properties once, including non-enumerable credential and delegation fields. */
+export function snapshotClientConfig<T extends ClientConfig>(config: T, inherited: readonly (keyof T)[] = []): T {
+  const snapshot = { ...config };
+  for (const field of Reflect.ownKeys(config)) {
+    if (!Object.hasOwn(snapshot, field)) {
+      Object.defineProperty(snapshot, field, { value: Reflect.get(config, field), writable: true, enumerable: true, configurable: true });
+    }
+  }
+  for (const field of inherited) {
+    if (!Object.hasOwn(snapshot, field) && field in config) {
+      Object.defineProperty(snapshot, field, { value: config[field], writable: true, enumerable: true, configurable: true });
+    }
+  }
+  return snapshot;
+}
 export function responseError(status: number, value: unknown, fallback = 'Request failed'): ApiError {
   return new ApiError(status, record(value) && typeof value.code === 'number' ? value.code : 0,
     record(value) && typeof value.message === 'string' ? value.message : record(value) && typeof value.msg === 'string' ? value.msg : fallback,
-    { errorCode: record(value) && typeof value.errorCode === 'string' ? value.errorCode : undefined });
+    { errorCode: record(value) && typeof value.errorCode === 'string' ? value.errorCode : proxyCode(value) });
+}
+
+/** Design 21.28: retries of an answer the node proxy produced itself. */
+const PROXY_MAX_RETRIES = 3;
+const PROXY_DEFAULT_RETRY_MS = [250, 500, 1_000];
+const PROXY_MAX_RETRY_MS = 10_000;
+
+function proxyRetryable(response: Response): boolean {
+  return (response.status === 503 || response.status === 429) && response.headers.get(PROXY_HEADER) === PROXY_NOT_FORWARDED;
+}
+
+/** `retry_after_ms` of the proxy's body `{code, message, retry_after_ms?}`, else a short backoff. */
+async function proxyRetryDelay(response: Response, retry: number): Promise<number> {
+  let value: unknown;
+  try { value = JSON.parse(await response.text()); } catch { value = undefined; }
+  const ms = record(value) ? value.retry_after_ms : undefined;
+  if (typeof ms === 'number' && Number.isFinite(ms) && ms >= 0) return Math.min(ms, PROXY_MAX_RETRY_MS);
+  return PROXY_DEFAULT_RETRY_MS[Math.min(retry, PROXY_DEFAULT_RETRY_MS.length - 1)];
+}
+
+function sleep(ms: number, signal: AbortSignal | null | undefined): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(signal.reason); return; }
+    const done = () => { signal?.removeEventListener('abort', abort); resolve(); };
+    const abort = () => { clearTimeout(timer); reject(signal!.reason); };
+    const timer = setTimeout(done, ms);
+    signal?.addEventListener('abort', abort, { once: true });
+  });
 }
 
 /** An immutable configuration snapshot. Each request resolves optional credential callbacks once. */
@@ -53,11 +107,13 @@ export class HttpClient {
   private readonly config: Readonly<ClientConfig>;
   readonly timeoutMs: number;
   constructor(config: ClientConfig = {}) {
-    this.config = Object.freeze({ ...config });
-    this.timeoutMs = config.transportTimeoutMs ?? 60_000;
+    this.config = Object.freeze(snapshotClientConfig(config, ['transportTimeoutMs']));
+    this.timeoutMs = this.config.transportTimeoutMs ?? 60_000;
     if (!Number.isInteger(this.timeoutMs) || this.timeoutMs < 1 || this.timeoutMs > 2_147_483_647) throw new TypeError('Invalid transportTimeoutMs');
   }
   getBaseURL(): string {
+    // An invalid TIER0_RUNTIME throws here, before any transport catch can turn it into a network failure.
+    this.usesAppCredential();
     const host = this.config.apiHost ?? this.config.getApiHost?.() ?? getEnvVar('TIER0_API_HOST');
     if (!host?.trim()) throw new Error('Tier0 SDK v2: apiHost or TIER0_API_HOST is required.');
     const base = host.trim().replace(/\/+$/, '');
@@ -65,16 +121,103 @@ export class HttpClient {
     if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new TypeError('Invalid apiHost');
     return url.href.replace(/\/+$/, '');
   }
-  getApiKey(): string | undefined { return this.config.apiKey ?? this.config.getApiKey?.() ?? getEnvVar('TIER0_API_KEY'); }
+  /**
+   * True in platform proxy mode: the node proxy injects the App's key, so
+   * this client sends no credential of its own. A client given an `apiKey`
+   * value, a `getApiKey` callback or an `apiKeyProvider` never is.
+   */
+  usesAppCredential(): boolean {
+    return this.config.apiKey === undefined && this.config.getApiKey === undefined &&
+      this.config.apiKeyProvider === undefined && platformProxyMode();
+  }
+  /**
+   * The key of the static source selected by property presence (`apiKey`,
+   * then `getApiKey`, then `TIER0_API_KEY` only when neither is present).
+   * Always undefined with `apiKeyProvider` and in platform proxy mode.
+   */
+  getApiKey(): string | undefined {
+    // An explicitly selected source must never fall through to a shared identity.
+    if (this.hasApiKeyProvider() || this.usesAppCredential()) return undefined;
+    if (Object.hasOwn(this.config, 'apiKey')) return this.config.apiKey;
+    if (Object.hasOwn(this.config, 'getApiKey')) return this.config.getApiKey?.();
+    return getEnvVar('TIER0_API_KEY');
+  }
+  hasApiKeyProvider(): boolean { return Object.hasOwn(this.config, 'apiKeyProvider'); }
+  async resolveApiKey(signal: AbortSignal): Promise<string | undefined> {
+    const provider = this.config.apiKeyProvider;
+    if (provider === undefined) return this.hasApiKeyProvider() ? undefined : this.getApiKey();
+    if (signal.aborted) throw new Error('Tier0 SDK: credential resolution aborted.');
+    return new Promise((resolve, reject) => {
+      const aborted = () => {
+        signal.removeEventListener('abort', aborted);
+        reject(new Error('Tier0 SDK: credential resolution aborted.'));
+      };
+      signal.addEventListener('abort', aborted, { once: true });
+      Promise.resolve().then(() => provider({ signal })).then(key => {
+        if (signal.aborted) return aborted();
+        if (typeof key !== 'string' || !/^[\x21-\x7e]+$/.test(key)) throw new Error();
+        resolve(key);
+      }).catch(() => reject(new Error('Tier0 SDK: credential provider failed.')))
+        .finally(() => signal.removeEventListener('abort', aborted));
+    });
+  }
   getFetch(): typeof globalThis.fetch { return this.config.fetch ?? globalThis.fetch; }
+
+  /**
+   * `key` is the one resolved for this attempt (static source or
+   * `apiKeyProvider`). Platform proxy mode sends no credential, only
+   * `X-Tier0-SDK: 1`; otherwise a single `X-API-Key`, because Gateway enforce
+   * mode rejects multiple credential sources.
+   */
+  private static authorize(headers: Headers | Record<string, string>, proxied: boolean, key: string | undefined, delegation: string | undefined): void {
+    const set = (name: string, value: string) => {
+      if (headers instanceof Headers) headers.set(name, value);
+      else headers[name] = value;
+    };
+    if (proxied) set(SDK_HEADER, '1');
+    else if (key) set('X-API-Key', key);
+    if (delegation !== undefined) {
+      assertCompactToken(delegation, DELEGATION_HEADER);
+      set(DELEGATION_HEADER, delegation);
+    }
+  }
+
+  /**
+   * The sender of one platform request (design 21.7), frozen to this
+   * client's `fetch` and credential mode when the request starts: a default
+   * client reconfigured while the credential resolves does not change where
+   * the request goes. Redirects are never followed. Callers resolve `key`
+   * before dispatch, so a credential failure never reaches the network.
+   *
+   * In platform proxy mode an answer the node proxy produced itself
+   * (`X-Tier0-Proxy: not-forwarded`) never reached the platform, so a `503`
+   * (proxy not ready, key pending) or `429` (proxy limit) is sent again after
+   * `retry_after_ms`, at most 3 times; writes repeat safely. Anything else,
+   * a platform `5xx` included, is returned as is.
+   */
+  sender(): (url: string, init: AuthorizedInit, key: string | undefined, delegation?: string) => Promise<Response> {
+    const fetch = this.getFetch();
+    const proxied = this.usesAppCredential();
+    return async (url, init, key, delegation = currentDelegation()) => {
+      const { headers } = init;
+      HttpClient.authorize(headers, proxied, key, delegation);
+      const send = () => fetch(url, { ...init, headers, redirect: 'manual' });
+      if (!proxied) return send();
+      for (let retry = 0; ; retry += 1) {
+        const response = await send();
+        if (retry >= PROXY_MAX_RETRIES || !proxyRetryable(response)) return response;
+        await sleep(await proxyRetryDelay(response, retry), init.signal);
+      }
+    };
+  }
 
   private async exchange(path: string, init: RequestInit, options: RequestOptions, mutation: boolean): Promise<{ text: string; status: number; ok: boolean }> {
     if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\')) throw new TypeError('A relative API path is required');
     const url = this.getBaseURL() + path;
-    const key = this.getApiKey();
+    const send = this.sender();
+    const staticKey = this.hasApiKeyProvider() ? undefined : this.getApiKey();
     const headers = new Headers(init.headers);
     headers.set('Content-Type', 'application/json');
-    if (key) { headers.set('X-API-Key', key); headers.set('Authorization', `Bearer ${key}`); }
     const controller = new AbortController();
     let expired = false;
     let started = false;
@@ -92,9 +235,14 @@ export class HttpClient {
     try {
       if (options.signal?.aborted) throw new TransportError('ABORTED', false);
       const request = async () => {
+        const key = this.hasApiKeyProvider() ? await this.resolveApiKey(controller.signal) : staticKey;
+        if (controller.signal.aborted) throw new TransportError(expired ? 'TIMEOUT' : 'ABORTED', false);
         started = true;
-        try { response = await this.getFetch()(url, { ...init, headers, redirect: 'manual', signal: controller.signal }); }
-        catch { throw new TransportError(expired ? 'TIMEOUT' : controller.signal.aborted ? 'ABORTED' : 'NETWORK', mutation, response?.status); }
+        try { response = await send(url, { ...init, headers, redirect: 'manual', signal: controller.signal }, key); }
+        catch (error) {
+          if (error instanceof TypeError && /X-Tier0-Delegation/.test(error.message)) throw error;
+          throw new TransportError(expired ? 'TIMEOUT' : controller.signal.aborted ? 'ABORTED' : 'NETWORK', mutation, response?.status);
+        }
         const maxBytes = 20 * 1024 * 1024;
         if (Number(response.headers.get('content-length')) > maxBytes) { await response.body?.cancel(); throw new TransportError('PROTOCOL', mutation, response.status); }
         if (!response.body) return { text: '', status: response.status, ok: response.ok };
@@ -149,12 +297,18 @@ export class HttpClient {
       if (!Array.isArray(channels) || channels.some(c => c !== 'web' && c !== 'mobile')) throw new TypeError('Notification channels must be web or mobile');
       body = { ...body, channels: [...new Set(channels)] };
     }
+    if (path === '/openapi/v2/apps/access-members/list' && record(body) && body.scope === undefined) {
+      // The platform injects TIER0_RUNTIME: a Builder preview lists the draft roles, a deployment the production version.
+      const runtime = getEnvVar('TIER0_RUNTIME');
+      const scope = runtime === 'preview' ? 'draft' : runtime === 'deployed' ? 'production' : undefined;
+      if (scope) body = { ...body, scope };
+    }
     const serialized = operation.method === 'GET' ? undefined : encodeUnsV2JSON(body, operation.requestSchema ?? 'V1_Empty');
     const response = await this.exchange(path, { method: operation.method, body: serialized }, options, !operation.readonly);
     let value: unknown;
     try { value = decodeUnsV2JSON(response.text, operation.responseSchema); }
     catch {
-      if (!response.ok) throw new ApiError(response.status, 0, 'Non-JSON API error');
+      if (!response.ok) throw new ApiError(response.status, 0, `Non-JSON API error. ${invalidResponseHint(response.status)}`);
       throw new TransportError('PROTOCOL', !operation.readonly, response.status);
     }
     if (!response.ok) throw responseError(response.status, value);
@@ -171,7 +325,7 @@ export class HttpClient {
     const response = await this.exchange(path, { method, body: body === undefined ? undefined : encodeUnsV2JSON(body, 'V1_Empty') }, options, method !== 'GET');
     let value: unknown;
     try { value = decodeUnsV2JSON(response.text, 'V1_Empty'); }
-    catch { throw new ApiError(response.status, 0, 'Invalid API response'); }
+    catch { throw new ApiError(response.status, 0, `Invalid API response. ${invalidResponseHint(response.status)}`); }
     if (!response.ok || (record(value) && typeof value.code === 'number' && value.code !== 200)) throw responseError(response.status, value);
     return value as T;
   }

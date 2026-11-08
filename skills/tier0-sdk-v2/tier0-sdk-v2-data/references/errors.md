@@ -38,7 +38,7 @@ export function toResponse(error: unknown): Response {
 
 | code | 含义 |
 | --- | --- |
-| `DATA_NOT_CONFIGURED` (503) | 缺少 TIER0_API_HOST / TIER0_API_KEY（或 apiHost / apiKey） |
+| `DATA_NOT_CONFIGURED` (503) | 缺少 TIER0_API_HOST（或 apiHost）；本地开发还缺 TIER0_API_KEY（或 apiKey）。平台里不需要 Key，节点代理注入 App 的 Key |
 | `DATA_TIMEOUT` (503) | UNS 未在超时内应答（每次调用从开始算共 25 秒，含排队与重试，`transportTimeoutMs` 可调）；写入时 `outcomeUnknown` 为 true、不重试 |
 | `DATA_OVERLOADED` (503) | 本进程 6 个请求名额一直占满，调用在超时前没排到，**没有发出**（`execution: 'notStarted'`，`retry.safe`）；减少并发或合并读取 |
 | `DATA_ABORTED` (499) | 业务请求已中止（`runWithRequestContext(request, …)` 的 `request.signal`）：排队中的调用不再发出（`notStarted`），已发出的写入 `outcomeUnknown` |
@@ -59,6 +59,10 @@ export function toResponse(error: unknown): Response {
 | code | 含义与处理 |
 | --- | --- |
 | `SCHEMA_CONFLICT` (409) | 声明无法与存储合并，没有任何改动。`data.conflicts` 列出 `{ alias, path, reason, current?, declared? }`：`TYPE_CONFLICT` → 换新字段名；`LIMIT_EXCEEDED` → 拆分结构；`JOIN_UNSUPPORTED` → 存储中有声明无法放宽的节点，用 `schema:replace` 修复；`DATA_RULE_FIELD` → 员工数据规则（owner/state 字段）在用该路径，保持必填且类型不变，或请管理员修改规则；`OPEN_OBJECT` → 用 `z.object`；`ALIAS_IN_USE` → 选择未占用的 alias；`NAME_IN_USE` → 选择同目录下不同且有业务含义的 name，保留 alias，不拼随机后缀；`INVALID_INDEX` → 修正索引 |
+| `INVALID_REQUEST` (400)，`path=collections/<i>/directoryPath` | 新建集合缺少目录或路径非法。声明实际业务路径后再调用；不回退到缺少业务范围的根级 App 目录，不添加虚构层级 |
+| `SCHEMA_CONFLICT`，`data.reason=DIRECTORY_PATH_CONFLICT` | 路径被已归档目录或同名非目录对象占用；核对真实目录，不能自动恢复、改名或扩大授权 |
+| `DIRECTORY_PATH_NOT_APPLIED`（`ignored` 提示） | 已有 alias 的目录与声明不同；保留当前位置继续服务。需要移动时走明确授权的元数据操作，ensure 不迁移 |
+| `CONDITION_FAILED`，`data.reason=DIRECTORY_UNAVAILABLE` | 恢复集合时原父目录或祖先不可用；明确恢复目录后再试，不自动恢复父链或改挂集合 |
 | `ANNOTATION_NOT_APPLIED`（`ignored` 提示） | 不是错误：ensure 保留已存储的描述，用 `schema:replace` 应用修改 |
 | `REQUIRED_NOT_ENFORCED`（警告） | 声明要求的字段在存储中仍是可选；改回可选，或回填后用 `schema:replace` 收窄 |
 | `INDEX_BUILD_FAILED`（警告） | 已有记录违反新唯一索引；修正重复数据，下次 ensure 会重试建索引 |
@@ -76,7 +80,26 @@ export function toResponse(error: unknown): Response {
 | `APP_GRANT_REVOKED` (403) | 管理员撤销了本 App 对集合的授权；ensure 不会自动恢复，请管理员处理 |
 | `APP_QUOTA_EXCEEDED` (409) | `data.resource` 指出触达的每 App 上限（64）：`collections` → 归档不用的集合；`indexes` → 从声明删索引并 `schema:replace`；`archivedCollections` → 恢复一个或请管理员清理 |
 | `INDEX_QUOTA_EXCEEDED` (409) | Workspace 实际存在的索引已达 200；删除不用的索引 |
-| `COLLECTION_TOO_LARGE` (409) | archive / restore 最多处理 2000 条记录（`data.maxRecords`）；不要归档大集合 |
+| `COLLECTION_TOO_LARGE` (409) | 仅旧 recordsArchivedAt 墓碑恢复有 2000 条上限（`data.maxRecords`）；当前 archive / restore 保留记录，不受该上限限制 |
+| `OWNER_APP_TRASHED`（`data.reason`） | 所属 App 在回收站；恢复 App 后再写入，不触发自动重建 |
+| `DIRECTORY_IN_TRASH`（`data.reason`） | 子项随目录回收，需恢复原目录；不逐个恢复子项 |
 | `FORBIDDEN` (403) | Key 不能做该操作（其他 App 或共享集合），或 Key 已吊销 |
 
-记录调用上的 `data.reason`：`COLLECTION_NOT_GRANTED`（403，授权不覆盖该集合或操作）与 `COLLECTION_NOT_FOUND`（403/404，已归档或删除）会触发数据层重新 ensure；`APP_PERMISSION_MISSING`（403，`data.missingPermission`）表示 Key 缺少权限，例如删除记录需要 `uns.delete`——业务记录通常以状态结束（`CANCELLED`、`ARCHIVED`）而不是删除。
+记录调用上的 `data.reason`：`COLLECTION_NOT_GRANTED`（403，授权不覆盖该集合或操作）与 `COLLECTION_NOT_FOUND`（403/404，集合不存在或写入目标已回收）仅对声明集合触发[自愈](consistency.md#首次访问与自愈)，已有 ID 引用直接报告错误；回收不使已有授权的历史读取失效。`APP_PERMISSION_MISSING`（403，`data.missingPermission`）表示 Key 缺少权限，例如删除记录需要 `uns.delete`——业务记录通常以状态结束（`CANCELLED`、`ARCHIVED`）而不是删除。
+
+## 节点代理错误
+
+Tier0 预览和部署里，平台请求经过节点代理（`sbx-api-proxy`），它按 VM 源地址注入 App 的长期 Key（预览和正式同一把）。代理自己产生的错误带响应头 `X-Tier0-Proxy: not-forwarded`，响应体 `{code, message, retry_after_ms?}`，请求**没有到达平台**，所以 `execution` 是 `notStarted`，写入重发也安全。`DataError.code`、`UnsV2Error.code`、`ApiError.errorCode` 都是下表的 `code`。
+
+| code | 含义与处理 |
+| --- | --- |
+| `sbx_proxy_not_ready` (503) | 代理刚启动，还没拿到这台 VM 的绑定。SDK 已按 `retry_after_ms` 重试 3 次，仍失败就稍后再试 |
+| `sbx_proxy_limited` (429) | 超过这台 VM 的上限（64 个并发请求、50 rps、8 个 SSE、16 条 MQTT 等）。SDK 已重试 3 次；减少并发 |
+| `sbx_proxy_credential_pending` (503) | 绑定在，但 App 的 Key 还没送到代理。SDK 已按 `retry_after_ms` 重试 3 次，仍失败就稍后再试 |
+| `sbx_proxy_no_credential` (403) | 这台 VM 永远没有 Key：会话没有绑定 App，只能调 `/openapi/v2/info`。不重试 |
+| `sbx_proxy_unbound` (403) | 这台 VM 当前没有绑定：实例正在启动、停止或被替换，等平台恢复 |
+| `sbx_proxy_bad_request` (400) | 请求格式被拒：absolute-form、`CONNECT`、`Upgrade`、路径含 `.` / `..` / `//` / `%2f` / `%2e` / `%5c` / `;`、多个 `X-Tier0-Delegation`、请求头超过 32 KiB 或 100 个 |
+| `sbx_proxy_forbidden` (403) | 缺 `X-Tier0-SDK: 1`，或带了 `Forwarded` / `X-Forwarded-*` / `X-Real-IP`。直接用 `fetch` / `curl` 时自己加 `X-Tier0-SDK: 1` |
+| `sbx_proxy_not_found` (404) | 路径不在代理白名单里：只转发 `/openapi/v2/uns/**`、`assets/**`、`notifications/send`、`notifications/get`、`platform/getMembers`、`apps/access-members/list`、`info`（白名单内但 App 的 Key 无权的接口，如 Source / Stream 管理，由 Backend 回 403） |
+
+只有带 `X-Tier0-Proxy: not-forwarded` 的 `503` / `429` 会被 SDK 自动重试；平台返回的 5xx 不重试。

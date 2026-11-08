@@ -82,7 +82,7 @@ try {
       sourceCurrent = result.current;
       report.fixtures.source = { id: sourceId, state: 'created' };
       assert.equal(result.current.document.name, prefix);
-      assert.notEqual(result.current.desiredState, 'enabled');
+      assert.equal('desiredState' in result.current, false);
     });
     await step('Skill Source direct patch with canonical receipt', async () => {
       const result = await sourceUpdate.renameSource(sourceId, sourceRevision, prefix + '-edited', intent('source-update'), client);
@@ -130,8 +130,13 @@ try {
       }); } catch { /* Report retains cleanup failure. */ }
     }
     if (sourceId) {
-      try { await step('Skill Source direct delete with archived receipt', async () => {
-        // Retain the observed revision. Unexpected changes or remaining Stream references must reject cleanup.
+      try { await step('Disable and delete unreferenced Source', async () => {
+        // No automatic impact consent: remaining dependencies must reject cleanup.
+        await client.source.documents.state.update({ id: sourceId, expectedRevision: sourceRevision,
+          desiredState: 'disabled', dryRun: false, idempotencyKey: intent('source-disable') });
+        const disabled = await client.source.documents.get({ id: sourceId, view: 'full' });
+        if (!('document' in disabled.data)) throw new Error('Expected current Source document after disable');
+        sourceRevision = disabled.data.revision;
         const result = await sourceDelete.deleteSource(sourceId, sourceRevision, intent('source-delete'), client);
         assert.equal(result.state, 'archived');
         report.fixtures.source.state = 'archived';
@@ -148,8 +153,8 @@ try {
 
   if (domains.has('stream') && !streamId) try {
     await step('Stream standalone draft create with receipt', async () => {
-      const document = { name: prefix, timeoutMs: 5000,
-        script: 'module.exports = api => { api.stream.every({ id: "tick", intervalMs: 60000 }, async () => ({ value: 1 })); };' };
+      const document = { name: prefix,
+        script: { timeoutMs: 5000, code: 'module.exports = api => { api.stream.every({ id: "tick", intervalMs: 60000 }, async () => ({ value: 1 })); };' } };
       const saved = await client.stream.documents.create({ dryRun: false, program: document, idempotencyKey: intent('standalone-stream') });
       assert.equal(typeof saved.data.id, 'string');
       streamId = saved.data.id;

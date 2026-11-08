@@ -26,7 +26,7 @@ const renamedDisplayField: UnsV2Request<'appCollectionsEnsure'> = {
 void [namedCollection, unnamedCollection, renamedDisplayField];
 // Native runtime DTO from the pinned source; hosted Cloud documents retain their own shape.
 const nativeDefinition: RuntimeStreamDefinition = {
-  name: 'native-http', script: '',
+  name: 'native-http', script: { code: '', timeoutMs: 5000 },
   sourceBindings: [{ sourceId: '101', configRevision: new UnsV2RawNumber('9007199254740993'), acquisition: {} }],
 };
 const invalidBinding: NonNullable<RuntimeStreamDefinition['sourceBindings']>[number] = {
@@ -34,7 +34,7 @@ const invalidBinding: NonNullable<RuntimeStreamDefinition['sourceBindings']>[num
   // @ts-expect-error Native binding revision must be an exact integer, not a string.
   configRevision: '2',
 };
-// @ts-expect-error Each native binding requires protocol acquisition parameters.
+// Acquisition is optional; the selected Source still fixes connection and credentials.
 const missingAcquisition: NonNullable<RuntimeStreamDefinition['sourceBindings']>[number] = { sourceId: '101', configRevision: 2 };
 void [nativeDefinition, invalidBinding, missingAcquisition];
 const ownAppContext = client.uns.dataAppContext({});
@@ -61,23 +61,29 @@ inserted.then(response => {
 client.uns.recordInsertOne({ collectionId: 'orders', data: {}, returnDocument: 'before' });
 const list = client.uns.recordFind({ collectionId: 'orders', limit: 20, cursor: 'opaque' });
 const jobs = client.uns.jobs({ queries: [{ queryId: 'job', jobIds: ['job-1'] }] });
+const purge = client.uns.metadataPurge({ kind: 'collection', ids: ['old-orders'], idempotencyKey: 'purge-once' });
+purge.then(response => {
+  const jobId: string | undefined = response.data.jobId;
+  void jobId;
+});
+// Backend ae62b5e18 also accepts recycle-bin directories and topics; the Skills still document collection purges only.
+client.uns.metadataPurge({ kind: 'directory', ids: ['old-folder'] });
+// @ts-expect-error Explicit target IDs are required; an empty filter is not a purge target.
+client.uns.metadataPurge({ kind: 'collection', filter: {} });
 const transaction = client.uns.recordTransactionExecute({ items: [] });
 const sources = client.source.documents.list({ page: 1, size: 20, archived: false });
 const deployment = client.stream.programs.deploy({
-  id: 'stream-1', dryRun: false, expectedRevision: 3, expectedSourceRevision: 7, expectedActiveRelease: 1, idempotencyKey: 'deploy-1',
+  id: 'stream-1', dryRun: false, expectedRevision: 3, expectedSourceRevision: 7, expectedActiveVersion: '9007199254740997', idempotencyKey: 'deploy-1',
 });
 const scopedSamples = client.uns.sampleFind({ collectionId: 'measurements', recordIds: ['machine-1'], from: 0, to: 1000, page: { mode: 'cursor', size: 20 } });
-const sourceState = client.source.state.update({
-  dryRun: false, items: [{ id: '101', expectedRevision: 2, desiredState: 'enabled', confirmedImpactRevision: 'reviewed-confirmation' }],
-});
-const sourceDelete = client.source.delete({ dryRun: true, items: [{ id: '101', expectedRevision: 2, confirmedImpactRevision: 'reviewed-confirmation' }] });
-const sourceImpact = client.source.impact({ id: '101', expectedRevision: 2, action: 'disable', size: 20 });
+const sourceDelete = client.source.documents.delete({ dryRun: true, id: '101', expectedRevision: 2, confirmedImpactRevision: 'reviewed-confirmation' });
+const sourceImpact = client.source.impact({ id: '101', expectedRevision: 2, action: 'delete', size: 20 });
 const sourceHistory = client.source.history({ id: '101', size: 20 });
 const observations = client.source.observations.get({ items: [{ id: '101', expectedRevision: 2 }] });
 const streamObservation = client.stream.observations.get({ id: '202' });
 const runs = client.stream.runs.list({ id: '202', size: 20, cursor: 'opaque' });
 const documentValidation = client.stream.documents.validate({ document: {
-  name: 'collector', model: 'collection',
+  name: 'collector', model: 'program',
   script: { code: 'module.exports = api => api;', timeoutMs: 1_000 },
   sources: [{ alias: 'plant', sourceId: 'source-1', configRevision: 2, resources: ['line/1'] }],
 } });
@@ -93,7 +99,7 @@ const request: UnsV2Request<'metadataFind'> = { kind: 'directory', filter: { _id
 type MetadataFindResponse = UnsV2Response<'metadataFind'>;
 const exactInt64: components['schemas']['PlatformGetMembersReq'] = { page: 9_223_372_036_854_775_807n };
 const exactBusinessNumber: UnsV2JSONValue = new UnsV2RawNumber('1.0000000000000001');
-void [list, jobs, transaction, sources, deployment, scopedSamples, sourceState, sourceDelete, sourceImpact, sourceHistory, documentValidation,
+void [list, jobs, transaction, sources, deployment, scopedSamples, sourceDelete, sourceImpact, sourceHistory, documentValidation,
   observations, streamObservation, runs, operation, request, exactInt64, exactBusinessNumber, null as MetadataFindResponse | null];
 
 // @ts-expect-error core-only graph has no Gateway route and is not exposed by the SDK.
@@ -107,9 +113,10 @@ client.source.ingress.rotate({ id: '101' });
 // @ts-expect-error identity and workspace binding cannot be supplied through list request DTOs.
 client.uns.metadataFind({ workspaceId: 'other-workspace' });
 // Unreferenced Source mutations need only the existing revision; referenced sources require server-side review.
-client.source.delete({ dryRun: false, items: [{ id: '101', expectedRevision: 2 }] });
+client.source.documents.delete({ dryRun: false, id: '101', expectedRevision: 2 });
 client.source.documents.update({ dryRun: false, id: '101', expectedRevision: 2, patch: { name: 'renamed' } });
-client.source.state.update({ dryRun: false, items: [{ id: '101', expectedRevision: 2, desiredState: 'enabled' }] });
+// @ts-expect-error Source has no manual lifecycle switch.
+client.source.state.update({});
 
 const lease = client.uns.recordLock({ collectionId: 'orders', ids: ['order-1'], ttlMs: 30000 });
 const unlock = client.uns.recordUnlock({ collectionId: 'orders', locks: [{ id: 'order-1', token: 'lease' }] });

@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, TransportError, createClient } from '../src/index.js';
 import { OPENAPI_OPERATIONS } from '../src/openapi/api.generated.js';
 
@@ -30,6 +30,7 @@ describe('new architecture v1 on a real HTTP fixture', () => {
     expect(user.workspaceID).toBe(12);
     expect(received[0]).toMatchObject({ method: 'POST', url: '/openapi/v2/auth/whoami', body: '{}' });
     expect(received[0].headers['x-api-key']).toBe('test-only-key');
+    expect(received[0].headers.authorization).toBeUndefined();
   });
   it('serializes signed 64-bit request IDs as exact JSON numbers', async () => {
     respond = res => json(res, { code: 200, msg: '', data: { success: true } });
@@ -84,6 +85,20 @@ describe('new architecture v1 on a real HTTP fixture', () => {
       respond = res => json(res, { code, msg: 'App access list is unavailable' }, 503);
       await expect(sdk().members.listApp({ appId: 'app-1' })).rejects.toMatchObject({ status: 503, code });
     }
+  });
+  it.each([
+    ['preview', undefined, 'draft'],
+    ['deployed', undefined, 'production'],
+    [undefined, undefined, undefined],
+    ['staging', undefined, undefined],
+    ['preview', 'production', 'production'],
+    ['deployed', 'draft', 'draft'],
+  ])('lists App members with TIER0_RUNTIME=%s and explicit scope %s as scope %s', async (runtime, explicit, expected) => {
+    vi.stubEnv('TIER0_RUNTIME', runtime);
+    try {
+      await sdk().members.listApp({ appId: 'app-1', ...(explicit && { scope: explicit }) });
+      expect(JSON.parse(received[0].body)).toStrictEqual({ appId: 'app-1', ...(expected && { scope: expected }) });
+    } finally { vi.unstubAllEnvs(); }
   });
   it('encodes path and query values once', async () => {
     respond = res => json(res, { code: 200, msg: '', data: { fileUrl: 'https://storage.invalid/f' } });

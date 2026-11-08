@@ -27,10 +27,12 @@ description: 使用 @tier0/sdk-v2 开发或迁移 Tier0 云端 TypeScript/JavaSc
 
 ## 初始化与身份
 
+个人 Key 可直接读取已有集合，无需创建平台 App；网关配置、运行示例与排错见[本地连接指南](references/local-connection.md)。
+
 ```ts
 import { createClient } from '@tier0/sdk-v2';
 
-// 服务端注入 TIER0_API_HOST / TIER0_API_KEY。
+// 平台里只用 TIER0_API_HOST（节点代理注入 App 的 Key）；本地开发另设 TIER0_API_KEY。
 export const client = createClient({ transportTimeoutMs: 30_000 });
 export async function inspectConnection() {
   return client.system.info();
@@ -38,6 +40,18 @@ export async function inspectConnection() {
 ```
 
 也可传 `apiHost`、`apiKey` 或 `getApiHost` / `getApiKey` 回调。API Key 留在服务端；不要生成 `VITE_*KEY` 或让页面携带 App Key。浏览器通过自己的服务端接口访问平台；App Stream 交互使用根入口 `client` 和受信宿主注入，无需设置密钥。消息要求 WebSocket（Node.js 22+ 或浏览器）。
+
+凭证来源按属性存在性选择，优先顺序为 `apiKeyProvider`、`apiKey`、`getApiKey`；只有都未提供才读取 `TIER0_API_KEY`。显式 `undefined` 或 getter 返回 `undefined` 不会回退到环境 Key。每个用户请求使用独立客户端，不要把全局 `configureClient` 当作请求身份。
+
+**Tier0 预览和部署里不需要、也读不到凭据**：VM 里没有 `TIER0_API_KEY`，也没有凭据文件，节点代理按 VM 源地址注入 App 的长期 Key，SDK 不持有它；预览和正式用同一把 Key，行为相同。`TIER0_RUNTIME` 为 `deployed` / `preview`、没有 `TIER0_API_KEY`，且客户端没给有值的 `apiKey`、`getApiKey` 或 `apiKeyProvider` 时，SDK 不发任何凭据头（`TIER0_RUNTIME` 是其他非空值时直接报配置错误），每个请求带 `X-Tier0-SDK: 1`。不要去找、生成或硬编码 Key。身份读平台设置的 `TIER0_WORKSPACE_ID`、`TIER0_APP_ID`。
+
+不经 SDK、直接用 `fetch` / `curl` 调平台时，必须自己带 `X-Tier0-SDK: 1`、不带 `Authorization`，否则代理回 403 `sbx_proxy_forbidden`：
+
+```sh
+curl -sS -X POST "$TIER0_API_HOST/openapi/v2/info" -H 'X-Tier0-SDK: 1' -H 'Content-Type: application/json' -d '{}'
+```
+
+代理只转发 `/openapi/v2/uns/**`、`assets/**`、`notifications/send`、`notifications/get`、`platform/getMembers`（`members.listWorkspace()`）、`apps/access-members/list`（`members.listApp()`）、`info`。白名单外的接口（`system.whoami()`、`mqttAuth`、`capabilities`、`agent`、`client.streams` 的 Stream 请求和消息）回 404 `sbx_proxy_not_found`；Source / Stream 管理接口虽在 `/openapi/v2/uns/**` 下会被转发，但 App 的 Key 无权调用，Backend 回 403。代理自己产生的错误带 `X-Tier0-Proxy: not-forwarded`，`code` 以 `sbx_proxy_` 开头，含义见 [错误码](tier0-sdk-v2-data/references/errors.md#节点代理错误)。平台权限和消息主题由工作区管理员在 App 设置里管理，改了立即生效；外部集合在发布时确认。
 
 不同身份使用独立实例。含员工数据委托时，每个入站请求新建实例，使用受信 App Gateway 提供的 `unsV2AppDataSubject`；它不是用户 ID，也不是 App 请求验签断言。不要从请求 JSON 拼造委托。身份验签流程见 [身份与框架集成](references/integration.md)。
 
@@ -52,7 +66,7 @@ export async function inspectConnection() {
 
 方法存在不等于目标环境已部署或当前 Key 有权限。整数可能为 `bigint`；UNS 任意 JSON 中还可能含 `UnsV2RawNumber`。不要将标识符强制转为 Number；给浏览器返回数据时显式定义精确数字的序列化格式。
 
-`createClient()` 的 HTTP 不自动重试。UNS 错误的 `execution` 说明执行到哪一步、`retry.safe` 说明能否用同一请求重发；带 `outcomeUnknown` 的失败应先对账，保留原意图键；取消请求不代表服务端撤销。App 数据层（`@tier0/sdk-v2/data`）会按 `retry.safe` 自动重试，见 App 数据 Skill。Source/Stream 仍使用底层 UNS v2 契约，所以错误类名保留 UNS，不代表它们仍属于数据入口。
+`createClient()` 的 HTTP 不自动重试，唯一例外是平台里节点代理自己产生的 `503` / `429`（带 `X-Tier0-Proxy: not-forwarded`，请求没有到达平台），SDK 按 `retry_after_ms` 最多重试 3 次；平台返回的 5xx 不重试。UNS 错误的 `execution` 说明执行到哪一步、`retry.safe` 说明能否用同一请求重发；带 `outcomeUnknown` 的失败应先对账，保留原意图键；取消请求不代表服务端撤销。App 数据层（`@tier0/sdk-v2/data`）会按 `retry.safe` 自动重试，见 App 数据 Skill。Source/Stream 仍使用底层 UNS v2 契约，所以错误类名保留 UNS，不代表它们仍属于数据入口。
 
 ## 从首版入口迁移
 

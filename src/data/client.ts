@@ -4,12 +4,12 @@
  * collection declarations; tests build their own with a mock `fetch`.
  */
 import type { z } from 'zod';
-import type { ClientConfig } from '../openapi/client.js';
+import { snapshotClientConfig, type ClientConfig } from '../openapi/client.js';
 import { getEnvVar } from '../runtime-env.js';
 import { createBootstrap, type DataEnvironment, type EnsureState, type Logger } from './bootstrap.js';
 import { createDataTransport } from './call.js';
 import { assertAtomicBatch, Collection, toDoc, type BatchQuery, type UnsRecord, type WithMeta } from './collection.js';
-import { currentDataSubject, currentSignal } from './context.js';
+import { currentDataSubject, currentDelegation, currentSignal, runAsApp } from './context.js';
 import { MAX_COLLECTIONS, type CollectionDefinition, type CollectionReference, type CollectionSchema, type CollectionTarget } from './define.js';
 import { createSubscribe, type SubscribeOptions, type SubscriptionEvent } from './subscribe.js';
 import { parseUnsV2Fault, UnsV2Error } from '../uns-v2/client.js';
@@ -81,8 +81,11 @@ export type SettledBatchResults<Q extends BatchQueries> = {
 export const MAX_BATCH_QUERIES = 20;
 const QUERY_NAME = /^[A-Za-z0-9_.-]{1,64}$/;
 
-/** Credentials as for `createClient`; `transportTimeoutMs` (per attempt) defaults to 25 s here, see DEFAULT_DATA_TIMEOUT_MS. */
-export interface DataClientConfig extends ClientConfig {
+/** Data client state is bound to one static host and credential for its lifetime. */
+export interface DataClientConfig extends Omit<ClientConfig, 'getApiKey' | 'apiKeyProvider'> {
+  /** Dynamic credentials are unsupported while bootstrap and subscriptions share client state. */
+  getApiKey?: never;
+  apiKeyProvider?: never;
   collections?: readonly CollectionDefinition[];
   /** Defaults to "deployed" when NODE_ENV is production, otherwise "preview". */
   environment?: DataEnvironment;
@@ -131,9 +134,22 @@ export interface DataClient {
 }
 
 export function createDataClient(config: DataClientConfig): DataClient {
-  const { call, openStream } = createDataTransport(config);
-  const environment = config.environment ?? (getEnvVar('NODE_ENV') === 'production' ? 'deployed' : 'preview');
-  const declared = [...(config.collections ?? [])];
+  const snapshot = snapshotClientConfig(config, ['environment', 'collections', 'logger']);
+  if (Object.hasOwn(snapshot, 'apiKeyProvider')) {
+    throw new TypeError('Tier0 SDK: apiKeyProvider is not supported by createDataClient.');
+  }
+  if (Object.hasOwn(snapshot, 'getApiKey')) {
+    throw new TypeError('Tier0 SDK: getApiKey is not supported by createDataClient.');
+  }
+  // Never let bootstrap state, retries or SSE reconnect under a later identity or host.
+  const fixed = {
+    ...snapshot,
+    apiKey: Object.hasOwn(snapshot, 'apiKey') ? snapshot.apiKey : getEnvVar('TIER0_API_KEY'),
+    apiHost: snapshot.apiHost ?? snapshot.getApiHost?.() ?? getEnvVar('TIER0_API_HOST') ?? '',
+  };
+  const { call, openStream } = createDataTransport(fixed);
+  const environment = snapshot.environment ?? (getEnvVar('NODE_ENV') === 'production' ? 'deployed' : 'preview');
+  const declared = [...(snapshot.collections ?? [])];
   if (declared.length > MAX_COLLECTIONS) {
     throw new Error(`An App declares at most ${MAX_COLLECTIONS} collections; got ${declared.length}.`);
   }
@@ -144,7 +160,9 @@ export function createDataClient(config: DataClientConfig): DataClient {
     seen.add(key);
   }
 
-  const bootstrap = createBootstrap({ call, collections: declared, environment, logger: config.logger ?? console });
+  // Ensure and seed writes are App-level work, even when a request triggers them.
+  const appCall: typeof call = (operation, request, options) => runAsApp(() => call(operation, request, options));
+  const bootstrap = createBootstrap({ call: appCall, collections: declared, environment, logger: snapshot.logger ?? console });
   const runtime = {
     call,
     resolve: async (target: CollectionTarget | string) => {
@@ -283,6 +301,7 @@ export function createDataClient(config: DataClientConfig): DataClient {
     lookup,
     declared,
     subject: currentDataSubject,
+    delegation: currentDelegation,
   });
 
   return {

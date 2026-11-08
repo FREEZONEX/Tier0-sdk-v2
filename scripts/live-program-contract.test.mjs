@@ -13,6 +13,10 @@ function programFixture(path) {
   const file = ts.createSourceFile(path, read(path), ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
   const programs = [];
   const literal = node => {
+    if (ts.isObjectLiteralExpression(node)) return Object.fromEntries(node.properties.map(property => {
+      assert.ok(ts.isPropertyAssignment(property));
+      return [property.name.getText(file).replace(/^['"]|['"]$/g, ''), literal(property.initializer)];
+    }));
     if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text;
     if (ts.isNumericLiteral(node)) return Number(node.text);
     if (ts.isIdentifier(node) && ['name', 'prefix'].includes(node.text)) return 'sdk-contract-fixture';
@@ -46,16 +50,18 @@ for (const path of ['scripts/check-live-stream-runtime.mjs', 'scripts/check-live
     for (const required of schema.required) assert.ok(Object.hasOwn(program, required), required);
     for (const [name, value] of Object.entries(program)) {
       assert.ok(Object.hasOwn(schema.properties, name), 'Retired or unknown program field: ' + name);
-      const type = schema.properties[name].type;
+      const field = schema.properties[name];
+      const type = field.$ref ? contract.schemas[field.$ref.split('/').at(-1)].type : field.type;
       if (type === 'integer') assert.ok(Number.isSafeInteger(value));
       else assert.equal(typeof value, type);
     }
-    assert.equal(typeof program.script, 'string', 'Runtime programs retain their complete module.exports string');
-    assert.doesNotThrow(() => new Script(program.script));
-    assert.match(program.script, /module\.exports\s*=/);
+    assert.equal(typeof program.script.code, 'string');
+    assert.ok(Number.isSafeInteger(program.script.timeoutMs));
+    assert.doesNotThrow(() => new Script(program.script.code));
+    assert.match(program.script.code, /module\.exports\s*=/);
     const module = { exports: undefined };
     let registrations = 0;
-    runInNewContext(program.script, { module });
+    runInNewContext(program.script.code, { module });
     module.exports({ stream: { every(options, handler) {
       assert.ok(options.intervalMs > 0);
       assert.equal(typeof handler, 'function');

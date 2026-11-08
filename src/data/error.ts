@@ -17,7 +17,7 @@ import type { UnsV2Error, UnsV2Execution, UnsV2Retry } from '../uns-v2/client.js
 export const ACCESS_REASONS = {
   /** 403: the collection exists, but this App's grant does not cover it or the operation. */
   notGranted: 'COLLECTION_NOT_GRANTED',
-  /** 403 or 404: the collection is gone (hard-deleted or archived). */
+  /** 403 or 404: the collection is missing, or the write target is archived. */
   notFound: 'COLLECTION_NOT_FOUND',
   /** 403: the grant covers the operation, the App key lacks `data.missingPermission`. */
   permissionMissing: 'APP_PERMISSION_MISSING',
@@ -116,7 +116,7 @@ const CODE_HINTS: Record<string, string> = {
   INDEX_QUOTA_EXCEEDED:
     'The workspace index quota (200, counting every index that physically exists) is exhausted. Remove unused indexes through the tier0 MCP.',
   COLLECTION_TOO_LARGE:
-    'archive / restore handle at most 2000 records; stop using a large collection in code instead of archiving it.',
+    'Legacy recordsArchivedAt restoration handles at most 2000 records; current collection archive / restore retains records without that limit.',
   OVERLOADED:
     "This workspace's data requests are over their concurrency share; the data layer already waited and retried. Batch page reads with data.queryBatch and avoid per-record loops.",
   APP_NOT_READY: 'The platform is still preparing this App (e.g. right after an import); retry shortly.',
@@ -201,7 +201,7 @@ export function toDataError(error: UnsV2Error, attempts = 1, idempotencyKey?: st
   } else if (reason === ACCESS_REASONS.notFound) {
     message = `${message} The collection was archived or deleted; the data layer ensures the declared collections again.`;
   } else if (httpStatus === 401) {
-    message = `Tier0 rejected the App credential for ${error.operation} (${code}). The platform injects TIER0_API_KEY; do not replace it.`;
+    message = `Tier0 rejected the App's key for ${error.operation} (${code}). The platform's node proxy injects this key; do not supply or replace it.`;
   } else if (hint) {
     message = `${message} ${hint}`;
   }

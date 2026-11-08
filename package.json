@@ -1,6 +1,6 @@
 {
   "name": "@tier0/sdk-v2",
-  "version": "0.9.4",
+  "version": "0.10.0-aenv.9",
   "description": "Tier0 Cloud new-architecture SDK for TypeScript and JavaScript",
   "license": "MIT",
   "type": "module",
@@ -22,6 +22,7 @@
     "dist",
     "skills",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE",
     "NOTICE.md"
   ],
@@ -94,6 +95,26 @@
       "require": {
         "types": "./dist/cjs/mq/index.d.ts",
         "default": "./dist/cjs/mq/index.js"
+      }
+    },
+    "./page-runtime": {
+      "import": {
+        "types": "./dist/esm/page-runtime.d.ts",
+        "default": "./dist/esm/page-runtime.js"
+      },
+      "require": {
+        "types": "./dist/cjs/page-runtime.d.ts",
+        "default": "./dist/cjs/page-runtime.js"
+      }
+    },
+    "./event-stream": {
+      "import": {
+        "types": "./dist/esm/event-stream.d.ts",
+        "default": "./dist/esm/event-stream.js"
+      },
+      "require": {
+        "types": "./dist/cjs/event-stream.d.ts",
+        "default": "./dist/cjs/event-stream.js"
       }
     },
     "./server": {
@@ -174,13 +195,15 @@
   },
   "scripts": {
     "sync:contracts": "node scripts/sync-contracts.mjs",
+    "sync:source-stream-contract": "node scripts/sync-source-stream-contract.mjs",
     "generate": "node scripts/generate-openapi.mjs && node scripts/generate-uns-v2.mjs",
-    "check:contracts": "node scripts/check-contracts.mjs && npm run check:acquisition-contract && node scripts/sync-capability-contract.mjs --check && node --test scripts/retired-stream-probe.test.mjs scripts/retired-http-push.test.mjs scripts/retired-controls.test.mjs scripts/retired-public-labels.test.mjs scripts/platform-schema-projection.test.mjs scripts/data-capability-vector.test.mjs scripts/sync-contracts.test.mjs scripts/sync-capability-contract.test.mjs scripts/live-program-contract.test.mjs scripts/sync-http-run-observations.test.mjs && node scripts/generate-openapi.mjs --check && node scripts/generate-uns-v2.mjs --check && npm run check:stream-contract",
+    "check:contracts": "node scripts/check-contracts.mjs && npm run check:acquisition-contract && node scripts/sync-capability-contract.mjs --check && node --test scripts/retired-stream-probe.test.mjs scripts/retired-http-push.test.mjs scripts/retired-controls.test.mjs scripts/retired-public-labels.test.mjs scripts/platform-schema-projection.test.mjs scripts/data-capability-vector.test.mjs scripts/sync-contracts.test.mjs scripts/sync-capability-contract.test.mjs scripts/live-program-contract.test.mjs scripts/sync-http-run-observations.test.mjs scripts/member-list-proxy-guidance.test.mjs && node scripts/generate-openapi.mjs --check && node scripts/generate-uns-v2.mjs --check && npm run check:stream-contract",
     "check:skills": "node scripts/check-skills.mjs && node scripts/check-skill-examples.mjs",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.tests.json",
     "build": "node scripts/build.mjs",
     "prepare": "npm run build",
     "test": "vitest run",
+    "test:gateway-enforce": "node scripts/test-gateway-enforce.mjs",
     "check": "npm run check:contracts && npm run check:skills && npm run typecheck && npm test && npm run build && node scripts/check-package.mjs",
     "prepack": "node scripts/sync-stream-contract.mjs --check --committed && node scripts/check-contracts.mjs --committed && npm run check:contracts && npm run check:skills && npm run build",
     "prepublishOnly": "node scripts/sync-stream-contract.mjs --check --committed && node scripts/check-contracts.mjs --committed && npm run check",
@@ -225,6 +248,7 @@
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "esbuild": "^0.25.0",
+    "mqtt-v530": "npm:mqtt@5.3.0",
     "openapi-typescript": "^7.0.0",
     "react": "^19.0.0",
     "typescript": "~5.9.3",

@@ -1,6 +1,7 @@
 import { createClient, getCurrentAppId } from '@tier0/sdk-v2';
 
-// Inject TIER0_API_HOST, TIER0_API_KEY and the real APP_ID on the server.
+// In a Tier0 Preview or deployment the platform sets TIER0_API_HOST and TIER0_APP_ID and its node
+// proxy attaches the App credential: no key. For local development set TIER0_API_HOST and TIER0_API_KEY.
 const tier0 = createClient();
 
 export async function readOrders(signal?: AbortSignal) {

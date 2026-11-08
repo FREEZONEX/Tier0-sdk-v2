@@ -63,8 +63,8 @@ const page = (list: unknown[]) => ({ list, total: list.length, page: 1, size: 20
   hasMore: false, complete: true, truncated: false, snapshotScope: 'thisRequestOnly' });
 const source = (revision = 1, name = 'orders') => ({
   id: '9007199254740993', revision, document: { name, protocol: 'http-api', description: '订单系统 HTTP 接入',
-    config: { role: 'client', endpoint: 'https://fixture.invalid', options: {} } },
-  desiredState: 'disabled', runtimeState: 'stopped', health: 'unknown', createdAt: 1, updatedAt: 1,
+    role: 'client', endpoint: 'https://fixture.invalid', http: { anonymous: true } },
+  runtimeState: 'stopped', health: 'unknown', createdAt: 1, updatedAt: 1,
 });
 const token = 'si1_' + 'a'.repeat(43); // Fixture-only server-issued confirmation.
 const impact = (action = 'update', revision = 1) => ({
@@ -77,7 +77,7 @@ const stream = (revision = 1, description = '', activeRelease = 0) => ({
     script: { code: 'module.exports=api=>{};', timeoutMs: 5000 },
     sources: [{ alias: 'orders', sourceId: source().id, configRevision: 1, resources: [], acquisition: {} }],
     entries: [] },
-  status: activeRelease ? 'active' : 'draft', activeRelease, createdAt: 1, updatedAt: 1,
+  status: activeRelease ? 'active' : 'draft', activeVersion: activeRelease ? '9007199254740997' : '0', activeRelease, createdAt: 1, updatedAt: 1,
 });
 const collection = (revision = 1) => ({ kind: 'collection', id: 'devices', revision,
   data: { schemaVersion: 1, name: 'devices', recordSchema: { type: 'object', properties: {
@@ -99,7 +99,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
 
   it('reads existing collection records without requiring metadata access', async () => {
     steps = [{ path: 'collections/devices/records:find', data: records(record()) }];
-    const result = await example('uns', 'read').readDevices('devices', client);
+    const result = await example('uns', 'read', 1).readDevices('devices', client);
     expect(result.items).toEqual([record()]);
     expect(result.pageInfo.hasMore).toBe(false);
     expect(calls).toHaveLength(1);
@@ -111,7 +111,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
       code: 403, msg: 'Collection not granted', requestId: 'denied', data: { reason: 'COLLECTION_NOT_GRANTED' },
       error: { code: 'FORBIDDEN', details: [], execution: 'notStarted', retry: { safe: false } },
     }) }];
-    await expect(example('uns', 'read').readDevices('devices', client)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(example('uns', 'read', 1).readDevices('devices', client)).rejects.toMatchObject({ code: 'FORBIDDEN' });
     expect(calls).toHaveLength(1);
     finished();
   });
@@ -129,43 +129,43 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
       }
     }
   });
-  it('executes unreferenced Source create, rename and delete in three requests using canonical receipts', async () => {
+  it('executes unreferenced Source create, rename, disable and delete using current revisions', async () => {
     steps = [
       { path: 'sources/documents/create', check: b => expect(b).toMatchObject({
         dryRun: false, idempotencyKey: 'create-source', document: source().document }), data: source() },
       { path: 'sources/documents/update', check: b => expect(b).toEqual({
         id: source().id, dryRun: false, expectedRevision: 1, idempotencyKey: 'rename-source',
         patch: { name: 'renamed' } }), data: source(2, 'renamed') },
-      { path: 'sources/delete', check: b => expect(b.items).toEqual([
-        { id: source().id, expectedRevision: 2 }]), data: { ...outcome(), results: [
-        { opId: 'item-1', action: 'meta.archive', kind: 'source', id: source().id, revision: 2, status: 'deleted' },
-      ] } },
+      { path: 'sources/documents/state/update', check: b => expect(b).toMatchObject({ id: source().id, expectedRevision: 2, desiredState: 'disabled' }), data: source(3, 'renamed') },
+      { path: 'sources/documents/delete', check: b => expect(b).toMatchObject({ id: source().id, expectedRevision: 3 }), data: { id: source().id } },
     ];
     const created = await example('source', 'create').createHttpSource('https://fixture.invalid', 'orders', 'create-source', client);
     expect(created.current).toEqual(source());
     const changed = await example('source', 'update').renameSource(created.current.id, created.current.revision, 'renamed', 'rename-source', client);
     expect(changed.current).toEqual(source(2, 'renamed'));
+    const disabled = await client.source.documents.state.update({ id: changed.current.id,
+      expectedRevision: changed.current.revision, desiredState: 'disabled', dryRun: false });
     const deleted = await example('source', 'delete').deleteSource(changed.current.id,
-      changed.current.revision, 'delete-source', client);
+      disabled.data.revision, 'delete-source', client);
     expect(deleted.state).toBe('archived');
-    expect(calls).toHaveLength(3);
+    expect(calls).toHaveLength(4);
     finished();
   });
 
   it('composes the authenticated Source and HTTP Stream examples without turning request GET into a credential restriction', async () => {
     const endpoint = 'https://fixture.invalid/api/v1';
     const current = { ...source(), document: { ...source().document,
-      config: { ...source().document.config, endpoint, auth: { kind: 'bearer', credentialRef: 'fixture-ref' } } } };
+      endpoint, credentialRef: 'fixture-ref', http: { authentication: 'bearer' } } };
     let script = '';
     steps = [
       { path: 'sources/documents/create', check: b => {
         expect(b).toMatchObject({ dryRun: false, idempotencyKey: 'create-authenticated',
-          document: { config: { endpoint } } });
-        expect(b.credentials).toEqual({ kind: 'bearer', material: { token: 'fixture-only' } });
+          document: { endpoint } });
+        expect(b.credentials).toEqual({ kind: 'bearer', secret: 'fixture-only' });
       }, data: current },
       { path: 'streams/documents/create', check: b => {
         expect(b.program.sourceBindings).toEqual([{ sourceId: current.id, configRevision: current.revision, acquisition: {} }]);
-        script = b.program.script;
+        script = b.program.script.code;
         expect(script).not.toContain('fixture-only');
         expect(script).not.toContain('fixture-ref');
       }, data: stream() },
@@ -194,55 +194,44 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
   });
 
   it.each([
-    { kind: 'basic', material: { username: 'fixture-user', password: 'fixture-only' } },
-    { kind: 'bearer', material: { token: 'fixture-only' } },
-    { kind: 'bearer', method: 'GET', material: { token: 'fixture-only' } },
-    { kind: 'apiKey', method: 'REQUEST', material: { headerName: 'X-API-Key', value: 'fixture-only' } },
-    { kind: 'oauth2ClientCredentials', material: { tokenUrl: 'https://fixture.invalid/token',
-      clientId: 'fixture-client', clientSecret: 'fixture-only', clientAuthentication: 'client_secret_basic' } },
+    { kind: 'basic', username: 'fixture-user', secret: 'fixture-only' },
+    { kind: 'bearer', secret: 'fixture-only' },
+    { kind: 'custom', values: { key: 'fixture-only' } },
+    { kind: 'oauth2', secret: 'fixture-only' },
   ])('creates inline $kind credentials without inventing a client-side method default', async credentials => {
     steps = [{ path: 'sources/documents/create', check: body => {
       expect(body).toEqual({ dryRun: false, idempotencyKey: 'create-inline',
         document: { name: 'orders', protocol: 'http-api',
-          config: { role: 'client', endpoint: 'https://fixture.invalid', options: {} } },
+          role: 'client', endpoint: 'https://fixture.invalid', http: { authentication: credentials.kind } },
         credentials });
     }, data: source() }];
     const created = await example('source', 'create', 3).createHttpSourceWithCredentials(
-      'https://fixture.invalid', 'orders', credentials, 'create-inline', client);
+      { name: 'orders', protocol: 'http-api', role: 'client', endpoint: 'https://fixture.invalid', http: { authentication: credentials.kind } }, credentials, 'create-inline', client);
     expect(created.current).toEqual(source());
     expect(calls).toHaveLength(1);
     finished();
   });
 
-  it('keeps Source impact review separate from explicitly confirming a referenced rename', async () => {
+  it('keeps Source impact review separate from explicitly confirming a referenced connection change', async () => {
+    const config = { role: 'client', endpoint: 'https://changed.invalid', http: { anonymous: true } };
     steps = [{ path: 'sources/impact', check: b => expect(b).toMatchObject({
-      id: source().id, expectedRevision: 1, action: 'update', patch: { name: 'renamed' },
+      id: source().id, expectedRevision: 1, action: 'update', patch: config,
     }), data: { ...impact(), counts: { draft: 1, activeRelease: 0, historicalRelease: 0 } } }];
     const workflow = example('source', 'update', 1);
-    const plan = await workflow.prepareSourceRename(source().id, 1, 'renamed', client);
+    const plan = await workflow.prepareSourceConfigUpdate(source().id, 1, config, client);
     expect(plan.impact.counts.draft).toBe(1);
     expect(calls).toHaveLength(1);
     finished();
     steps = [{ path: 'sources/documents/update', check: b => expect(b).toEqual({
-      id: source().id, expectedRevision: 1, patch: { name: 'renamed' },
-      confirmedImpactRevision: token, dryRun: false, idempotencyKey: 'reviewed-rename',
-    }), data: source(2, 'renamed') }];
-    const changed = await workflow.commitSourceRename(plan, 'reviewed-rename', client);
-    expect(changed.current).toEqual(source(2, 'renamed'));
+      id: source().id, expectedRevision: 1, patch: config,
+      confirmedImpactRevision: token, dryRun: false, idempotencyKey: 'reviewed-config-change',
+    }), data: { ...source(2), document: { ...source(2).document, ...config } } }];
+    const changed = await workflow.commitSourceConfigUpdate(plan, 'reviewed-config-change', client);
+    expect(changed.current).toEqual({ ...source(2), document: { ...source(2).document, ...config } });
     expect(calls).toHaveLength(2);
     finished();
   });
 
-  it('sets an unreferenced Source desired state in one request without asserting runtime health', async () => {
-    steps = [{ path: 'sources/state/update', check: b => expect(b.items).toEqual([
-      { id: source().id, expectedRevision: 1, desiredState: 'enabled' },
-    ]), data: outcome() }];
-    const changed = await example('source', 'state').setSourceState(source().id, 1, 'enabled', 'enable-source', client);
-    expect(changed.state).toBe('committed');
-    expect(changed).not.toHaveProperty('current');
-    expect(calls).toHaveLength(1);
-    finished();
-  });
 
   it('keeps the same confirmation and intent while traversing Source impact pages', async () => {
     const ref = { kind: 'draft', streamID: stream().id, streamRevision: 1, release: 0,
@@ -263,7 +252,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
   it('creates an HTTP Server using the managed endpoint without Client credentials', async () => {
     const current = source();
     const serverDocument = { name: 'orders-in', protocol: 'http-api',
-      config: { role: 'server', endpoint: 'http://managed', options: {} } };
+      role: 'server', endpoint: 'http://managed' };
     steps = [{ path: 'sources/documents/create', check: body => expect(body).toEqual({
       dryRun: false, idempotencyKey: 'create-server', document: serverDocument,
     }), data: { ...current, document: serverDocument } }];
@@ -275,21 +264,21 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
 
   it('uses the public default Client role when the HTTP config omits role', async () => {
     const current = source();
-    const { role: _role, ...config } = current.document.config;
+    const { role: _role, ...document } = current.document;
     steps = [
       { path: 'streams/documents/create', check: body => {
         expect(body.program.sourceBindings[0].sourceId).toBe(current.id);
-        expect(body.program.script).toContain('upstream.request');
+        expect(body.program.script.code).toContain('upstream.request');
       }, data: stream() },
     ];
-    await example('stream', 'create').createHttpStream({ ...current, document: { ...current.document, config } }, 'inventory', 'orders-stream', 'create-stream', client);
+    await example('stream', 'create').createHttpStream({ ...current, document }, 'inventory', 'orders-stream', 'create-stream', client);
     expect(calls).toHaveLength(1);
     finished();
   });
 
   it.each([200, 401, 403, 429, 502])('HTTP collection example checks upstream status %s before accepting data', async status => {
     let script = '';
-    steps = [{ path: 'streams/documents/create', check: body => { script = body.program.script; }, data: stream() }];
+    steps = [{ path: 'streams/documents/create', check: body => { script = body.program.script.code; }, data: stream() }];
     await example('stream', 'create').createHttpStream(source(), 'inventory', 'inventory-stream', 'create-stream', client);
     const module = { exports: (_api: unknown) => {} };
     runInNewContext(script, { module });
@@ -318,8 +307,8 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
 
   it('saves a native HTTPServer Stream and registers its relative route and trusted request handler', async () => {
     const current = source(7);
-    current.document.config.role = 'server';
-    current.document.config.endpoint = 'http://managed';
+    current.document.role = 'server';
+    current.document.endpoint = 'http://managed';
     steps = [
       { path: 'sources/documents/get', check: body => expect(body).toEqual({ id: current.id, view: 'full' }), data: current },
       { path: 'streams/documents/create', check: body => {
@@ -354,7 +343,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
   ])('rejects %s/%s before saving an HTTPServer route', async (protocol, role) => {
     const current = source();
     steps = [{ path: 'sources/documents/get', data: { ...current,
-      document: { ...current.document, protocol, config: { ...current.document.config, role } } } }];
+      document: { ...current.document, protocol, role } } }];
     await expect(example('stream', 'http-server').createHttpServerStream(
       current.id, 'incoming-orders', 'save-route', client,
     )).rejects.toThrow('此入站路由示例需要 HTTP API Server Source');
@@ -364,8 +353,8 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
 
   it.each([false, true])('awaits the early HTTP reply before bounded work; write failure=%s', async failWrite => {
     const current = source(7);
-    current.document.config.role = 'server';
-    current.document.config.endpoint = 'http://managed';
+    current.document.role = 'server';
+    current.document.endpoint = 'http://managed';
     let code = '';
     steps = [
       { path: 'sources/documents/get', data: current },
@@ -421,7 +410,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     const current = source();
     steps = [];
     await expect(example('stream', 'create').createHttpStream(
-      { ...current, document: { ...current.document, protocol, config: { ...current.document.config, role } } },
+      { ...current, document: { ...current.document, protocol, role } },
       'inventory', 'orders-stream', 'create-stream', client,
     )).rejects.toThrow('此主动请求示例需要 HTTP API Client Source');
     expect(calls).toHaveLength(0);
@@ -432,9 +421,9 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     steps = [
       { path: 'streams/documents/create', check: b => {
         expect(b.program.sourceBindings).toEqual([{ sourceId: source().id, configRevision: 1, acquisition: {} }]);
-        expect(b.program.script).toContain('api.sources.use');
-        expect(b.program.script).toContain('api.stream.every');
-        expect(b.program.script).not.toMatch(/\.onTimer\(|\.onEvent\(|\.secrets\(|\bcontrol\s*:/);
+        expect(b.program.script.code).toContain('api.sources.use');
+        expect(b.program.script.code).toContain('api.stream.every');
+        expect(b.program.script.code).not.toMatch(/\.onTimer\(|\.onEvent\(|\.secrets\(|\bcontrol\s*:/);
       }, data: stream() },
       { path: 'streams/documents/update', check: b => expect(b).toMatchObject({
         expectedRevision: 1, document: { ...stream().document, description: 'updated' } }), data: stream(2, 'updated') },
@@ -442,7 +431,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
         expectedRevision: 2, expectedSourceRevision: 1, dryRun: false }),
         data: { id: stream().id, revision: 2, activeVersion: '9007199254740997', activeRelease: 1 } },
       { path: 'streams/documents/disable', check: b => expect(b).toMatchObject({
-        expectedRevision: 2, expectedActiveRelease: 1 }), data: { id: stream().id, revision: 3, status: 'disabled', activeRelease: 0 } },
+        expectedRevision: 2, expectedActiveVersion: '9007199254740997' }), data: { id: stream().id, revision: 3, status: 'disabled', activeVersion: '0', activeRelease: 0 } },
       { path: 'streams/program/delete', check: b => expect(b.expectedRevision).toBe(3),
         data: { id: stream().id, revision: 3, deleted: true } },
     ];
@@ -467,6 +456,17 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     await expect(example('stream', 'update').updateStreamDescription(
       stream(), 'change', 'stale-update', client,
     )).rejects.toMatchObject({ code: 'VERSION_CONFLICT', requestId: 'conflict-fixture' });
+    expect(calls).toHaveLength(1);
+    finished();
+  });
+
+  it('submits the documented collection purge without claiming completion', async () => {
+    steps = [{ path: 'metadata:purge', check: body => expect(body).toEqual({
+      kind: 'collection', ids: ['devices'], idempotencyKey: 'purge-devices',
+    }), data: { status: 'accepted', jobId: 'purge-job', replayed: false, results: [] } }];
+    const result = await example('uns', 'delete', 2).purgeCollections(['devices'], 'purge-devices', client);
+    expect(result.state).toBe('submitted');
+    expect(result.receipt.data).toMatchObject({ status: 'accepted', jobId: 'purge-job' });
     expect(calls).toHaveLength(1);
     finished();
   });
@@ -497,18 +497,11 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
         kind: 'collection', filter: { _id: 'devices' }, expectedRevision: 2,
         update: { $set: { name: 'renamed' } }, returnDocument: 'after', upsert: false,
       }), data: { ...outcome(), value: { ...collection(3), data: { ...collection().data, name: 'renamed' } } } },
-      { path: 'collections/devices/records:find', data: records(record(2, 'pump-2')) },
       { path: 'collections/devices/records:deleteOne', check: b => expect(b.expectedRevision).toBe(2),
         data: { status: 'committed', deletedCount: 1, replayed: false } },
-      { path: 'collections/devices/records:find', data: records() },
       { path: 'collections/devices/records:restore', data: { status: 'committed', restoredCount: 1, restoredIds: ['device-1'], replayed: false } },
-      { path: 'collections/devices/records:find', data: records(record(4, 'pump-2')) },
-      { path: 'metadata:find', data: { items: [collection(3)] } },
       { path: 'metadata:deleteOne', check: b => expect(b.expectedRevision).toBe(3), data: { ...outcome(), deletedCount: 1 } },
-      { path: 'metadata:find', check: b => expect(b.state).toBe('deleted'), data: { items: [{ ...collection(4), deletedAt: 1 }] } },
-      { path: 'metadata:find', check: b => expect(b.state).toBe('deleted'), data: { items: [{ ...collection(4), deletedAt: 1 }] } },
       { path: 'metadata:restore', check: b => expect(b.items[0].expectedRevision).toBe(4), data: { ...outcome(), restoredCount: 1 } },
-      { path: 'metadata:find', data: { items: [collection(5)] } },
     ];
     await example('uns', 'create').createDeviceCollection('devices', 'devices', 'workshop-1', 'create-collection', client);
     const inserted = await example('uns', 'create', 1).insertDevice('devices', 'device-1', 'pump', 'insert-record', client);
@@ -517,10 +510,50 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     const schema = { ...collection().data.recordSchema, properties: { ...collection().data.recordSchema.properties, location: { type: 'string' } } };
     await example('uns', 'update', 1).replaceRecordSchema('devices', schema, 'schema-change', client);
     await example('uns', 'update').renameCollection('devices', 'renamed', 'rename-collection', client);
-    await example('uns', 'delete').deleteDevice('devices', 'device-1', 'delete-record', client);
-    await example('uns', 'restore').restoreDevice('devices', 'device-1', 'restore-record', client);
-    await example('uns', 'delete', 1).deleteCollection('devices', 'delete-collection', client);
-    await example('uns', 'restore').restoreCollection('devices', 'restore-collection', client);
+    const beforeDelete = calls.length;
+    expect((await example('uns', 'delete').deleteDevice('devices', 'device-1', 2, 'delete-record', client)).state).toBe('committed');
+    expect((await example('uns', 'restore').restoreDevice('devices', 'device-1', 'restore-record', client)).state).toBe('committed');
+    expect((await example('uns', 'delete', 1).deleteCollection('devices', 3, 'delete-collection', client)).state).toBe('deleted');
+    expect((await example('uns', 'restore').restoreCollection('devices', 4, 'restore-collection', client)).state).toBe('committed');
+    expect(calls.length - beforeDelete).toBe(4);
+    finished();
+  });
+
+  it.each([
+    { file: 'delete', index: 0, method: 'deleteDevice', args: ['devices', 'device-1', 2, 'delete-record'],
+      path: 'collections/devices/records:deleteOne', data: { ...outcome(), deletedCount: 0 } },
+    { file: 'delete', index: 1, method: 'deleteCollection', args: ['devices', 3, 'delete-collection'],
+      path: 'metadata:deleteOne', data: { ...outcome(), deletedCount: 0 } },
+    { file: 'restore', index: 0, method: 'restoreDevice', args: ['devices', 'device-1', 'restore-record'],
+      path: 'collections/devices/records:restore', data: { ...outcome(), restoredCount: 0, restoredIds: [] } },
+    { file: 'restore', index: 0, method: 'restoreCollection', args: ['devices', 4, 'restore-collection'],
+      path: 'metadata:restore', data: { ...outcome(), restoredCount: 0, items: [] } },
+  ])('does not report $method success when its target was not changed', async test => {
+    steps = [{ path: test.path, data: test.data }];
+    const result = await example('uns', test.file, test.index)[test.method](...test.args, client);
+    expect(result.state).toBe('unconfirmed');
+    expect(calls).toHaveLength(1);
+    finished();
+  });
+
+  it('preserves the caller revision and propagates a collection deletion conflict', async () => {
+    steps = [{ path: 'metadata:deleteOne', check: body => expect(body).toMatchObject({
+      filter: { _id: 'devices' }, expectedRevision: 3, idempotencyKey: 'stale-delete',
+    }), status: 409, raw: JSON.stringify({ code: 409, msg: 'changed', requestId: 'delete-conflict', data: null,
+      error: { code: 'VERSION_CONFLICT', details: [], execution: 'notStarted', retry: { safe: false } } }) }];
+    await expect(example('uns', 'delete', 1).deleteCollection('devices', 3, 'stale-delete', client))
+      .rejects.toMatchObject({ code: 'VERSION_CONFLICT', requestId: 'delete-conflict' });
+    expect(calls).toHaveLength(1);
+    finished();
+  });
+
+  it('leaves an unknown restore outcome for caller reconciliation without readback or replay', async () => {
+    steps = [{ path: 'metadata:restore', check: body => expect(body).toMatchObject({
+      items: [{ id: 'devices', expectedRevision: 4 }], idempotencyKey: 'restore-unknown',
+    }), raw: 'truncated response' }];
+    await expect(example('uns', 'restore').restoreCollection('devices', 4, 'restore-unknown', client))
+      .rejects.toBeInstanceOf(sdk.UnsV2OutcomeUnknownError);
+    expect(calls).toHaveLength(1);
     finished();
   });
 
@@ -535,7 +568,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
   });
 
   it('does not retry a Source mutation after an unknown transport result', async () => {
-    steps = [{ path: 'sources/delete', raw: 'truncated response' }];
+    steps = [{ path: 'sources/documents/delete', raw: 'truncated response' }];
     await expect(example('source', 'delete').deleteSource(source().id, 1, 'delete', client, token))
       .rejects.toBeInstanceOf(sdk.UnsV2OutcomeUnknownError);
     expect(calls).toHaveLength(1);
@@ -550,13 +583,14 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     finished();
   });
 
-  it('sends the migrated notification example with inbox type, explicit mode and v2 App identity', async () => {
+  it('sends the migrated notification example with inbox type, no mode and v2 App identity', async () => {
     vi.stubEnv('APP_ID', 'da6aa4b6-1a8f-43b7-86ed-73818fe22550');
     steps = [
       { path: '/openapi/v2/notifications/send', check: body => {
         expect(body).toMatchObject({ recipientUserId: '9007199254740993', type: 'inbox',
-          mode: 'test', idempotencyKey: 'work-order-event-v1', channels: ['web', 'mobile'],
+          idempotencyKey: 'work-order-event-v1', channels: ['web', 'mobile'],
           sender: { type: 'app', id: 'da6aa4b6-1a8f-43b7-86ed-73818fe22550' } });
+        expect(body).not.toHaveProperty('mode');
         expect(body.sender).not.toHaveProperty('meta');
         expect(body.sender).not.toHaveProperty('name');
       }, raw: JSON.stringify({ messageId: '9007199254740997', status: 'accepted', createdAt: '2026-10-22T00:00:00Z' }) },
@@ -565,7 +599,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     ];
     try {
       const sent = await example('notifications', 'send').sendCompletedOrder(
-        '9007199254740993', 'work-order', 'work-order-event-v1', 'test', client);
+        '9007199254740993', 'work-order', 'work-order-event-v1', client);
       const status = await example('notifications', 'get').waitForNotification(sent.messageId, client, 1);
       expect(status.status).toBe('accepted');
       expect(calls).toHaveLength(2);

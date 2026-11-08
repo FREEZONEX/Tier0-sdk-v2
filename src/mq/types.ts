@@ -5,6 +5,9 @@ export interface MQTTConfig {
    * - 裸 `host`（可含端口，如 `host:8084`）；
    * - 平台 `/openapi/v2/info` 返回的原始 `mqttBroker`（如 `tcp://host:1883`，
    *   建议先用 {@link toWebSocketUrl} 归一后再传入，见 `@tier0/sdk-v2/mq` 的 broker 工具）。
+   *
+   * 在 Tier0 预览和部署里不要传：SDK 只有在用 `TIER0_MQTT_URL`（`mqtt://`）时才走 TCP 经节点代理，
+   * 显式给的 host 会按 WebSocket 连接，经代理连不上。
    */
   host?: string;
   /** WebSocket port fallback when host has no embedded WebSocket port. */
@@ -16,11 +19,28 @@ export interface MQTTConfig {
   secure?: boolean;
   clientId?: string;
   username?: string;
-  /** Original API key; connect-time changes refresh automatically derived identity fields. */
+  /**
+   * API key or MQTT password. Explicit undefined is rejected by `connect()`;
+   * omit it to keep existing settings. Before the first connection,
+   * `connect()` may change it and refreshes automatically derived identity
+   * fields; once a client exists, disconnect and create a new client to
+   * change it.
+   * Leave it unset in the platform. On the server no password is sent: the
+   * node proxy puts in the App's key; username `<ws>&open` and clientId
+   * `<ws>&h.<app>.<random>` come from `TIER0_WORKSPACE_ID` and
+   * `TIER0_APP_ID`. In the browser the page runtime gives a
+   * fresh token for every connection.
+   */
   password?: string;
   keepAlive?: number;
+  /** Base of the reconnect backoff in milliseconds, capped at 5 minutes; 0 turns reconnecting off. */
   reconnectPeriod?: number;
   connectTimeout?: number;
+  /**
+   * Defaults to false: the persistent session keeps QoS 1 messages across a
+   * reconnect. Messages beyond the broker's offline queue (EMQX default 1000)
+   * are still lost.
+   */
   clean?: boolean;
   /**
    * 背压保护阈值：handler 连续返回 false（表示下游停滞/消费者已断开）达到

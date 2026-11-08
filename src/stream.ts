@@ -1,4 +1,4 @@
-import { HttpClient, type ClientConfig } from './openapi/client.js';
+import { HttpClient, snapshotClientConfig, type ClientConfig } from './openapi/client.js';
 import { createUnsV2Client, type UnsV2Client } from './uns-v2/client.js';
 import type { CloudTransportConfig } from './cloud-transport.js';
 
@@ -25,6 +25,7 @@ export function bindStreamClient(raw: UnsV2Client) {
 export type StreamClient = ReturnType<typeof bindStreamClient>;
 export type StreamClientConfig = ClientConfig & CloudTransportConfig;
 export function createStreamClient(config: StreamClientConfig = {}): StreamClient {
-  const http = new HttpClient(config);
-  return bindStreamClient(createUnsV2Client(() => http, config));
+  const snapshot = snapshotClientConfig(config, ['transportTimeoutMs', 'unsV2MaxResponseBytes', 'unsV2AppDataSubject']);
+  const http = new HttpClient(snapshot);
+  return bindStreamClient(createUnsV2Client(() => http, snapshot));
 }

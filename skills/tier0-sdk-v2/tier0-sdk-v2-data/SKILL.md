@@ -5,13 +5,19 @@ description: 使用 @tier0/sdk-v2/data 在 App 服务端声明并读写本 App �
 
 # App 数据层
 
-工业场景创建数据前，先按[工业命名空间指导](../tier0-sdk-v2-uns/references/namespace.md)查找并复用已有 ISA-95 目录，只创建业务需要且缺失的层级。`defineCollection` / ensure 不接收 `parentId`，新集合默认放入 App 专属目录；需要指定工业目录时，由 Agent 在构建期用现有元数据接口创建并通过 `data.parentId` 放置，运行时按已有集合 ID 访问。
+创建 App 集合必须在 `defineCollection` 中声明 `directoryPath`：从 Workspace 根开始的实际业务目录名称数组，例如已确认的 `['苏州工厂', '装配一线', 'MES']`（代码写法见下方）。工业场景先按[工业命名空间指导](../tier0-sdk-v2-uns/references/namespace.md)查询并复用已有 ISA-95 目录，只声明业务需要且已知的层级；不同集合按实际范围放置，共享数据放到共同祖先。ensure 按路径逐级复用或创建目录，不再把所有集合放入缺少业务范围的根级 App 目录；允许在已知工厂、产线等业务范围下声明 App 或业务模块目录，例如“工厂 / 产线 / MES / 工单”中的 MES。不强行补满五层，不编造企业、工厂或设备。非工业场景使用真实业务目录。
 
 `@tier0/sdk-v2/data` 是 App 业务数据的服务端入口：用 `defineCollection` 声明集合，`createDataClient` 在首次访问时一次性 ensure 全部声明，然后用 Mongo 驱动风格的集合句柄读写 UNS 记录。没有 SQL、ORM、连接串或迁移步骤；Preview 与部署后的 App 共用同一批集合和记录。
 
+员工专用请求入口需要在缺失员工断言时停止，可使用 [员工请求必须携带身份](references/employee-required.md) 的显式入口；签名与授权由服务端验证。
+
 这里创建的集合以 `ownerAppId` 标识唯一所属 App。使用已有或其他 App 共享的集合时，用 `data.collection({ collectionId })` 获取句柄；可选 `schema` 仅做本地写入校验，不创建或修改集合。已有 ID 引用同样用于 `queryBatch`、`transact` 和 `subscribe`，不放入 `createDataClient` 的 `collections` 声明数组，不执行 ensure 或写种子。无需服务端 alias，仍须当前 App 已有相应集合授权；SDK 不授予权限，复用不改变所属关系。底层 [UNS](../tier0-sdk-v2-uns/SKILL.md) 的记录接口仍可直接按 ID 使用。
 
-数据读写只在服务端代码（业务 service）里用 `@tier0/sdk-v2/data`：该入口依赖 Node 内置模块，浏览器打包会直接失败。组件和 route 的客户端代码只能从 `@tier0/sdk-v2/data/define` 取集合声明和类型（`defineCollection`、`Doc`、`NewDoc` 等），它不加载数据运行时，可以进浏览器包。需要 `zod` 4。底层调用 SDK 生成的 UNS 操作（`appCollectionsEnsure`、`recordFind`、`recordTransactionExecute` 等），凭证读取平台注入的 TIER0_API_HOST / TIER0_API_KEY。
+数据读写只在服务端代码（业务 service）里用 `@tier0/sdk-v2/data`：该入口依赖 Node 内置模块，浏览器打包会直接失败。组件和 route 的客户端代码只能从 `@tier0/sdk-v2/data/define` 取集合声明和类型（`defineCollection`、`Doc`、`NewDoc` 等），它不加载数据运行时，可以进浏览器包。需要 `zod` 4。底层调用 SDK 生成的 UNS 操作（`appCollectionsEnsure`、`recordFind`、`recordTransactionExecute` 等），Tier0 预览和部署里只读平台设置的 TIER0_API_HOST，不需要也读不到 Key，节点代理注入 App 的长期 Key（预览和正式同一把，行为相同，种子在 ensure 时以 App 身份写入）；本地开发另设 TIER0_API_KEY。
+
+Data 客户端创建时固定 Host 和 Key（含环境值），不支持 `getApiKey` 或 `apiKeyProvider`；切换身份、Host 或环境凭证时须新建客户端，不能让 bootstrap、重试或订阅状态跨身份复用。员工数据委托仍按请求绑定到固定的 App Key。
+
+服务端已从可信身份链取得某主体的有效 Key 时，可用 `createDataClient({ apiHost, apiKey })` 为该主体创建独立实例，通过 `collection({ collectionId })` 访问其已获授权的现有集合；不要跨主体共享该实例。Key 轮换后创建新实例。声明集合的 ensure/seed 仍由服务端判断凭证是否有权限，不因创建客户端而获得授权。
 
 集合声明必须分别填写业务名称 `name` 与稳定程序标识 `alias`，例如 `name: '生产工单'`、`alias: 'production_orders'`。name 是唯一界面名称，没有 displayName 或 alias 回退；ensure 通过 alias 找回原集合，不覆盖用户改名。
 
@@ -37,6 +43,7 @@ import { defineCollection, type Doc } from '@tier0/sdk-v2/data/define';
 export const workOrders = defineCollection({
   alias: 'work_orders',
   name: '生产工单',
+  directoryPath: ['苏州工厂', '装配一线', 'MES'],
   description: 'Production work orders',
   schema: z.object({
     code: z.string(),
@@ -55,6 +62,8 @@ export async function releasedOrders(): Promise<WorkOrder[]> {
   return data.collection(workOrders).find({ status: 'RELEASED' }, { sort: { '_meta.createdAt': -1 }, limit: 50 }).toArray();
 }
 ```
+
+示例假设“苏州工厂 / 装配一线 / MES”已由业务确认；替换为实际目录，不照抄示例工厂。每段为独立业务名称，不使用斜杠拼接。新建缺少路径会报 `INVALID_REQUEST`；已有 alias 可兼容省略路径，后续声明的路径变化不会自动搬迁集合，返回 `DIRECTORY_PATH_NOT_APPLIED` 提示。
 
 ## 核心约束
 

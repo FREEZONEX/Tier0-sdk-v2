@@ -11,7 +11,8 @@
  *   `created`: fixed `_id`s, atomic chunks of 200 with a stable idempotency
  *   key per chunk, so a failed chunk (outcome unknown, or marked safe to
  *   resend) is replayed after a short wait instead of duplicated. Seed writes
- *   never carry a data subject.
+ *   never carry a data subject. Preview and deployments write them the same
+ *   way, as the App: both use the App's key, which the node proxy attaches.
  * - Preview throws on SCHEMA_CONFLICT and warnings so the worker sees them;
  *   a deployment logs them and keeps serving with the IDs it has.
  * - Self-healing: a Preview reset hard-deletes collections, and a worker or
@@ -260,7 +261,14 @@ export function createBootstrap(config: BootstrapConfig) {
       collectionIds.set(result.alias.toLowerCase(), result.collectionId);
       const notes = result.ignored ?? [];
       const annotations = notes.filter((note) => note.reason === 'ANNOTATION_NOT_APPLIED');
-      const wider = notes.filter((note) => note.reason !== 'ANNOTATION_NOT_APPLIED');
+      const directories = notes.filter((note) => note.reason === 'DIRECTORY_PATH_NOT_APPLIED');
+      const wider = notes.filter((note) => note.reason !== 'ANNOTATION_NOT_APPLIED' && note.reason !== 'DIRECTORY_PATH_NOT_APPLIED');
+      if (directories.length > 0) {
+        logger.warn(
+          `[data] ensure keeps existing collection locations; not applied: ${directories.map((note) => notePath(result.alias, note)).join(', ')}. ` +
+            'A directoryPath declaration only places a new collection. Move existing collections explicitly through metadata operations when authorized.',
+        );
+      }
       if (wider.length > 0) {
         logger.info(
           `[data] "${result.alias}" storage is wider than this declaration (or has retired parts); ignored: ` +

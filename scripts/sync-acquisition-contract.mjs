@@ -12,8 +12,8 @@ const scope = 'source-stream-acquisition';
 const sha = value => createHash('sha256').update(value).digest('hex');
 const json = value => JSON.stringify(value, null, 2) + '\n';
 export const acquisitionSchemas = [
-  'CloudSourceCreateCredentials', 'CloudSourceDocumentCreateReq', 'CloudSourceDocumentUpdateReq',
-  'UnsV2SourceStateUpdateReq', 'CloudStreamDocumentCreateReq', 'CloudStreamDocumentUpdateReq',
+  'SourceCredentials', 'CloudSourceDocumentCreateReq', 'CloudSourceDocumentUpdateReq',
+  'CloudStreamDocumentCreateReq', 'CloudStreamDocumentUpdateReq',
   'UnsV2StreamProgramDeployReq',
 ];
 
@@ -48,11 +48,15 @@ export function projectAcquisition(current, source) {
 export function verifyAcquisition(repository, committed = false) {
   const provenance = JSON.parse(readFileSync(resolve(repository, 'contracts/uns-v2/provenance.json')));
   const updates = provenance.schemaUpdates ?? [];
-  const update = updates.find(value => value.scope === scope);
+  const update = updates.find(value => value.scope === 'source-stream-public') ?? updates.find(value => value.scope === scope);
   assert.ok(update, 'Sync the acquisition contract before validating it');
   assert.match(update.revision, /^[a-f0-9]{40}$/);
-  assert.deepEqual(update.schemas, acquisitionSchemas);
-  assert.match(update.sourceSHA256, /^[a-f0-9]{64}$/);
+  if (update.scope === scope) {
+    assert.deepEqual(update.schemas, acquisitionSchemas);
+    assert.match(update.sourceSHA256, /^[a-f0-9]{64}$/);
+  } else {
+    for (const name of acquisitionSchemas) assert.ok(update.schemas.includes(name), `Missing acquisition schema: ${name}`);
+  }
   if (committed) assert.notEqual(update.sourceKind, 'working-tree-preview', 'Acquisition contract is a working-tree preview; sync its committed Backend revision before publishing.');
   for (const [path, input] of Object.entries(update.inputs)) {
     assert.equal(sha(readFileSync(resolve(repository, path))), input.resultSHA256, `Acquisition snapshot changed without sync: ${path}`);

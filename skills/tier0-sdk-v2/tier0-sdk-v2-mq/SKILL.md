@@ -9,6 +9,16 @@ description: 使用 @tier0/sdk-v2/mq 连接 Tier0 MQTT WebSocket Broker，管理
 
 `Tier0MQClient` 从独立子入口导入。它面向消息客户端；配置平台采集连接用 Source，运行处理逻辑用 Stream。HTTP SDK 的“不自动重试”不等于 MQTT 禁用重连或 QoS 重投递。
 
+## 在 Tier0 App 里
+
+预览和部署里直接 `new Tier0MQClient()`，**什么都不传**：SDK 用平台设置的 `TIER0_MQTT_URL`（`mqtt://`）走 TCP，经节点代理连 EMQX，不发 password，由代理填入 App 的长期 Key；username 为 `<ws>&open`、clientId 为 `<ws>&h.<app>.<16 位随机>`，由 `TIER0_WORKSPACE_ID`、`TIER0_APP_ID` 拼出，预览和正式相同。显式传 `host` 会改走 WebSocket，经代理连不上。断线后 SDK 一直重连，持久会话保留 QoS 1 消息。App 能用的主题由工作区管理员在 App 设置里管理，改了立即生效。App 里也不能调 `mqttAuth`。
+
+```ts
+import { Tier0MQClient } from '@tier0/sdk-v2/mq';
+
+export const appMq = new Tier0MQClient();
+```
+
 ## 使用已有凭证订阅
 
 ```ts
@@ -55,6 +65,8 @@ export async function revokeMqttCredential(id: number | bigint) {
 ```
 
 仅在任务需要创建凭证时使用 create，普通订阅重用已有受控凭证。完整 username/password/clientID 只在创建时返回一次，按秘密管理，别写日志。SDK 配置的 clientId 小写 d，接口回执的 clientID 大写 ID。
+
+仅在未提供 `password` 时使用进程环境 Key。`connect({ password: undefined })` 会拒绝，不使用已保存的身份；省略该字段仍沿用现有配置。拒绝不会改变现有连接或其自动重连身份，切换身份前须断开并创建新客户端。
 
 也可从编码了 Workspace 的平台 Key 推导 MQTT 身份；无法解析的 Key 会拒绝连接，不回退到 Enterprise 身份。浏览器场景须使用针对当前用户/主题授权的凭证方案，不能为了省事下发长期 App Key。
 

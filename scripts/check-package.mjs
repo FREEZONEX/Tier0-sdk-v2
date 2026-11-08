@@ -51,7 +51,7 @@ run(['--input-type=module', '-e', `
   const raw = createUnsV2Client();
   if (${JSON.stringify(retiredControlOperations)}.some(name => name in raw || name in UNS_V2_OPERATIONS)) throw new Error('Retired Controls raw operation leaked');
   if (operations.length !== UNS_V2_CONTRACT_PROVENANCE.publicOperationCount || operations.some(name => typeof raw[name] !== 'function')) throw new Error('Missing generated operations');
-  if (typeof client.uns.metadataFind !== 'function' || typeof client.uns.metadataBulkWrite !== 'function') throw new Error('Missing metadata operations');
+  if (typeof client.uns.metadataFind !== 'function' || typeof client.uns.metadataBulkWrite !== 'function' || typeof client.uns.metadataPurge !== 'function') throw new Error('Missing metadata operations');
   if ('collectionCreate' in client.uns || 'metaBatchExecute' in client.uns) throw new Error('Retired metadata routes leaked');
   if ('sourceList' in client.uns || 'streamProgramDeploy' in client.uns || 'controlInvoke' in client.uns) throw new Error('Mixed domain entrypoints');
   if ('list' in client.source || 'get' in client.stream.programs || 'nodes' in client.agent || 'controls' in client.api || 'controls' in client || 'ControlError' in sdk || 'ControlResultUnknownError' in sdk) throw new Error('Retired facade aliases leaked');
@@ -60,7 +60,7 @@ run(['--input-type=module', '-e', `
   if (typeof client.source.documents.get !== 'function' || typeof client.stream.programs.deploy !== 'function') throw new Error('Missing domain entrypoints');
 `], consumer);
 for (const ext of ['mts', 'cts']) writeFileSync(resolve(consumer, `consumer.${ext}`), `
-import { createClient, type Tier0Client, type CloudSourceDocument, type UnsV2Request } from '@tier0/sdk-v2';
+import { createClient, type Tier0Client, type SourceDefinition, type UnsV2Request } from '@tier0/sdk-v2';
 const namedCollection: UnsV2Request<'appCollectionsEnsure'> = { collections: [{ alias: 'orders', name: '生产工单', recordSchema: { type: 'object' } }] };
 // @ts-expect-error The installed low-level declaration requires name independently of alias.
 const unnamedCollection: UnsV2Request<'appCollectionsEnsure'> = { collections: [{ alias: 'orders', recordSchema: { type: 'object' } }] };
@@ -127,7 +127,7 @@ client.uns.recordInsertOne({ collectionId: 'orders', data: { code: 'A' }, return
 client.uns.metadataFind({ kind: 'collection', filter: { _id: 'orders' } });
 createSourceClient().documents.list({});
 // @ts-expect-error Packed declarations must not recreate HTTP Push as a Source protocol.
-const retiredPushProtocol: CloudSourceDocument['protocol'] = 'http_push';
+const retiredPushProtocol: SourceDefinition['protocol'] = 'http_push';
 // @ts-expect-error The packed Source list filter must also reject HTTP Push.
 createSourceClient().documents.list({ protocol: 'http_push' });
 void retiredPushProtocol;

@@ -4,18 +4,18 @@
 | --- | --- | --- |
 | programs.deploy | /openapi/v2/uns/streams/program/deploy | id；dryRun 默认 false，建议 expectedRevision 和发布状态守卫 |
 | programs.rollback | /openapi/v2/uns/streams/program/rollback | id、versionId、dryRun；建议 expectedRevision 和发布状态守卫 |
-| documents.disable | /openapi/v2/uns/streams/documents/disable | id、expectedRevision、expectedActiveRelease、dryRun |
+| documents.disable | /openapi/v2/uns/streams/documents/disable | id、expectedRevision、expectedActiveVersion、dryRun |
 
 全部写操作使用各自的 idempotencyKey。expectedSourceRevision 只适用于恰好一个 Source 依赖，且同时保护草稿冻结修订与当前 Source head；多源不能塞入单个修订值。原生文档没有 documents.deploy，当前云端 program 模型发布走 programs.deploy。
 
-发布和回滚有可选并发守卫：有生效发布时传入正整数 `expectedActiveRelease`；没有生效发布时传入 `expectedReleaseState: 'inactive'`，两者不能同时使用。服务端在事务内比较当前状态，变化时返回版本冲突；重新读取并决策后才能使用新的业务意图。守卫比较当前值，不记录中间发生的全部切换。
+发布、停用和回滚使用 `expectedActiveVersion` 并发守卫：传服务端回执的十进制字符串 activeVersion，'0' 表示无生效发布。它是不可推算的发布 ID，不是 activeRelease 序号；不再传 expectedReleaseState。服务端在事务内比较当前状态，变化时返回版本冲突；重新读取并决策后才能使用新的业务意图。守卫比较当前值，不记录中间发生的全部切换。
 
 发布、停用和回滚需要 uns.stream.manage；相关 Source 访问还受各自授权约束。保存回执中的 revision、发布回执中的 activeVersion 与 activeRelease 分别用于不同目的：
 
 | 字段 | 含义与用途 |
 | --- | --- |
 | revision | 草稿修订；传给下次写入的 expectedRevision，冲突时显式处理 |
-| activeVersion | 不可变发布版本 ID；回滚的 versionId 使用这个 ID，不使用发布序号 |
+| activeVersion | 十进制字符串形式的不可变发布 ID；用于 expectedActiveVersion 与回滚 versionId，不由 activeRelease 序号推算 |
 | activeRelease | 本次事务记录的正整数发布序号；与 runs.list 中的 release 对照；无活跃发布或回执未记录时省略 |
 
 programs 回执的 activeVersion:'0' 表示无活跃版本；programs 的 activeRelease 此时省略；documents 的 activeRelease 此时为 0。
@@ -24,11 +24,12 @@ programs 回执的 activeVersion:'0' 表示无活跃版本；programs 的 active
 import { createClient, type Tier0Client, type CloudStreamDocumentView, type CloudStreamStopView } from '@tier0/sdk-v2';
 
 export async function deployStream(current: CloudStreamDocumentView, intentKey: string, client: Tier0Client = createClient()) {
+  if (typeof current.activeVersion !== 'string' || !/^(0|[1-9][0-9]*)$/.test(current.activeVersion)) throw new Error('缺少权威 activeVersion；读取当前文档后再决定');
   const sources = current.document.sources ?? [];
   const request = {
     id: current.id, expectedRevision: current.revision,
-    ...(String(current.activeRelease) === '0' ? { expectedReleaseState: 'inactive' as const } : { expectedActiveRelease: current.activeRelease }),
-    ...(sources.length === 1 ? { expectedSourceRevision: sources[0]!.configRevision } : {}),
+    expectedActiveVersion: current.activeVersion,
+    ...(sources.length === 1 && !sources[0]!.target ? { expectedSourceRevision: sources[0]!.configRevision } : {}),
   };
   const receipt = await client.stream.programs.deploy({
     ...request, dryRun: false, idempotencyKey: intentKey,
@@ -44,22 +45,22 @@ export async function deployStream(current: CloudStreamDocumentView, intentKey: 
 }
 
 export async function disableStream(
-  current: Pick<CloudStreamStopView, 'id' | 'revision' | 'activeRelease'>,
+  current: Pick<CloudStreamStopView, 'id' | 'revision' | 'activeVersion'>,
   intentKey: string, client: Tier0Client = createClient(),
 ) {
-  if (BigInt(String(current.activeRelease)) <= 0n) throw new Error('没有活跃发布可停用');
+  if (typeof current.activeVersion !== 'string' || !/^[1-9][0-9]*$/.test(current.activeVersion)) throw new Error('没有已确认的活跃版本可停用');
   const receipt = await client.stream.documents.disable({
-    id: current.id, expectedRevision: current.revision, expectedActiveRelease: current.activeRelease,
+    id: current.id, expectedRevision: current.revision, expectedActiveVersion: current.activeVersion,
     dryRun: false, idempotencyKey: intentKey,
   });
-  if (!('id' in receipt.data) || String(receipt.data.activeRelease) !== '0') {
+  if (!('id' in receipt.data) || receipt.data.activeVersion !== '0') {
     throw new Error('未返回停用回执');
   }
   return { receipt, current: receipt.data };
 }
 ```
 
-将创建或更新回执的 current 传给 deployStream，只发一次发布请求。只有手上没有草稿快照时才先 documents.get。使用 [按发布号查询运行记录](read.md#观察本次发布) 才能观察这次发布，观察窗口汇总不能证明该版本运行。发布成功不表示外部连接健康或执行成功。停用使用已确认的 id/revision/activeRelease（可来自发布回执），返回的 current 可直接用于删除；不需要前后各 get。停用保留草稿。仅修改草稿的任务不额外发布/停用。
+将创建或更新回执的 current 传给 deployStream，只发一次发布请求。只有手上没有草稿快照时才先 documents.get。使用 [按发布号查询运行记录](read.md#观察本次发布) 才能观察这次发布，观察窗口汇总不能证明该版本运行。发布成功不表示外部连接健康或执行成功。停用使用已确认的 id/revision/activeVersion（可来自发布回执），返回的 current 可直接用于删除；不需要前后各 get。停用保留草稿。仅修改草稿的任务不额外发布/停用。
 
 ## 回滚到明确版本
 
@@ -67,12 +68,13 @@ export async function disableStream(
 import { createClient, type Tier0Client, type CloudStreamStopView } from '@tier0/sdk-v2';
 
 export async function rollbackStream(
-  current: Pick<CloudStreamStopView, 'id' | 'revision' | 'activeRelease'>, versionId: string, intentKey: string, client: Tier0Client = createClient(),
+  current: Pick<CloudStreamStopView, 'id' | 'revision' | 'activeVersion'>, versionId: string, intentKey: string, client: Tier0Client = createClient(),
 ) {
   // versionId 使用已知发布回执的 activeVersion，或从 programs.versions.list 选定。
+  if (typeof current.activeVersion !== 'string' || !/^(0|[1-9][0-9]*)$/.test(current.activeVersion)) throw new Error('缺少权威 activeVersion；读取当前文档后再决定');
   return client.stream.programs.rollback({
     id: current.id, versionId, expectedRevision: current.revision,
-    ...(String(current.activeRelease) === '0' ? { expectedReleaseState: 'inactive' as const } : { expectedActiveRelease: current.activeRelease }),
+    expectedActiveVersion: current.activeVersion,
     dryRun: false, idempotencyKey: intentKey,
   });
 }
