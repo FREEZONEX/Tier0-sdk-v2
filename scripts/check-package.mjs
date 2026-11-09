@@ -78,7 +78,9 @@ ${[...retiredControlSchemas, 'ControlJSON', 'PublicControl', 'ControlDiscoverOpt
   'ControlTransportConfig', 'CloudClientConfig', 'ControlInvokeOptions', 'ControlInvokeResponse', 'ControlErrorInfo',
   'ControlError', 'ControlResultUnknownError', 'ControlHandle', 'ControlsClient', 'controls', 'DEFAULT_CONTROL_TRANSPORT_TIMEOUT_MS'].map(name =>
   `// @ts-expect-error Retired public declaration must not be exported.\nimport type { ${name} } from '@tier0/sdk-v2';`).join('\n')}
-import { Tier0MQClient } from '@tier0/sdk-v2/mq';
+import { Tier0MQClient, appTopic } from '@tier0/sdk-v2/mq';
+const namespacedTopic: string = appTopic('alarms/#');
+void namespacedTopic;
 import { createSourceClient } from '@tier0/sdk-v2/source';
 import { createStreamClient } from '@tier0/sdk-v2/stream';
 import { createDataClient, type Doc } from '@tier0/sdk-v2/data';

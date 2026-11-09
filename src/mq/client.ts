@@ -3,6 +3,7 @@ import type { MqttClient, IClientOptions } from 'mqtt';
 import { platformIdentity, platformProxyMode } from '../platform-proxy.js';
 import { getEnvVar } from '../runtime-env.js';
 import { DEFAULT_WSS_PORT, isBrowserHttps, parseMqttBroker, toWebSocketUrl } from './broker.js';
+import { APP_SEGMENT } from './topic.js';
 import type { MQTTConfig, MQTTEventMap } from './types.js';
 
 /** Design 21.6: backoff ceiling of a client that never gives up. */
@@ -40,12 +41,6 @@ function parseWorkspaceIDFromApiKey(apiKey: string): string | undefined {
   }
   return workspaceID > 0n ? workspaceID.toString() : undefined;
 }
-
-/**
- * App segment of a hosted App key's clientId, as Backend `hostedappkey` accepts it:
- * `<ws>&h.<app>.<[a-z0-9]{8,32}>`, app `[A-Za-z0-9_-]{1,64}` (no `&` or `.`).
- */
-const HOSTED_APP_SEGMENT = /^[A-Za-z0-9_-]{1,64}$/;
 
 function generateRandomString(length = 8): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -125,7 +120,7 @@ export class Tier0MQClient {
     // only with clientId `<ws>&h.<app>.<random>` (app = TIER0_APP_ID). Any other key keeps `<ws>&<random>`.
     const appId = getEnvVar('TIER0_APP_ID')?.trim();
     const hosted = !explicitPassword && !!password && config?.clientId === undefined && config?.username === undefined &&
-      !!appId && HOSTED_APP_SEGMENT.test(appId);
+      !!appId && APP_SEGMENT.test(appId);
     const autoClientId = workspaceID
       ? hosted ? `${workspaceID}&h.${appId}.${this.clientSuffix}` : `${workspaceID}&${generateRandomString(8)}`
       : undefined;

@@ -1,5 +1,6 @@
 export { Tier0MQClient } from './client.js';
 export type { TopicHandler } from './client.js';
+export { appTopic } from './topic.js';
 export {
   parseMqttBroker,
   toWebSocketUrl,
