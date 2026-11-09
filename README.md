@@ -96,7 +96,7 @@ Data 高层会跨请求复用 ensure 结果、重放带幂等键的 seed、恢�
 | `TIER0_APP_ID` | App ID（`getCurrentAppId()` 先读它，再读旧的 `APP_ID`） |
 | `TIER0_RUNTIME` | `deployed` 或 `preview` |
 
-App 的 Key 能调哪些接口由 Backend 按 App 的平台权限判定；平台权限（十项）和消息主题由工作区管理员在 App 设置里管理，改了立即生效；外部集合仍在发布时确认。
+App 的 Key 只能调 `/openapi/v2/uns/**`、`assets/**`、`notifications/send`、`platform/getMembers`（`members.listWorkspace()`）、`apps/access-members/list`（`members.listApp()`）、`info`，Backend 在每个入口都这样限制，其他接口（`system.whoami()`、`notifications.get`、`mqttAuth`、`capabilities`、`agent`、`client.streams`）回 403 `hosted_app_key_route_forbidden`；平台接口再按 App 的平台权限判定。平台权限（十项）和消息主题由工作区管理员在 App 设置里管理，改了立即生效；外部集合仍在发布时确认。
 
 **平台代理模式**（保留给不带 Key 的运行时）：`TIER0_RUNTIME` 为 `deployed` 或 `preview`、而进程里没有 `TIER0_API_KEY` 时，SDK 不读也不发任何凭据，每个请求带 `X-Tier0-SDK: 1`，只对节点代理自己产生的 `503`、`429`（带 `X-Tier0-Proxy: not-forwarded`，`code` 以 `sbx_proxy_` 开头）按 `retry_after_ms` 最多重试 3 次；MQTT 用 `TIER0_MQTT_URL`（`mqtt://`）且不发 password。传了有值的 `apiKey`，或给了 `getApiKey` / `apiKeyProvider` 的客户端始终按显式配置。没有 `TIER0_API_KEY` 而 `TIER0_RUNTIME` 是其他非空值时，SDK 抛出配置错误，不猜测模式。当前平台给绑定 App 的会话和已发布的 App 都注入 `TIER0_API_KEY`，不会进入这个模式；没绑 App 的会话没有 Key 也没有 `TIER0_API_HOST`，调平台会报 `DATA_NOT_CONFIGURED` 一类的配置错误。
 

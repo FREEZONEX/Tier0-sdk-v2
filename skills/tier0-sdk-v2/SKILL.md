@@ -45,7 +45,7 @@ export async function inspectConnection() {
 
 **Tier0 预览和部署里，App 的 Key 在运行进程的环境里**：平台注入 `TIER0_API_KEY`（这个 App 的 Key，秘密；预览是 preview Key，部署是 deployed Key）和 `TIER0_API_HOST`，`createClient()` 直接用它们，只发一个 `X-API-Key`。App 代码不要自己读、复制、打印或下发这个 Key，也不要生成或硬编码 Key；直接调平台时也通过 SDK。身份读平台设置的 `TIER0_WORKSPACE_ID`、`TIER0_APP_ID`。
 
-App 的 Key 能调哪些接口由 Backend 按 App 的平台权限判定；Source / Stream 管理接口 App 的 Key 无权调用，Backend 回 403。平台权限和消息主题由工作区管理员在 App 设置里管理，改了立即生效；外部集合在发布时确认。没有 `TIER0_API_KEY` 而 `TIER0_RUNTIME` 为 `deployed` / `preview` 时 SDK 进入平台代理模式（不发凭据、带 `X-Tier0-SDK: 1`），当前平台不会出现这种运行时，见 [错误码](tier0-sdk-v2-data/references/errors.md#平台代理模式的错误)。
+App 的 Key 只能调 `/openapi/v2/uns/**`、`assets/**`、`notifications/send`、`platform/getMembers`（`members.listWorkspace()`）、`apps/access-members/list`（`members.listApp()`）、`info`；其他接口（`system.whoami()`、`notifications.get`、`mqttAuth`、`capabilities`、`agent`、`client.streams`）回 403 `hosted_app_key_route_forbidden`，平台接口再按 App 的平台权限判定；Source / Stream 管理接口 App 的 Key 无权调用，Backend 回 403。平台权限和消息主题由工作区管理员在 App 设置里管理，改了立即生效；外部集合在发布时确认。没有 `TIER0_API_KEY` 而 `TIER0_RUNTIME` 为 `deployed` / `preview` 时 SDK 进入平台代理模式（不发凭据、带 `X-Tier0-SDK: 1`），当前平台不会出现这种运行时，见 [错误码](tier0-sdk-v2-data/references/errors.md#平台代理模式的错误)。
 
 不同身份使用独立实例。App 调平台只有一种身份：App 自身。当前用户和角色从前门注入的 `X-Tier0-Visitor` 读（`parseVisitorHeader`），按角色决定谁能看、能改什么由 App 在服务端自己做，见 [身份与框架集成](references/integration.md)。
 
