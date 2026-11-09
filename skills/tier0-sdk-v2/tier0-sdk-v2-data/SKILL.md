@@ -33,7 +33,7 @@ Data 客户端创建时固定 Host 和 Key（含环境值），不支持 `getApi
 
 ## 最小用法
 
-新 App 没有集合时是正常空态：`uns.dataAppContext({})` 返回 `dataState: "uninitialized"` 和空集合，不创建任何数据。无需先调用 context 或手工激活数据策略；声明真实业务集合后，第一次数据访问会自动初始化。`dataState: "ready"` 也不代表可访问整个工作空间，仍以返回的集合授权为准。引用已有 WMS 等集合需要明确共享授权，不能创建同名空集合代替。管理员停用返回 `FORBIDDEN`、reason `APP_DATA_POLICY_DISABLED`，不得自动恢复。
+新 App 没有集合时是正常空态：`uns.dataAppContext({})` 返回 `dataState: "uninitialized"` 和空集合，不创建任何数据。无需先调用 context 或手工激活数据策略；声明真实业务集合后，第一次数据访问会自动初始化。`dataState: "ready"` 也不代表可访问整个工作空间，仍以返回的集合授权为准。引用已有 WMS 等外部集合要由工作区 Owner/Admin 在 App 设置里授权（Builder agent 加不了），不能创建同名空集合代替；授权删掉后下一个请求起被拒绝。管理员停用返回 `FORBIDDEN`、reason `APP_DATA_POLICY_DISABLED`，不得自动恢复。
 
 ```ts
 import { z } from 'zod';

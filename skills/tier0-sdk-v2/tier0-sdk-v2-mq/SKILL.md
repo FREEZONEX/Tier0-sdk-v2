@@ -11,12 +11,25 @@ description: 使用 @tier0/sdk-v2/mq 连接 Tier0 MQTT WebSocket Broker，管理
 
 ## 在 Tier0 App 里
 
-预览和部署里直接 `new Tier0MQClient()`，**什么都不传**：broker 取自平台注入的 `TIER0_MQTT_HOST` / `TIER0_MQTT_PORT`，password 是平台注入的 App Key `TIER0_API_KEY`，username 为 `<ws>&open`（ws 从 Key 解析），clientId 为托管格式 `<ws>&h.<app>.<16 位随机>`（app 即 `TIER0_APP_ID`；Backend 只接受这种 clientId 的 App Key）。显式传 `clientId` / `username` / `password` 时按传入的来，托管格式不再生效。断线后 SDK 一直重连，持久会话保留 QoS 1 消息。App 能用的主题由工作区管理员在 App 设置里管理，改了立即生效。App 里也不能调 `mqttAuth`。
+预览和部署里直接 `new Tier0MQClient()`，**什么都不传**：broker 取自平台注入的 `TIER0_MQTT_HOST` / `TIER0_MQTT_PORT`，password 是平台注入的 App Key `TIER0_API_KEY`，username 为 `<ws>&open`（ws 从 Key 解析），clientId 为托管格式 `<ws>&h.<app>.<16 位随机>`（app 即 `TIER0_APP_ID`；Backend 只接受这种 clientId 的 App Key）。显式传 `clientId` / `username` / `password` 时按传入的来，托管格式不再生效。断线后 SDK 一直重连，持久会话保留 QoS 1 消息。App 里也不能调 `mqttAuth`。
+
+App 的 Key 只能收发 App 自己命名空间里的主题 `apps/<TIER0_APP_ID>/<preview|deployed>/…`：预览的 Key 只能用 `preview` 段，部署的 Key 只能用 `deployed` 段，可发布可订阅，命名空间内可以用 `+` / `#`；别的 App、另一个运行环境的段和其他主题都会被 broker 拒绝。主题不在 App 设置里配置。Backend 按 Key 自己的运行环境定段名，没有运行环境的旧 Key 按 `deployed`。
+
+主题一律用 `appTopic(suffix)` 拼：它读平台注入的 `TIER0_APP_ID`、`TIER0_RUNTIME`（`preview` / `deployed`），返回 `apps/<TIER0_APP_ID>/<TIER0_RUNTIME>/<suffix>`；缺一个或值不对时抛错，不猜段名。`suffix` 不能为空、不能以 `/` 开头。
 
 ```ts
-import { Tier0MQClient } from '@tier0/sdk-v2/mq';
+import { Tier0MQClient, appTopic } from '@tier0/sdk-v2/mq';
 
 export const appMq = new Tier0MQClient();
+
+export async function watchAlarms(onAlarm: (topic: string, payload: string) => void) {
+  await appMq.connect();
+  appMq.subscribe(appTopic('alarms/#'), onAlarm);
+}
+
+export async function raiseAlarm(line: string, level: string) {
+  await appMq.publish(appTopic(`alarms/${line}`), { level }, { qos: 1 });
+}
 ```
 
 ## 使用已有凭证订阅

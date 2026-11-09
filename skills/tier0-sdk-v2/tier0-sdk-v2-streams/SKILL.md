@@ -7,7 +7,7 @@ description: "Tier0 App/Stream requests and live business messages: client.strea
 
 Read the [root Skill](../SKILL.md) first.
 
-**Not yet supported for a Tier0 App's server code**: the platform has not enabled Stream requests and messages for Apps in Preview and deployments. Do not build App features on them until it does. These APIs require an artifact built from the unified SDK implementation: pin its commit and SHA-256 until the corresponding version is published.
+**In a Tier0 App's server code** the App's key (`TIER0_API_KEY`) can use both. Stream requests and messages are fixed capabilities of every App (`stream.requests.read` / `invoke` / `write`, `stream.messages.publish` / `subscribe`), not configured per App and not approved by an admin. They are still bounded by the workspace plan (a plan without Stream refuses them) and, for requests, by the Stream request grants: the request code must be granted to this App. Message topics come from published Stream manifests: the App may subscribe to a topic a published Stream declares with `api.stream.messages.use({ topic, access: 'publish' })`, and publish to a topic an active Stream subscribes to. There is no per-App topic list. These APIs require an artifact built from the unified SDK implementation: pin its commit and SHA-256 until the corresponding version is published.
 
 ## Select the interaction
 
