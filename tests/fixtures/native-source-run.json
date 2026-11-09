@@ -1,0 +1,31 @@
+{
+  "checkedAt": 1794202930121,
+  "items": [
+    {
+      "id": "delivery:10002",
+      "kind": "delivery",
+      "release": "1",
+      "entryId": "r",
+      "trigger": "raw",
+      "status": "unknown",
+      "createdAt": 1794202929351,
+      "finishedAt": 1794202929365,
+      "durationMs": null,
+      "error": {
+        "code": "RESULT_UNKNOWN",
+        "stage": "unknown",
+        "message": "The run outcome could not be confirmed.",
+        "repair": "Inspect the upstream system and prior external effects before retrying; a request may already have completed."
+      },
+      "diagnostics": {
+        "hostError": {
+          "code": "61",
+          "stage": "source_read",
+          "message": "Get \"http://fixture.internal/api/\": dial tcp 127.0.0.1:50245: connect: connection refused",
+          "repair": ""
+        }
+      }
+    }
+  ],
+  "nextCursor": ""
+}

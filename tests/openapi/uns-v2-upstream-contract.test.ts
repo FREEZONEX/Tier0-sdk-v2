@@ -59,7 +59,10 @@ describe('Backend App UNS access contract without generic record audit', () => {
     expect(acquisition.revision).toMatch(/^[a-f0-9]{40}$/);
     expect(capability.sourceKind).toBe(upstream.sourceKind ?? 'committed');
     for (const [path, input] of Object.entries(acquisition.inputs) as [string, { baseSHA256: string; resultSHA256: string }][]) {
-      expect(input.resultSHA256).toBe(upstream.inputs[path].sha256);
+      const diagnostics = upstream.schemaUpdates.find((update: { scope: string }) => update.scope === 'stream-diagnostics');
+      const overlay = diagnostics?.inputs[path];
+      if (overlay) expect(overlay.baseSHA256).toBe(input.resultSHA256);
+      expect(overlay?.resultSHA256 ?? input.resultSHA256).toBe(upstream.inputs[path].sha256);
     }
   });
 
