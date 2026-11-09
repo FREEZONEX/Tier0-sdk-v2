@@ -21,10 +21,13 @@ export const APP_SEGMENT = /^[A-Za-z0-9_-]{1,64}$/;
  * `subscribe`, e.g. `appTopic('alarms/#')`. It must not be empty or start
  * with `/`.
  *
- * Throws outside the platform: when `TIER0_APP_ID` is missing or is not a
- * valid topic level, or `TIER0_RUNTIME` is not `preview` or `deployed`. It
- * never guesses a segment, so local development does not land in a deployed
- * App's topics; set both variables there yourself.
+ * Use it only on the platform (Builder previews and deployments). It throws
+ * outside the platform: when `TIER0_APP_ID` is missing or is not a valid
+ * topic level, or `TIER0_RUNTIME` is not `preview` or `deployed`. It never
+ * guesses a segment, so local development does not land in a deployed App's
+ * topics. Do not set `TIER0_RUNTIME` locally (only the platform sets it; it
+ * also picks the `members.listApp()` scope and platform proxy mode); to debug
+ * MQTT locally, write the full topic yourself.
  */
 export function appTopic(suffix: string): string {
   if (typeof suffix !== 'string' || suffix === '' || suffix.startsWith('/')) {

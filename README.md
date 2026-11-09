@@ -96,13 +96,13 @@ Data 高层会跨请求复用 ensure 结果、重放带幂等键的 seed、恢�
 | `TIER0_MQTT_HOST`、`TIER0_MQTT_PORT` | App 服务端能连到的 MQTT broker 入口 |
 | `TIER0_WORKSPACE_ID` | 工作区 ID |
 | `TIER0_APP_ID` | App ID（`getCurrentAppId()` 先读它，再读旧的 `APP_ID`） |
-| `TIER0_RUNTIME` | `deployed` 或 `preview` |
+| `TIER0_RUNTIME` | `deployed` 或 `preview`；只由平台设置，本地开发不要设（它还决定 `members.listApp()` 的口径和平台代理模式） |
 
-App 的 Key（平台注入的这把）只能调 `/openapi/v2/uns/**`、`assets/**`、`notifications/send`、`platform/getMembers`（`members.listWorkspace()`）、`apps/access-members/list`（`members.listApp()`）、`stream-requests/discover` 和 `stream-requests/<code>/describe|invoke`（`client.streams.requests`）、`stream-messages/connect`（`client.streams.messages`）、`capabilities/discover`、`info`，Backend 在每个入口都这样限制，其他接口（`system.whoami()`、`notifications.get`、`mqttAuth`、`agent`）回 403 `hosted_app_key_route_forbidden`；在 App 设置里另签给外部系统用的 App Key 不受这张表限制。App 的平台能力固定 11 项，每个 App 都有，不在 App 设置里配置：`openapi.base`、`platform.users.read`、`notifications.send`、`asset.file.upload` / `download` / `delete`、`stream.requests.read` / `invoke` / `write`、`stream.messages.publish` / `subscribe`。实际生效的是它们和 Key 自身权限、Key 模式、工作区套餐的交集（`uns.dataAppContext({})` 返回的 `platformPermissions`），例如套餐不含 Stream 时 Stream 请求和消息仍被拒绝。数据只能访问 App 自己建的集合，以及工作区 Owner/Admin 在 App 设置里授权的外部集合（Builder agent 加不了外部集合授权）；授权删掉后下一个请求起生效，`records:subscribe` 在下一轮长轮询（最多约 15 秒）收到 `SCOPE_CHANGED`。MQTT 只能用 App 自己的命名空间，见 [MQTT](#mqtt)。
+App 的 Key（平台注入的这把）只能调 `/openapi/v2/uns/**`、`assets/files/**`（`client.files`；同在 `assets/` 下的 `assets/upload` 不在内，回 403）、`notifications/send`、`platform/getMembers`（`members.listWorkspace()`）、`apps/access-members/list`（`members.listApp()`）、`stream-requests/discover` 和 `stream-requests/<code>/describe|invoke`（`client.streams.requests`）、`stream-messages/connect`（`client.streams.messages`）、`capabilities/discover`、`info`，Backend 在每个入口都这样限制，其他接口（`system.whoami()`、`notifications.get`、`mqttAuth`、`agent`）回 403 `hosted_app_key_route_forbidden`；在 App 设置里另签给外部系统用的 App Key 不受这张表限制。App 的平台能力固定 11 项，每个 App 都有，不在 App 设置里配置：`openapi.base`、`platform.users.read`、`notifications.send`、`asset.file.upload` / `download` / `delete`、`stream.requests.read` / `invoke` / `write`、`stream.messages.publish` / `subscribe`。实际生效的是它们和 Key 自身权限、Key 模式、工作区套餐的交集（`uns.dataAppContext({})` 返回的 `platformPermissions`），例如套餐不含 Stream 时 Stream 请求和消息仍被拒绝。数据只能访问 App 自己建的集合，以及工作区 Owner/Admin 在 App 设置里授权的外部集合（Builder agent 加不了外部集合授权）；授权删掉后下一个请求起生效，`records:subscribe` 在下一轮长轮询（最多约 15 秒）收到 `SCOPE_CHANGED`。MQTT 只能用 App 自己的命名空间，见 [MQTT](#mqtt)。
 
 **平台代理模式**（保留给不带 Key 的运行时）：`TIER0_RUNTIME` 为 `deployed` 或 `preview`、而进程里没有 `TIER0_API_KEY` 时，SDK 不读也不发任何凭据，每个请求带 `X-Tier0-SDK: 1`，只对节点代理自己产生的 `503`、`429`（带 `X-Tier0-Proxy: not-forwarded`，`code` 以 `sbx_proxy_` 开头）按 `retry_after_ms` 最多重试 3 次；MQTT 用 `TIER0_MQTT_URL`（`mqtt://`）且不发 password。传了有值的 `apiKey`，或给了 `getApiKey` / `apiKeyProvider` 的客户端始终按显式配置。没有 `TIER0_API_KEY` 而 `TIER0_RUNTIME` 是其他非空值时，SDK 抛出配置错误，不猜测模式。当前平台给绑定 App 的会话和已发布的 App 都注入 `TIER0_API_KEY`，不会进入这个模式；没绑 App 的会话没有 Key 也没有 `TIER0_API_HOST`，调平台会报 `DATA_NOT_CONFIGURED` 一类的配置错误。
 
-本地开发（没有 `TIER0_RUNTIME`）照旧设 `TIER0_API_HOST`、`TIER0_API_KEY`。
+本地开发照旧设 `TIER0_API_HOST`、`TIER0_API_KEY`，不要设 `TIER0_RUNTIME`（也不要写进 `.env` 或 `artifact.toml`）。
 
 - `@tier0/sdk-v2/server`：`parseVisitorHeader(request.headers.get(VISITOR_HEADER))` 解析前门注入的 `X-Tier0-Visitor`，返回 `{ subType, subject, grant, workspaceID, appID, runtime, appRoles, activeRole? }`。头的值是 UTF-8 JSON 对象的无填充 base64url（编码前最多 8192 字节），不签名：前门转发前剥掉客户端带来的全部 `X-Tier0-*`，再注入这一个头。解析是严格的：只接受规范的无填充 base64url；BOM、重复键、孤立的 UTF-16 代理项（如 `"\ud800"`）、未知字段、缺必填字段、类型或长度不符、`ws` 不是正整数十进制串（不带符号和前导 0）、员工没有 grant 或机器访问者带 grant、`app` 不等于 `TIER0_APP_ID` 都抛 `VisitorError`（`VISITOR_HEADER_INVALID`）；没有 `TIER0_APP_ID` 时是 `VISITOR_CONFIGURATION_INVALID`。App 用 `appRoles` 自己决定当前用户能看、能改哪些数据；平台对 App 的调用不带访问者身份，不会替 App 收窄。
 
@@ -290,7 +290,7 @@ const bytes = await response.arrayBuffer();
 
 **在 Tier0 App 里**直接 `new Tier0MQClient()`，什么都不传：broker、Key 和 clientId 都取平台注入的值（见上文「aenv-next 运行环境」）。App 的 Key 只能收发自己命名空间里的主题 `apps/<TIER0_APP_ID>/<preview|deployed>/…`：预览的 Key 只能用 `preview` 段，部署的 Key 只能用 `deployed` 段，可发布可订阅，命名空间内可以用 `+` / `#`；别的 App 的主题、另一个运行环境的段和其他任何主题都会被 broker 拒绝。主题不在 App 设置里配置，也不需要管理员授权。Backend 按 Key 自己的运行环境决定段名（不看 clientId 和环境变量），没有运行环境的旧 Key 按 `deployed`；平台注入的 `TIER0_RUNTIME` 和 Key 的运行环境同词。
 
-用 `appTopic(suffix)` 拼主题：它读 `TIER0_APP_ID` 和 `TIER0_RUNTIME`，返回 `apps/<TIER0_APP_ID>/<TIER0_RUNTIME>/<suffix>`；缺一个、App ID 不能当主题的一层，或 `TIER0_RUNTIME` 不是 `preview` / `deployed` 时抛错，不猜段名（本地开发自己设这两个变量）。
+用 `appTopic(suffix)` 拼主题：它读 `TIER0_APP_ID` 和 `TIER0_RUNTIME`，返回 `apps/<TIER0_APP_ID>/<TIER0_RUNTIME>/<suffix>`；缺一个、App ID 不能当主题的一层，或 `TIER0_RUNTIME` 不是 `preview` / `deployed` 时抛错，不猜段名。`appTopic` 只在平台里（预览 / 部署）用，平台外会抛错；本地开发不要为它设 `TIER0_RUNTIME`，需要本地调试 MQTT 时自己写完整主题。
 
 ```ts
 import { Tier0MQClient, appTopic } from '@tier0/sdk-v2/mq';

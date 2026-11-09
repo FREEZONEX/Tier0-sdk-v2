@@ -15,7 +15,7 @@ description: 使用 @tier0/sdk-v2/mq 连接 Tier0 MQTT WebSocket Broker，管理
 
 App 的 Key 只能收发 App 自己命名空间里的主题 `apps/<TIER0_APP_ID>/<preview|deployed>/…`：预览的 Key 只能用 `preview` 段，部署的 Key 只能用 `deployed` 段，可发布可订阅，命名空间内可以用 `+` / `#`；别的 App、另一个运行环境的段和其他主题都会被 broker 拒绝。主题不在 App 设置里配置。Backend 按 Key 自己的运行环境定段名，没有运行环境的旧 Key 按 `deployed`。
 
-主题一律用 `appTopic(suffix)` 拼：它读平台注入的 `TIER0_APP_ID`、`TIER0_RUNTIME`（`preview` / `deployed`），返回 `apps/<TIER0_APP_ID>/<TIER0_RUNTIME>/<suffix>`；缺一个或值不对时抛错，不猜段名。`suffix` 不能为空、不能以 `/` 开头。
+主题一律用 `appTopic(suffix)` 拼：它读平台注入的 `TIER0_APP_ID`、`TIER0_RUNTIME`（`preview` / `deployed`），返回 `apps/<TIER0_APP_ID>/<TIER0_RUNTIME>/<suffix>`；缺一个或值不对时抛错，不猜段名。`suffix` 不能为空、不能以 `/` 开头。`appTopic` 只在平台里（预览 / 部署）用，平台外会抛错；本地开发不要设 `TIER0_RUNTIME`，需要本地调试 MQTT 时自己写完整主题。
 
 ```ts
 import { Tier0MQClient, appTopic } from '@tier0/sdk-v2/mq';
