@@ -1,5 +1,4 @@
 import { client, createClient, StreamRequestError, StreamRequestResultUnknownError, type StreamMessage } from '../src/index.js';
-import { installAppRuntime } from '../src/runtime.js';
 
 const knownRequestError = new StreamRequestError('conflict', { errorCode: 'IDEMPOTENCY_CONFLICT' });
 const unknownRequestError = new StreamRequestResultUnknownError({ errorCode: 'STREAM_REQUEST_RESULT_UNKNOWN' });
@@ -19,13 +18,12 @@ const topic = createClient().streams.messages.use<{ text: string }>({ topic: 'ch
 void topic.publish({ text: 'hello' });
 void topic.subscribe((message: StreamMessage<{ text: string }>) => { message.payload.text.toUpperCase(); })
   .then(subscription => subscription.dispose());
-installAppRuntime({ appId: 'trusted-app', request: (_path, _body, { signal }) => fetch('/trusted/bridge', { signal }) });
 
 // @ts-expect-error Retired control runtime surface must not exist.
 client.controls;
 // @ts-expect-error Physical subjects are not public selector configuration.
 client.streams.messages.use({ topic: 'chat', publishSubject: 'raw.subject' });
-// @ts-expect-error Broker credentials are host-owned.
+// @ts-expect-error Broker credentials are issued per connection, never configured.
 createClient({ userJwt: 'secret' });
 // @ts-expect-error Caller cannot choose a deployment version.
 request.invoke({ value: 1 }, { deploymentVersion: '2' });

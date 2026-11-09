@@ -1,6 +1,4 @@
-import { platformErrorCode, reportAuthError } from './page-runtime.js';
 import { PROXY_HEADER, PROXY_NOT_FORWARDED } from './platform-proxy.js';
-import type { AppRuntime } from './runtime.js';
 import { getClient, type HttpClient, type RequestOptions } from './openapi/client.js';
 
 export interface CloudTransportConfig {
@@ -224,14 +222,13 @@ export class CloudTransport {
     }
   }
 
-  async post(path: string, body: unknown, signal?: AbortSignal, runtime?: AppRuntime): Promise<{ value: unknown; status: number; ok: boolean }> {
+  async post(path: string, body: unknown, signal?: AbortSignal): Promise<{ value: unknown; status: number; ok: boolean }> {
     const serialized = JSON.stringify(body);
     // Outside the transport catch: a configuration error (host, TIER0_RUNTIME) must surface as itself.
-    const resolved = this.resolveClient();
-    const timeoutMs = this.configuredTimeoutMs ?? resolved.timeoutMs;
-    const client = runtime ? undefined : resolved;
-    const url = client ? `${client.getBaseURL()}${path}` : '';
-    const send = client?.sender();
+    const client = this.resolveClient();
+    const timeoutMs = this.configuredTimeoutMs ?? client.timeoutMs;
+    const url = `${client.getBaseURL()}${path}`;
+    const send = client.sender();
     const controller = new AbortController();
     const abort = () => controller.abort();
     signal?.addEventListener('abort', abort, { once: true });
@@ -241,19 +238,11 @@ export class CloudTransport {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const exchange = async () => {
       try {
-        if (runtime) {
-          if (controller.signal.aborted) throw new CloudTransportError('TRANSPORT_ABORTED', undefined, true);
-          dispatched = true;
-          response = await runtime.request(path, body, { signal: controller.signal });
-          reportAuthError(platformErrorCode(response));
-        }
-        else {
-          const key = client!.hasApiKeyProvider() ? await client!.resolveApiKey(controller.signal) : client!.getApiKey();
-          if (controller.signal.aborted) throw new CloudTransportError('TRANSPORT_ABORTED');
-          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-          dispatched = true;
-          response = await send!(url, { method: 'POST', headers, body: serialized, redirect: 'manual', signal: controller.signal }, key);
-        }
+        const key = client.hasApiKeyProvider() ? await client.resolveApiKey(controller.signal) : client.getApiKey();
+        if (controller.signal.aborted) throw new CloudTransportError('TRANSPORT_ABORTED');
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        dispatched = true;
+        response = await send(url, { method: 'POST', headers, body: serialized, redirect: 'manual', signal: controller.signal }, key);
       } catch {
         throw new CloudTransportError('TRANSPORT_ERROR', undefined, !dispatched);
       }

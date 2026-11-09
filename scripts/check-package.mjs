@@ -69,11 +69,10 @@ const displayNameCollection: UnsV2Request<'appCollectionsEnsure'> = { collection
 void [namedCollection, unnamedCollection, displayNameCollection];
 import { client as appClient, StreamRequestResultUnknownError, type StreamMessage } from '@tier0/sdk-v2';
 import { StreamRequestsClient, StreamMessagesClient } from '@tier0/sdk-v2/streams';
-import { installAppRuntime } from '@tier0/sdk-v2/runtime';
 const request = appClient.streams.requests.use<{ code: string }, { accepted: boolean }>({ code: 'orders.approve' });
 const invocation: Promise<boolean> = request.invoke({ code: 'A' }, { idempotencyKey: 'intent-1' }).then(result => result.result.accepted);
 const subscription = appClient.streams.messages.use<{ code: string }>({ topic: 'orders/accepted' }).subscribe((message: StreamMessage<{ code: string }>) => { void message.payload.code; });
-void [invocation, subscription, StreamRequestsClient, StreamMessagesClient, StreamRequestResultUnknownError, installAppRuntime];
+void [invocation, subscription, StreamRequestsClient, StreamMessagesClient, StreamRequestResultUnknownError];
 ${[...retiredControlSchemas, 'ControlJSON', 'PublicControl', 'ControlDiscoverOptions', 'ControlDiscoverResponse',
   'ControlTransportConfig', 'CloudClientConfig', 'ControlInvokeOptions', 'ControlInvokeResponse', 'ControlErrorInfo',
   'ControlError', 'ControlResultUnknownError', 'ControlHandle', 'ControlsClient', 'controls', 'DEFAULT_CONTROL_TRANSPORT_TIMEOUT_MS'].map(name =>
@@ -153,7 +152,7 @@ handle.distinct('code');
 void Tier0MQClient;
 `);
 run([resolve(root, 'node_modules/typescript/bin/tsc'), '--noEmit', '--strict', '--skipLibCheck', '--module', 'NodeNext', '--target', 'ES2022', 'consumer.mts', 'consumer.cts'], consumer);
-for (const subpath of ['', '/source', '/stream', '/streams', '/runtime', '/mq', '/react', '/vue', '/data/define']) {
+for (const subpath of ['', '/source', '/stream', '/streams', '/mq', '/react', '/vue', '/data/define']) {
   const result = await build({ absWorkingDir: consumer, stdin: { contents: `export * from '@tier0/sdk-v2${subpath}';`, resolveDir: consumer }, bundle: true, platform: 'browser', format: 'esm', write: false, metafile: true, logLevel: 'silent' });
   if (!subpath && Object.keys(result.metafile.inputs).some(path => /node_modules[\\/](mqtt|react|vue|zod)[\\/]|cloud-server|[\\/]data[\\/]/.test(path))) throw new Error('Root entry loads an optional browser/server dependency');
   if (subpath === '/data/define' && (Object.keys(result.metafile.inputs).some(path => /^node:|[\\/]data[\\/](context|bootstrap|call|client|collection|error)\.js$/.test(path)) ||

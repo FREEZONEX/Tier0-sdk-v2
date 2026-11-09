@@ -172,7 +172,6 @@ export function changes(request: Request, visitor: Visitor): Response {
 | `@tier0/sdk-v2/source` | `createSourceClient()`，独立 Source 客户端 |
 | `@tier0/sdk-v2/stream` | `createStreamClient()`，独立 Stream 客户端 |
 | `@tier0/sdk-v2/streams` | Stream 交互客户端、错误类与消息类型 |
-| `@tier0/sdk-v2/runtime` | 受信 App 宿主 provider 安装与生命周期；业务页面无需调用 |
 | `@tier0/sdk-v2/react` | `useTier0Query()`、`useTier0Mutation()`，需要 React 和 TanStack Query |
 | `@tier0/sdk-v2/vue` | `useTier0Request()`，需要 Vue 3 |
 | `@tier0/sdk-v2/server` | `parseVisitorHeader()` 解析访问者头；仅服务端 |
@@ -384,24 +383,25 @@ Source 创建/更新与 Stream 创建/更新/部署的 dryRun 默认 false。凭
 
 ## App Stream 交互与旧包迁移
 
-浏览器使用 `import { client } from "@tier0/sdk-v2"`，调用 `client.streams.requests.use({code}).invoke(input, {idempotencyKey})` 或 `client.streams.messages.use({topic}).subscribe(handler)`；受信宿主自动提供连接，浏览器不配置 API Key。服务端使用根入口 `createClient()`，沿用环境注入。订阅不再使用时 dispose，客户端退出时 `await client.dispose()`；请求与消息不会自动重放业务写入。
+`client.streams` 只在服务端用带 Key 的客户端（`createClient()`，读 `TIER0_API_HOST` / `TIER0_API_KEY`，或显式传 `apiHost` / `apiKey`）：`client.streams.requests.use({code}).invoke(input, {idempotencyKey})`、`client.streams.messages.use({topic}).subscribe(handler)`。浏览器不直接调平台，经 App 自己的服务端接口。Tier0 App 的 Key 目前调不了 Stream 请求和消息（见 [Stream 交互](skills/tier0-sdk-v2/tier0-sdk-v2-streams/SKILL.md)）。订阅不再使用时 dispose，客户端退出时 `await client.dispose()`；请求与消息不会自动重放业务写入。
 
-旧 `/cloud` 改用根入口，`/cloud/server` 改用 `/server`，`/openapi/react` 和 `/openapi/vue` 改用 `/react` 和 `/vue`。`/streams`、`/runtime` 的现役能力已原生迁入本包；宿主 runtime Symbol 保留原协议标识，避免破坏已有网关注入。Source/Stream 管理、文件、MQTT、通知、成员和集合继续使用本包现有入口；旧文件单例函数改为 `client.files` 对应方法。旧 `getCurrentProjectId`、Flow、Control 及项目接口已退役，不迁回。
+旧 `/cloud` 改用根入口，`/cloud/server` 改用 `/server`，`/openapi/react` 和 `/openapi/vue` 改用 `/react` 和 `/vue`。`/streams` 的现役能力已原生迁入本包；浏览器受信宿主（`/runtime`、`installAppRuntime`、`Symbol.for('tier0.sdk.app-runtime.v1')`）已删除，没有替代。Source/Stream 管理、文件、MQTT、通知、成员和集合继续使用本包现有入口；旧文件单例函数改为 `client.files` 对应方法。旧 `getCurrentProjectId`、Flow、Control 及项目接口已退役，不迁回。
 
 | 旧包现役能力 | 统一后的入口与迁移方式 |
 | --- | --- |
 | 根入口、`/cloud` 的 `client` / `createClient` | `@tier0/sdk-v2` 根入口；同一实例提供数据管理和 App 交互 |
 | Stream `describe` / `discover` / `invoke` | `client.streams.requests`；保留类型、幂等键和结果未知语义 |
-| 消息 `publish` / `subscribe` / `onError` / `dispose` | `client.streams.messages`；原生 NATS WSS，消息需要浏览器 WebSocket 或 Node.js 22+；HTTP 仍支持 Node.js 20.19+ |
+| 消息 `publish` / `subscribe` / `onError` / `dispose` | `client.streams.messages`；原生 NATS WSS，消息需要 Node.js 22+；HTTP 仍支持 Node.js 20.19+ |
 | 请求/invoke 能力发现 | `client.streams.capabilities.discover()`；`client.capabilities.discover()` 独立保留 Namespace/Source/Stream 作用域 |
-| Trusted runtime provider / 访问者头 | `/runtime` / `/server`（`parseVisitorHeader`）；原有宿主 Symbol 协议保持不变 |
+| 访问者头 | `/server`（`parseVisitorHeader`） |
+| Trusted runtime provider（`/runtime`） | 已删除；浏览器经 App 自己的服务端接口 |
 | `unsV2`、平台操作、MQTT | `client.uns` / `client.source` / `client.stream`、现有平台入口、`/mq`；旧包全部现役公开操作已有对应 v2 操作 |
 | `uploadFile` / `uploadFileMultipart` / `resumeMultipartUpload` | `client.files.upload` / `uploadMultipart` / `resumeMultipart`；上传选项与返回类型从 `/files` 导入 |
 | `getFileUrl` / `downloadFile` / `deleteFile` | `client.files.url` / `download` / `delete`；download 返回原生 `Response` |
 | 旧 React / Vue 每接口 hook | `/react` 的通用 query/mutation、`/vue` 的 `useTier0Request`；使用统一 client 和对应方法 |
 | Project、Control、Flow 及旧配置版本入口 | 已退役，不提供别名或重新导出 |
 
-真实消息本地验收用 `npm run test:streams:artifact`（Go、Node.js 22+、`nats-server`，通过 `TIER0_STREAM_MESSAGES_BACKEND_DIR` 指向 Backend checkout）。脚本验证生产 Go issuer、TLS NATS、已安装 tarball 的 ESM/CJS 及浏览器依赖闭包；固定夹具身份不代表线上 SYS/Gateway/App 权限链路或浏览器端到端验收。
+真实消息本地验收用 `npm run test:streams:artifact`（Go、Node.js 22+、`nats-server`，通过 `TIER0_STREAM_MESSAGES_BACKEND_DIR` 指向 Backend checkout）。脚本用带 Key 的服务端客户端验证生产 Go issuer、TLS NATS、已安装 tarball 的 ESM/CJS，以及根入口的浏览器打包依赖闭包；固定夹具身份不代表线上 SYS/Gateway/App 权限链路。
 
 代码存在不代表已发布。先构建并安装这次统一实现的不可变制品，更新 App 模板、依赖锁与存量 App，再移除旧包；不能用旧 npm 0.7.2 替代本分支构建。完整交互说明见 [Stream 交互](skills/tier0-sdk-v2/tier0-sdk-v2-streams/SKILL.md)。
 

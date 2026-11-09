@@ -36,7 +36,7 @@ function assemble(resolve: () => HttpClient, snapshot: Tier0ClientConfig, http =
 }
 export type Tier0Client = ReturnType<typeof createClient>;
 
-/** 现役服务端和数据客户端保留独立配置；浏览器交互仅使用受信宿主。 */
+/** 每个实例持有独立配置；带 Key 的客户端只在服务端使用。 */
 export function createClient(config: Tier0ClientConfig = {}) {
   const snapshot = Object.freeze(snapshotClientConfig(config));
   const http = new HttpClient(snapshot);

@@ -13,7 +13,6 @@ import { build } from 'esbuild';
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 assert.ok(process.env.TIER0_STREAM_MESSAGES_FIXTURE_URL, 'Run through test:streams:artifact');
 const directory = await mkdtemp(join(tmpdir(), 'tier0-sdk-stream-artifact-'));
-const runtimeKey = Symbol.for('tier0.sdk.app-runtime.v1');
 try {
   const npm = process.env.npm_execpath ?? resolve(dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js');
   const run = (args, cwd) => execFileSync(process.execPath, [npm, ...args], { cwd, encoding: 'utf8', maxBuffer: 10 << 20 });
@@ -24,16 +23,11 @@ try {
   const require = createRequire(join(runtime, 'probe.cjs'));
   const esm = await import(pathToFileURL(join(runtime, 'node_modules/@tier0/sdk-v2/dist/esm/index.js')).href);
   const cjs = require('@tier0/sdk-v2');
-  globalThis[runtimeKey] = {
-    appId: process.env.TIER0_STREAM_MESSAGES_FIXTURE_APP_ID,
-    request(path, body, { signal }) {
-      return fetch(new URL(path, process.env.TIER0_STREAM_MESSAGES_FIXTURE_URL), {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal,
-      });
-    },
-  };
+  // A server client with its own key; the fixture issues tickets without checking it.
+  process.env.TIER0_APP_ID = process.env.TIER0_STREAM_MESSAGES_FIXTURE_APP_ID;
+  const apiHost = process.env.TIER0_STREAM_MESSAGES_FIXTURE_URL.replace(/\/$/, '');
   for (const [format, sdk] of [['ESM', esm], ['CJS', cjs]]) {
-    const client = sdk.createClient();
+    const client = sdk.createClient({ apiHost, apiKey: 'sk-app-ws16_fixture' });
     const errors = [];
     const off = client.streams.messages.onError(error => errors.push(error));
     let subscription;
@@ -86,6 +80,6 @@ try {
   assert.equal(result.warnings.length, 0);
   console.log('PASS: installed browser SDK bundles complete native NATS dependency closure (build check, not browser E2E)');
 } finally {
-  delete globalThis[runtimeKey];
+  delete process.env.TIER0_APP_ID;
   await rm(directory, { recursive: true, force: true });
 }

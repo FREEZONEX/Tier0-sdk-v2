@@ -116,26 +116,16 @@ describe('Cloud StreamRequest single-attempt transport', () => {
     expect(fetch).toHaveBeenCalledOnce();
   });
 
-  it.each(['<html>opaque SWE failure secret</html>', '{"error":"opaque SWE failure secret"}'])
-  ('fails closed on an opaque trusted SWE Response without exposing its body', async body => {
-    const symbol = Symbol.for('tier0.sdk.app-runtime.v1');
-    const previous = Reflect.get(globalThis, symbol);
-    const request = vi.fn().mockResolvedValue(new Response(body, { status: 200 }));
-    Reflect.set(globalThis, symbol, { appId: 'trusted-app', request });
-    try {
-      const sdk = createClient();
-      try {
-        const error = await sdk.streams.requests.use({ code: 'pump.start' }).invoke({}, { idempotencyKey: 'same-intent' }).catch(e => e);
-        expect(error).toBeInstanceOf(StreamRequestResultUnknownError);
-        expect(error).toMatchObject({ status: 200, outcomeUnknown: true, retryable: false });
-        expect(String(error)).not.toContain('secret');
-        expect(JSON.stringify(error)).not.toContain('secret');
-        expect(request).toHaveBeenCalledOnce();
-      } finally { await sdk.dispose(); }
-    } finally {
-      if (previous === undefined) Reflect.deleteProperty(globalThis, symbol);
-      else Reflect.set(globalThis, symbol, previous);
-    }
+  it.each(['<html>opaque gateway failure secret</html>', '{"error":"opaque gateway failure secret"}'])
+  ('fails closed on an opaque 200 response without exposing its body', async body => {
+    const fetch = vi.fn().mockResolvedValue(new Response(body, { status: 200 }));
+    vi.stubGlobal('fetch', fetch);
+    const error = await handle().invoke({}, { idempotencyKey: 'same-intent' }).catch(e => e);
+    expect(error).toBeInstanceOf(StreamRequestResultUnknownError);
+    expect(error).toMatchObject({ status: 200, outcomeUnknown: true, retryable: false });
+    expect(String(error)).not.toContain('secret');
+    expect(JSON.stringify(error)).not.toContain('secret');
+    expect(fetch).toHaveBeenCalledOnce();
   });
 
   it('preserves run metadata on unknown gateway errors', async () => {
