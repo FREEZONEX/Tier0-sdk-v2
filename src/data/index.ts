@@ -19,7 +19,7 @@ export { runDetached, runWithAbortSignal } from './context.js';
 export { SUBSCRIBE_IDLE_TIMEOUT_MS } from './subscribe.js';
 export type { RecordChange, SubscribeOptions, SubscriptionEvent } from './subscribe.js';
 export { createChangeRelay } from './relay.js';
-export type { ChangeRelay, ChangeRelayOptions, ChangeRelayStreamOptions, RelayedChange } from './relay.js';
+export type { ChangeRelay, ChangeRelayOptions, ChangeRelaySource, ChangeRelayStatus, ChangeRelayStreamOptions, RelayedChange } from './relay.js';
 export { ACCESS_REASONS, DataError } from './error.js';
 export * from './declarations.js';
 export { toSortPairs } from './sort.js';

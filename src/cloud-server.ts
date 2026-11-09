@@ -16,7 +16,6 @@ const VISITOR_MAX_JSON_BYTES = 8192;
 /** Unpadded base64url of `VISITOR_MAX_JSON_BYTES`. */
 const VISITOR_MAX_HEADER_LENGTH = Math.ceil((VISITOR_MAX_JSON_BYTES * 4) / 3);
 const VISITOR_MAX_STRING_BYTES = 128;
-const VISITOR_MAX_ROLES = 32;
 const VISITOR_FIELDS: ReadonlySet<string> = new Set(['ws', 'app', 'runtime', 'sub_type', 'sub', 'grant', 'app_roles', 'active_role']);
 
 export type VisitorErrorCode = 'VISITOR_HEADER_INVALID' | 'VISITOR_CONFIGURATION_INVALID';
@@ -49,15 +48,42 @@ export interface ParseVisitorOptions {
   appID?: string;
 }
 
+/** A UTF-16 surrogate without its pair, as JSON escapes like "\ud800" can produce. */
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+
+/**
+ * Raw key tokens of the top-level object, for spotting duplicates
+ * (`JSON.parse` keeps the last silently). Values of the visitor are strings
+ * and arrays of strings, so only depth 1 holds keys.
+ */
+function topLevelKeys(json: string): string[] {
+  const keys: string[] = [];
+  let depth = 0;
+  for (let i = 0; i < json.length; i += 1) {
+    const char = json[i];
+    if (char === '{' || char === '[') depth += 1;
+    else if (char === '}' || char === ']') depth -= 1;
+    else if (char === '"') {
+      const start = i;
+      for (i += 1; i < json.length && json[i] !== '"'; i += 1) if (json[i] === '\\') i += 1;
+      let next = i + 1;
+      while (next < json.length && /\s/.test(json[next])) next += 1;
+      if (depth === 1 && json[next] === ':') keys.push(json.slice(start, i + 1));
+    }
+  }
+  return keys;
+}
+
 const bytes = (value: string) => Buffer.byteLength(value, 'utf8');
 const sized = (value: unknown, min: number, max: number): value is string =>
-  typeof value === 'string' && bytes(value) >= min && bytes(value) <= max;
+  typeof value === 'string' && !LONE_SURROGATE.test(value) && bytes(value) >= min && bytes(value) <= max;
 
 /**
  * Parses `X-Tier0-Visitor`: the unpadded base64url (RFC 4648 §5) of a UTF-8
  * JSON object of at most 8192 bytes. The header is not signed; the front door
  * is the only way into the App and replaces whatever the client sent. Parsing
- * is strict: an unknown or missing field, a wrong type or length, a `ws` that
+ * is strict: a byte order mark, a duplicate key, a lone UTF-16 surrogate
+ * (e.g. `"\ud800"`), an unknown or missing field, a wrong type or length, a `ws` that
  * is not a positive decimal ID without sign or leading zero, an employee
  * without a grant or a machine visitor with one, or an `app` other than this
  * App's throws `VISITOR_HEADER_INVALID`. Without an App ID
@@ -71,13 +97,20 @@ export function parseVisitorHeader(value: string | null | undefined, options: Pa
   const raw = Buffer.from(value, 'base64url');
   // Only the canonical encoding: no padding, no stray trailing bits.
   if (raw.length > VISITOR_MAX_JSON_BYTES || raw.toString('base64url') !== value) throw fail();
+  // A UTF-8 byte order mark is not part of the contract (TextDecoder would drop it silently).
+  if (raw[0] === 0xef && raw[1] === 0xbb && raw[2] === 0xbf) throw fail();
   let claims: unknown;
+  let json: string;
   try {
-    claims = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(raw));
+    json = new TextDecoder('utf-8', { fatal: true }).decode(raw);
+    claims = JSON.parse(json);
   } catch {
     throw fail();
   }
   if (!isObject(claims) || Object.keys(claims).some((key) => !VISITOR_FIELDS.has(key))) throw fail();
+  // Every key at most once, each spelling decoded ("\u0077s" is "ws").
+  const keys = topLevelKeys(json).map((token) => JSON.parse(token) as string);
+  if (new Set(keys).size !== keys.length) throw fail();
   const { ws, app, runtime, sub_type: subType, sub, grant, app_roles: appRoles, active_role: activeRole } = claims;
   if (!validID(ws) || app !== appID ||
       (runtime !== 'deployed' && runtime !== 'preview') ||
@@ -85,8 +118,7 @@ export function parseVisitorHeader(value: string | null | undefined, options: Pa
       !sized(sub, 1, VISITOR_MAX_STRING_BYTES) ||
       // An employee's access always has a grant; a machine visitor has none.
       typeof grant !== 'string' || (subType === 'employee' ? !sized(grant, 1, VISITOR_MAX_STRING_BYTES) : grant !== '') ||
-      !Array.isArray(appRoles) || appRoles.length > VISITOR_MAX_ROLES ||
-      appRoles.some((role) => !sized(role, 1, VISITOR_MAX_STRING_BYTES)) ||
+      !Array.isArray(appRoles) || appRoles.some((role) => !sized(role, 1, VISITOR_MAX_STRING_BYTES)) ||
       (activeRole !== undefined && !sized(activeRole, 1, VISITOR_MAX_STRING_BYTES))) throw fail();
   return Object.freeze({
     subType, subject: sub, grant, workspaceID: ws, appID, runtime,

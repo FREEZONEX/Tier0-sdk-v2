@@ -212,7 +212,8 @@ export function changes(request: Request): Response {
 }
 ```
 
-- 帧：`event: change`（`{ eventId, collection, change, recordId, revision, occurredAt }`，不带记录数据）、`event: reset`（`{ reason }`）、每 15 秒一个 `: heartbeat` 注释。浏览器用 `@tier0/sdk-v2/event-stream` 的 `openEventStream` 读（页面隐藏时断开、可见时带 `Last-Event-ID` 续传，转发器补发或回 `reset`），收到 `change` 后经 App 自己的接口重新读取（那里同样按角色过滤），收到 `reset` 重新加载整个视图。
-- `id` 是转发器自己的位置（`<epoch>.<seq>`），不是 UNS 游标，浏览器拿不到上游位置。重连带 `Last-Event-ID`：在当前会话最近 1000 条里找得到就补发之后的（同样经过 `filter`），找不到就只给这个浏览器一个 `reset`。UNS 的 `reset`、上游失败、最后一个浏览器离开 30 秒后关上游都会开始新会话，连着的浏览器收到 `reset`。
+- 帧：`event: change`（`{ eventId, collection, change, recordId, revision, occurredAt }`，不带记录数据）、`event: reset`（`{ reason }`）、`event: unavailable`（`{ reason }`，上游连不上、仍在重试），每 15 秒一个只带 `id` 的帧推进位置（还没有位置时是注释）。浏览器用 `@tier0/sdk-v2/event-stream` 的 `openEventStream` 读（页面隐藏时断开、可见时带 `Last-Event-ID` 续传，转发器补发或回 `reset`），收到 `change` 后经 App 自己的接口重新读取（那里同样按角色过滤），收到 `reset` 重新加载整个视图。转发器不发 `retry:`，重连节奏由 `openEventStream` 决定。
+- `id` 是转发器自己的位置（`<epoch>.<seq>`），不是 UNS 游标，浏览器拿不到上游位置；只在上游能送达其后所有变更时才给。冷启动时上游第一次连上之前不给位置，连上后先给 `reset`（`upstream-started`）再给位置。上游失败或空闲关闭（最后一个浏览器离开 30 秒）后从最后的 UNS 位置重开，epoch 不变，不漏、不 reset；只有 UNS 回 `reset` 才换 epoch，上游重新连上后给浏览器发 `reset`。重连带 `Last-Event-ID`：在当前 epoch 最近 1000 条里找得到就补发之后的（同样经过 `filter`），找不到就只给这个浏览器一个 `reset`。
+- 上游连不上（超过订阅上限的 429、`APP_NOT_READY` 等）时 `relay.status` 是 `unavailable`，`onStatus(status, error)` 回调，`logger.warn` 记一次，浏览器收到 `event: unavailable`；上游恢复后状态回到 `ready`。
 - `filter` 同步调用，对实时和补发的变更都生效；抛错的变更不发。事件只有标识，但 `recordId` 本身也可能透露信息：规则按记录的，过滤时就把这个浏览器无权知道的记录去掉。
-- 每个浏览器连接 10 分钟（±10%）后结束，浏览器重连时路由重新认证。选项：`collections`、`bufferSize`、`idleCloseMs`、`restartIntervalMs`、`maxRestartIntervalMs`、`heartbeatMs`、`maxStreamMs`、`retryMs`、`logger`。
+- 每个浏览器连接 10 分钟（±10%）后结束，浏览器重连时路由重新认证。选项：`collections`、`bufferSize`、`idleCloseMs`、`restartIntervalMs`、`maxRestartIntervalMs`、`heartbeatMs`、`maxStreamMs`、`onStatus`、`logger`。

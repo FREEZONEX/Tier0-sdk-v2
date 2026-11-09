@@ -128,7 +128,7 @@ curl -sS -X POST "$TIER0_API_HOST/openapi/v2/info" -H 'X-Tier0-SDK: 1' -H 'Conte
 
 本地开发（没有 `TIER0_RUNTIME`）照旧设 `TIER0_API_HOST`、`TIER0_API_KEY`。
 
-- `@tier0/sdk-v2/server`：`parseVisitorHeader(request.headers.get(VISITOR_HEADER))` 解析前门注入的 `X-Tier0-Visitor`，返回 `{ subType, subject, grant, workspaceID, appID, runtime, appRoles, activeRole? }`。头的值是 UTF-8 JSON 对象的无填充 base64url（编码前最多 8192 字节），不签名：前门转发前剥掉客户端带来的全部 `X-Tier0-*`，再注入这一个头。解析是严格的：未知字段、缺必填字段、类型或长度不符、`app` 不等于 `TIER0_APP_ID` 都抛 `VisitorError`（`VISITOR_HEADER_INVALID`）；没有 `TIER0_APP_ID` 时是 `VISITOR_CONFIGURATION_INVALID`。App 用 `appRoles` 自己决定当前用户能看、能改哪些数据；平台对 App 的调用不带访问者身份，不会替 App 收窄。
+- `@tier0/sdk-v2/server`：`parseVisitorHeader(request.headers.get(VISITOR_HEADER))` 解析前门注入的 `X-Tier0-Visitor`，返回 `{ subType, subject, grant, workspaceID, appID, runtime, appRoles, activeRole? }`。头的值是 UTF-8 JSON 对象的无填充 base64url（编码前最多 8192 字节），不签名：前门转发前剥掉客户端带来的全部 `X-Tier0-*`，再注入这一个头。解析是严格的：只接受规范的无填充 base64url；BOM、重复键、孤立的 UTF-16 代理项（如 `"\ud800"`）、未知字段、缺必填字段、类型或长度不符、`ws` 不是正整数十进制串（不带符号和前导 0）、员工没有 grant 或机器访问者带 grant、`app` 不等于 `TIER0_APP_ID` 都抛 `VisitorError`（`VISITOR_HEADER_INVALID`）；没有 `TIER0_APP_ID` 时是 `VISITOR_CONFIGURATION_INVALID`。App 用 `appRoles` 自己决定当前用户能看、能改哪些数据；平台对 App 的调用不带访问者身份，不会替 App 收窄。
 
   ```ts
   import { parseVisitorHeader, VISITOR_HEADER, VisitorError } from '@tier0/sdk-v2/server';
@@ -150,8 +150,8 @@ curl -sS -X POST "$TIER0_API_HOST/openapi/v2/info" -H 'X-Tier0-SDK: 1' -H 'Conte
   | `runtime` | `runtime` | `deployed` 或 `preview` |
   | `subType` | `sub_type` | `employee` 或 `machine` |
   | `subject` | `sub` | 员工用户 ID，或机器访问者的调用令牌 ID（1–128 字节） |
-  | `grant` | `grant` | 员工访问的 grant ID；机器访问者为空串（≤128 字节） |
-  | `appRoles` | `app_roles` | 访问者在 App 里的角色（≤32 项，每项 1–128 字节）；预览里是「以某角色查看」选中的角色 |
+  | `grant` | `grant` | 员工访问的 grant ID（1–128 字节）；机器访问者必须是空串 |
+  | `appRoles` | `app_roles` | 访问者在 App 里的角色（不限项数，每项 1–128 字节，整个 JSON 不超过 8192 字节；重复的去掉）；预览里是「以某角色查看」选中的角色 |
   | `activeRole` | `active_role` | 可省略，只在预览的「以某角色查看」里出现 |
 - `@tier0/sdk-v2/page-runtime`：页面运行时 v1 和平台错误（`x-sbx-error`）。
 - `@tier0/sdk-v2/event-stream`：基于 fetch 的 SSE。App 休眠时停止，`resumed` 后重建，节点 agent 重启时透明重连。页面隐藏时关掉连接（后台标签页不占着到 App 的长连接），可见时带最后的事件 id（`Last-Event-ID`）立即续传，服务端补发或回 `reset`；`pauseWhenHidden: false` 关闭这一行为。`EventSource` 遇到 503 不重试，手写时要订阅 `resumed` 后重建。
@@ -176,7 +176,7 @@ export function changes(request: Request, visitor: Visitor): Response {
 }
 ```
 
-帧：`event: change`（`{ eventId, collection, change, recordId, revision, occurredAt }`，不带记录数据）、`event: reset`（`{ reason }`：可能漏了变更，重新加载）、每 15 秒一个 `: heartbeat` 注释。`id` 是转发器自己的位置（`<epoch>.<seq>`），不是 UNS 游标：重连带 `Last-Event-ID` 时，在当前会话的最近 1000 条里找得到就补发之后的，找不到（换了会话、太旧、伪造）就只给这个浏览器一个 `reset`。UNS 的 `reset`、上游失败、最后一个浏览器离开 30 秒后关上游，都开始新会话，连着的浏览器收到 `reset`。每个浏览器连接 10 分钟（±10%）后结束，浏览器重连时 App 的路由重新认证；`filter` 抛错的变更不发。浏览器端用 `@tier0/sdk-v2/event-stream` 读：页面隐藏时断开，可见时带 `Last-Event-ID` 续传。
+帧：`event: change`（`{ eventId, collection, change, recordId, revision, occurredAt }`，不带记录数据）、`event: reset`（`{ reason }`：可能漏了变更，重新加载）、`event: unavailable`（`{ reason }`：上游连不上，仍在重试），每 15 秒一个只带 `id` 的帧推进位置（还没有位置时是 `: heartbeat` 注释）。`id` 是转发器自己的位置（`<epoch>.<seq>`），不是 UNS 游标，只在上游能送达其后所有变更时才给：冷启动时上游第一次连上之前浏览器拿不到位置，连上后每个浏览器先收到 `reset`（`upstream-started`）再拿位置，所以上游就绪前读过的数据会重读。转发器记住最后的 UNS 位置：上游失败、或最后一个浏览器离开 30 秒后关闭，都从这个位置重开，epoch 不变、不漏、不 reset；只有 UNS 回 `reset`（游标过期、访问范围变化、集合重建）才换 epoch，等上游重新连上后给连着的浏览器发 `reset`。重连带 `Last-Event-ID` 时，在当前 epoch 的最近 1000 条里找得到就补发之后的，找不到（换了 epoch、太旧、伪造）就只给这个浏览器一个 `reset`。上游连不上（例如超过订阅上限的 429、`APP_NOT_READY`）时状态变成 `unavailable`：`onStatus` 回调、`logger.warn` 记一次、所有浏览器收到 `event: unavailable`；`relay.status` 可查。每个浏览器连接 10 分钟（±10%）后结束，浏览器重连时 App 的路由重新认证；`filter` 抛错的变更不发。转发器不发 `retry:`：重连节奏由浏览器端 `@tier0/sdk-v2/event-stream` 自己决定（平台错误、App 休眠、页面隐藏都在那里处理）；页面隐藏时断开，可见时带 `Last-Event-ID` 续传。
 
 ## 能力与入口
 

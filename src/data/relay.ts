@@ -21,30 +21,55 @@
  * Browsers never open their own upstream: the Gateway limits open
  * subscriptions per workspace, not per visitor.
  *
- * Positions: browsers never see UNS cursors. Each upstream session has a
- * random epoch, and the relay numbers the changes it forwards `<epoch>.<seq>`;
- * that is the SSE `id`, sent first as an id-only frame on connect so every
- * browser has a resume point. A reconnect's `Last-Event-ID` is looked up in
- * the latest `bufferSize` changes of the current session: found, the changes
- * after it are replayed; anything else (another session, too old, forged)
- * answers that browser with `reset`. A session ends when UNS sends `reset`,
- * the upstream fails, or it closes `idleCloseMs` after the last browser left;
- * the next session has a new epoch, and connected browsers get a `reset`
- * carrying the new position. `reset` means the same as from `data.subscribe`:
- * changes may have been missed, reload what is shown. A failed upstream
- * reopens after `restartIntervalMs`, doubling per consecutive failure up to
- * `maxRestartIntervalMs`.
+ * Positions: browsers never see UNS cursors. The relay numbers the changes it
+ * forwards `<epoch>.<seq>`; that is the SSE `id`. A browser gets a position
+ * (an id-only frame, repeated as its heartbeat) only once the upstream can
+ * deliver every change after it:
+ *
+ * - Cold start: until the upstream's first connection streams, browsers get
+ *   no position. Then each of them gets `reset` (`upstream-started`) with a
+ *   position, so a page that read its data before the upstream existed
+ *   reads it again.
+ * - The relay keeps the last UNS position. When the upstream fails, or closes
+ *   `idleCloseMs` after the last browser left, it reopens from that position
+ *   in the same epoch: nothing is missed and connected browsers get no reset.
+ * - Only a `reset` from the upstream (`CURSOR_EXPIRED`, `SCOPE_CHANGED`,
+ *   `COLLECTION_RECREATED`) starts a new epoch. Connected browsers then get
+ *   that `reset`, with a new position, once the upstream streams again.
+ *
+ * A reconnect's `Last-Event-ID` is looked up in the latest `bufferSize`
+ * changes of the current epoch: found, the changes after it are replayed;
+ * anything else (another epoch, too old, forged) answers that browser with
+ * `reset` (`unknown-event-id`). `reset` means the same as from
+ * `data.subscribe`: changes may have been missed, reload what is shown.
+ *
+ * When the upstream cannot connect (e.g. 429 over the subscription limit,
+ * `APP_NOT_READY`, or a failure that ends `data.subscribe`), the relay goes to
+ * status `unavailable`: `onStatus` hears it, `logger.warn` logs it once, and
+ * every browser stream gets `event: unavailable` with `{reason}`. The upstream
+ * keeps retrying; when it streams again the status is `ready`, and browsers
+ * that were waiting for a position get it as described above. A failure that
+ * ends `data.subscribe` reopens after `restartIntervalMs`, doubling per
+ * consecutive failure up to `maxRestartIntervalMs`.
  *
  * Every browser stream ends after `maxStreamMs` (±10 %), so the browser
- * reconnects and the App's route authenticates it again.
+ * reconnects and the App's route authenticates it again. Reconnect timing is
+ * the browser client's: `openEventStream` (`@tier0/sdk-v2/event-stream`)
+ * handles platform errors, the App's sleep and hidden pages itself, so the
+ * relay sends no `retry:` field.
  *
  * Frames: `event: change` with `{eventId, collection, change, recordId,
  * revision, occurredAt}` (`RelayedChange`), `event: reset` with `{reason}`,
- * a `: heartbeat` comment every `heartbeatMs`, and `retry: <retryMs>`.
- * `@tier0/sdk-v2/event-stream` reads them in the browser.
+ * `event: unavailable` with `{reason}`, and every `heartbeatMs` an id-only
+ * frame with the current position (a `: heartbeat` comment while the browser
+ * has none), so an idle browser's resume point stays inside the buffer.
  */
 import { randomUUID } from 'node:crypto';
-import type { RecordChange, SubscribeOptions, SubscriptionEvent } from './subscribe.js';
+import type { DataError } from './error.js';
+import type { RecordChange, SubscribeObserver, SubscribeOptions, SubscriptionEvent } from './subscribe.js';
+
+/** `idle`: no upstream; `connecting`: opening it; `ready`: it streams; `unavailable`: it cannot connect and keeps retrying. */
+export type ChangeRelayStatus = 'idle' | 'connecting' | 'ready' | 'unavailable';
 
 export interface ChangeRelayOptions {
   /** Collections of the upstream; every declared collection by default. */
@@ -61,8 +86,8 @@ export interface ChangeRelayOptions {
   heartbeatMs?: number;
   /** A browser stream ends after this long (±10 %). Default 10 minutes. */
   maxStreamMs?: number;
-  /** Browser reconnect delay, sent as the SSE `retry` field. Default 5 s. */
-  retryMs?: number;
+  /** Status changes; `error` is the failure behind `unavailable`. */
+  onStatus?: (status: ChangeRelayStatus, error?: unknown) => void;
   logger?: Pick<Console, 'warn'>;
 }
 
@@ -90,6 +115,12 @@ export interface ChangeRelay {
   stream(options?: ChangeRelayStreamOptions): Response;
   /** Open browser streams. */
   readonly size: number;
+  readonly status: ChangeRelayStatus;
+}
+
+/** The upstream as the relay uses it: `data.subscribe` with its internal observer. */
+export interface ChangeRelaySource {
+  subscribe(options: SubscribeOptions, observer?: SubscribeObserver): AsyncIterable<SubscriptionEvent>;
 }
 
 const DEFAULTS = {
@@ -99,15 +130,17 @@ const DEFAULTS = {
   maxRestartIntervalMs: 300_000,
   heartbeatMs: 15_000,
   maxStreamMs: 600_000,
-  retryMs: 5_000,
 };
 
 interface Subscriber {
   matches(change: RecordChange): boolean;
   send(chunk: string): void;
+  /** Has a position; until then it gets no change frames and, once positioned, a reset with `resetReason`. */
+  positioned: boolean;
+  resetReason: string;
 }
 
-/** One upstream subscription's numbering of the changes it forwarded. */
+/** One epoch's numbering of the changes the relay forwarded. */
 interface Session {
   epoch: string;
   seq: number;
@@ -126,30 +159,62 @@ function resetFrame(reason: string, position: string): string {
   return `event: reset\nid: ${position}\ndata: ${JSON.stringify({ reason })}\n\n`;
 }
 
+function unavailableFrame(reason: string): string {
+  return `event: unavailable\ndata: ${JSON.stringify({ reason })}\n\n`;
+}
+
+function reasonOf(error: unknown): string {
+  const value = error as Partial<DataError> | undefined;
+  return typeof value?.code === 'string' ? value.code : 'upstream-failed';
+}
+
 function newSession(): Session {
   return { epoch: randomUUID().slice(0, 8), seq: 0, buffer: [] };
 }
 
-export function createChangeRelay(
-  data: { subscribe(options: SubscribeOptions): AsyncIterable<SubscriptionEvent> },
-  options: ChangeRelayOptions = {},
-): ChangeRelay {
-  const { collections, logger = console } = options;
-  const { bufferSize, idleCloseMs, restartIntervalMs, maxRestartIntervalMs, heartbeatMs, maxStreamMs, retryMs } = { ...DEFAULTS, ...options };
+export function createChangeRelay(data: ChangeRelaySource, options: ChangeRelayOptions = {}): ChangeRelay {
+  const { collections, onStatus, logger = console } = options;
+  const { bufferSize, idleCloseMs, restartIntervalMs, maxRestartIntervalMs, heartbeatMs, maxStreamMs } = { ...DEFAULTS, ...options };
   const subscribers = new Set<Subscriber>();
   let session = newSession();
+  /** The last UNS position: the upstream reopens from it. */
+  let cursor: string | undefined;
+  /** The current upstream connection streams. */
+  let live = false;
+  let status: ChangeRelayStatus = 'idle';
+  let unavailableReason = 'upstream-failed';
   let upstream: AbortController | null = null;
   let startTimer: ReturnType<typeof setTimeout> | undefined;
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
   let failures = 0;
 
   const position = () => `${session.epoch}.${session.seq}`;
+  /** Every change after the current position will reach the browsers. */
+  const positionable = () => cursor !== undefined || live;
 
-  /** Ends the session: browsers still connected reload and resume in the next one. */
-  function resetAll(reason: string) {
-    session = newSession();
-    const chunk = resetFrame(reason, position());
-    for (const subscriber of subscribers) subscriber.send(chunk);
+  function setStatus(next: ChangeRelayStatus, error?: unknown) {
+    if (next === status) return;
+    status = next;
+    if (next === 'unavailable') {
+      unavailableReason = reasonOf(error);
+      logger.warn(`[change-relay] upstream unavailable (${unavailableReason}); retrying:`, error instanceof Error ? error.message : error);
+      for (const subscriber of subscribers) subscriber.send(unavailableFrame(unavailableReason));
+    }
+    try {
+      onStatus?.(next, error);
+    } catch {
+      // A status listener cannot stop the relay.
+    }
+  }
+
+  /** Gives waiting browsers their reset and position, once the upstream can deliver what follows. */
+  function positionWaiting() {
+    if (!positionable()) return;
+    for (const subscriber of subscribers) {
+      if (subscriber.positioned) continue;
+      subscriber.positioned = true;
+      subscriber.send(resetFrame(subscriber.resetReason, position()));
+    }
   }
 
   function forward(change: RecordChange) {
@@ -157,29 +222,62 @@ export function createChangeRelay(
     session.buffer.push({ seq: session.seq, change });
     if (session.buffer.length > bufferSize) session.buffer.splice(0, session.buffer.length - bufferSize);
     const chunk = changeFrame(change, position());
-    for (const subscriber of subscribers) if (subscriber.matches(change)) subscriber.send(chunk);
+    for (const subscriber of subscribers) if (subscriber.positioned && subscriber.matches(change)) subscriber.send(chunk);
+  }
+
+  /** The upstream reset: a new epoch, and every browser reloads once the upstream streams again. */
+  function restartEpoch(reason: string) {
+    session = newSession();
+    cursor = undefined;
+    live = false;
+    for (const subscriber of subscribers) {
+      subscriber.positioned = false;
+      subscriber.resetReason = reason;
+    }
   }
 
   async function run(controller: AbortController) {
-    try {
-      for await (const event of data.subscribe({ ...(collections ? { collections } : {}), signal: controller.signal })) {
-        if (controller.signal.aborted) break;
+    const observer: SubscribeObserver = {
+      connected() {
+        if (controller.signal.aborted) return;
+        live = true;
         failures = 0;
-        if (event.type === 'reset') resetAll(event.reason);
+        setStatus('ready');
+        positionWaiting();
+      },
+      position(eventId) {
+        if (!controller.signal.aborted) cursor = eventId;
+      },
+      retrying(error) {
+        if (controller.signal.aborted) return;
+        live = false;
+        setStatus('unavailable', error);
+      },
+    };
+    live = false;
+    setStatus('connecting');
+    try {
+      const subscription = data.subscribe({
+        ...(collections ? { collections } : {}),
+        ...(cursor === undefined ? {} : { lastEventId: cursor }),
+        signal: controller.signal,
+      }, observer);
+      for await (const event of subscription) {
+        if (controller.signal.aborted) break;
+        if (event.type === 'reset') restartEpoch(event.reason);
         else forward(event);
       }
     } catch (error) {
       if (!controller.signal.aborted) {
         failures += 1;
-        logger.warn(`[change-relay] upstream failed (${failures} in a row):`, error instanceof Error ? error.message : error);
+        live = false;
+        setStatus('unavailable', error);
       }
     } finally {
       if (upstream === controller) upstream = null;
-      if (!controller.signal.aborted) {
-        // Changes during the outage are lost to this session.
-        resetAll('upstream-failed');
-        schedule();
-      }
+      live = false;
+      // Reopens from the last UNS position: same epoch, nothing missed.
+      if (!controller.signal.aborted) schedule();
     }
   }
 
@@ -216,29 +314,34 @@ export function createChangeRelay(
     }
     idleTimer = setTimeout(() => {
       idleTimer = undefined;
+      // The epoch, buffer and UNS position stay: the next browser resumes in the same epoch.
       upstream?.abort();
       upstream = null;
-      session = newSession();
+      live = false;
+      setStatus('idle');
     }, idleCloseMs);
     idleTimer.unref?.();
   }
 
-  /** Frames that bring a browser from `lastEventId` to the current position. */
-  function catchUp(matches: (change: RecordChange) => boolean, lastEventId: string | undefined): string[] {
-    if (!lastEventId) return [];
+  /** Replays after `lastEventId`; false when it is not a position of the current epoch's buffer. */
+  function catchUp(subscriber: Subscriber, lastEventId: string | undefined): boolean {
+    if (!lastEventId) return false;
     const [epoch, seqText] = lastEventId.split('.');
     const seq = Number(seqText);
     const oldest = session.buffer[0]?.seq ?? session.seq + 1;
-    const known = epoch === session.epoch && Number.isInteger(seq) && seq <= session.seq && seq >= oldest - 1;
-    if (!known) return [resetFrame('unknown-event-id', position())];
-    return session.buffer
-      .filter((entry) => entry.seq > seq && matches(entry.change))
-      .map((entry) => changeFrame(entry.change, `${session.epoch}.${entry.seq}`));
+    if (epoch !== session.epoch || !Number.isInteger(seq) || seq > session.seq || seq < oldest - 1) return false;
+    for (const entry of session.buffer) {
+      if (entry.seq > seq && subscriber.matches(entry.change)) subscriber.send(changeFrame(entry.change, `${session.epoch}.${entry.seq}`));
+    }
+    return true;
   }
 
   return {
     get size() {
       return subscribers.size;
+    },
+    get status() {
+      return status;
     },
     stream({ filter, lastEventId, signal } = {}) {
       const matches = (change: RecordChange) => {
@@ -285,13 +388,21 @@ export function createChangeRelay(
             controller.close();
             return;
           }
-          send(`retry: ${retryMs}\n\n`);
-          for (const chunk of catchUp(matches, lastEventId ?? undefined)) send(chunk);
-          // An id-only frame dispatches nothing; it moves the browser's resume point to now.
-          send(`id: ${position()}\n\n`);
-          subscriber = { matches, send };
-          join(subscriber);
-          heartbeat = setInterval(() => send(': heartbeat\n\n'), heartbeatMs);
+          const current: Subscriber = { matches, send, positioned: false, resetReason: 'upstream-started' };
+          subscriber = current;
+          if (positionable()) {
+            current.positioned = true;
+            // A known position replays what followed; anything else reloads.
+            if (catchUp(current, lastEventId ?? undefined)) send(`id: ${position()}\n\n`);
+            else if (lastEventId) send(resetFrame('unknown-event-id', position()));
+            // A first connect: an id-only frame dispatches nothing and gives the browser its resume point.
+            else send(`id: ${position()}\n\n`);
+          } else if (lastEventId) {
+            current.resetReason = 'unknown-event-id';
+          }
+          if (status === 'unavailable') send(unavailableFrame(unavailableReason));
+          join(current);
+          heartbeat = setInterval(() => send(current.positioned ? `id: ${position()}\n\n` : ': heartbeat\n\n'), heartbeatMs);
           heartbeat.unref?.();
           expiry = setTimeout(close, maxStreamMs * (0.9 + Math.random() * 0.2));
           expiry.unref?.();

@@ -58,7 +58,8 @@ describe('X-Tier0-Visitor', () => {
     expect(parse(encode(claims({ runtime: 'preview', app_roles: ['manager', 'viewer'], active_role: 'viewer' })))).toMatchObject({
       runtime: 'preview', appRoles: ['manager', 'viewer'], activeRole: 'viewer',
     });
-    expect(parse(encode(claims({ app_roles: Array.from({ length: 32 }, (_, i) => `r${i}`) }))).appRoles).toHaveLength(32);
+    expect(parse(encode(claims({ app_roles: Array.from({ length: 200 }, (_, i) => `r${i}`) }))).appRoles).toHaveLength(200);
+    expect(parse(encode(VECTOR_JSON.replace('"sub":"42"', '"sub":"\\ud83d\\ude00"'))).subject).toBe('\u{1F600}');
     expect(parse(encode(claims({ ws: '9223372036854775807' }))).workspaceID).toBe('9223372036854775807');
     expect(parse(encode(claims({ app_roles: ['manager', 'manager', 'viewer'] }))).appRoles).toEqual(['manager', 'viewer']);
     expect(parse(encode(claims({ sub: 'x'.repeat(128), grant: 'g'.repeat(128), app_roles: ['r'.repeat(128)] }))).subject).toHaveLength(128);
@@ -76,6 +77,12 @@ describe('X-Tier0-Visitor', () => {
     ['JSON null', encode('null')],
     ['over 8192 bytes', encode({ ...claims(), sub: '1'.repeat(9000) })],
     ['a signed token', `${VECTOR}.${VECTOR}.sig`],
+    ['led by a UTF-8 byte order mark', Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(VECTOR_JSON)]).toString('base64url')],
+    ['over 8192 bytes of roles', encode({ ...claims(), app_roles: Array.from({ length: 1000 }, (_, i) => `role-${i}`) })],
+    ['carrying a duplicate key', encode(VECTOR_JSON.replace('"sub":"42"', '"sub":"42","sub":"43"'))],
+    ['carrying a duplicate key in another spelling', encode(VECTOR_JSON.replace('"sub":"42"', '"sub":"42","\\u0073ub":"43"'))],
+    ['carrying a lone surrogate in the subject', encode(VECTOR_JSON.replace('"sub":"42"', '"sub":"4\\ud8002"'))],
+    ['carrying a lone surrogate in a role', encode(VECTOR_JSON.replace('["manager"]', '["\\udc00"]'))],
   ])('refuses a header that is %s', (_name, value) => {
     expect(code(() => parse(value === 'non-canonical' ? nonCanonical() : value))).toBe('VISITOR_HEADER_INVALID');
   });
@@ -103,7 +110,6 @@ describe('X-Tier0-Visitor', () => {
     ['a grant over 128 bytes', { grant: 'g'.repeat(129) }],
     ['a null grant', { grant: null }],
     ['roles that are not a list', { app_roles: 'manager' }],
-    ['more than 32 roles', { app_roles: Array.from({ length: 33 }, (_, i) => `r${i}`) }],
     ['an empty role', { app_roles: [''] }],
     ['a role over 128 bytes', { app_roles: ['r'.repeat(129)] }],
     ['a non-string role', { app_roles: [1] }],

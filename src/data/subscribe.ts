@@ -80,6 +80,19 @@ export interface RecordChange {
 /** `reason`: `CURSOR_EXPIRED`, `SCOPE_CHANGED` (from UNS) or `COLLECTION_RECREATED`. */
 export type SubscriptionEvent = RecordChange | { type: 'reset'; reason: string; message?: string };
 
+/**
+ * What `data.subscribe` tells a server-side consumer about the upstream
+ * (`createChangeRelay` uses it; not part of the public API).
+ */
+export interface SubscribeObserver {
+  /** A connection is streaming: its first frame (the connect heartbeat) arrived. */
+  connected?(): void;
+  /** The resume position moved: a heartbeat position or a change, dropped or not. */
+  position?(eventId: string): void;
+  /** An attempt failed and will be retried after a wait (e.g. 429 over the subscription limit, `APP_NOT_READY`). */
+  retrying?(error: DataError): void;
+}
+
 export interface SubscribeRuntime {
   openStream: DataOpenStream;
   ensure(targets: readonly CollectionTarget[]): Promise<EnsureState>;
@@ -139,7 +152,7 @@ function pause(ms: number, signal: AbortSignal): Promise<void> {
 }
 
 export function createSubscribe(runtime: SubscribeRuntime) {
-  return async function* subscribe(options: SubscribeOptions = {}): AsyncGenerator<SubscriptionEvent, void, undefined> {
+  return async function* subscribe(options: SubscribeOptions = {}, observer: SubscribeObserver = {}): AsyncGenerator<SubscriptionEvent, void, undefined> {
     const definitions = [...new Set((options.collections ?? runtime.declared).map(runtime.lookup))];
     if (definitions.length < 1 || definitions.length > UNS_V2_SUBSCRIBE_MAX_COLLECTIONS) {
       throw new TypeError(`data.subscribe watches 1–${UNS_V2_SUBSCRIBE_MAX_COLLECTIONS} collections; got ${definitions.length}.`);
@@ -158,7 +171,9 @@ export function createSubscribe(runtime: SubscribeRuntime) {
     let failures = 0;
     const seen = new SeenRevisions(SUBSCRIBE_SEEN_RECORDS_MAX);
     /** Waits, longer each time, before the next attempt. */
-    const backOff = async (afterMs?: number) => {
+    const backOff = async (error: DataError) => {
+      observer.retrying?.(error);
+      const afterMs = error.retry.afterMs;
       failures += 1;
       await pause(reconnectDelay(failures, afterMs), stop.signal);
     };
@@ -170,7 +185,7 @@ export function createSubscribe(runtime: SubscribeRuntime) {
         } catch (error) {
           // A freshly imported App answers APP_NOT_READY for a while: keep waiting for it.
           if (!(error instanceof DataError) || !error.retry.safe || stop.signal.aborted) throw error;
-          await backOff(error.retry.afterMs);
+          await backOff(error);
           continue;
         }
         const aliases = new Map<string, string>();
@@ -190,6 +205,7 @@ export function createSubscribe(runtime: SubscribeRuntime) {
         const openedAt = Date.now();
         let healthy = false;
         let reset = false;
+        let streaming = false;
         try {
           arm();
           const stream = runtime.openStream(
@@ -199,9 +215,16 @@ export function createSubscribe(runtime: SubscribeRuntime) {
           for await (const event of stream) {
             arm();
             if (Date.now() - openedAt >= HEALTHY_CONNECTION_MS) healthy = true;
+            if (!streaming) {
+              streaming = true;
+              observer.connected?.();
+            }
             if (event.type === 'heartbeat') {
               // The connect heartbeat names the current position: resuming from it loses nothing.
-              if (event.eventId !== undefined) lastEventId = event.eventId;
+              if (event.eventId !== undefined) {
+                lastEventId = event.eventId;
+                observer.position?.(event.eventId);
+              }
               continue;
             }
             if (event.type === 'reset') {
@@ -215,6 +238,7 @@ export function createSubscribe(runtime: SubscribeRuntime) {
             healthy = true;
             // A dropped change is still a resume position.
             lastEventId = event.eventId;
+            observer.position?.(event.eventId);
             if (!seen.admit(event.collectionId, event.recordId, event.revision, event.change)) continue;
             yield {
               type: 'change',
@@ -236,7 +260,7 @@ export function createSubscribe(runtime: SubscribeRuntime) {
               changed = await runtime.rebuild(state, error, definitions);
             } catch (cause) {
               if (!(cause instanceof DataError) || !cause.retry.safe) throw cause;
-              await backOff(cause.retry.afterMs);
+              await backOff(cause);
               continue;
             }
             if (!changed) throw error;
@@ -247,7 +271,7 @@ export function createSubscribe(runtime: SubscribeRuntime) {
             continue;
           }
           if (!error.retry.safe) throw error;
-          await backOff(error.retry.afterMs);
+          await backOff(error);
           continue;
         } finally {
           clearTimeout(idle);

@@ -4,8 +4,10 @@ import {
   createDataClient,
   DataError,
   defineCollection,
+  type SubscribeOptions,
   type SubscriptionEvent,
 } from '../../src/data/index.js';
+import type { SubscribeObserver } from '../../src/data/subscribe.js';
 
 const orders = defineCollection({ alias: 'orders', name: '生产工单', schema: z.object({ code: z.string() }) });
 const lines = defineCollection({ alias: 'lines', name: '工单明细', schema: z.object({ sku: z.string() }) });
@@ -96,6 +98,22 @@ describe('data.subscribe', () => {
     expect(first.headers.accept).toBe('text/event-stream');
     expect(first.headers['x-api-key']).toBe('sk-app');
     expect(first.headers['last-event-id']).toBeUndefined();
+  });
+
+  it('tells an internal observer when a connection streams, where the position is, and when it retries', async () => {
+    const mock = sse([
+      refusal(429, 'OVERLOADED', true, 0),
+      { frames: ['id: p-0\nevent: heartbeat\ndata: {}\n\n', change('e-1'), change('e-2', { revision: 1 })] },
+    ]);
+    const calls: string[] = [];
+    const observer: SubscribeObserver = {
+      connected: () => calls.push('connected'),
+      position: (id) => calls.push(`position ${id}`),
+      retrying: (error) => calls.push(`retrying ${error.code}`),
+    };
+    const subscribe = client(mock.fetch).subscribe as (options: SubscribeOptions, observer: SubscribeObserver) => AsyncIterable<SubscriptionEvent>;
+    expect((await take(subscribe({}, observer), 1)).map((event) => event.type === 'change' && event.eventId)).toEqual(['e-1']);
+    expect(calls).toEqual(['retrying OVERLOADED', 'connected', 'position p-0', 'position e-1']);
   });
 
   it('narrows to collections and records', async () => {
