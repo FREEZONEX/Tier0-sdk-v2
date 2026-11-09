@@ -104,11 +104,28 @@ function frames(response: Response) {
       return { ...(fields.event ? { event: fields.event } : {}), ...(fields.id !== undefined ? { id: fields.id } : {}), ...(fields.data ? { data: JSON.parse(fields.data) } : {}) };
     });
   };
+  /** Dispatched frames read ahead by next() / end() and not handed out yet. */
+  const buffered: Frame[] = [];
+  const pull = async () => buffered.push(...(await raw()).filter((frame) => frame.event));
   return {
     raw,
-    /** Dispatched frames received within `ms`. */
+    /** Dispatched frames received within `ms`: for asserting that nothing (more) arrives. */
     async take(ms = 20): Promise<Frame[]> {
-      return (await raw(ms)).filter((frame) => frame.event);
+      return [...buffered.splice(0), ...(await raw(ms)).filter((frame) => frame.event)];
+    },
+    /** The next `count` dispatched frames, waiting up to `timeoutMs` for them; later frames stay for the next read. */
+    async next(count: number, timeoutMs = 5000): Promise<Frame[]> {
+      const until = Date.now() + timeoutMs;
+      while (buffered.length < count && !done && Date.now() < until) await pull();
+      if (buffered.length < count) await pull();
+      return buffered.splice(0, count);
+    },
+    /** Every dispatched frame until the stream ends, waiting up to `timeoutMs`. */
+    async end(timeoutMs = 5000): Promise<Frame[]> {
+      const until = Date.now() + timeoutMs;
+      while (!done && Date.now() < until) await pull();
+      await pull();
+      return buffered.splice(0);
     },
     get lastId() {
       return lastId;
@@ -128,7 +145,7 @@ async function ready(options: Parameters<typeof createChangeRelay>[1] = {}) {
   const first = frames(relay.stream());
   await tick();
   upstream.connect();
-  await first.take();
+  await first.next(1);
   return { upstream, relay, first };
 }
 
@@ -144,13 +161,13 @@ describe('createChangeRelay', () => {
     expect(browser.lastId).toBeUndefined();
 
     upstream.connect('uns-1');
-    const [reset] = await browser.take();
+    const [reset] = await browser.next(1);
     expect(reset).toMatchObject({ event: 'reset', data: { reason: 'upstream-started' } });
     expect(reset.id).toMatch(/^[0-9a-f]{8}\.0$/);
     expect(relay.status).toBe('ready');
 
     upstream.push(change('1'));
-    expect((await browser.take()).map((frame) => frame.data?.recordId)).toEqual(['r-1']);
+    expect((await browser.next(1)).map((frame) => frame.data?.recordId)).toEqual(['r-1']);
   });
 
   it('gives a browser connecting to a streaming upstream its position at once', async () => {
@@ -167,8 +184,8 @@ describe('createChangeRelay', () => {
     await tick();
     upstream.push(change('1'));
     upstream.push(change('2', 'lines'));
-    const ordersFrames = await orders.take();
-    const oneFrames = await one.take();
+    const ordersFrames = await orders.next(1);
+    const oneFrames = await one.next(1);
     expect(upstream.opens).toHaveLength(1);
     expect(ordersFrames.map((frame) => [frame.event, frame.data?.recordId])).toEqual([['change', 'r-1']]);
     expect(oneFrames.map((frame) => frame.data?.collection)).toEqual(['lines']);
@@ -196,13 +213,13 @@ describe('createChangeRelay', () => {
     }));
     await tick();
     for (const id of ['1', '2', '3']) upstream.push(change(id));
-    expect((await browser.take()).map((frame) => frame.data?.recordId)).toEqual(['r-3']);
+    expect((await browser.next(1)).map((frame) => frame.data?.recordId)).toEqual(['r-3']);
   });
 
   it('numbers events itself and never hands upstream cursors to browsers', async () => {
     const { upstream, first } = await ready();
     upstream.push(change('upstream-cursor-secret', 'orders', 'r-1'));
-    const [received] = await first.take();
+    const [received] = await first.next(1);
     expect(String(received.id)).toMatch(/^[0-9a-f]{8}\.1$/);
     expect(JSON.stringify(received).includes('upstream-cursor-secret')).toBe(false);
   });
@@ -210,10 +227,10 @@ describe('createChangeRelay', () => {
   it('resumes a reconnecting browser from the buffer of the current epoch, through its filter', async () => {
     const { upstream, relay, first } = await ready();
     for (const id of ['1', '2', '3']) upstream.push(change(id));
-    const [one] = await first.take();
-    const resumed = await frames(relay.stream({ lastEventId: one.id })).take();
+    const [one] = await first.next(1);
+    const resumed = await frames(relay.stream({ lastEventId: one.id })).next(2);
     expect(resumed.map((frame) => frame.data?.recordId)).toEqual(['r-2', 'r-3']);
-    const filtered = await frames(relay.stream({ lastEventId: one.id, filter: (c) => c.recordId === 'r-3' })).take();
+    const filtered = await frames(relay.stream({ lastEventId: one.id, filter: (c) => c.recordId === 'r-3' })).next(1);
     expect(filtered.map((frame) => frame.data?.recordId)).toEqual(['r-3']);
     expect(await frames(relay.stream({ lastEventId: first.lastId })).take()).toEqual([]);
   });
@@ -226,17 +243,18 @@ describe('createChangeRelay', () => {
     const other = frames(relay.stream());
     await tick();
     upstream.connect();
-    expect((await forged.take()).map((frame) => frame.data?.reason)).toEqual(['unknown-event-id']);
-    expect((await other.take()).map((frame) => frame.data?.reason)).toEqual(['upstream-started']);
+    expect((await forged.next(1)).map((frame) => frame.data?.reason)).toEqual(['unknown-event-id']);
+    expect((await other.next(1)).map((frame) => frame.data?.reason)).toEqual(['upstream-started']);
     expect(upstream.opens).toHaveLength(1);
     expect(Object.keys(upstream.opens[0].options)).toEqual(['signal']);
 
     // The upstream works for everyone, the forging browser included.
     upstream.push(change('1'));
-    expect(await forged.take()).toHaveLength(1);
-    expect(await other.take()).toHaveLength(1);
+    expect(await forged.next(1)).toHaveLength(1);
+    expect(await other.next(1)).toHaveLength(1);
     for (const lastEventId of ['deadbeef.0', '', null, `${String(forged.lastId).split('.')[0]}.99`]) {
-      const answer = await frames(relay.stream({ lastEventId })).take();
+      const stream = frames(relay.stream({ lastEventId }));
+      const answer = lastEventId ? await stream.next(1) : await stream.take();
       expect(answer.map((frame) => frame.event)).toEqual(lastEventId ? ['reset'] : []);
     }
     expect(upstream.opens).toHaveLength(1);
@@ -252,31 +270,34 @@ describe('createChangeRelay', () => {
     const other = frames(relay.stream({ filter: () => false }));
     await other.raw(15);
     for (const id of ['1', '2']) upstream.push(change(id));
-    await tick(30);
-    expect((await other.raw()).filter((frame) => frame.event)).toEqual([]);
+    const dispatched: Frame[] = [];
+    for (const until = Date.now() + 5000; !/\.2$/.test(String(other.lastId)) && Date.now() < until;) {
+      dispatched.push(...(await other.raw()).filter((frame) => frame.event));
+    }
+    expect(dispatched).toEqual([]);
     expect(other.lastId).toMatch(/\.2$/);
   });
 
   it('turns an upstream reset into a new epoch, and resets the browsers once the upstream streams again', async () => {
     const { upstream, relay, first } = await ready();
     upstream.push(change('1'));
-    const [seen] = await first.take();
+    const [seen] = await first.next(1);
     upstream.push({ type: 'reset', reason: 'CURSOR_EXPIRED' });
     expect(await first.take()).toEqual([]);
     upstream.connect('uns-fresh');
-    const [reset] = await first.take();
+    const [reset] = await first.next(1);
     expect(reset).toMatchObject({ event: 'reset', data: { reason: 'CURSOR_EXPIRED' } });
     expect(reset.id?.split('.')[0]).not.toBe(seen.id?.split('.')[0]);
-    const stale = await frames(relay.stream({ lastEventId: seen.id })).take();
+    const stale = await frames(relay.stream({ lastEventId: seen.id })).next(1);
     expect(stale.map((frame) => frame.event)).toEqual(['reset']);
   });
 
   it('reopens a failed upstream from the last UNS position in the same epoch, without resetting browsers', async () => {
     const { upstream, relay, first } = await ready({ restartIntervalMs: 0 });
     upstream.push(change('7'));
-    const [seven] = await first.take();
+    const [seven] = await first.next(1);
     upstream.push(new Error('stream refused'));
-    const failure = await first.take();
+    const failure = await first.next(1);
     expect(failure).toEqual([{ event: 'unavailable', data: { reason: 'upstream-failed' } }]);
     expect(first.ended).toBe(false);
     expect(upstream.opens).toHaveLength(2);
@@ -285,12 +306,12 @@ describe('createChangeRelay', () => {
     // What UNS delivered after the position comes through on the new connection, numbered on.
     upstream.connect('7');
     upstream.push(change('8'));
-    const [eight] = await first.take();
+    const [eight] = await first.next(1);
     expect(eight.data?.recordId).toBe('r-8');
     expect(eight.id?.split('.')[0]).toBe(seven.id?.split('.')[0]);
     expect(eight.id?.split('.')[1]).toBe('2');
     expect(relay.status).toBe('ready');
-    const resumed = await frames(relay.stream({ lastEventId: seven.id })).take();
+    const resumed = await frames(relay.stream({ lastEventId: seven.id })).next(1);
     expect(resumed.map((frame) => frame.data?.recordId)).toEqual(['r-8']);
   });
 
@@ -318,9 +339,9 @@ describe('createChangeRelay', () => {
     const browser = frames(relay.stream({ signal: controller.signal }));
     await tick();
     upstream.connect();
-    await browser.take();
+    await browser.next(1);
     upstream.push(change('1'));
-    const [seen] = await browser.take();
+    const [seen] = await browser.next(1);
     controller.abort();
     expect(relay.size).toBe(0);
     expect(upstream.opens[0].signal.aborted).toBe(false);
@@ -335,7 +356,7 @@ describe('createChangeRelay', () => {
     expect(upstream.opens[1].options.lastEventId).toBe('1');
     upstream.connect('1');
     upstream.push(change('2'));
-    const later = await back.take();
+    const later = await back.next(1);
     expect(later.map((frame) => [frame.event, frame.data?.recordId])).toEqual([['change', 'r-2']]);
     expect(later[0].id?.split('.')[0]).toBe(seen.id?.split('.')[0]);
   });
@@ -349,18 +370,18 @@ describe('createChangeRelay', () => {
     await tick();
     upstream.retrying(overloaded());
     upstream.retrying(overloaded());
-    expect(await browser.take()).toEqual([{ event: 'unavailable', data: { reason: 'OVERLOADED' } }]);
+    expect(await browser.next(1)).toEqual([{ event: 'unavailable', data: { reason: 'OVERLOADED' } }]);
     expect(relay.status).toBe('unavailable');
     expect(warn).toHaveBeenCalledTimes(1);
     expect(onStatus.mock.calls.map(([status]) => status)).toEqual(['connecting', 'unavailable']);
     expect(onStatus.mock.calls[1][1]).toBeInstanceOf(DataError);
     // A browser arriving now hears it too, and still waits for a position.
     const late = frames(relay.stream());
-    expect(await late.raw()).toEqual([{ event: 'unavailable', data: { reason: 'OVERLOADED' } }]);
+    expect(await late.next(1)).toEqual([{ event: 'unavailable', data: { reason: 'OVERLOADED' } }]);
 
     upstream.connect();
-    expect((await browser.take()).map((frame) => frame.data?.reason)).toEqual(['upstream-started']);
-    expect((await late.take()).map((frame) => frame.data?.reason)).toEqual(['upstream-started']);
+    expect((await browser.next(1)).map((frame) => frame.data?.reason)).toEqual(['upstream-started']);
+    expect((await late.next(1)).map((frame) => frame.data?.reason)).toEqual(['upstream-started']);
     expect(relay.status).toBe('ready');
   });
 
@@ -368,7 +389,7 @@ describe('createChangeRelay', () => {
     const upstream = fakeUpstream();
     const relay = createChangeRelay(upstream.data, { maxStreamMs: 20 });
     const browser = frames(relay.stream());
-    await browser.take(60);
+    await browser.end();
     expect(browser.ended).toBe(true);
     expect(relay.size).toBe(0);
   });
@@ -379,7 +400,7 @@ describe('createChangeRelay', () => {
     const controller = new AbortController();
     controller.abort();
     const browser = frames(relay.stream({ signal: controller.signal }));
-    expect(await browser.take()).toEqual([]);
+    expect(await browser.end()).toEqual([]);
     expect(browser.ended).toBe(true);
     expect(upstream.opens).toHaveLength(0);
   });
@@ -418,7 +439,7 @@ describe('createChangeRelay over data.subscribe', () => {
       relay.stream({ lastEventId: 'garbage', signal: browserGone.signal, filter: (c) => c.recordId === 'k-2' })));
     // The request that opened the upstream is over; the upstream keeps serving.
     request.abort();
-    const received = await browser.take(100);
+    const received = await browser.next(2);
     browserGone.abort();
 
     expect(opened).toHaveLength(1);
@@ -455,7 +476,7 @@ describe('createChangeRelay over data.subscribe', () => {
     const relay = createChangeRelay(client(fetch), { idleCloseMs: 0, restartIntervalMs: 0, logger: quiet });
     const controller = new AbortController();
     const browser = frames(relay.stream({ signal: controller.signal }));
-    const received = await browser.take(2500);
+    const received = await browser.next(4, 10_000);
     controller.abort();
 
     expect(opened).toEqual([null, 'p-1', 'p-1']);
