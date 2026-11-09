@@ -7,7 +7,7 @@ description: "Tier0 App/Stream requests and live business messages: client.strea
 
 Read the [root Skill](../SKILL.md) first.
 
-**Currently unavailable to a Tier0 App's server code**: in Preview and deployments the node proxy does not forward `/openapi/v2/stream-requests/*` or `/openapi/v2/stream-messages/*`, so these calls answer 404 `sbx_proxy_not_found`. Do not build App features on them until the platform enables them. These APIs require an artifact built from the unified SDK implementation: pin its commit and SHA-256 until the corresponding version is published.
+**Not yet supported for a Tier0 App's server code**: the platform has not enabled Stream requests and messages for Apps in Preview and deployments. Do not build App features on them until it does. These APIs require an artifact built from the unified SDK implementation: pin its commit and SHA-256 until the corresponding version is published.
 
 ## Select the interaction
 

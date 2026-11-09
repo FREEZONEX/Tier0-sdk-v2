@@ -11,8 +11,8 @@
  *   `created`: fixed `_id`s, atomic chunks of 200 with a stable idempotency
  *   key per chunk, so a failed chunk (outcome unknown, or marked safe to
  *   resend) is replayed after a short wait instead of duplicated. Preview and
- *   deployments write them the same way, as the App: both use the App's
- *   key, which the node proxy attaches.
+ *   deployments write them the same way, as the App, with the App's key
+ *   the platform provides.
  * - Preview throws on SCHEMA_CONFLICT and warnings so the worker sees them;
  *   a deployment logs them and keeps serving with the IDs it has.
  * - Self-healing: a Preview reset hard-deletes collections, and a worker or

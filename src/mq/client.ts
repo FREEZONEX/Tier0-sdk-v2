@@ -41,6 +41,12 @@ function parseWorkspaceIDFromApiKey(apiKey: string): string | undefined {
   return workspaceID > 0n ? workspaceID.toString() : undefined;
 }
 
+/**
+ * App segment of a hosted App key's clientId, as Backend `hostedappkey` accepts it:
+ * `<ws>&h.<app>.<[a-z0-9]{8,32}>`, app `[A-Za-z0-9_-]{1,64}` (no `&` or `.`).
+ */
+const HOSTED_APP_SEGMENT = /^[A-Za-z0-9_-]{1,64}$/;
+
 function generateRandomString(length = 8): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
   let result = '';
@@ -104,10 +110,10 @@ export class Tier0MQClient {
 
     const host = config?.host || envHost || '';
     const port = config?.port || parseInt(envPort || '8084') || 8084;
-    // The node proxy puts in the App's key on the server.
     // An explicitly given password, even undefined, is never replaced by the environment key.
-    const password = config && Object.hasOwn(config, 'password')
-      ? config.password
+    const explicitPassword = !!config && Object.hasOwn(config, 'password');
+    const password = explicitPassword
+      ? config!.password
       : (this.tokenSource() ? '' : getEnvVar('TIER0_API_KEY')) || '';
 
     // 从 apiKey 解析 workspaceID，自动生成 clientId 和 username
@@ -115,8 +121,13 @@ export class Tier0MQClient {
       ? undefined
       : parseWorkspaceIDFromApiKey(password ?? '');
 
+    // In an App's runtime the platform injects the App's key as TIER0_API_KEY: Backend accepts that hosted key
+    // only with clientId `<ws>&h.<app>.<random>` (app = TIER0_APP_ID). Any other key keeps `<ws>&<random>`.
+    const appId = getEnvVar('TIER0_APP_ID')?.trim();
+    const hosted = !explicitPassword && !!password && config?.clientId === undefined && config?.username === undefined &&
+      !!appId && HOSTED_APP_SEGMENT.test(appId);
     const autoClientId = workspaceID
-      ? `${workspaceID}&${generateRandomString(8)}`
+      ? hosted ? `${workspaceID}&h.${appId}.${this.clientSuffix}` : `${workspaceID}&${generateRandomString(8)}`
       : undefined;
     const autoUsername = workspaceID
       ? `${workspaceID}&open`

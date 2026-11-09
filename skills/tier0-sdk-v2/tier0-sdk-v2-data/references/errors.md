@@ -38,7 +38,7 @@ export function toResponse(error: unknown): Response {
 
 | code | 含义 |
 | --- | --- |
-| `DATA_NOT_CONFIGURED` (503) | 缺少 TIER0_API_HOST（或 apiHost）；本地开发还缺 TIER0_API_KEY（或 apiKey）。平台里不需要 Key，节点代理注入 App 的 Key |
+| `DATA_NOT_CONFIGURED` (503) | 缺少 TIER0_API_HOST（或 apiHost），或缺少 TIER0_API_KEY（或 apiKey）。平台里两者都由平台注入；没绑 App 的会话两者都没有 |
 | `DATA_TIMEOUT` (503) | UNS 未在超时内应答（每次调用从开始算共 25 秒，含排队与重试，`transportTimeoutMs` 可调）；写入时 `outcomeUnknown` 为 true、不重试 |
 | `DATA_OVERLOADED` (503) | 本进程 6 个请求名额一直占满，调用在超时前没排到，**没有发出**（`execution: 'notStarted'`，`retry.safe`）；减少并发或合并读取 |
 | `DATA_ABORTED` (499) | 业务请求已中止（`runWithAbortSignal(request.signal, …)` 传入的信号）：排队中的调用不再发出（`notStarted`），已发出的写入 `outcomeUnknown` |
@@ -87,9 +87,9 @@ export function toResponse(error: unknown): Response {
 
 记录调用上的 `data.reason`：`COLLECTION_NOT_GRANTED`（403，授权不覆盖该集合或操作）与 `COLLECTION_NOT_FOUND`（403/404，集合不存在或写入目标已回收）仅对声明集合触发[自愈](consistency.md#首次访问与自愈)，已有 ID 引用直接报告错误；回收不使已有授权的历史读取失效。`APP_PERMISSION_MISSING`（403，`data.missingPermission`）表示 Key 缺少权限，例如删除记录需要 `uns.delete`——业务记录通常以状态结束（`CANCELLED`、`ARCHIVED`）而不是删除。
 
-## 节点代理错误
+## 平台代理模式的错误
 
-Tier0 预览和部署里，平台请求经过节点代理（`sbx-api-proxy`），它按 VM 源地址注入 App 的长期 Key（预览和正式同一把）。代理自己产生的错误带响应头 `X-Tier0-Proxy: not-forwarded`，响应体 `{code, message, retry_after_ms?}`，请求**没有到达平台**，所以 `execution` 是 `notStarted`，写入重发也安全。`DataError.code`、`UnsV2Error.code`、`ApiError.errorCode` 都是下表的 `code`。
+只在平台代理模式下出现：`TIER0_RUNTIME` 为 `deployed` / `preview` 而进程里没有 `TIER0_API_KEY`，SDK 不发凭据、请求经节点代理（`sbx-api-proxy`）由它附加 App 的 Key。当前平台给 App 注入 `TIER0_API_KEY`，不会进入这个模式。代理自己产生的错误带响应头 `X-Tier0-Proxy: not-forwarded`，响应体 `{code, message, retry_after_ms?}`，请求**没有到达平台**，所以 `execution` 是 `notStarted`，写入重发也安全。`DataError.code`、`UnsV2Error.code`、`ApiError.errorCode` 都是下表的 `code`。
 
 | code | 含义与处理 |
 | --- | --- |

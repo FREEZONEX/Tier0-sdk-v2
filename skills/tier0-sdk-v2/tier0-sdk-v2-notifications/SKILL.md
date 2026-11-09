@@ -5,7 +5,7 @@ description: 使用 @tier0/sdk-v2 发送和查询 Tier0 站内通知、Web/Deskt
 
 # 通知
 
-服务端使用 `createClient()`：平台里读 TIER0_API_HOST，节点代理注入 App 的 Key；本地开发读 TIER0_API_HOST / TIER0_API_KEY，或显式传 apiHost/apiKey。发送必须符合用户已授权的收件人和内容范围，查询状态不自动补发。
+服务端使用 `createClient()`：读 TIER0_API_HOST / TIER0_API_KEY（平台里由平台注入 App 的 Key，本地开发自己设），或显式传 apiHost/apiKey。发送必须符合用户已授权的收件人和内容范围，查询状态不自动补发。
 
 | 任务 | 参考 | 方法 |
 | --- | --- | --- |

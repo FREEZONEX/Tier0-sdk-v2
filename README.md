@@ -4,7 +4,7 @@ Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交�
 
 `0.10.0-aenv.10` 是 aenv-next 的本地预发布版本，基于 `0.9.10`、base 2026-11-05 的 MQTT 修复和 base 的 `0.9.11` 待发布候选（含 `0.9.9` 的 `metadataPurge` 与凭证查询说明、`0.9.8` 的 App 集合业务目录声明 `directoryPath`），未发布到 npm；内容见下方「aenv-next 运行环境」。
 
-**`0.10.0-aenv.10` 是破坏性变更**：App 调平台只有一种身份，App 自身（App Key）；按用户角色收窄数据由 App 自己做，服务端用 `parseVisitorHeader()` 读前门注入的明文 `X-Tier0-Visitor` 拿到当前用户和角色。浏览器不再直连 MQTT，实时数据由 App 服务端订阅后转发（`createChangeRelay`）；请求中止信号改由 `runWithAbortSignal` 传入。删除的接口见 CHANGELOG。用旧 SDK 打包的 App 在前门改为明文访问者头后无法识别访问者，必须升级重新发布。
+**`0.10.0-aenv.10` 是破坏性变更**：平台现在把 App 的 Key（`TIER0_API_KEY`）放在运行进程的环境里，SDK 直接用它（下文「aenv-next 运行环境」）；早期预发布说明里的节点代理模式只在没有 Key 的运行时生效。App 调平台只有一种身份，App 自身（App Key）；按用户角色收窄数据由 App 自己做，服务端用 `parseVisitorHeader()` 读前门注入的明文 `X-Tier0-Visitor` 拿到当前用户和角色。浏览器不再直连 MQTT，实时数据由 App 服务端订阅后转发（`createChangeRelay`）；请求中止信号改由 `runWithAbortSignal` 传入。删除的接口见 CHANGELOG。用旧 SDK 打包的 App 在前门改为明文访问者头后无法识别访问者，必须升级重新发布。
 
 **`0.10.0-aenv.2` 起是破坏性变更**：`TIER0_CREDENTIALS_FILE` 不再读取，SDK 在平台里不持有、不发送任何凭据，由节点代理注入 App 的长期 Key；必须和新的 AgentENV（`sbx-api-proxy`）一起上线，在旧 VM 上请求会被拒绝。`0.10.0-aenv.3` 起 `TIER0_RUNTIME` 只接受 `deployed` / `preview`，其他非空值（且没有 Key）直接报配置错误。`0.10.0-aenv.4` 起 MQTT 改用 `<ws>&open` / `<ws>&h.<app>.<随机>`，预览和正式同一行为（`appCredentialRuntime()` 已删除）。`0.10.0-aenv.5` 合入 base 的 `0.9.7`、`0.9.8`。`0.10.0-aenv.6` 起 `members.listApp` 经节点代理可用（托管 Key 按 `platform.users.read`，响应不带邮箱）。`0.10.0-aenv.7` 合入 base 的 `0.9.9`、`0.9.10`（个人 Key 本地接入指南、非 JSON 网关错误提示、Namespace 回收说明），节点代理凭据模型不变。`0.10.0-aenv.9` 合入 base 2026-11-05 的 MQTT 修复（按连接代次丢弃过期回调、逐个 topic 校验订阅确认、连接设置预检回滚），重连期间新订阅和发布仍等待重连。
 
@@ -83,48 +83,22 @@ Data 高层会跨请求复用 ensure 结果、重放带幂等键的 seed、恢�
 
 ## aenv-next 运行环境
 
-**平台里不需要、也读不到凭据。** Tier0 预览和部署的 VM 里没有 `TIER0_API_KEY`，也没有任何凭据文件。节点代理（`sbx-api-proxy`）按 VM 的源地址认出 App，转发到平台时注入这个 App 的长期 Key；SDK 不持有它。**预览和正式用同一把 Key，行为相同**：预览里 App 同样能读写自己的数据，种子在 ensure 时以 App 身份写入。
+**平台把 App 的 Key 放在运行进程的环境里，SDK 直接用它。** Tier0 预览和部署里，平台给 App 的运行进程注入 `TIER0_API_KEY`（这个 App 的 Key，秘密；预览是 App 的 preview Key，部署是 deployed Key，平台据此把预览里发的通知判为 test）。它只在运行进程的环境里，不进构建、不写文件。SDK 照常读 `TIER0_API_HOST` / `TIER0_API_KEY`，每个请求只发一个 `X-API-Key`。App 代码不要自己读、复制、打印或下发这个 Key，也不要把它放进 `.env`、集合或页面。所有平台调用都是 App 自身，请求里不带访问者身份。
 
-`TIER0_RUNTIME` 为 `deployed` 或 `preview`、没有 `TIER0_API_KEY` 时，SDK 进入「平台代理模式」（传了有值的 `apiKey`，或给了 `getApiKey` / `apiKeyProvider` 的客户端仍按显式配置；`apiKey: undefined`，例如 `apiKey: process.env.TIER0_API_KEY`，在平台里仍走平台代理模式。`createDataClient` 在创建时把环境里的 Key 固定成 `apiKey`，平台里它是 `undefined`，同样走代理）。没有 `TIER0_API_KEY` 而 `TIER0_RUNTIME` 是其他非空值时，SDK 抛出配置错误，不猜测模式。平台代理模式下：
-
-- 不读任何凭据，不发 `Authorization`、`X-API-Key`；
-- 每个请求带 `X-Tier0-SDK: 1`，代理拒绝不带它的请求；
-- 不跟随重定向；
-- 只对代理自己产生的 `503`、`429`（带 `X-Tier0-Proxy: not-forwarded`）按响应体的 `retry_after_ms` 重试，最多 3 次。这类请求没有到达平台，写操作重发也安全。平台返回的 5xx 不重试；
-- 所有平台调用都是 App 自身，请求里不带访问者身份。
-
-平台设置的环境变量（都是标识，不是秘密）：
+平台设置的环境变量：
 
 | 变量 | 值 |
 | --- | --- |
-| `TIER0_API_HOST` | `http://api.sbx.internal:8080`，带 scheme。不带 scheme 的主机名仍按 `https://` 处理，给本地开发用 |
-| `TIER0_MQTT_URL` | `mqtt://mqtt.sbx.internal:1883` |
-| `TIER0_WORKSPACE_ID` | 工作区 ID，SDK 以它为准 |
-| `TIER0_APP_ID` | App ID，SDK 以它为准（`getCurrentAppId()` 先读它，再读旧的 `APP_ID`） |
-| `TIER0_RUNTIME` | `deployed` 或 `preview`，只用来判断是否在平台里；两者行为相同 |
+| `TIER0_API_HOST` | 平台 API 网关根地址，带 scheme。不带 scheme 的主机名按 `https://` 处理 |
+| `TIER0_API_KEY` | App 的 Key（秘密，只在运行进程里） |
+| `TIER0_MQTT_HOST`、`TIER0_MQTT_PORT` | App 服务端能连到的 MQTT broker 入口 |
+| `TIER0_WORKSPACE_ID` | 工作区 ID |
+| `TIER0_APP_ID` | App ID（`getCurrentAppId()` 先读它，再读旧的 `APP_ID`） |
+| `TIER0_RUNTIME` | `deployed` 或 `preview` |
 
-**直接用 `fetch` / `curl` 调平台**（不经过 SDK）时，必须自己带 `X-Tier0-SDK: 1`，不要带 `Authorization`；`Forwarded`、`X-Forwarded-*`、`X-Real-IP` 会被拒绝：
+App 的 Key 能调哪些接口由 Backend 按 App 的平台权限判定；平台权限（十项）和消息主题由工作区管理员在 App 设置里管理，改了立即生效；外部集合仍在发布时确认。
 
-```sh
-curl -sS -X POST "$TIER0_API_HOST/openapi/v2/info" -H 'X-Tier0-SDK: 1' -H 'Content-Type: application/json' -d '{}'
-```
-
-代理只转发 `/openapi/v2/uns/**`、`assets/**`、`notifications/send`、`notifications/get`、`platform/getMembers`（`members.listWorkspace()`）、`apps/access-members/list`（`members.listApp()`）、`info`。白名单外的接口（`system.whoami()`、`mqttAuth`、`capabilities`、`agent`、`client.streams` 的 Stream 请求和消息）回 404 `sbx_proxy_not_found`；Source / Stream 管理接口虽在 `/openapi/v2/uns/**` 下会被转发，但 App 的 Key 无权调用，Backend 回 403。代理自己产生的错误带 `X-Tier0-Proxy: not-forwarded`，响应体 `{code, message, retry_after_ms?}`：
-
-| `code` | 状态 | 含义 |
-| --- | --- | --- |
-| `sbx_proxy_not_ready` | 503 | 代理刚启动、还没拿到绑定；SDK 自动重试 |
-| `sbx_proxy_credential_pending` | 503 | 绑定在，但 App 的 Key 还没送到代理；SDK 自动重试 |
-| `sbx_proxy_limited` | 429 | 超过这个 VM 的并发或速率上限；SDK 自动重试 |
-| `sbx_proxy_no_credential` | 403 | 这个 VM 永远没有 Key（会话没有绑定 App，只能调 `/openapi/v2/info`）；不重试 |
-| `sbx_proxy_unbound` | 403 | 这个 VM 没有绑定（实例正在启动或已停止） |
-| `sbx_proxy_bad_request` | 400 | 请求格式被拒（absolute-form、`Upgrade`、路径含 `..` / `%2f` 等） |
-| `sbx_proxy_forbidden` | 403 | 缺 `X-Tier0-SDK: 1`，或带了 `Forwarded` / `X-Forwarded-*` / `X-Real-IP` |
-| `sbx_proxy_not_found` | 404 | 路径不在白名单里 |
-
-`ApiError.errorCode`、`UnsV2Error.code` 是上表的 `code`；UNS 调用的 `execution` 为 `notStarted`。
-
-平台权限（十项）和消息主题由工作区管理员在 App 设置里管理，改了立即生效；外部集合仍在发布时确认。
+**平台代理模式**（保留给不带 Key 的运行时）：`TIER0_RUNTIME` 为 `deployed` 或 `preview`、而进程里没有 `TIER0_API_KEY` 时，SDK 不读也不发任何凭据，每个请求带 `X-Tier0-SDK: 1`，只对节点代理自己产生的 `503`、`429`（带 `X-Tier0-Proxy: not-forwarded`，`code` 以 `sbx_proxy_` 开头）按 `retry_after_ms` 最多重试 3 次；MQTT 用 `TIER0_MQTT_URL`（`mqtt://`）且不发 password。传了有值的 `apiKey`，或给了 `getApiKey` / `apiKeyProvider` 的客户端始终按显式配置。没有 `TIER0_API_KEY` 而 `TIER0_RUNTIME` 是其他非空值时，SDK 抛出配置错误，不猜测模式。当前平台给绑定 App 的会话和已发布的 App 都注入 `TIER0_API_KEY`，不会进入这个模式；没绑 App 的会话没有 Key 也没有 `TIER0_API_HOST`，调平台会报 `DATA_NOT_CONFIGURED` 一类的配置错误。
 
 本地开发（没有 `TIER0_RUNTIME`）照旧设 `TIER0_API_HOST`、`TIER0_API_KEY`。
 
@@ -156,7 +130,7 @@ curl -sS -X POST "$TIER0_API_HOST/openapi/v2/info" -H 'X-Tier0-SDK: 1' -H 'Conte
 - `@tier0/sdk-v2/page-runtime`：页面运行时 v1 和平台错误（`x-sbx-error`）。
 - `@tier0/sdk-v2/event-stream`：基于 fetch 的 SSE。App 休眠时停止，`resumed` 后重建，节点 agent 重启时透明重连。页面隐藏时关掉连接（后台标签页不占着到 App 的长连接），可见时带最后的事件 id（`Last-Event-ID`）立即续传，服务端补发或回 `reset`；`pauseWhenHidden: false` 关闭这一行为。`EventSource` 遇到 503 不重试，手写时要订阅 `resumed` 后重建。
 
-**MQTT**：只在 App 服务端连接。平台代理模式下不发 password，由代理填入 App 的 Key；username 为 `<ws>&open`，clientId 为 `<ws>&h.<app>.<16 位随机>`，由 `TIER0_WORKSPACE_ID`、`TIER0_APP_ID` 拼出，预览和正式相同。只有用平台给的 `TIER0_MQTT_URL`（`mqtt://`）时才走 TCP 经过代理；显式传 `host` 会改用 WebSocket，经代理连不上，平台里不要传。页面不直连 broker：浏览器要的实时消息由 App 服务端订阅，按访问者角色过滤后经 App 自己的接口（例如一个 SSE 路由）推给浏览器。`clean` 默认 `false`；服务端按指数退避一直重连，上限 5 分钟，Key 轮换时代理断开连接、SDK 重连后用新 Key。持久会话、QoS 1 下重连不丢消息，但断开期间的积压超过 EMQX 离线队列（默认 `max_mqueue_len=1000`）仍会丢。
+**MQTT**：只在 App 服务端连接。平台里 `new Tier0MQClient()` 什么都不传：broker 取自 `TIER0_MQTT_HOST` / `TIER0_MQTT_PORT`，password 用 `TIER0_API_KEY`，username 为 `<ws>&open`（ws 从 Key 解析）。App 运行时（有 `TIER0_APP_ID`，Key 来自注入的 `TIER0_API_KEY`，没显式传 `clientId` / `username` / `password`）的 clientId 是托管格式 `<ws>&h.<app>.<16 位随机>`（app 即 `TIER0_APP_ID`），Backend 只接受这种 clientId 的托管 App Key；其他情况保持 `<ws>&<8 位随机>`，显式传的 `clientId` / `username` 优先。页面不直连 broker：浏览器要的实时消息由 App 服务端订阅，按访问者角色过滤后经 App 自己的接口（例如一个 SSE 路由）推给浏览器。`clean` 默认 `false`；服务端按指数退避一直重连，上限 5 分钟。持久会话、QoS 1 下重连不丢消息，但断开期间的积压超过 EMQX 离线队列（默认 `max_mqueue_len=1000`）仍会丢。
 
 **记录变更推给浏览器**：`createChangeRelay(data)` 在每个服务端进程里只开一个 `data.subscribe`（App 身份，看得到 App 被授权集合的全部变更），转发给每个浏览器的 SSE 连接；`filter` 由 App 按访问者决定这个浏览器能知道哪些变更。浏览器不各开上游：Gateway 按工作区限制同时打开的订阅数。
 
@@ -187,7 +161,7 @@ export function changes(request: Request, visitor: Visitor): Response {
 | `tier0.streams` | App 请求、实时业务消息与独立交互能力发现 |
 | `tier0.uns` | 目录、Topic、Collection、Record、Sample、事务与 App 数据上下文 |
 | `tier0.system` | `whoami()`、`info()` |
-| `tier0.members` | `listWorkspace()` 用于 Workspace 级成员选择；`listApp({ appId })` 查询能使用指定 App 的成员（Builder 预览按草稿角色，部署后按线上版本，`scope` 由 SDK 自动带上）（Tier0 App 里经节点代理可用；托管 App Key 按 App 的平台权限 `platform.users.read` 放行，响应不带邮箱） |
+| `tier0.members` | `listWorkspace()` 用于 Workspace 级成员选择；`listApp({ appId })` 查询能使用指定 App 的成员（Builder 预览按草稿角色，部署后按线上版本，`scope` 由 SDK 自动带上）（Tier0 App 里可用；App 的 Key 按 App 的平台权限 `platform.users.read` 放行，响应不带邮箱） |
 | `tier0.notifications` | `send()`、`get()` |
 | `tier0.files` | `upload()`、`uploadMultipart()`、`resumeMultipart()`、`url()`、`download()`、`delete()`、`multipart` 原子接口 |
 | `tier0.mqttAuth` | 创建、删除 MQTT 凭证 |
