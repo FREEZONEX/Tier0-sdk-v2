@@ -59,7 +59,17 @@ export function verifyAcquisition(repository, committed = false) {
   }
   if (committed) assert.notEqual(update.sourceKind, 'working-tree-preview', 'Acquisition contract is a working-tree preview; sync its committed Backend revision before publishing.');
   for (const [path, input] of Object.entries(update.inputs)) {
-    assert.equal(sha(readFileSync(resolve(repository, path))), input.resultSHA256, `Acquisition snapshot changed without sync: ${path}`);
+    let expected = input.resultSHA256;
+    for (const overlay of updates.slice(updates.indexOf(update) + 1)) {
+      const next = overlay.inputs?.[path];
+      if (!next) continue;
+      assert.equal(next.baseSHA256, expected, `Broken snapshot provenance: ${path}`);
+      assert.match(overlay.revision, /^[a-f0-9]{40}$/);
+      assert.ok(!overlay.schemas?.some(name => acquisitionSchemas.includes(name)), 'Acquisition changes require acquisition sync');
+      if (committed) assert.notEqual(overlay.sourceKind, 'working-tree-preview', 'Overlay is a working-tree preview');
+      expected = next.resultSHA256;
+    }
+    assert.equal(sha(readFileSync(resolve(repository, path))), expected, `Acquisition snapshot changed without sync: ${path}`);
   }
   return update;
 }
