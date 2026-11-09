@@ -99,7 +99,7 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
   // BulkWrite descriptions, and name, directoryPath (required), description and ownerAppId on the appCollectionsList item.
   // Re-pinned again for Backend 8780ce2d6 (base 2f79a4f87): the only reachable change is three more ensure schema-note reasons
   // (DIRECTORY_PATH_NOT_APPLIED, TTL_RETAINED, OWNER_APP_TRASHED on CloudAppCollectionSchemaNote, Backend 5d6ae2834).
-  // Re-pinned for Backend 59cc52688 (app-data-rule-retirement/1): the per-employee rule schemas and the App create hint are gone
+  // Re-pinned for Backend b6347c688 (app-data-rule-retirement/1): the per-employee rule schemas and the App create hint are gone
   // (four fewer reachable schemas), the rule fields leave the App data policy and the change event, notifications.read leaves
   // AppContext.platformPermissions, and the ensure / recordGet descriptions drop the per-employee wording. From the base: reworded
   // UnsV2FieldOperation.path and a kind description on the generic metadata requests.
