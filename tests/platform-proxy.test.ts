@@ -5,11 +5,11 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { z } from 'zod';
 import { createClient, createUnsV2Client } from '../src/index.js';
 import { HttpClient } from '../src/openapi/client.js';
-import { createDataClient, defineCollection, runAsApp, runWithRequestContext } from '../src/data/index.js';
+import { createDataClient, defineCollection } from '../src/data/index.js';
 import { platformIdentity, platformProxyMode } from '../src/platform-proxy.js';
 import { getCurrentAppId } from '../src/runtime-context.js';
 import { Tier0MQClient } from '../src/mq/client.js';
-import { createVisitorTokenVerifier } from '../src/cloud-server.js';
+import { parseVisitorHeader } from '../src/cloud-server.js';
 
 // The node proxy (design 21.28) on a real socket: what the SDK puts on the wire.
 const received: { url: string; method: string; body: string; headers: IncomingMessage['headers'] }[] = [];
@@ -36,8 +36,6 @@ const ok = (res: ServerResponse) => json(res, { code: 200, msg: 'ok', data: { us
 const proxy = (res: ServerResponse, status: number, code: string, retryAfterMs?: number) =>
   json(res, { code, message: `proxy ${code}`, ...(retryAfterMs === undefined ? {} : { retry_after_ms: retryAfterMs }) }, status, { 'X-Tier0-Proxy': 'not-forwarded' });
 
-const segment = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
-const delegationToken = `${segment({ alg: 'EdDSA' })}.${segment({ typ: 'delegation' })}.sig`;
 const envelope = (data: unknown = {}) => new Response(JSON.stringify({ code: 200, msg: 'ok', requestId: 'r', data }), { status: 200, headers: { 'content-type': 'application/json' } });
 
 function platformEnv(runtime: 'deployed' | 'preview' = 'deployed') {
@@ -103,7 +101,7 @@ describe('platform proxy mode (design 21.7)', () => {
     await createClient({ fetch }).system.whoami();
     const { headers } = received[0];
     expect(headers['x-tier0-sdk']).toBe('1');
-    for (const name of ['authorization', 'x-api-key', 'x-tier0-app-data-subject', 'proxy-authorization', 'cookie']) expect(headers[name]).toBeUndefined();
+    for (const name of ['authorization', 'x-api-key', 'proxy-authorization', 'cookie']) expect(headers[name]).toBeUndefined();
     expect(fetch.mock.calls[0][1]?.redirect).toBe('manual');
   });
 
@@ -117,7 +115,7 @@ describe('platform proxy mode (design 21.7)', () => {
     expect(received.map(r => r.url)).toEqual(['/openapi/v2/auth/whoami']);
   });
 
-  it('marks UNS v2 and event-stream requests too, without the data subject', async () => {
+  it('marks UNS v2 and event-stream requests too', async () => {
     respond = (res, req) => {
       if (req.url!.includes('records:subscribe')) {
         res.writeHead(200, { 'content-type': 'text/event-stream' });
@@ -126,9 +124,8 @@ describe('platform proxy mode (design 21.7)', () => {
       }
       json(res, { code: 200, msg: 'ok', requestId: 'r', data: { count: 0, capped: false } });
     };
-    const subject = `${segment({ a: 1 })}.${segment({ b: 2 })}.sig`;
     const http = new HttpClient();
-    const uns = createUnsV2Client(() => http, { unsV2AppDataSubject: subject });
+    const uns = createUnsV2Client(() => http);
     await uns.recordCount({ collectionId: 'c1' } as never);
     for await (const _event of uns.subscribeRecords({ collectionIds: ['c1'] })) break;
     expect(received.map(r => r.url.split('?')[0])).toEqual([
@@ -139,18 +136,7 @@ describe('platform proxy mode (design 21.7)', () => {
       expect(headers['x-tier0-sdk']).toBe('1');
       expect(headers.authorization).toBeUndefined();
       expect(headers['x-api-key']).toBeUndefined();
-      expect(headers['x-tier0-app-data-subject']).toBeUndefined();
     }
-  });
-
-  it('forwards the delegation as received on every interface, and not under runAsApp', async () => {
-    const client = createClient();
-    const request = new Request('http://app/x', { headers: { 'X-Tier0-Delegation': delegationToken } });
-    await runWithRequestContext(request, () => client.system.whoami());
-    await runWithRequestContext(request, () => runAsApp(() => client.system.whoami()));
-    expect(received[0].headers['x-tier0-delegation']).toBe(delegationToken);
-    expect(received[0].headers.authorization).toBeUndefined();
-    expect(received[1].headers['x-tier0-delegation']).toBeUndefined();
   });
 
   it('keeps an explicit apiKey or getApiKey, without X-Tier0-SDK', async () => {
@@ -304,11 +290,11 @@ describe('identity from the environment', () => {
     expect(platformIdentity()).toBeUndefined();
   });
 
-  it('checks the visitor token audience against TIER0_APP_ID', () => {
+  it('checks the visitor header against TIER0_APP_ID', () => {
     vi.stubEnv('TIER0_APP_ID', undefined);
-    expect(() => createVisitorTokenVerifier({ keys: { keys: () => new Map() } })('a.b.c')).toThrow('VISITOR_TOKEN_CONFIGURATION_INVALID');
+    expect(() => parseVisitorHeader('a.b.c')).toThrow('VISITOR_CONFIGURATION_INVALID');
     vi.stubEnv('TIER0_APP_ID', 'app_1');
-    expect(() => createVisitorTokenVerifier({ keys: { keys: () => new Map() } })('a.b.c')).toThrow('VISITOR_TOKEN_INVALID');
+    expect(() => parseVisitorHeader('a.b.c')).toThrow('VISITOR_HEADER_INVALID');
   });
 });
 
@@ -324,23 +310,24 @@ describe('the data layer in platform proxy mode', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('keeps ensure App-level when a request triggers it', async () => {
+  it('sends ensure and record calls through the proxy without a credential', async () => {
     const orders = defineCollection({ alias: 'orders', name: 'orders', schema: z.object({ title: z.string() }) });
-    const seen: Record<string, string | null> = {};
+    const seen: string[] = [];
     const fetch = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
       const headers = new Headers(init?.headers);
       expect(headers.get('x-tier0-sdk')).toBe('1');
       expect(headers.get('authorization')).toBeNull();
+      expect(headers.get('x-api-key')).toBeNull();
       if (String(url).includes('collections/ensure')) {
-        seen.ensure = headers.get('x-tier0-delegation');
+        seen.push('ensure');
         return envelope({ appId: 'app_1', results: [{ alias: 'orders', collectionId: 'c1', revision: 1, status: 'unchanged', ignored: [], warnings: [], indexStatus: [] }] });
       }
-      seen.count = headers.get('x-tier0-delegation');
+      seen.push('count');
       return envelope({ count: 1, capped: false });
     });
     const data = createDataClient({ fetch: fetch as typeof globalThis.fetch, collections: [orders], environment: 'deployed', logger });
-    await runWithRequestContext(new Headers({ 'X-Tier0-Delegation': delegationToken }), () => data.collection(orders).countDocuments());
-    expect(seen).toEqual({ ensure: null, count: delegationToken });
+    await data.collection(orders).countDocuments();
+    expect(seen).toEqual(['ensure', 'count']);
   });
 
   describe.each(['deployed', 'preview'] as const)('seeds in a platform %s', (runtime) => {
@@ -351,7 +338,7 @@ describe('the data layer in platform proxy mode', () => {
       const fetch = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
         if (String(url).includes('collections/ensure')) return envelope({ results: [{ alias: 'orders', collectionId: 'c1', revision: 1, status, ignored: [], warnings: [], indexStatus: [] }] });
         if (String(url).includes('bulkWrite')) {
-          writes.push(new Headers(init?.headers).get('x-tier0-delegation'));
+          writes.push(new Headers(init?.headers).get('x-tier0-sdk'));
           return envelope({ writeErrors: [] });
         }
         return envelope({ count: 1, capped: false });
@@ -360,23 +347,23 @@ describe('the data layer in platform proxy mode', () => {
       return { data, writes };
     }
 
-    it('are written by ensure, as the App, without waiting for a request', async () => {
+    it('are written by ensure, through the proxy, without waiting for a request', async () => {
       const { data, writes } = platform('created');
-      await runAsApp(() => data.ensure());
-      expect(writes).toEqual([null]);
-      await runWithRequestContext(new Headers({ 'X-Tier0-Delegation': delegationToken }), () => data.collection(seeded).countDocuments());
-      expect(writes).toEqual([null]);
+      await data.ensure();
+      expect(writes).toEqual(['1']);
+      await data.collection(seeded).countDocuments();
+      expect(writes).toEqual(['1']);
     });
 
-    it('are written as the App even when a delegated request triggers ensure', async () => {
+    it('are written when a request triggers ensure', async () => {
       const { data, writes } = platform('created');
-      await runWithRequestContext(new Headers({ 'X-Tier0-Delegation': delegationToken }), () => data.collection(seeded).countDocuments());
-      expect(writes).toEqual([null]);
+      await data.collection(seeded).countDocuments();
+      expect(writes).toEqual(['1']);
     });
 
     it('are not written for an existing collection', async () => {
       const { data, writes } = platform('unchanged');
-      await runWithRequestContext(new Headers({ 'X-Tier0-Delegation': delegationToken }), () => data.collection(seeded).countDocuments());
+      await data.collection(seeded).countDocuments();
       expect(writes).toEqual([]);
     });
   });

@@ -4,8 +4,6 @@ import {
   createDataClient,
   DataError,
   defineCollection,
-  redactRestricted,
-  runWithRequestContext,
   type SubscriptionEvent,
 } from '../../src/data/index.js';
 
@@ -34,7 +32,7 @@ interface Opened {
 type Connection = { frames: string[]; hold?: boolean } | { status: number; body: unknown };
 
 function change(eventId: string, extra: Record<string, unknown> = {}) {
-  const body = { eventId, collectionId: 'c-orders', recordId: 'o-1', revision: 2, change: 'record', occurredAt: 1000, restricted: false, ...extra };
+  const body = { eventId, collectionId: 'c-orders', recordId: 'o-1', revision: 2, change: 'record', occurredAt: 1000, ...extra };
   return `id: ${eventId}\nevent: change\ndata: ${JSON.stringify(body)}\n\n`;
 }
 
@@ -85,12 +83,12 @@ const refusal = (status: number, code: string, safe: boolean, afterMs?: number) 
 });
 
 describe('data.subscribe', () => {
-  it('opens one GET event stream and yields changes with the declared alias, restricted ones as collection notices', async () => {
-    const mock = sse([{ frames: [': connected\n\n', 'event: heartbeat\ndata: {}\n\n', change('e-1'), change('e-2', { collectionId: 'c-lines', change: 'delete', restricted: true })] }]);
+  it('opens one GET event stream and yields changes with the declared alias', async () => {
+    const mock = sse([{ frames: [': connected\n\n', 'event: heartbeat\ndata: {}\n\n', change('e-1'), change('e-2', { collectionId: 'c-lines', change: 'delete' })] }]);
     const events = await take(client(mock.fetch).subscribe(), 2);
     expect(events).toEqual([
-      { type: 'change', eventId: 'e-1', collection: 'orders', collectionId: 'c-orders', recordId: 'o-1', revision: 2, change: 'record', occurredAt: 1000, restricted: false },
-      { type: 'change', eventId: 'e-2', collection: 'lines', collectionId: 'c-lines', change: 'collection', occurredAt: 1000, restricted: true },
+      { type: 'change', eventId: 'e-1', collection: 'orders', collectionId: 'c-orders', recordId: 'o-1', revision: 2, change: 'record', occurredAt: 1000 },
+      { type: 'change', eventId: 'e-2', collection: 'lines', collectionId: 'c-lines', recordId: 'o-1', revision: 2, change: 'delete', occurredAt: 1000 },
     ]);
     const [first] = mock.opened;
     expect(first.url.pathname).toBe(SUBSCRIBE);
@@ -100,20 +98,11 @@ describe('data.subscribe', () => {
     expect(first.headers['last-event-id']).toBeUndefined();
   });
 
-  it('passes restricted changes in full only when asked for', async () => {
-    const mock = sse([{ frames: [change('e-2', { restricted: true })] }]);
-    expect(await take(client(mock.fetch).subscribe({ restricted: 'record' }), 1)).toEqual([
-      { type: 'change', eventId: 'e-2', collection: 'orders', collectionId: 'c-orders', recordId: 'o-1', revision: 2, change: 'record', occurredAt: 1000, restricted: true },
-    ]);
-  });
-
-  it('narrows to collections and records, and carries the subscribing request\'s data subject', async () => {
+  it('narrows to collections and records', async () => {
     const mock = sse([{ frames: [change('e-1')] }]);
-    const headers = new Headers({ 'X-Tier0-App-Data-Subject': 'h.subject.s' });
-    await runWithRequestContext(headers, () => take(client(mock.fetch).subscribe({ collections: ['orders'], recordIds: ['o-1', 'o-2'] }), 1));
+    await take(client(mock.fetch).subscribe({ collections: ['orders'], recordIds: ['o-1', 'o-2'] }), 1);
     expect(mock.opened[0].url.searchParams.getAll('collectionIds')).toEqual(['c-orders']);
     expect(mock.opened[0].url.searchParams.getAll('recordIds')).toEqual(['o-1', 'o-2']);
-    expect(mock.opened[0].headers['x-tier0-app-data-subject']).toBe('h.subject.s');
   });
 
   it('resumes after the last event or heartbeat position when a stream ends, and starts over after reset', async () => {
@@ -148,7 +137,7 @@ describe('data.subscribe', () => {
       },
     ]);
     const events = await take(client(mock.fetch).subscribe(), 8);
-    expect(events.map(event => (event.type === 'change' && event.change !== 'collection' ? [event.eventId, event.recordId, event.revision, event.change] : event))).toEqual([
+    expect(events.map(event => (event.type === 'change' ? [event.eventId, event.recordId, event.revision, event.change] : event))).toEqual([
       ['e-1', 'o-1', 3, 'record'],
       ['e-4', 'o-2', 1, 'record'],
       ['e-5', 'o-1', 4, 'record'],
@@ -239,14 +228,5 @@ describe('data.subscribe', () => {
     }
     expect(seen).toHaveLength(1);
     expect(mock.opened).toHaveLength(1);
-  });
-
-  it('redacts restricted changes to a collection-level notice', () => {
-    const base = { type: 'change', eventId: 'e-1', collection: 'orders', collectionId: 'c-orders', occurredAt: 1, recordId: 'o-1', revision: 3, change: 'record' } as const;
-    expect(redactRestricted({ ...base, restricted: false })).toEqual({ ...base, restricted: false });
-    expect(redactRestricted({ ...base, restricted: true })).toEqual({
-      type: 'change', eventId: 'e-1', collection: 'orders', collectionId: 'c-orders', occurredAt: 1, restricted: true, change: 'collection',
-    });
-    expect(redactRestricted({ type: 'reset' })).toEqual({ type: 'reset' });
   });
 });

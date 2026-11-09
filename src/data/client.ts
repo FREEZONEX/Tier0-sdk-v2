@@ -9,7 +9,7 @@ import { getEnvVar } from '../runtime-env.js';
 import { createBootstrap, type DataEnvironment, type EnsureState, type Logger } from './bootstrap.js';
 import { createDataTransport } from './call.js';
 import { assertAtomicBatch, Collection, toDoc, type BatchQuery, type UnsRecord, type WithMeta } from './collection.js';
-import { currentDataSubject, currentDelegation, currentSignal, runAsApp } from './context.js';
+import { currentSignal } from './context.js';
 import { MAX_COLLECTIONS, type CollectionDefinition, type CollectionReference, type CollectionSchema, type CollectionTarget } from './define.js';
 import { createSubscribe, type SubscribeOptions, type SubscriptionEvent } from './subscribe.js';
 import { parseUnsV2Fault, UnsV2Error } from '../uns-v2/client.js';
@@ -110,10 +110,8 @@ export interface DataClient {
   /**
    * Committed record changes of declared collections (all by default), as
    * one async iterable that reconnects and resumes by itself; see
-   * `SubscribeOptions`. Events carry identities only; changes in collections
-   * with employee data rules arrive as collection-level notices unless
-   * `restricted: "record"` is asked for. Open it inside a request to watch as
-   * that employee, or in `runAsApp` for one App-wide stream a server fans out.
+   * `SubscribeOptions`. Events carry identities only. Open one per server
+   * process and fan it out to browsers with `createChangeRelay`.
    */
   subscribe(options?: SubscribeOptions): AsyncIterable<SubscriptionEvent>;
   /**
@@ -160,9 +158,8 @@ export function createDataClient(config: DataClientConfig): DataClient {
     seen.add(key);
   }
 
-  // Ensure and seed writes are App-level work, even when a request triggers them.
-  const appCall: typeof call = (operation, request, options) => runAsApp(() => call(operation, request, options));
-  const bootstrap = createBootstrap({ call: appCall, collections: declared, environment, logger: snapshot.logger ?? console });
+  // Ensure and seed writes pass no signal: they are shared by every request, and the one that triggers them must not cancel them.
+  const bootstrap = createBootstrap({ call, collections: declared, environment, logger: snapshot.logger ?? console });
   const runtime = {
     call,
     resolve: async (target: CollectionTarget | string) => {
@@ -171,7 +168,6 @@ export function createDataClient(config: DataClientConfig): DataClient {
     },
     recover: <R>(fn: () => Promise<R>, options: { collections: readonly CollectionTarget[]; retry?: boolean }) =>
       options.collections.every(target => 'collectionId' in target) ? fn() : bootstrap.recover(fn, options),
-    subject: currentDataSubject,
     signal: currentSignal,
   };
   const handles = new WeakMap<CollectionTarget, Collection<object>>();
@@ -256,7 +252,7 @@ export function createDataClient(config: DataClientConfig): DataClient {
         ...(options.dryRun ? { dryRun: true } : {}),
         ...(options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : {}),
       },
-      { dataSubject: currentDataSubject(), signal: currentSignal() },
+      { signal: currentSignal() },
     );
   }
 
@@ -276,7 +272,7 @@ export function createDataClient(config: DataClientConfig): DataClient {
         ...(await queries[name].prepare()),
       })));
       return call<{ results: Record<string, { ok: true; data: unknown } | { ok: false; error: unknown }> }>(
-        'recordQueryBatch', { queries: items }, { dataSubject: currentDataSubject(), signal: currentSignal() });
+        'recordQueryBatch', { queries: items }, { signal: currentSignal() });
     }, { collections });
     const settled = Object.fromEntries(names.map((name) => {
       const result = results[name];
@@ -300,8 +296,6 @@ export function createDataClient(config: DataClientConfig): DataClient {
     resolve: runtime.resolve,
     lookup,
     declared,
-    subject: currentDataSubject,
-    delegation: currentDelegation,
   });
 
   return {

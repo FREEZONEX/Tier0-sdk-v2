@@ -1,6 +1,6 @@
 {
   "repository": "FREEZONEX/Tier0-Backend",
-  "revision": "8780ce2d6c07b6afee96409795c098e330c214dd",
+  "revision": "b6347c688615b0c277ebb696e851f3d1e3115652",
   "sourceKind": "committed",
   "sources": {
     "contracts/capability-discovery/response.schema.json": "share/domain/capability/discovery.schema.json",

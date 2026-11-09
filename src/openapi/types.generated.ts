@@ -252,6 +252,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/openapi/v2/notifications/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 查询消息通知发送记录列表
+         * @description 分页查询消息通知发送记录（不含正文）：个人 Key 且主人是空间 owner/admin 时查看整个空间，否则只看本 Key 发送的；全空间范围包含管理端派发的记录（keyId 为字符串 0）
+         */
+        post: operations["PlatformV2ListNotifications"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/openapi/v2/platform/getMembers": {
         parameters: {
             query?: never;
@@ -1003,6 +1023,7 @@ export interface components {
             content: string;
             idempotencyKey: string;
             link?: string;
+            /** @description 已废弃（2026-11-04）：test/live 由平台按 API Key 与 sender.type 判定，传入值不生效（仅未区分预览/部署的存量 App 凭证过渡期沿用）。test 消息只出现在该 App 的 Building 预览铃铛，不进消息中心，也不做终端推送 */
             mode?: string;
             recipientUserId: string;
             sender?: components["schemas"]["NotificationSender"];
@@ -1022,7 +1043,7 @@ export interface components {
             /** @description 人读显示名（接替废弃的 source），≤100字符 */
             name?: string;
             /**
-             * @description 枚举 app/other/system，缺省 other；system 仅平台内部发送方（如 UNS Agent）可用；App 凭证不能使用 system，sender.type=app 时 sender.id 以凭证绑定的 App 为准；只有 App 绑定凭证或平台 App 凭证发出的 type=app 才会作为 App 展示，其他 Key 自报 type=app 会被降级为 other，接口照常返回成功；建信归 workspace 分组（System tab）
+             * @description 枚举 app/other/system，缺省 other；system 仅平台内部发送方（如 UNS Agent）可用；App 凭证不能使用 system，sender.type=app 时 sender.id 以凭证绑定的 App 为准；只有 App 绑定凭证或平台 App 凭证发出的 type=app 才会作为 App 展示，其他 Key 自报 type=app 会被降级为 other，接口照常返回成功；建信归 workspace 分组（System tab）。Builder 里的 Agent（经 Tier0 MCP）发通知：发 Builder 内部通知用 type=app（sender.id 仍须填写，以会话绑定的 App 为准），只进该 App 的预览铃铛；发系统通知用 type=system 且 id=uns-agent，进正式消息中心
              * @default other
              * @enum {string}
              */
@@ -1031,6 +1052,10 @@ export interface components {
         SendNotificationResp: {
             createdAt: string;
             messageId: string;
+            /** @description Recipient display name (nickName, falling back to userName); an empty string when the recipient is not a member of this Workspace or the name cannot be looked up for now; never affects the send result */
+            recipientName?: string;
+            /** @description Recipient user ID of the request (a large integer carried as string); on an idempotent hit it is the recipient of the existing request */
+            recipientUserId: string;
             status: string;
         };
         NotificationError: {
@@ -1047,6 +1072,10 @@ export interface components {
             errorCode?: string;
             message?: string;
             messageId: string;
+            /** @description Recipient display name (nickName, falling back to userName); an empty string when the recipient is not a member of this Workspace or the name cannot be looked up for now */
+            recipientName?: string;
+            /** @description Recipient user ID of the request (a large integer carried as string), same as the recipientUserId given when sending */
+            recipientUserId: string;
             status: string;
             type: string;
         };
@@ -1059,6 +1088,59 @@ export interface components {
             status: string;
             successCount: number | bigint;
             targetCount: number | bigint;
+        };
+        ListNotificationsReq: {
+            /** @description Filter by message ID (a large integer carried as string, a positive integer); omitted or empty string means no filter */
+            messageId?: string;
+            /** @description Page number, 1-based; defaults to 1 when omitted, an explicit value must be >= 1 */
+            page?: number | bigint;
+            /** @description Filter by recipient user ID (a large integer carried as string, a positive integer); omitted or empty string means no filter */
+            recipientUserId?: string;
+            /** @description Items per page; defaults to 20 when omitted, an explicit value must be between 1 and 100 */
+            size?: number | bigint;
+            /** @description Filter by status: accepted / sent / failed; omitted or empty string means no filter, any other value is rejected with 400 */
+            status?: string;
+        };
+        ListNotificationsResp: {
+            list: components["schemas"]["NotificationListItem"][];
+            /** @description Page number actually used */
+            page: number | bigint;
+            /** @description Items per page actually used */
+            size: number | bigint;
+            /** @description Total number of records matching the filters */
+            total: number | bigint;
+        };
+        NotificationListItem: {
+            /** @description Requested terminal reminder channels, elements are web / mobile; an empty array for a silent message */
+            channels: string[];
+            /** @description Completion time, RFC 3339 UTC; empty while the request is not completed */
+            completedAt?: string;
+            /** @description Creation time, RFC 3339 UTC */
+            createdAt: string;
+            /** @description Only filled when status is failed */
+            errorCode?: string;
+            /** @description ID of the API key that sent the message (a large integer carried as string); the string 0 for records dispatched from the admin console */
+            keyId: string;
+            /** @description Only filled when status is failed */
+            message?: string;
+            /** @description Message ID (a large integer carried as string) */
+            messageId: string;
+            /** @description test / live */
+            mode: string;
+            /** @description Recipient display name (nickName, falling back to userName); an empty string when the recipient is not a member of this Workspace or the name cannot be looked up for now */
+            recipientName?: string;
+            /** @description Recipient user ID (a large integer carried as string) */
+            recipientUserId: string;
+            /** @description Machine identifier of the sender, self-reported, for display only */
+            senderId?: string;
+            /** @description Display name of the sender, self-reported, for display only */
+            senderName?: string;
+            /** @description app / other / system; self-reported by the sender, for display only */
+            senderType: string;
+            /** @description accepted / sent / failed */
+            status: string;
+            /** @description Notification title; the content is never returned by this endpoint */
+            title: string;
         };
         PlatformGetMembersReq: {
             keyword?: string;
@@ -1670,6 +1752,9 @@ export interface components {
         SdknotificationsGetRequest: components["schemas"]["GetNotificationReq"];
         SdknotificationsGetData: components["schemas"]["GetNotificationResp"];
         SdknotificationsGetWire: components["schemas"]["SdknotificationsGetData"];
+        SdknotificationsListRequest: components["schemas"]["ListNotificationsReq"];
+        SdknotificationsListData: components["schemas"]["ListNotificationsResp"];
+        SdknotificationsListWire: components["schemas"]["SdknotificationsListData"];
         SdkmembersListWorkspaceRequest: components["schemas"]["PlatformGetMembersReq"];
         SdkmembersListWorkspaceData: components["schemas"]["PlatformMembersResp"];
         SdkmembersListWorkspaceWire: {
@@ -2266,6 +2351,119 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SdknotificationsGetWire"];
+                };
+            };
+            /** @description Platform operation failed. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationError"];
+                };
+            };
+            /** @description Platform operation failed. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationError"];
+                };
+            };
+            /** @description Platform operation failed. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationError"];
+                };
+            };
+            /** @description Platform operation failed. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationError"];
+                };
+            };
+            /** @description Platform operation failed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationError"];
+                };
+            };
+            /** @description Platform operation failed. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationError"];
+                };
+            };
+            /** @description Platform operation failed. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationError"];
+                };
+            };
+            /** @description Platform operation failed. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationError"];
+                };
+            };
+            /** @description Platform operation failed. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationError"];
+                };
+            };
+            /** @description Platform operation failed. */
+            504: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationError"];
+                };
+            };
+        };
+    };
+    PlatformV2ListNotifications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListNotificationsReq"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdknotificationsListWire"];
                 };
             };
             /** @description Platform operation failed. */

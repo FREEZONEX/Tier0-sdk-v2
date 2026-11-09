@@ -13,7 +13,6 @@ import { FilesClient } from './files.js';
 import type { CloudTransportConfig } from './cloud-transport.js';
 
 export interface Tier0ClientConfig extends ClientConfig, CloudTransportConfig {}
-/** Use a fresh instance per incoming request when supplying employee data delegation. */
 function assemble(resolve: () => HttpClient, snapshot: Tier0ClientConfig, http = resolve()) {
   const api = createOpenAPI(http);
   const transport = new StreamTransport(resolve, snapshot);

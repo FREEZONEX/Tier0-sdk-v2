@@ -2,36 +2,26 @@
 
 仅在接入服务端身份或 React/Vue 时阅读本文件。基本分域调用见入口 Skill。
 
-## 网关身份验签
+## 访问者身份（X-Tier0-Visitor）
 
-使用服务端入口，公钥与期望 appID/workspaceID 来自固定服务端配置，不能从请求的 JWK/URL 取钥。保留原始请求字节与路径+query；JSON 解析、重编码或路径归一化后再验签会破坏绑定。
+平台里 App 的每个请求都经过前门：前门先剥掉客户端带来的全部 `X-Tier0-*`，再注入明文的 `X-Tier0-Visitor`（UTF-8 JSON 对象的无填充 base64url，不签名）。服务端用 `parseVisitorHeader` 解析，它严格校验字段、类型、长度，并要求 `app` 等于 `TIER0_APP_ID`：
 
 ```ts
-import {
-  createCloudAppRequestVerifier,
-  type CloudAppIdentityAuthority,
-  type CloudAppIdentityRequest,
-} from '@tier0/sdk-v2/server';
+import { parseVisitorHeader, VISITOR_HEADER, VisitorError, type Visitor } from '@tier0/sdk-v2/server';
 
-export function authenticateRequest(authority: CloudAppIdentityAuthority, request: CloudAppIdentityRequest) {
-  const verify = createCloudAppRequestVerifier(authority);
-  return verify(request);
+export function visitorOf(request: Request): Visitor | null {
+  try {
+    return parseVisitorHeader(request.headers.get(VISITOR_HEADER));
+  } catch (error) {
+    if (error instanceof VisitorError && error.code === 'VISITOR_HEADER_INVALID') return null; // 回 401
+    throw error; // VISITOR_CONFIGURATION_INVALID：没有 TIER0_APP_ID，回 503
+  }
 }
 ```
 
-输入 assertion 对应平台约定的 APP_REQUEST_IDENTITY_HEADER；method、requestURI、body 必须是网关签名对应的值。成功只证明该请求来源与员工身份，业务授权仍单独检查。失败拒绝当前请求，不从未验证 claims 兜底建立身份。
+返回 `{ subType: 'employee' | 'machine', subject, grant, workspaceID, appID, runtime: 'deployed' | 'preview', appRoles, activeRole? }`。`appRoles` 是访问者在 App 里的角色（预览里是「以某角色查看」选中的角色），`activeRole` 只在预览的「以某角色查看」里出现，只用于展示。
 
-App 请求断言与 UNS 员工数据委托是不同的 audience。只有受信接入层获得真实 App-Data-Subject 后，才能为本次请求创建客户端：
-
-```ts
-import { createClient } from '@tier0/sdk-v2';
-
-export function clientForTrustedGatewayRequest(apiHost: string, apiKey: string, trustedDataSubject: string) {
-  return createClient({ apiHost, apiKey, unsV2AppDataSubject: trustedDataSubject });
-}
-```
-
-SDK 仅检查委托的紧凑格式，不自行信任/验证其 claims。不要直接转发公开入口任意同名 header，部署边界必须保证它来自可信网关。不要跨员工复用这个实例或令牌。
+App 调平台只有一种身份：App 自身（App Key，平台里由节点代理注入）。平台不按访问者收窄 App 的数据，按角色决定当前用户能看、能改哪些记录是 App 自己的事：在服务端按 `appRoles` 过滤查询条件、拒绝写入，返回给浏览器前裁掉不该看的字段。不要把访问者 ID 或角色当成平台调用的参数去「代表」用户。
 
 ## React
 
@@ -69,4 +59,4 @@ export function useRecords(client: Tier0Client) {
 
 ## 联调证据
 
-本 SDK 验签契约沿用已记录的上游 App 网关契约，须与目标环境实际注入的 header/公钥/受众对照。契约生成、类型与本地测试证明包内部一致，不替代环境联调。确认身份、权限与字段返回后再切换真实业务流量。
+访问者头的字段以平台前门实际注入的 `X-Tier0-Visitor` 为准。契约生成、类型与本地测试证明包内部一致，不替代环境联调。确认身份、权限与字段返回后再切换真实业务流量。

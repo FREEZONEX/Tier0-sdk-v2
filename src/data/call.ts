@@ -3,7 +3,7 @@
  * sends the request and checks the envelope; this adds the App runtime policy
  * around it and turns every failure into a `DataError`:
  *
- * - binds the employee data subject and the abort signal of the current call;
+ * - binds the abort signal of the current call;
  * - gives every write that takes an idempotency key a fresh UUID unless the
  *   caller set one, and keeps it for the retries of that call;
  * - sends at most MAX_CONCURRENT_CALLS requests per process at a time; the
@@ -44,10 +44,6 @@ export const MAX_RETRY_WAIT_MS = 5_000;
 const BACKOFF_BASE_MS = 250;
 
 export interface CallOptions {
-  /** Employee assertion forwarded from the current business request. */
-  dataSubject?: string;
-  /** Delegation captured for a stream, which outlives the call that opened it. */
-  delegation?: string;
   /** Abort of the current business request: a queued call leaves the queue, an in-flight one is cancelled. */
   signal?: AbortSignal;
 }
@@ -61,7 +57,7 @@ export type DataCall = <T>(operation: UnsV2OperationName, request: Record<string
  */
 export type DataOpenStream = (
   request: UnsV2RecordSubscribeRequest,
-  options: CallOptions & { lastEventId?: string; signal: AbortSignal },
+  options: { lastEventId?: string; signal: AbortSignal },
 ) => AsyncGenerator<UnsV2SubscriptionEvent>;
 
 /** Why a waiter left the queue without a slot. */
@@ -159,12 +155,6 @@ export function createDataTransport(config: ClientConfig): { call: DataCall; ope
     }
   }
 
-  // The SDK binds a data subject to one client; App-level calls use the shared one without it.
-  const coreFor = ({ dataSubject, delegation }: CallOptions) =>
-    dataSubject || delegation
-      ? new UnsV2ClientCore(resolve, { ...transport, ...(dataSubject ? { unsV2AppDataSubject: dataSubject } : {}), ...(delegation ? { delegation } : {}) })
-      : app;
-
   async function call<T>(operation: UnsV2OperationName, request: Record<string, unknown>, options: CallOptions = {}): Promise<T> {
     assertConfigured();
     const key = UNS_V2_OPERATIONS[operation].idempotencyKey
@@ -197,10 +187,7 @@ export function createDataTransport(config: ClientConfig): { call: DataCall; ope
           const response = await gate.run(() => {
             // Each attempt gets the time left of the call as its transport deadline.
             const remaining = Math.max(1, deadline - Date.now());
-            const core = new UnsV2ClientCore(resolve, {
-              transportTimeoutMs: remaining,
-              ...(options.dataSubject ? { unsV2AppDataSubject: options.dataSubject } : {}),
-            });
+            const core = new UnsV2ClientCore(resolve, { transportTimeoutMs: remaining });
             // In flight, only the business request's abort cancels; the transport deadline covers the time.
             return core.call(operation, body as UnsV2Request<typeof operation>, { signal: options.signal });
           }, stop.signal);
@@ -222,11 +209,11 @@ export function createDataTransport(config: ClientConfig): { call: DataCall; ope
 
   async function* openStream(
     request: UnsV2RecordSubscribeRequest,
-    options: CallOptions & { lastEventId?: string; signal: AbortSignal },
+    options: { lastEventId?: string; signal: AbortSignal },
   ): AsyncGenerator<UnsV2SubscriptionEvent> {
     assertConfigured();
     try {
-      yield* coreFor(options).subscribeRecords(request, options);
+      yield* app.subscribeRecords(request, options);
     } catch (error) {
       throw error instanceof UnsV2Error ? toDataError(error) : error;
     }

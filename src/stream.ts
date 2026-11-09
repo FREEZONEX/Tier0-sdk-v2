@@ -25,7 +25,7 @@ export function bindStreamClient(raw: UnsV2Client) {
 export type StreamClient = ReturnType<typeof bindStreamClient>;
 export type StreamClientConfig = ClientConfig & CloudTransportConfig;
 export function createStreamClient(config: StreamClientConfig = {}): StreamClient {
-  const snapshot = snapshotClientConfig(config, ['transportTimeoutMs', 'unsV2MaxResponseBytes', 'unsV2AppDataSubject']);
+  const snapshot = snapshotClientConfig(config, ['transportTimeoutMs', 'unsV2MaxResponseBytes']);
   const http = new HttpClient(snapshot);
   return bindStreamClient(createUnsV2Client(() => http, snapshot));
 }

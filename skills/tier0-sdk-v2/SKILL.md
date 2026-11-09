@@ -53,7 +53,7 @@ curl -sS -X POST "$TIER0_API_HOST/openapi/v2/info" -H 'X-Tier0-SDK: 1' -H 'Conte
 
 代理只转发 `/openapi/v2/uns/**`、`assets/**`、`notifications/send`、`notifications/get`、`platform/getMembers`（`members.listWorkspace()`）、`apps/access-members/list`（`members.listApp()`）、`info`。白名单外的接口（`system.whoami()`、`mqttAuth`、`capabilities`、`agent`、`client.streams` 的 Stream 请求和消息）回 404 `sbx_proxy_not_found`；Source / Stream 管理接口虽在 `/openapi/v2/uns/**` 下会被转发，但 App 的 Key 无权调用，Backend 回 403。代理自己产生的错误带 `X-Tier0-Proxy: not-forwarded`，`code` 以 `sbx_proxy_` 开头，含义见 [错误码](tier0-sdk-v2-data/references/errors.md#节点代理错误)。平台权限和消息主题由工作区管理员在 App 设置里管理，改了立即生效；外部集合在发布时确认。
 
-不同身份使用独立实例。含员工数据委托时，每个入站请求新建实例，使用受信 App Gateway 提供的 `unsV2AppDataSubject`；它不是用户 ID，也不是 App 请求验签断言。不要从请求 JSON 拼造委托。身份验签流程见 [身份与框架集成](references/integration.md)。
+不同身份使用独立实例。App 调平台只有一种身份：App 自身。当前用户和角色从前门注入的 `X-Tier0-Visitor` 读（`parseVisitorHeader`），按角色决定谁能看、能改什么由 App 在服务端自己做，见 [身份与框架集成](references/integration.md)。
 
 ## 返回值与错误
 
@@ -77,7 +77,7 @@ curl -sS -X POST "$TIER0_API_HOST/openapi/v2/info" -H 'X-Tier0-SDK: 1' -H 'Conte
 - `client.uns.recordFind(body)` 保持不变。
 - 低层 `createUnsV2Client` 保留完整生成契约，供契约工具使用；业务主入口不再把 Source/Stream 管理混入 `client.uns`。
 
-React/Vue 示例与验签见 [集成参考](references/integration.md)。完成接入时验证目标入口、真实身份、响应解包和错误分支；SDK 本地测试通过不代表环境联调完成。
+访问者身份与 React/Vue 示例见 [集成参考](references/integration.md)。完成接入时验证目标入口、真实身份、响应解包和错误分支；SDK 本地测试通过不代表环境联调完成。
 
 Stream 请求与消息交互统一使用本包 `client.streams.requests` / `client.streams.messages`；[交互说明](tier0-sdk-v2-streams/SKILL.md)。Scaffold 只依赖本包；`client.stream` 管理接口与运行时交互用途不同。
 

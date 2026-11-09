@@ -91,7 +91,7 @@ export async function ordersScreen(page: number, selectedId: string) {
 | --- | --- |
 | `find(filter, { sort, limit, projection })` | 游标，每页最多 200 条；列表读取始终给 `limit` |
 | `findOne(filter)` | 无匹配返回 `null` |
-| `get(ids, { projection })` | 按 `_id` 读取，返回 `{ items, missing }`，`items` 按请求顺序（重复的 ID 只取第一次出现）；不存在、已删除或员工无权查看的 ID 一律进 `missing`。超过 100 个自动分批 |
+| `get(ids, { projection })` | 按 `_id` 读取，返回 `{ items, missing }`，`items` 按请求顺序（重复的 ID 只取第一次出现）；不存在或已删除的 ID 一律进 `missing`。超过 100 个自动分批 |
 | `findPage(filter, { sort, page, pageSize, maxCount })` | 页码分页，一次请求返回 `{ items, total: { count, capped }, page, pageSize }`；pageSize 最多 200，总数默认数到 10000（`maxCount` 最多 100000），超过时 `capped: true` |
 | `countDocuments(filter, { maxCount })` | 返回 `{ count, capped }`，默认数到 100000；只要阈值时给小的 `maxCount`（如角标 `99+`） |
 | `countBy(field, filter)` | 每个取值的数量 `[{ value, count }]`，从多到少；一次 `$group` |
@@ -161,26 +161,58 @@ export async function bumpAll(items: Collection<{ status: string; views: number 
 
 ```ts
 import { z } from 'zod';
-import { createDataClient, defineCollection, runAsApp, type SubscriptionEvent } from '@tier0/sdk-v2/data';
+import { createDataClient, defineCollection, type SubscriptionEvent } from '@tier0/sdk-v2/data';
 
 const tickets = defineCollection({ alias: 'tickets', name: '问题工单', directoryPath: ['问题管理'], schema: z.object({ title: z.string(), status: z.enum(['OPEN', 'DONE']) }) });
 const data = createDataClient({ collections: [tickets] });
 
-/** 一个进程一条 App 级订阅，在进程内扇出给浏览器。 */
-export async function pumpChanges(send: (event: SubscriptionEvent) => void, signal: AbortSignal) {
-  await runAsApp(async () => {
-    for await (const event of data.subscribe({ collections: [tickets], signal })) {
-      // reset：续传位置失效或访问范围变化，浏览器应重新读取当前数据。
-      send(event);
-    }
+/** 服务端自己消费变更（例如刷新缓存）。 */
+export async function pumpChanges(handle: (event: SubscriptionEvent) => void, signal: AbortSignal) {
+  for await (const event of data.subscribe({ collections: [tickets], signal })) {
+    // reset：续传位置失效或访问范围变化，重新读取当前数据。
+    handle(event);
+  }
+}
+```
+
+- 事件：`{ type: 'change', eventId, collection（alias）, collectionId, change: 'record' | 'delete', recordId, revision, occurredAt }` 或 `{ type: 'reset', reason, message? }`。心跳与重连在 SDK 内部处理；迭代抛出 `DataError` 表示不能再重试（如 403），正常结束只有 `signal` 中止或跳出循环。
+- 事件按写入事务的顺序到达，不是提交顺序，同一记录的 revision 可能乱序。SDK 已丢弃 revision 不大于该记录已投递 revision 的非 `delete` 变更；`delete` 一律投递（迟到的也投递），并清除该记录的 revision（同一 ID 再写入时可能从 1 开始）。收到事件后按 `recordId` 重新读取，不要用事件顺序推断记录的最终状态。
+- `reset`：`CURSOR_EXPIRED`（续传位置已被清理、游标无法解开或租户库已迁移）或 `SCOPE_CHANGED`（访问范围变化，例如集合不再可读）。重新读取当前数据；SDK 随后不带续传位置重新订阅。
+- 订阅以 App 身份运行，看得到 App 被授权集合的全部变更，没有按当前用户的过滤。转发给浏览器时由 App 按访问者角色决定每个浏览器能知道哪些变更（见下一节）。
+- 默认订阅全部已声明的集合（最多 64 个）；`recordIds`（最多 100 个）只能配一个集合。
+- 订阅不占数据请求的并发名额，但每个工作区的订阅数有上限（超出时 SDK 按 429 自动退避重连）：一个服务端进程只开一条订阅，在进程内扇出，不要每个浏览器连接开一条。App 刚导入还没就绪（`APP_NOT_READY`）时订阅会一直等待，不会结束。
+- 变更保留 24 小时；`lastEventId` 太旧时收到 `reset`。`lastEventId` 必须是收到过的事件 ID（可见 ASCII），否则调用时直接抛 `TypeError`。
+
+## 把变更推给浏览器
+
+浏览器不直连 UNS 或 MQTT。`createChangeRelay(data)` 在服务端进程里开一条 `data.subscribe`，转成可以挂在 App 路由上的 SSE 响应，`filter` 由 App 按访问者角色决定每个浏览器收到哪些变更：
+
+```ts
+import { z } from 'zod';
+import { createChangeRelay, createDataClient, defineCollection, type RecordChange } from '@tier0/sdk-v2/data';
+import { parseVisitorHeader, VISITOR_HEADER, type Visitor } from '@tier0/sdk-v2/server';
+
+const tickets = defineCollection({ alias: 'tickets', name: '问题工单', directoryPath: ['问题管理'], schema: z.object({ title: z.string() }) });
+const data = createDataClient({ collections: [tickets] });
+const relay = createChangeRelay(data); // 每进程一个
+
+/** App 自己的规则：哪些角色能看哪个集合。 */
+function canSee(visitor: Visitor, change: RecordChange): boolean {
+  return change.collection !== 'tickets' || visitor.appRoles.includes('support');
+}
+
+/** GET /api/changes */
+export function changes(request: Request): Response {
+  const visitor = parseVisitorHeader(request.headers.get(VISITOR_HEADER));
+  return relay.stream({
+    filter: (change) => canSee(visitor, change),
+    lastEventId: request.headers.get('Last-Event-ID'),
+    signal: request.signal,
   });
 }
 ```
 
-- 事件：`{ type: 'change', eventId, collection（alias）, collectionId, change: 'record' | 'delete', recordId, revision, occurredAt, restricted }`、集合级通知 `{ type: 'change', …, change: 'collection', restricted: true }`（没有 `recordId` / `revision`），或 `{ type: 'reset', reason, message? }`。心跳与重连在 SDK 内部处理；迭代抛出 `DataError` 表示不能再重试（如 403），正常结束只有 `signal` 中止或跳出循环。
-- 事件按写入事务的顺序到达，不是提交顺序，同一记录的 revision 可能乱序。SDK 已丢弃 revision 不大于该记录已投递 revision 的非 `delete` 变更；`delete` 一律投递（迟到的也投递），并清除该记录的 revision（同一 ID 再写入时可能从 1 开始）。收到事件后按 `recordId` 重新读取，不要用事件顺序推断记录的最终状态。
-- `reset`：`CURSOR_EXPIRED`（续传位置已被清理、游标无法解开或租户库已迁移）或 `SCOPE_CHANGED`（访问范围变化，例如集合不再可读）。重新读取当前数据；SDK 随后不带续传位置重新订阅。
-- `restricted: true`：该集合有员工数据规则。以 App 身份打开的订阅能看到所有记录的变更，所以默认把这类变更换成集合级通知，可以直接转发给任何员工的浏览器，浏览器再通过受规则约束的接口重新读取。只有不转发给浏览器的服务端逻辑才传 `restricted: 'record'` 拿完整事件（转发前仍须逐个经 `redactRestricted`）。
-- 默认订阅全部已声明的集合（最多 64 个）；`recordIds`（最多 100 个）只能配一个集合。
-- 订阅不占数据请求的并发名额，但每个租户的订阅数有上限（超出时 SDK 按 429 自动退避重连）：一个服务端进程只开一条订阅，在进程内扇出，不要每个浏览器连接开一条。App 刚导入还没就绪（`APP_NOT_READY`）时订阅会一直等待，不会结束。
-- 变更保留 24 小时；`lastEventId` 太旧时收到 `reset`。`lastEventId` 必须是收到过的事件 ID（可见 ASCII），否则调用时直接抛 `TypeError`。
+- 帧：`event: change`（`{ eventId, collection, change, recordId, revision, occurredAt }`，不带记录数据）、`event: reset`（`{ reason }`）、每 15 秒一个 `: heartbeat` 注释。浏览器用 `@tier0/sdk-v2/event-stream` 的 `openEventStream` 读（页面隐藏时断开、可见时带 `Last-Event-ID` 续传，转发器补发或回 `reset`），收到 `change` 后经 App 自己的接口重新读取（那里同样按角色过滤），收到 `reset` 重新加载整个视图。
+- `id` 是转发器自己的位置（`<epoch>.<seq>`），不是 UNS 游标，浏览器拿不到上游位置。重连带 `Last-Event-ID`：在当前会话最近 1000 条里找得到就补发之后的（同样经过 `filter`），找不到就只给这个浏览器一个 `reset`。UNS 的 `reset`、上游失败、最后一个浏览器离开 30 秒后关上游都会开始新会话，连着的浏览器收到 `reset`。
+- `filter` 同步调用，对实时和补发的变更都生效；抛错的变更不发。事件只有标识，但 `recordId` 本身也可能透露信息：规则按记录的，过滤时就把这个浏览器无权知道的记录去掉。
+- 每个浏览器连接 10 分钟（±10%）后结束，浏览器重连时路由重新认证。选项：`collections`、`bufferSize`、`idleCloseMs`、`restartIntervalMs`、`maxRestartIntervalMs`、`heartbeatMs`、`maxStreamMs`、`retryMs`、`logger`。

@@ -66,7 +66,7 @@ function flatten(object: object, prefix = ''): Record<string, Method> {
 describe('all platform v2 generated methods reach their upstream route', () => {
   it('matches the complete public method inventory', () => {
     expect(Object.keys(flatten(createClient(config()).api)).sort()).toEqual(Object.keys(OPENAPI_OPERATIONS).sort());
-    expect(Object.keys(OPENAPI_OPERATIONS)).toHaveLength(44);
+    expect(Object.keys(OPENAPI_OPERATIONS)).toHaveLength(45);
     expect(Object.keys(UNS_V2_OPERATIONS)).toHaveLength(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount);
   });
   for (const [name, operation] of Object.entries(OPENAPI_OPERATIONS)) {

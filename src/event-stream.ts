@@ -15,6 +15,13 @@
  *
  * While the runtime says `sleeping` nothing is sent: those requests would not
  * wake the App anyway.
+ *
+ * While the page is hidden (`document.visibilityState`) the connection is
+ * closed, so a background tab does not hold a long connection to the App;
+ * when the page is visible again it reconnects at once from the last event
+ * id (`Last-Event-ID`). The server replays what was missed or answers with
+ * its own reset; `onResume` is not called for it. `pauseWhenHidden: false`
+ * keeps the connection open in the background.
  */
 import { getPageRuntime, onPageRuntime, isAuthErrorCode, isAppSleeping, readPlatformError, reportAuthError, type PlatformError } from './page-runtime.js';
 import { parseServerSentEvents, type ServerSentEvent } from './uns-v2/sse.js';
@@ -45,6 +52,8 @@ export interface EventStreamOptions {
   onClose?(error: EventStreamError): void;
   /** Reconnect when nothing, not even a heartbeat, arrives for this long. Off by default. */
   idleTimeoutMs?: number;
+  /** Close the connection while the page is hidden and resume from the last event id when it is visible. Default true. */
+  pauseWhenHidden?: boolean;
 }
 
 export interface EventStream {
@@ -90,6 +99,14 @@ export function openEventStream(options: EventStreamOptions): EventStream {
   let resumes = 0;
   let connection: AbortController | undefined;
   let wake: (() => void) | undefined;
+  const page = (options.pauseWhenHidden ?? true) && typeof document !== 'undefined' ? document : undefined;
+  let hidden = page?.visibilityState === 'hidden';
+  const onVisibility = () => {
+    hidden = page!.visibilityState === 'hidden';
+    if (hidden) connection?.abort();
+    wake?.();
+  };
+  page?.addEventListener('visibilitychange', onVisibility);
 
   const sleep = (ms?: number) => new Promise<void>((resolve) => {
     const timer = ms === undefined ? undefined : setTimeout(() => done(), ms);
@@ -169,6 +186,10 @@ export function openEventStream(options: EventStreamOptions): EventStream {
 
   async function run(): Promise<void> {
     while (!closed) {
+      if (hidden) {
+        await sleep();
+        continue;
+      }
       if (paused) {
         await sleep(getPageRuntime()?.getState() === 'running' ? PAUSE_RECHECK_MS : undefined);
         if (getPageRuntime()?.getState() === 'running' && !closed) {
@@ -191,6 +212,8 @@ export function openEventStream(options: EventStreamOptions): EventStream {
         else resumedFromPause = true;
         continue;
       }
+      // Closed for a hidden page: wait for it to be visible, not for a backoff.
+      if (hidden) continue;
       if (!paused) await sleep(outcome.afterMs ?? backoff());
     }
   }
@@ -199,6 +222,7 @@ export function openEventStream(options: EventStreamOptions): EventStream {
     closed = true;
     offSleeping();
     offResumed();
+    page?.removeEventListener('visibilitychange', onVisibility);
     connection?.abort();
     wake?.();
   }

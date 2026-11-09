@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createDataClient, DataError, defineCollection, runAsApp, type DeepPartial, type Doc, type InsertOneOptions, type NewDoc, type WithMeta } from '../../src/data/index.js';
+import { createDataClient, DataError, defineCollection, runDetached, runWithAbortSignal, type DeepPartial, type Doc, type InsertOneOptions, type NewDoc, type WithMeta } from '../../src/data/index.js';
 
 const workOrders = defineCollection({
   alias: 'work_orders',
@@ -104,7 +104,8 @@ orders.findOneAndUpdate({ _id: 'wo-1', status: 'DRAFT' }, { $set: { status: 'DON
   void code;
 });
 data.transact([{ opId: 'done', action: 'record.update', collection: workOrders, filter: { _id: 'wo-1' }, update: { $set: { status: 'DONE' } } }]);
-runAsApp(() => data.collection<{ code: string }>('work_orders').countDocuments());
+runDetached(() => data.collection<{ code: string }>('work_orders').countDocuments());
+runWithAbortSignal(new AbortController().signal, () => data.collection<{ code: string }>('work_orders').countDocuments());
 const failure: unknown = undefined;
 if (failure instanceof DataError) {
   const answer: { status: number; code: string; reason?: string; outcomeUnknown: boolean } = failure;

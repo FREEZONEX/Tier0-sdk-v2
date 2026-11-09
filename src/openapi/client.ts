@@ -1,5 +1,4 @@
 import { platformProxyMode, PROXY_HEADER, PROXY_NOT_FORWARDED, SDK_HEADER } from '../platform-proxy.js';
-import { assertCompactToken, currentDelegation, DELEGATION_HEADER } from '../request-context.js';
 import { getEnvVar } from '../runtime-env.js';
 import { invalidResponseHint } from '../connection-diagnostics.js';
 import { decodeUnsV2JSON, encodeUnsV2JSON } from '../uns-v2/codec.js';
@@ -53,7 +52,7 @@ const record = (v: unknown): v is Record<string, unknown> => v !== null && typeo
 /** `sbx_proxy_*` of an answer the node proxy produced itself (design 21.28). */
 const proxyCode = (value: unknown) =>
   record(value) && typeof value.code === 'string' && /^sbx_proxy_[a-z_]+$/.test(value.code) ? value.code : undefined;
-/** Snapshot all own properties once, including non-enumerable credential and delegation fields. */
+/** Snapshot all own properties once, including non-enumerable credential fields. */
 export function snapshotClientConfig<T extends ClientConfig>(config: T, inherited: readonly (keyof T)[] = []): T {
   const snapshot = { ...config };
   for (const field of Reflect.ownKeys(config)) {
@@ -169,17 +168,13 @@ export class HttpClient {
    * `X-Tier0-SDK: 1`; otherwise a single `X-API-Key`, because Gateway enforce
    * mode rejects multiple credential sources.
    */
-  private static authorize(headers: Headers | Record<string, string>, proxied: boolean, key: string | undefined, delegation: string | undefined): void {
+  private static authorize(headers: Headers | Record<string, string>, proxied: boolean, key: string | undefined): void {
     const set = (name: string, value: string) => {
       if (headers instanceof Headers) headers.set(name, value);
       else headers[name] = value;
     };
     if (proxied) set(SDK_HEADER, '1');
     else if (key) set('X-API-Key', key);
-    if (delegation !== undefined) {
-      assertCompactToken(delegation, DELEGATION_HEADER);
-      set(DELEGATION_HEADER, delegation);
-    }
   }
 
   /**
@@ -195,12 +190,12 @@ export class HttpClient {
    * `retry_after_ms`, at most 3 times; writes repeat safely. Anything else,
    * a platform `5xx` included, is returned as is.
    */
-  sender(): (url: string, init: AuthorizedInit, key: string | undefined, delegation?: string) => Promise<Response> {
+  sender(): (url: string, init: AuthorizedInit, key: string | undefined) => Promise<Response> {
     const fetch = this.getFetch();
     const proxied = this.usesAppCredential();
-    return async (url, init, key, delegation = currentDelegation()) => {
+    return async (url, init, key) => {
       const { headers } = init;
-      HttpClient.authorize(headers, proxied, key, delegation);
+      HttpClient.authorize(headers, proxied, key);
       const send = () => fetch(url, { ...init, headers, redirect: 'manual' });
       if (!proxied) return send();
       for (let retry = 0; ; retry += 1) {
@@ -239,8 +234,7 @@ export class HttpClient {
         if (controller.signal.aborted) throw new TransportError(expired ? 'TIMEOUT' : 'ABORTED', false);
         started = true;
         try { response = await send(url, { ...init, headers, redirect: 'manual', signal: controller.signal }, key); }
-        catch (error) {
-          if (error instanceof TypeError && /X-Tier0-Delegation/.test(error.message)) throw error;
+        catch {
           throw new TransportError(expired ? 'TIMEOUT' : controller.signal.aborted ? 'ABORTED' : 'NETWORK', mutation, response?.status);
         }
         const maxBytes = 20 * 1024 * 1024;

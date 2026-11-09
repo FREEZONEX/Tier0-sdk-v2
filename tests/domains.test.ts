@@ -7,7 +7,8 @@ import { createUnsV2Client } from '../src/uns-v2/client.js';
 import { UNS_V2_OPERATIONS, type UnsV2OperationName } from '../src/uns-v2/generated.js';
 
 // base exposes native Source state and Source resources since 0.9.11; the Edge inventory, which base's contract does not have yet, stays raw only.
-const NOT_IN_FACADES = ['edgeNodesList'];
+// sourceOpcuaEndpoints (Backend 59cc52688, builder-side OPC UA endpoint discovery) stays in the raw table like the Edge inventory.
+const NOT_IN_FACADES = ['edgeNodesList', 'sourceOpcuaEndpoints'];
 
 function functions(object: object): unknown[] {
   return Object.values(object).flatMap(value => typeof value === 'function' ? [value] : functions(value));

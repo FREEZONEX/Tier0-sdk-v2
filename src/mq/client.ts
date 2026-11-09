@@ -1,21 +1,14 @@
 import mqtt from 'mqtt';
 import type { MqttClient, IClientOptions } from 'mqtt';
 import { platformIdentity, platformProxyMode } from '../platform-proxy.js';
-import { getPageRuntime, isAuthErrorCode, onPageRuntime, reportAuthError, type Tier0AuthErrorCode } from '../page-runtime.js';
 import { getEnvVar } from '../runtime-env.js';
 import { DEFAULT_WSS_PORT, isBrowserHttps, parseMqttBroker, toWebSocketUrl } from './broker.js';
 import type { MQTTConfig, MQTTEventMap } from './types.js';
 
 /** Design 21.6: backoff ceiling of a client that never gives up. */
 const RECONNECT_MAX_MS = 5 * 60_000;
-/** A reconnect right after the token's `exp` is spread over this window. */
+/** The first reconnect after a drop is spread over this window. */
 const FIRST_RECONNECT_MS = 500;
-/** Design 21.6: refused this many times in a row, a browser stops reconnecting. */
-const MAX_AUTH_REFUSALS = 3;
-/** CONNACK codes for bad credentials: MQTT 3.1.1 (4, 5), MQTT 5 (134, 135). */
-const AUTH_REFUSED_CODES: ReadonlySet<unknown> = new Set([4, 5, 134, 135]);
-/** What a runtime without `reportMqttFailure()` hears instead (design 21.3). */
-const REFUSED_AUTH_ERROR: Tier0AuthErrorCode = 'grant_expired';
 
 /** One connection attempt: what the broker sees. No password through the node proxy, which fills it in. */
 interface ConnectionParams {
@@ -23,24 +16,6 @@ interface ConnectionParams {
   username: string;
   clientId: string;
   password?: string;
-}
-
-/** A stopped client: the platform refused it, and retrying cannot help. */
-class StoppedError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'Tier0MQStoppedError';
-  }
-}
-
-/** The authorization code of a failed `getMqttToken()`, a `Tier0RuntimeError{status, code}` (design 21.3). */
-function tokenAuthCode(error: unknown): Tier0AuthErrorCode | undefined {
-  if (error === null || typeof error !== 'object') return undefined;
-  const { code, status } = error as { code?: unknown; status?: unknown };
-  if (typeof code === 'string' && isAuthErrorCode(code)) return code;
-  if (status === 401) return 'grant_expired';
-  if (status === 403) return 'unavailable';
-  return undefined;
 }
 
 /**
@@ -118,11 +93,6 @@ export class Tier0MQClient {
   private readonly clientSuffix = generateRandomString(16);
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempts = 0;
-  private authRefusals = 0;
-  /** Paused by the page runtime's `sleeping` until `resumed`. */
-  private paused = false;
-  private stopped: StoppedError | null = null;
-  private offRuntime: Array<() => void> = [];
   private connectWaiters: Array<{ resolve(): void; reject(error: Error): void }> = [];
 
   constructor(config?: MQTTConfig) {
@@ -134,7 +104,7 @@ export class Tier0MQClient {
 
     const host = config?.host || envHost || '';
     const port = config?.port || parseInt(envPort || '8084') || 8084;
-    // The browser runtime supplies the password per connection; the node proxy puts in the App's key on the server.
+    // The node proxy puts in the App's key on the server.
     // An explicitly given password, even undefined, is never replaced by the environment key.
     const password = config && Object.hasOwn(config, 'password')
       ? config.password
@@ -197,36 +167,22 @@ export class Tier0MQClient {
    * `proxy`: platform proxy mode, the node proxy puts in the App's key and
    * the SDK sends none.
    */
-  private tokenSource(config: MQTTConfig | undefined = this.config): 'browser' | 'proxy' | undefined {
+  private tokenSource(config: MQTTConfig | undefined = this.config): 'proxy' | undefined {
     if (config?.password) return undefined;
-    if (getPageRuntime()) return 'browser';
     return platformProxyMode() ? 'proxy' : undefined;
   }
 
-  /**
-   * Local preflight before a transport exists: address and credentials must
-   * be usable. A browser token is fetched per attempt, so nothing to check.
-   */
+  /** Local preflight before a transport exists: address and credentials must be usable. */
   private validateConnectionConfig(config: MQTTConfig): void {
-    if (this.tokenSource(config) === 'browser') return;
     void this.connectionParams(config);
   }
 
   /**
-   * What the next connection presents. In the browser a token is fetched for
-   * every attempt: reconnecting with the old one after `exp` is refused
-   * (PoC-11). Through the node proxy the same identity reconnects, and the
-   * proxy puts in the App's current key.
+   * What the next connection presents. Through the node proxy the same
+   * identity reconnects, and the proxy puts in the App's current key.
    */
-  private connectionParams(config: MQTTConfig = this.config): ConnectionParams | Promise<ConnectionParams> {
-    const source = this.tokenSource(config);
-    if (source === 'browser') {
-      // After a refusal the cached token is the likely culprit.
-      return getPageRuntime()!.getMqttToken(this.authRefusals > 0 ? { fresh: true } : undefined).then((issued) => ({
-        url: issued.url, username: issued.username, clientId: issued.client_id, password: issued.token,
-      }));
-    }
-    if (source === 'proxy') {
+  private connectionParams(config: MQTTConfig = this.config): ConnectionParams {
+    if (this.tokenSource(config) === 'proxy') {
       const identity = platformIdentity();
       if (!identity) {
         throw new Error('Tier0 SDK v2: TIER0_WORKSPACE_ID and TIER0_APP_ID are required for MQTT in the platform.');
@@ -253,76 +209,20 @@ export class Tier0MQClient {
   // 同一 clientId 的新旧客户端会互相顶掉。
   private async ensureConnected(onTransportCreationFailure?: () => void): Promise<void> {
     if (this._connected) return;
-    if (this.stopped) throw this.stopped;
     if (this.connectingPromise) return this.connectingPromise;
     if (this.client) {
       return new Promise((resolve, reject) => this.connectWaiters.push({ resolve, reject }));
     }
 
-    this.watchRuntime();
-    const generation = this.generation;
-    // Synchronous unless a browser token has to be fetched.
-    const params = this.connectionParams();
-    if (!(params instanceof Promise)) {
-      const pending = this.doConnect(params, onTransportCreationFailure);
-      // mqtt.connect may throw synchronously before creating a client. Do not
-      // retain that already-failed attempt until the rejection microtask runs.
-      if (!this.client) return pending;
-      this.connectingPromise = pending;
-      void pending.catch(() => {
-        if (this.connectingPromise === pending) this.connectingPromise = null;
-      });
-      return pending;
-    }
-    const connecting = params.then((value) => {
-      // disconnect() while the token was being fetched: do not start a transport for it.
-      if (this.generation !== generation) throw new Error(CANCELLED_BY_DISCONNECT);
-      return this.doConnect(value, onTransportCreationFailure);
+    const pending = this.doConnect(this.connectionParams(), onTransportCreationFailure);
+    // mqtt.connect may throw synchronously before creating a client. Do not
+    // retain that already-failed attempt until the rejection microtask runs.
+    if (!this.client) return pending;
+    this.connectingPromise = pending;
+    void pending.catch(() => {
+      if (this.connectingPromise === pending) this.connectingPromise = null;
     });
-    this.connectingPromise = connecting;
-    return connecting.catch((error: unknown) => {
-      if (this.connectingPromise === connecting) this.connectingPromise = null;
-      throw this.refuse(error);
-    });
-  }
-
-  /** Stops on an authorization failure of the token endpoint; other failures pass through. */
-  private refuse(error: unknown): unknown {
-    const code = tokenAuthCode(error);
-    if (!code || this.tokenSource() !== 'browser') return error;
-    this.stop(code);
-    return this.stopped;
-  }
-
-  /** `code` undefined: the broker refused fresh tokens, and the runtime finds out whether authorization really failed. */
-  private stop(code?: Tier0AuthErrorCode): void {
-    this.stopped = new StoppedError(`Tier0 SDK v2: MQTT stopped reconnecting (${code ?? 'refused by the broker'}).`);
-    this.clearReconnect();
-    const runtime = getPageRuntime();
-    if (!code && runtime?.reportMqttFailure) runtime.reportMqttFailure();
-    else reportAuthError(code ?? REFUSED_AUTH_ERROR);
-    const waiters = this.connectWaiters;
-    this.connectWaiters = [];
-    waiters.forEach((waiter) => waiter.reject(this.stopped!));
-    this.emit('error', this.stopped);
-  }
-
-  /** Design 21.6: no reconnects while the App sleeps; `resumed`, a reauthorization included, starts them again. */
-  private watchRuntime(): void {
-    if (this.offRuntime.length > 0 || !getPageRuntime()) return;
-    this.offRuntime = [
-      onPageRuntime('sleeping', () => {
-        this.paused = true;
-        this.clearReconnect();
-      }),
-      onPageRuntime('resumed', () => {
-        this.paused = false;
-        this.stopped = null;
-        this.authRefusals = 0;
-        this.reconnectAttempts = 0;
-        if (this.client && !this._connected) this.scheduleReconnect();
-      }),
-    ];
+    return pending;
   }
 
   private clearReconnect(): void {
@@ -340,31 +240,26 @@ export class Tier0MQClient {
   }
 
   private scheduleReconnect(): void {
-    if (!this.client || this._connected || this.paused || this.stopped || this.reconnectTimer !== null) return;
+    if (!this.client || this._connected || this.reconnectTimer !== null) return;
     if (this.config.reconnectPeriod === 0) return;
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
-      void this.reconnect();
+      this.reconnect();
     }, this.reconnectDelay());
   }
 
-  /** The same client, with a new token in the browser: mqtt.js keeps its session and offline queue. */
-  private async reconnect(): Promise<void> {
+  /** The same client: mqtt.js keeps its session and offline queue. */
+  private reconnect(): void {
     const client = this.client;
-    if (!client) return;
-    const generation = this.generation;
+    if (!client || this._connected) return;
     let params: ConnectionParams;
     try {
-      params = await this.connectionParams();
+      params = this.connectionParams();
     } catch (error) {
-      if (client !== this.client || this.generation !== generation) return;
       this.emit('error', error as Error);
-      const code = tokenAuthCode(error);
-      if (code && this.tokenSource() === 'browser') this.stop(code);
-      else this.scheduleReconnect();
+      this.scheduleReconnect();
       return;
     }
-    if (client !== this.client || this.generation !== generation || this._connected || this.paused || this.stopped) return;
     client.options.username = params.username;
     client.options.clientId = params.clientId;
     if (params.password === undefined) delete client.options.password;
@@ -381,7 +276,7 @@ export class Tier0MQClient {
         username: params.username,
         ...(params.password === undefined ? {} : { password: params.password }),
         keepalive: this.config.keepAlive,
-        // Reconnects are ours: mqtt.js's timer cannot wait for a new token.
+        // Reconnects are ours, with their own backoff.
         reconnectPeriod: 0,
         // Without it a refused CONNACK leaves the client disconnected for good.
         reconnectOnConnackError: true,
@@ -437,7 +332,6 @@ export class Tier0MQClient {
         this.rejectPendingConnect = null;
         this.clearReconnect();
         this.reconnectAttempts = 0;
-        this.authRefusals = 0;
         resolve();
         this.emit('connect');
         // 断连重连后自动恢复所有订阅
@@ -456,9 +350,6 @@ export class Tier0MQClient {
         this.rejectPendingConnect = null;
         reject(err);
         this.emit('error', err);
-        if (!AUTH_REFUSED_CODES.has((err as { code?: unknown }).code)) return;
-        this.authRefusals += 1;
-        if (this.tokenSource() === 'browser' && this.authRefusals >= MAX_AUTH_REFUSALS) this.stop();
       });
 
       client.on('disconnect', () => {
@@ -659,7 +550,6 @@ export class Tier0MQClient {
     payload: string | object,
     options?: { qos?: number; retain?: boolean }
   ): Promise<void> {
-    if (this.stopped) throw this.stopped;
     const generation = this.generation;
     // A disconnected client queues the message and sends it after reconnecting.
     if (!this.client) await this.ensureConnected();
@@ -677,8 +567,6 @@ export class Tier0MQClient {
 
   disconnect(): void {
     this.clearReconnect();
-    this.offRuntime.forEach((off) => off());
-    this.offRuntime = [];
     const generation = ++this.generation;
     const client = this.client;
     this.client = null;

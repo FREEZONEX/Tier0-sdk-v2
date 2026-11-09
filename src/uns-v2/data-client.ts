@@ -17,7 +17,7 @@ export function bindUnsDataClient(raw: UnsV2Client): UnsDataClient {
 }
 export type UnsDataClientConfig = ClientConfig & CloudTransportConfig;
 export function createUnsDataClient(config: UnsDataClientConfig = {}): UnsDataClient {
-  const snapshot = snapshotClientConfig(config, ['transportTimeoutMs', 'unsV2MaxResponseBytes', 'unsV2AppDataSubject']);
+  const snapshot = snapshotClientConfig(config, ['transportTimeoutMs', 'unsV2MaxResponseBytes']);
   const http = new HttpClient(snapshot);
   return bindUnsDataClient(createUnsV2Client(() => http, snapshot));
 }

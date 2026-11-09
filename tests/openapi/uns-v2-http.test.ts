@@ -86,13 +86,11 @@ describe('UNS v2 localhost HTTP fixture', () => {
     expect(result.data.value?.revision).toEqual(new UnsV2RawNumber('9007199254740993'));
   });
 
-  it('isolates concurrent per-request clients and snapshots their proof configuration', async () => {
+  it('isolates concurrent clients and snapshots their configuration', async () => {
     const start = received.length;
-    const proofA = 'gateway.user_A.signature-A';
-    const proofB = 'gateway.user_B.signature-B';
-    const config = { apiHost, apiKey: 'workspace-bound-key', unsV2AppDataSubject: proofA };
+    const config = { apiHost, apiKey: 'key-A' };
     const first = createClient(config);
-    config.unsV2AppDataSubject = proofB;
+    config.apiKey = 'key-B';
     const second = createClient(config);
     const pending: ServerResponse[] = [];
     respond = (_req, res) => {
@@ -108,92 +106,33 @@ describe('UNS v2 localhost HTTP fixture', () => {
     ]);
     expect(received.slice(start)).toHaveLength(2);
     for (const row of received.slice(start)) {
-      expect(row.headers['x-tier0-app-data-subject']).toBe(row.path?.includes('user-a') ? proofA : proofB);
       expect(row.headers.authorization).toBeUndefined();
-      expect(row.headers['x-api-key']).toBe('workspace-bound-key');
+      expect(row.headers['x-api-key']).toBe(row.path?.includes('user-a') ? 'key-A' : 'key-B');
     }
-    respond = (_req, res) => send(res, { code: 200, msg: '', requestId: 'plain', data: {} });
-    await client().uns.recordFind({ collectionId: 'plain' });
-    expect(received.at(-1)?.headers['x-tier0-app-data-subject']).toBeUndefined();
-  });
-
-  it('sends data delegation only for registered UNS data operations, not management or arbitrary paths', async () => {
-    const start = received.length;
-    const config = { apiHost, apiKey: 'workspace-bound-key', unsV2AppDataSubject: 'gateway.user.signature' };
-    const api = createClient(config);
-    respond = (req, res) => {
-      if (req.url === '/openapi/v2/capabilities/discover') send(res, {
-        product: 'cloud', contractVersion: '2.0', apiContractVersions: ['openapi/v2'],
-        sdkContractVersions: ['stream-requests/v1'], capabilities: [], deprecations: [],
-      });
-      else send(res, { code: 200, msg: '', requestId: 'fixture', data: {} });
-    };
-    const http = new HttpClient(config);
-    const transport = new CloudTransport(() => http, config);
-    await api.source.documents.list({});
-    await api.stream.programs.list({});
-    await api.uns.appStreamAccessList({ appId: 'fixture-app' });
-    await api.capabilities.discover();
-    await http.post('/openapi/v2/uns/query', {});
-    await http.post('/openapi/v2/assets/files/url', {});
-    await transport.post('/openapi/v2/uns/test', {});
-    for (const path of ['/legacy/uns/query', '/openapi/v2/assets/test', '/openapi/v2/uns-other/test', '/openapi/v2/uns', '/openapi/v2/uns/collections/orders/records:find']) {
-      await transport.postText(path, '{}');
-    }
-    expect(received.slice(start)).toHaveLength(12);
-    for (const row of received.slice(start)) expect(row.headers['x-tier0-app-data-subject']).toBeUndefined();
-  });
-
-  it('rejects invalid proof configurations synchronously without requests or value disclosure', () => {
-    const start = received.length;
-    const token = 'gateway.user.signature';
-    const invalid: unknown[] = [
-      '', null, 1, true, {}, [token], `${token},${token}`, `${token} ${token}`,
-      ` ${token}`, `${token} `, `${token}\r\n`, `${token}\n`, `${token}\t`, `${token}\u0000`,
-      'a.b', 'a.b.c.d', '.b.c', 'a..c', 'a.b.', 'a.b.c=', 'a.b.c+', 'a.b.c/',
-      'a.用户.c', 'a.b.\u007f', 'a.b.\u00a0', `a.b.${'x'.repeat(8189)}`,
-    ];
-    for (const value of invalid) {
-      let error: unknown;
-      try { createClient({ apiHost, unsV2AppDataSubject: value as string }); } catch (caught) { error = caught; }
-      expect(error).toBeInstanceOf(TypeError);
-      expect((error as Error).message).toBe('Tier0 SDK: unsV2AppDataSubject must be a compact three-segment base64url token of at most 8192 ASCII bytes.');
-    }
-    expect(received.length).toBe(start);
-  });
-
-  it('forwards exactly 8192 ASCII bytes unchanged without parsing claims', async () => {
-    const start = received.length;
-    const proof = `a.b.${'x'.repeat(8188)}`;
-    respond = (_req, res) => send(res, { code: 200, msg: '', requestId: 'max-proof', data: {} });
-    await createClient({ apiHost, apiKey: 'workspace-bound-key', unsV2AppDataSubject: proof })
-      .uns.recordFind({ collectionId: 'orders' });
-    expect(received.slice(start)).toHaveLength(1);
-    expect(received[start].headers['x-tier0-app-data-subject']).toBe(proof);
   });
 
   it.each(['redirect', 'socket', 'malformed', 'timeout'] as const)
-  ('redacts proof-bearing %s failures without redirects or retries', async kind => {
+  ('redacts %s failures without redirects or retries', async kind => {
     const start = received.length;
-    const proof = 'gateway.private_subject.private_signature';
+    const proof = 'private_body.private_detail';
     respond = (req, res) => {
       if (kind === 'socket') { req.socket.destroy(); return; }
       if (kind === 'redirect') { res.writeHead(307, { Location: '/redirected' }); res.end(proof); return; }
       if (kind === 'timeout') { res.writeHead(200); res.write(proof); return; }
       res.end(proof);
     };
-    const error = await createClient({ apiHost, apiKey: 'workspace-bound-key', unsV2AppDataSubject: proof, transportTimeoutMs: 150 })
+    const error = await createClient({ apiHost, apiKey: 'workspace-bound-key', transportTimeoutMs: 150 })
       .uns.recordInsertOne({ collectionId: 'orders', data: {} }).catch(value => value);
     expect(error).toBeInstanceOf(UnsV2OutcomeUnknownError);
     expect(error).toMatchObject({ execution: 'unknown', retry: { safe: false }, outcomeUnknown: true, code: kind === 'socket' ? 'UNS_V2_TRANSPORT_ERROR' :
       kind === 'timeout' ? 'UNS_V2_TRANSPORT_TIMEOUT' : 'UNS_V2_PROTOCOL_ERROR' });
     const diagnostic = `${String(error)}\n${error.stack}\n${JSON.stringify(error)}`;
-    for (const sensitive of [proof, 'private_subject', 'private_signature', 'workspace-bound-key']) {
+    for (const sensitive of [proof, 'private_body', 'private_detail', 'workspace-bound-key']) {
       expect(diagnostic).not.toContain(sensitive);
     }
     await new Promise(resolve => setTimeout(resolve, 30));
     expect(received.slice(start)).toHaveLength(1);
-    expect(received[start].headers['x-tier0-app-data-subject']).toBe(proof);
+    expect(received[start].headers['x-api-key']).toBe('workspace-bound-key');
   });
 
   it.each(['uninitialized', 'ready'] as const)('reads %s hosted App context without an App selector or initialization writes', async dataState => {
@@ -225,23 +164,6 @@ describe('UNS v2 localhost HTTP fixture', () => {
     });
     expect(received.slice(start)).toHaveLength(1);
     expect(received.at(-1)?.path).toBe('/openapi/v2/uns/app/context');
-  });
-
-  it('decodes current employee create capability separately from readable fields without adding a selector or binding to the request', async () => {
-    const start = received.length;
-    respond = (_req, res) => {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end('{"code":200,"msg":"ok","requestId":"create-hint","data":{"appId":"app-1","name":"App","revision":19,"platformPermissions":[],"collections":[{"alias":"orders","collectionId":"orders","permissions":["record:read","record:write"],"recordSchema":{"type":"object","properties":{"orderNo":{"type":"string"}}},"createCapability":{"version":"cloud-app-create-capability/v1","allowed":true,"reason":"allowed","appRevision":19,"collectionRevision":9007199254740993,"binding":"' + 'a'.repeat(64) + '","inputSchema":{"type":"object","additionalProperties":false,"required":["orderNo","amount"],"properties":{"orderNo":{"type":"string"},"amount":{"type":"integer","minimum":0,"enum":[9007199254740993]}}}}}]}}');
-    };
-    const out = await client().uns.dataAppContext({});
-    const grant = out.data.collections[0], cap = grant.createCapability;
-    expect(grant.recordSchema.properties).not.toHaveProperty('amount');
-    expect(cap?.version).toBe('cloud-app-create-capability/v1');
-    expect(cap?.allowed).toBe(true);
-    expect(cap?.collectionRevision).toEqual(new UnsV2RawNumber('9007199254740993'));
-    expect(cap?.inputSchema?.properties?.amount.enum).toEqual([new UnsV2RawNumber('9007199254740993')]);
-    expect(received.slice(start)).toHaveLength(1);
-    expect(received[start].body).toBe('{}');
   });
 
   it('sends unified index declarations and reads exact business numbers through the 4.0 find route', async () => {
@@ -377,23 +299,23 @@ describe('UNS v2 localhost HTTP fixture', () => {
     }
     expect(UNS_V2_CONTRACT_PROVENANCE.version).toBe('5.0.0');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudContractRevision.split('+')).toEqual(expect.arrayContaining([
-      'cloud-source-impact/2', 'app-create-capability/1', 'data/3', 'collection-namespace/1', 'http-acquisition/2',
+      'cloud-source-impact/2', 'data/3', 'collection-namespace/1', 'http-acquisition/2',
       'app-collection/2', 'metadata/1', 'app-data/3', 'hosted-control/1', 'source-bindings/1',
       'record-notifications/1', 'record-delete-samples/1', 'stream-history/1',
       'record-reads/1', 'app-context/4', 'collection-ttl/1', 'error-model/1', 'record-insert-return/1', 'stream-run-error/1',
-      'source-lifecycle/2', 'app-collections/2',
+      'source-lifecycle/2', 'app-collections/2', 'app-data-rule-retirement/1',
     ]));
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('8780ce2d6c07b6afee96409795c098e330c214dd');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('59cc52688ce0144effb831eceeebb31d5a374efe');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(UNS_V2_CONTRACT_PROVENANCE.sourceDerivedContractSHA256).toBe(UNS_V2_CONTRACT_PROVENANCE.hashes.contract);
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(91);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(105);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(92);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(106);
     expect(received.slice(start)).toHaveLength(1);
   });
 
   it.each(['recordAuditList', 'recordAuditAdminList'])('rejects removed %s before encoding or any network request', async name => {
     const start = received.length;
-    const api = rawClient({ unsV2AppDataSubject: 'gateway.employee.signature' });
+    const api = rawClient();
     expect(Object.hasOwn(api, name)).toBe(false);
     expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(false);
     const core = api as unknown as { call(name: string, request: unknown): Promise<unknown> };
@@ -964,7 +886,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
 
 describe('records:subscribe over the isolated HTTP transport', () => {
   const frame = (event: string, data: unknown, id?: string) => `${id ? `id: ${id}\n` : ''}event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-  const change = { eventId: 'p-2', collectionId: 'orders', recordId: 'o-1', revision: 4, change: 'delete', occurredAt: 1700000000000, restricted: true };
+  const change = { eventId: 'p-2', collectionId: 'orders', recordId: 'o-1', revision: 4, change: 'delete', occurredAt: 1700000000000 };
 
   it('is a GET stream outside the generated POST methods', () => {
     expect(Object.keys(UNS_V2_OPERATIONS)).not.toContain('recordSubscribe');
@@ -972,7 +894,7 @@ describe('records:subscribe over the isolated HTTP transport', () => {
     expect(UNS_V2_STREAM_OPERATIONS.recordSubscribe.path).toBe('/openapi/v2/uns/records:subscribe');
   });
 
-  it('sends repeated query parameters, Last-Event-ID and the data subject, then parses frames until the server closes', async () => {
+  it('sends repeated query parameters and Last-Event-ID, then parses frames until the server closes', async () => {
     const start = received.length;
     respond = (_req, res) => {
       res.writeHead(200, { 'Content-Type': 'text/event-stream' });
@@ -980,9 +902,8 @@ describe('records:subscribe over the isolated HTTP transport', () => {
       res.write(frame('change', change, 'p-2'));
       res.end(frame('reset', { reason: 'SCOPE_CHANGED' }));
     };
-    const proof = 'gateway.subject.signature';
     const events = [];
-    for await (const event of rawClient({ unsV2AppDataSubject: proof }).subscribeRecords({ collectionIds: ['orders'], recordIds: ['o-1', 'o-2'] }, { lastEventId: 'p-0' })) {
+    for await (const event of rawClient().subscribeRecords({ collectionIds: ['orders'], recordIds: ['o-1', 'o-2'] }, { lastEventId: 'p-0' })) {
       events.push(event);
     }
     expect(events).toEqual([{ type: 'heartbeat', eventId: 'p-1' }, { type: 'change', ...change }, { type: 'reset', reason: 'SCOPE_CHANGED' }]);
@@ -993,7 +914,6 @@ describe('records:subscribe over the isolated HTTP transport', () => {
     expect(sent.headers['x-api-key']).toBe('workspace-bound-key');
     expect(sent.headers.authorization).toBeUndefined();
     expect(sent.headers['last-event-id']).toBe('p-0');
-    expect(sent.headers['x-tier0-app-data-subject']).toBe(proof);
   });
 
   it.each([[429, 'OVERLOADED', true], [403, 'FORBIDDEN', false]])('raises a %s/%s refusal as a read error with its retry advice', async (status, code, safe) => {
@@ -1008,7 +928,7 @@ describe('records:subscribe over the isolated HTTP transport', () => {
   it('treats a malformed change frame as a protocol error safe to reconnect', async () => {
     respond = (_req, res) => {
       res.writeHead(200, { 'Content-Type': 'text/event-stream' });
-      res.end(frame('change', { ...change, restricted: undefined }, 'p-2'));
+      res.end(frame('change', { ...change, revision: undefined }, 'p-2'));
     };
     const error = await rawClient().subscribeRecords({ collectionIds: ['orders'] }).next().catch(value => value);
     expect(error).toMatchObject({ name: 'UnsV2Error', code: 'UNS_V2_PROTOCOL_ERROR', retry: { safe: true } });

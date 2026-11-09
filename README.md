@@ -2,11 +2,13 @@
 
 Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交互均使用 `@tier0/sdk-v2`。旧 SDK 不再作为依赖。
 
-`0.10.0-aenv.9` 是 aenv-next 的本地预发布版本，基于 `0.9.10` 和 base 2026-11-05 的 MQTT 修复（含 `0.9.9` 的 `metadataPurge` 与凭证查询说明、`0.9.8` 的 App 集合业务目录声明 `directoryPath`），未发布到 npm；内容见下方「aenv-next 运行环境」。
+`0.10.0-aenv.10` 是 aenv-next 的本地预发布版本，基于 `0.9.10`、base 2026-11-05 的 MQTT 修复和 base 的 `0.9.11` 待发布候选（含 `0.9.9` 的 `metadataPurge` 与凭证查询说明、`0.9.8` 的 App 集合业务目录声明 `directoryPath`），未发布到 npm；内容见下方「aenv-next 运行环境」。
 
-**`0.10.0-aenv.2` 起是破坏性变更**：`TIER0_CREDENTIALS_FILE` 不再读取，SDK 在平台里不持有、不发送任何凭据，由节点代理注入 App 的长期 Key；必须和新的 AgentENV（`sbx-api-proxy`）一起上线，在旧 VM 上请求会被拒绝。`0.10.0-aenv.3` 起 `TIER0_RUNTIME` 只接受 `deployed` / `preview`，其他非空值（且没有 Key）直接报配置错误。`0.10.0-aenv.4` 起 MQTT 改用 `<ws>&open` / `<ws>&h.<app>.<随机>`，预览和正式同一行为（种子不再等委托请求，`appCredentialRuntime()` 已删除）。`0.10.0-aenv.5` 合入 base 的 `0.9.7`、`0.9.8`。`0.10.0-aenv.6` 起 `members.listApp` 经节点代理可用（托管 Key 按 `platform.users.read`，响应不带邮箱）。`0.10.0-aenv.7` 合入 base 的 `0.9.9`、`0.9.10`（个人 Key 本地接入指南、非 JSON 网关错误提示、Namespace 回收说明），节点代理凭据模型不变。`0.10.0-aenv.8` 起已发布的 App（AENV，没有 `TIER0_JWKS_DIR`）从 `TIER0_JWKS_URL`（前门的 `/__tier0/jwks.json`）拉访问者令牌公钥并定期刷新。`0.10.0-aenv.9` 合入 base 2026-11-05 的 MQTT 修复（按连接代次丢弃过期回调、逐个 topic 校验订阅确认、连接设置预检回滚），重连期间新订阅和发布仍等待重连。
+**`0.10.0-aenv.10` 是破坏性变更**：App 调平台只有一种身份，App 自身（App Key）；按用户角色收窄数据由 App 自己做，服务端用 `parseVisitorHeader()` 读前门注入的明文 `X-Tier0-Visitor` 拿到当前用户和角色。浏览器不再直连 MQTT，实时数据由 App 服务端订阅后转发（`createChangeRelay`）；请求中止信号改由 `runWithAbortSignal` 传入。删除的接口见 CHANGELOG。用旧 SDK 打包的 App 在前门改为明文访问者头后无法识别访问者，必须升级重新发布。
 
-本分支已合入 base 的 `0.9.11` 待发布候选（版本号仍是 `0.10.0-aenv.9`，随下一个 aenv 预发布号一起发布）：隔离显式凭据来源、支持逐请求异步凭据（`apiKeyProvider`），并按 Gateway 合同只发送 `X-API-Key`；Data 客户端在创建时绑定静态主体；Source / Stream 公开合同同步到 Backend 的原生文档模型。平台代理模式（见「aenv-next 运行环境」）不变。
+**`0.10.0-aenv.2` 起是破坏性变更**：`TIER0_CREDENTIALS_FILE` 不再读取，SDK 在平台里不持有、不发送任何凭据，由节点代理注入 App 的长期 Key；必须和新的 AgentENV（`sbx-api-proxy`）一起上线，在旧 VM 上请求会被拒绝。`0.10.0-aenv.3` 起 `TIER0_RUNTIME` 只接受 `deployed` / `preview`，其他非空值（且没有 Key）直接报配置错误。`0.10.0-aenv.4` 起 MQTT 改用 `<ws>&open` / `<ws>&h.<app>.<随机>`，预览和正式同一行为（`appCredentialRuntime()` 已删除）。`0.10.0-aenv.5` 合入 base 的 `0.9.7`、`0.9.8`。`0.10.0-aenv.6` 起 `members.listApp` 经节点代理可用（托管 Key 按 `platform.users.read`，响应不带邮箱）。`0.10.0-aenv.7` 合入 base 的 `0.9.9`、`0.9.10`（个人 Key 本地接入指南、非 JSON 网关错误提示、Namespace 回收说明），节点代理凭据模型不变。`0.10.0-aenv.9` 合入 base 2026-11-05 的 MQTT 修复（按连接代次丢弃过期回调、逐个 topic 校验订阅确认、连接设置预检回滚），重连期间新订阅和发布仍等待重连。
+
+`0.10.0-aenv.10` 合入了 base 的 `0.9.11` 待发布候选：隔离显式凭据来源、支持逐请求异步凭据（`apiKeyProvider`），并按 Gateway 合同只发送 `X-API-Key`；Data 客户端在创建时绑定静态主体；Source / Stream 公开合同同步到 Backend 的原生文档模型。平台代理模式（见「aenv-next 运行环境」）不变。
 
 `0.9.10` 补齐个人 Key 本地接入指南与非 JSON 网关错误提示，并同步 Namespace 回收、删除和恢复说明；保留现有权限、请求地址和重试规则。
 
@@ -26,7 +28,7 @@ Collection 声明必须同时提供业务名称 `name`（例如「生产工单�
 
 Source / Stream 管理已统一为 Enterprise 参数：SourceDefinition 使用顶层 role、endpoint、http/sql 等；Stream 的 document 与 program 均使用 script: {code,timeoutMs}。旧 config/options/material、script 字符串和旧删除/凭据创建路由不再受支持。
 
-`0.4.0` 版本变更：相对 0.3.x 移除已退役的 Stream 就绪探针且不保留别名，改用服务端现有统一权限，不再配置逐 Key Control scopes/codes。0.3.0 起统一使用 OpenAPI v2 并退役重复及旧接口；与 0.2.x 存在不兼容变更，迁移方式见下方“本次接口退役”。对应 UNS v2 契约 5.0.0，与 0.1.0 不兼容（新错误模型 `execution` / `retry`、封顶计数、删除 `recordChangesPoll` 等）。Collection 支持 int、float、double 和 datetime 声明；格式注解不新增数值范围或日期格式校验，Sample 外层 time 保持不变。使用时需确认目标环境已部署对应后端。要求 Node.js 20.19+。浏览器 HTTP、MQTT、React、Vue 和服务端身份验签分别提供独立入口。
+`0.4.0` 版本变更：相对 0.3.x 移除已退役的 Stream 就绪探针且不保留别名，改用服务端现有统一权限，不再配置逐 Key Control scopes/codes。0.3.0 起统一使用 OpenAPI v2 并退役重复及旧接口；与 0.2.x 存在不兼容变更，迁移方式见下方“本次接口退役”。对应 UNS v2 契约 5.0.0，与 0.1.0 不兼容（新错误模型 `execution` / `retry`、封顶计数、删除 `recordChangesPoll` 等）。Collection 支持 int、float、double 和 datetime 声明；格式注解不新增数值范围或日期格式校验，Sample 外层 time 保持不变。使用时需确认目标环境已部署对应后端。要求 Node.js 20.19+。浏览器 HTTP、MQTT、React、Vue 和服务端分别提供独立入口。
 
 合同快照的准确 Backend 提交和输入摘要见 contracts/upstream.json；使用前需确认目标环境已部署相应合同。请求统一权限、旧探针退役门禁、Source discovery 的副作用分类及不自动重试语义保持不变。
 
@@ -34,13 +36,13 @@ Source / Stream 管理已统一为 Enterprise 参数：SourceDefinition 使用�
 
 ## 安装与初始化
 
-维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。本分支的功能应使用检查通过的 `tier0-sdk-v2-0.10.0-aenv.9.tgz` 在业务项目中验证：
+维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。本分支的功能应使用检查通过的 `tier0-sdk-v2-0.10.0-aenv.10.tgz` 在业务项目中验证：
 
 ```sh
-npm install /path/to/tier0-sdk-v2-0.10.0-aenv.9.tgz
+npm install /path/to/tier0-sdk-v2-0.10.0-aenv.10.tgz
 ```
 
-`0.10.0-aenv.9` 正式发布后再使用 `npm install @tier0/sdk-v2@0.10.0-aenv.9`。发布前，npm 的既有版本和 `next` 标签不代表本分支的完整功能。
+`0.10.0-aenv.10` 正式发布后再使用 `npm install @tier0/sdk-v2@0.10.0-aenv.10`。发布前，npm 的既有版本和 `next` 标签不代表本分支的完整功能。
 
 个人 Key 可直接读取已有集合，无需创建平台 App；网关配置、运行示例与排错见[本地连接指南](skills/tier0-sdk-v2/references/local-connection.md)。
 
@@ -57,7 +59,7 @@ const tier0 = createClient();
 
 SDK 访问平台 API 时仅发送 `X-API-Key`，不同时发送 `Authorization`；Cloud Gateway 的 enforce 模式会拒绝多来源凭据。`whoami` 同样使用单个 `X-API-Key`。API Key 应留在服务端，浏览器通过应用服务端调用平台 API；网关默认 CORS 配置可能不允许跨源 `X-API-Key`。
 
-服务端底层 HTTP 客户端也可配置 `apiKeyProvider: async ({ signal }) => ...`，每次 HTTP 请求或 SSE 连接分别解析一次 API Key。provider 必须返回非空的可打印 ASCII 字符串；失败、取消或超时会终止该次请求，不回退到静态 Key 或环境变量。provider 应使用 `signal` 停止自己的异步工作。SDK 不缓存 provider 返回的 Key，也不会因此重放请求；调用者须确保重试期间身份和幂等作用域一致。`@tier0/sdk-v2/data` 的 `createDataClient` 不支持 `apiKeyProvider` 或 `getApiKey`，会直接拒绝；它在创建时固定静态 Key 和 Host，包括从环境变量取得的值。需要更换身份或环境配置时须新建 Data 客户端，不能复用原有 bootstrap、重试和订阅状态。员工数据委托仍按请求绑定，不改变 App Key。该接口只提供现有 API Key 的动态获取，并不表示服务端支持委托凭据。
+服务端底层 HTTP 客户端也可配置 `apiKeyProvider: async ({ signal }) => ...`，每次 HTTP 请求或 SSE 连接分别解析一次 API Key。provider 必须返回非空的可打印 ASCII 字符串；失败、取消或超时会终止该次请求，不回退到静态 Key 或环境变量。provider 应使用 `signal` 停止自己的异步工作。SDK 不缓存 provider 返回的 Key，也不会因此重放请求；调用者须确保重试期间身份和幂等作用域一致。`@tier0/sdk-v2/data` 的 `createDataClient` 不支持 `apiKeyProvider` 或 `getApiKey`，会直接拒绝；它在创建时固定静态 Key 和 Host，包括从环境变量取得的值。需要更换身份或环境配置时须新建 Data 客户端，不能复用原有 bootstrap、重试和订阅状态。该接口只提供现有 API Key 的动态获取。
 
 服务端已有经授权的主体 Key 时，可以为每个可信主体创建独立 Data 客户端，并按实际权限访问已有集合：
 
@@ -73,11 +75,11 @@ export function dataForPrincipal(apiHost: string, apiKey: string) {
 // const count = await dataForPrincipal(apiHost, apiKey).collection({ collectionId }).countDocuments();
 ```
 
-不要从客户端自报的主体推导 Key，也不要跨主体复用客户端；Key 轮换后创建新实例。声明集合的 ensure/seed 是否允许由服务端凭证和权限决定，此例不声明集合。App 共用固定 App Key 时，可用受信 Gateway 的员工断言按请求收窄数据访问；它不是签发或验证个人 Key 的途径。
+不要从客户端自报的主体推导 Key，也不要跨主体复用客户端；Key 轮换后创建新实例。声明集合的 ensure/seed 是否允许由服务端凭证和权限决定，此例不声明集合。App 共用固定 App Key 时，平台不按访问者收窄数据；按用户角色决定谁能看什么是 App 自己的事（见「aenv-next 运行环境」的访问者头）。
 
-Data 高层会跨请求复用 ensure 结果、重放带幂等键的 seed、恢复 stale 集合和续接 SSE。现有 whoami 不返回权威 App ID，同一工作空间和创建者的不同 App Key 可能具有相同的 workspace/user/type；名称、前缀或 provider 自报的身份不能证明不同 Key 属于同一主体。移除高层拒绝前，需要与实际请求凭据绑定、可验证且覆盖 App、员工委托及幂等作用域的服务端身份合同，并将这些跨请求状态隔离到已确认主体。`scripts/check-data-principal-boundary.mjs` 可在受控环境中用真实 Gateway 和两个不同 App 的临时 Key 验证此边界；脚本开头列出输入，Key 文件由调用方在验证后撤销和清理。
+Data 高层会跨请求复用 ensure 结果、重放带幂等键的 seed、恢复 stale 集合和续接 SSE。现有 whoami 不返回权威 App ID，同一工作空间和创建者的不同 App Key 可能具有相同的 workspace/user/type；名称、前缀或 provider 自报的身份不能证明不同 Key 属于同一主体。移除高层拒绝前，需要与实际请求凭据绑定、可验证且覆盖 App 及幂等作用域的服务端身份合同，并将这些跨请求状态隔离到已确认主体。`scripts/check-data-principal-boundary.mjs` 可在受控环境中用真实 Gateway 和两个不同 App 的临时 Key 验证此边界；脚本开头列出输入，Key 文件由调用方在验证后撤销和清理。
 
-`createClient()` 实例之间不共享配置；推荐在一个稳定身份的服务生命周期内复用实例。员工数据委托必须为每个请求创建新实例，传入受信网关的 `unsV2AppDataSubject`。App Key 只代表 App，不能替代当前用户身份，也不能下发到浏览器。浏览器页面应调用自己的服务端 API。
+`createClient()` 实例之间不共享配置；推荐在一个稳定身份的服务生命周期内复用实例。App Key 只代表 App，不能替代当前用户身份，也不能下发到浏览器。浏览器页面应调用自己的服务端 API。
 
 ## aenv-next 运行环境
 
@@ -85,11 +87,11 @@ Data 高层会跨请求复用 ensure 结果、重放带幂等键的 seed、恢�
 
 `TIER0_RUNTIME` 为 `deployed` 或 `preview`、没有 `TIER0_API_KEY` 时，SDK 进入「平台代理模式」（传了有值的 `apiKey`，或给了 `getApiKey` / `apiKeyProvider` 的客户端仍按显式配置；`apiKey: undefined`，例如 `apiKey: process.env.TIER0_API_KEY`，在平台里仍走平台代理模式。`createDataClient` 在创建时把环境里的 Key 固定成 `apiKey`，平台里它是 `undefined`，同样走代理）。没有 `TIER0_API_KEY` 而 `TIER0_RUNTIME` 是其他非空值时，SDK 抛出配置错误，不猜测模式。平台代理模式下：
 
-- 不读任何凭据，不发 `Authorization`、`X-API-Key`、`X-Tier0-App-Data-Subject`；
+- 不读任何凭据，不发 `Authorization`、`X-API-Key`；
 - 每个请求带 `X-Tier0-SDK: 1`，代理拒绝不带它的请求；
 - 不跟随重定向；
 - 只对代理自己产生的 `503`、`429`（带 `X-Tier0-Proxy: not-forwarded`）按响应体的 `retry_after_ms` 重试，最多 3 次。这类请求没有到达平台，写操作重发也安全。平台返回的 5xx 不重试；
-- `runWithRequestContext` 把收到的 `X-Tier0-Delegation` 原样转发到所有平台接口，`runAsApp` 不带。
+- 所有平台调用都是 App 自身，请求里不带访问者身份。
 
 平台设置的环境变量（都是标识，不是秘密）：
 
@@ -100,7 +102,6 @@ Data 高层会跨请求复用 ensure 结果、重放带幂等键的 seed、恢�
 | `TIER0_WORKSPACE_ID` | 工作区 ID，SDK 以它为准 |
 | `TIER0_APP_ID` | App ID，SDK 以它为准（`getCurrentAppId()` 先读它，再读旧的 `APP_ID`） |
 | `TIER0_RUNTIME` | `deployed` 或 `preview`，只用来判断是否在平台里；两者行为相同 |
-| `TIER0_JWKS_DIR` | 前门公钥目录，`createVisitorTokenVerifier()` 读取 |
 
 **直接用 `fetch` / `curl` 调平台**（不经过 SDK）时，必须自己带 `X-Tier0-SDK: 1`，不要带 `Authorization`；`Forwarded`、`X-Forwarded-*`、`X-Real-IP` 会被拒绝：
 
@@ -117,7 +118,7 @@ curl -sS -X POST "$TIER0_API_HOST/openapi/v2/info" -H 'X-Tier0-SDK: 1' -H 'Conte
 | `sbx_proxy_limited` | 429 | 超过这个 VM 的并发或速率上限；SDK 自动重试 |
 | `sbx_proxy_no_credential` | 403 | 这个 VM 永远没有 Key（会话没有绑定 App，只能调 `/openapi/v2/info`）；不重试 |
 | `sbx_proxy_unbound` | 403 | 这个 VM 没有绑定（实例正在启动或已停止） |
-| `sbx_proxy_bad_request` | 400 | 请求格式被拒（absolute-form、`Upgrade`、路径含 `..` / `%2f` 等、多个 `X-Tier0-Delegation`） |
+| `sbx_proxy_bad_request` | 400 | 请求格式被拒（absolute-form、`Upgrade`、路径含 `..` / `%2f` 等） |
 | `sbx_proxy_forbidden` | 403 | 缺 `X-Tier0-SDK: 1`，或带了 `Forwarded` / `X-Forwarded-*` / `X-Real-IP` |
 | `sbx_proxy_not_found` | 404 | 路径不在白名单里 |
 
@@ -127,11 +128,55 @@ curl -sS -X POST "$TIER0_API_HOST/openapi/v2/info" -H 'X-Tier0-SDK: 1' -H 'Conte
 
 本地开发（没有 `TIER0_RUNTIME`）照旧设 `TIER0_API_HOST`、`TIER0_API_KEY`。
 
-- `@tier0/sdk-v2/server`：`createVisitorTokenVerifier()` 校验 `X-Tier0-Visitor`（契约 v2，公钥从 `TIER0_JWKS_DIR` 读最新集合，`aud` 按 `TIER0_APP_ID`）。
-- `@tier0/sdk-v2/page-runtime`：页面运行时 v1 和平台错误（`x-sbx-error`）。
-- `@tier0/sdk-v2/event-stream`：基于 fetch 的 SSE。App 休眠时停止，`resumed` 后重建，节点 agent 重启时透明重连。`EventSource` 遇到 503 不重试，手写时要订阅 `resumed` 后重建。
+- `@tier0/sdk-v2/server`：`parseVisitorHeader(request.headers.get(VISITOR_HEADER))` 解析前门注入的 `X-Tier0-Visitor`，返回 `{ subType, subject, grant, workspaceID, appID, runtime, appRoles, activeRole? }`。头的值是 UTF-8 JSON 对象的无填充 base64url（编码前最多 8192 字节），不签名：前门转发前剥掉客户端带来的全部 `X-Tier0-*`，再注入这一个头。解析是严格的：未知字段、缺必填字段、类型或长度不符、`app` 不等于 `TIER0_APP_ID` 都抛 `VisitorError`（`VISITOR_HEADER_INVALID`）；没有 `TIER0_APP_ID` 时是 `VISITOR_CONFIGURATION_INVALID`。App 用 `appRoles` 自己决定当前用户能看、能改哪些数据；平台对 App 的调用不带访问者身份，不会替 App 收窄。
 
-**MQTT**：服务端在平台代理模式下不发 password，由代理填入 App 的 Key；username 为 `<ws>&open`，clientId 为 `<ws>&h.<app>.<16 位随机>`，由 `TIER0_WORKSPACE_ID`、`TIER0_APP_ID` 拼出，预览和正式相同。只有用平台给的 `TIER0_MQTT_URL`（`mqtt://`）时才走 TCP 经过代理；显式传 `host` 会改用 WebSocket，经代理连不上，平台里不要传。浏览器照旧每次连接从页面运行时取 MQTT 令牌。`clean` 默认 `false`；服务端按指数退避一直重连，上限 5 分钟，Key 轮换时代理断开连接、SDK 重连后用新 Key；浏览器在令牌接口返回 401/403，或连续 3 次 CONNACK 认证失败时停止，`resumed` 后恢复。持久会话、QoS 1 下重连不丢消息，但断开期间的积压超过 EMQX 离线队列（默认 `max_mqueue_len=1000`）仍会丢。
+  ```ts
+  import { parseVisitorHeader, VISITOR_HEADER, VisitorError } from '@tier0/sdk-v2/server';
+
+  function visitorOf(request: Request) {
+    try {
+      return parseVisitorHeader(request.headers.get(VISITOR_HEADER));
+    } catch (error) {
+      if (error instanceof VisitorError && error.code === 'VISITOR_HEADER_INVALID') return null; // 401
+      throw error; // 配置错误：503
+    }
+  }
+  ```
+
+  | 字段 | 头里的字段 | 说明 |
+  | --- | --- | --- |
+  | `workspaceID` | `ws` | 工作区 ID（十进制数字串） |
+  | `appID` | `app` | 等于 `TIER0_APP_ID` |
+  | `runtime` | `runtime` | `deployed` 或 `preview` |
+  | `subType` | `sub_type` | `employee` 或 `machine` |
+  | `subject` | `sub` | 员工用户 ID，或机器访问者的调用令牌 ID（1–128 字节） |
+  | `grant` | `grant` | 员工访问的 grant ID；机器访问者为空串（≤128 字节） |
+  | `appRoles` | `app_roles` | 访问者在 App 里的角色（≤32 项，每项 1–128 字节）；预览里是「以某角色查看」选中的角色 |
+  | `activeRole` | `active_role` | 可省略，只在预览的「以某角色查看」里出现 |
+- `@tier0/sdk-v2/page-runtime`：页面运行时 v1 和平台错误（`x-sbx-error`）。
+- `@tier0/sdk-v2/event-stream`：基于 fetch 的 SSE。App 休眠时停止，`resumed` 后重建，节点 agent 重启时透明重连。页面隐藏时关掉连接（后台标签页不占着到 App 的长连接），可见时带最后的事件 id（`Last-Event-ID`）立即续传，服务端补发或回 `reset`；`pauseWhenHidden: false` 关闭这一行为。`EventSource` 遇到 503 不重试，手写时要订阅 `resumed` 后重建。
+
+**MQTT**：只在 App 服务端连接。平台代理模式下不发 password，由代理填入 App 的 Key；username 为 `<ws>&open`，clientId 为 `<ws>&h.<app>.<16 位随机>`，由 `TIER0_WORKSPACE_ID`、`TIER0_APP_ID` 拼出，预览和正式相同。只有用平台给的 `TIER0_MQTT_URL`（`mqtt://`）时才走 TCP 经过代理；显式传 `host` 会改用 WebSocket，经代理连不上，平台里不要传。页面不直连 broker：浏览器要的实时消息由 App 服务端订阅，按访问者角色过滤后经 App 自己的接口（例如一个 SSE 路由）推给浏览器。`clean` 默认 `false`；服务端按指数退避一直重连，上限 5 分钟，Key 轮换时代理断开连接、SDK 重连后用新 Key。持久会话、QoS 1 下重连不丢消息，但断开期间的积压超过 EMQX 离线队列（默认 `max_mqueue_len=1000`）仍会丢。
+
+**记录变更推给浏览器**：`createChangeRelay(data)` 在每个服务端进程里只开一个 `data.subscribe`（App 身份，看得到 App 被授权集合的全部变更），转发给每个浏览器的 SSE 连接；`filter` 由 App 按访问者决定这个浏览器能知道哪些变更。浏览器不各开上游：Gateway 按工作区限制同时打开的订阅数。
+
+```ts
+import { createChangeRelay } from '@tier0/sdk-v2/data';
+import type { Visitor } from '@tier0/sdk-v2/server';
+
+const relay = createChangeRelay(data); // 每进程一个
+
+// GET /api/changes，先按访问者头认证：
+export function changes(request: Request, visitor: Visitor): Response {
+  return relay.stream({
+    filter: (change) => canRead(visitor.appRoles, change.collection),
+    lastEventId: request.headers.get('Last-Event-ID'),
+    signal: request.signal,
+  });
+}
+```
+
+帧：`event: change`（`{ eventId, collection, change, recordId, revision, occurredAt }`，不带记录数据）、`event: reset`（`{ reason }`：可能漏了变更，重新加载）、每 15 秒一个 `: heartbeat` 注释。`id` 是转发器自己的位置（`<epoch>.<seq>`），不是 UNS 游标：重连带 `Last-Event-ID` 时，在当前会话的最近 1000 条里找得到就补发之后的，找不到（换了会话、太旧、伪造）就只给这个浏览器一个 `reset`。UNS 的 `reset`、上游失败、最后一个浏览器离开 30 秒后关上游，都开始新会话，连着的浏览器收到 `reset`。每个浏览器连接 10 分钟（±10%）后结束，浏览器重连时 App 的路由重新认证；`filter` 抛错的变更不发。浏览器端用 `@tier0/sdk-v2/event-stream` 读：页面隐藏时断开，可见时带 `Last-Event-ID` 续传。
 
 ## 能力与入口
 
@@ -148,7 +193,7 @@ curl -sS -X POST "$TIER0_API_HOST/openapi/v2/info" -H 'X-Tier0-SDK: 1' -H 'Conte
 | `tier0.mqttAuth` | 创建、删除 MQTT 凭证 |
 | `tier0.agent` | `analyses`、`canvases`、`cards`、`jobs`、`jobRuns`、`library`、`results` |
 | `tier0.capabilities` | 当前凭证可见的能力发现；就绪状态由服务端判断 |
-| `tier0.api` | 44 个平台 OpenAPI v2 的完整生成接口；通常优先使用上面的领域入口 |
+| `tier0.api` | 45 个平台 OpenAPI v2 的完整生成接口；通常优先使用上面的领域入口 |
 | `@tier0/sdk-v2/mq` | MQTT WebSocket 客户端与 broker 地址工具；不进入根入口依赖图 |
 | `@tier0/sdk-v2/source` | `createSourceClient()`，独立 Source 客户端 |
 | `@tier0/sdk-v2/stream` | `createStreamClient()`，独立 Stream 客户端 |
@@ -156,8 +201,8 @@ curl -sS -X POST "$TIER0_API_HOST/openapi/v2/info" -H 'X-Tier0-SDK: 1' -H 'Conte
 | `@tier0/sdk-v2/runtime` | 受信 App 宿主 provider 安装与生命周期；业务页面无需调用 |
 | `@tier0/sdk-v2/react` | `useTier0Query()`、`useTier0Mutation()`，需要 React 和 TanStack Query |
 | `@tier0/sdk-v2/vue` | `useTier0Request()`，需要 Vue 3 |
-| `@tier0/sdk-v2/server` | `createCloudAppRequestVerifier()`，仅服务端加载 `node:crypto` |
-| `@tier0/sdk-v2/data` | App 数据层：`defineCollection()` 声明集合（含 TTL）、`createDataClient()` 首次访问时 ensure，按 collectionId 引用已有集合、Mongo 风格读写、带总数分页与封顶计数、原子批量与 `transact`、`subscribe` 变更订阅、员工数据主体透传；自动幂等键、并发上限与按 `retry.safe` 重试；仅服务端，需要 `zod` 4 |
+| `@tier0/sdk-v2/server` | `parseVisitorHeader()` 解析访问者头；仅服务端 |
+| `@tier0/sdk-v2/data` | App 数据层：`defineCollection()` 声明集合（含 TTL）、`createDataClient()` 首次访问时 ensure，按 collectionId 引用已有集合、Mongo 风格读写、带总数分页与封顶计数、原子批量与 `transact`、`subscribe` 变更订阅与 `createChangeRelay` 转发给浏览器、`runWithAbortSignal` 传请求中止信号；自动幂等键、并发上限与按 `retry.safe` 重试；仅服务端，需要 `zod` 4 |
 | `@tier0/sdk-v2/data/define` | 集合声明与类型：`defineCollection()`、`Doc` / `NewDoc` 等、`compileCollection()`、`validateDocument()`；可进浏览器包，组件和 route 的客户端代码只从这里取声明和类型 |
 
 集合声明必须分别提供稳定程序标识 `alias` 和业务名称 `name`，例如 `alias: 'production_orders'`、`name: '生产工单'`。目录、数据和引用直接用 name 展示，不提供 displayName 或名称回退；name 为 1–63 个 Unicode 字符，无首尾空白，不含 `/` 或空字符。ensure 按 alias 关联集合，仅首次创建设置 name，不覆盖用户改名。名称冲突时选择有区分度的业务名称，不拼随机后缀。
@@ -230,7 +275,7 @@ UNS 保留 `{ code, msg, requestId, data }` 完整响应。平台 v2 包装接�
 
 `int64` 和平台整数字段使用 `number | bigint`：安全范围内返回 number，超出范围返回 bigint。UNS 任意 JSON 中无法无损表示的数字用 `UnsV2RawNumber`；传回 SDK 可保持原值。对外输出 JSON 时自行确定 bigint/精确数字的表示，不要直接 `JSON.stringify` 包含这些值的对象。
 
-`createClient()` 的 HTTP 操作不自动重试。UNS v2 错误带 `execution`（`notStarted` / `rolledBack` / `committed` / `unknown`）与 `retry: { safe, afterMs? }`：`safe` 表示可以用同一请求（同一幂等键）重发。`execution` 为 `unknown` 时抛出 `UnsV2OutcomeUnknownError`；它与 `ApiError.outcomeUnknown` 一样表示写操作可能已执行，先读回对账，按业务意图保留原幂等键，不自动生成新键重放。查询与写入均可受配置超时约束。App 数据层 `@tier0/sdk-v2/data` 另有自己的策略：每次调用从开始算最多 25 秒（含排队与重试）、每进程最多 6 个并发请求、写入自动生成幂等键、按 `retry.safe` 最多自动重试 2 次；`runWithRequestContext(request, …)` 传入请求本身时，请求中止后排队中的调用不再发出。
+`createClient()` 的 HTTP 操作不自动重试。UNS v2 错误带 `execution`（`notStarted` / `rolledBack` / `committed` / `unknown`）与 `retry: { safe, afterMs? }`：`safe` 表示可以用同一请求（同一幂等键）重发。`execution` 为 `unknown` 时抛出 `UnsV2OutcomeUnknownError`；它与 `ApiError.outcomeUnknown` 一样表示写操作可能已执行，先读回对账，按业务意图保留原幂等键，不自动生成新键重放。查询与写入均可受配置超时约束。App 数据层 `@tier0/sdk-v2/data` 另有自己的策略：每次调用从开始算最多 25 秒（含排队与重试）、每进程最多 6 个并发请求、写入自动生成幂等键、按 `retry.safe` 最多自动重试 2 次；请求入口用 `runWithAbortSignal(request.signal, …)` 传入请求的中止信号时，请求中止后排队中的调用不再发出，进行中的被取消。
 
 ## 通知
 
@@ -375,7 +420,7 @@ Source 创建/更新与 Stream 创建/更新/部署的 dryRun 默认 false。凭
 | Stream `describe` / `discover` / `invoke` | `client.streams.requests`；保留类型、幂等键和结果未知语义 |
 | 消息 `publish` / `subscribe` / `onError` / `dispose` | `client.streams.messages`；原生 NATS WSS，消息需要浏览器 WebSocket 或 Node.js 22+；HTTP 仍支持 Node.js 20.19+ |
 | 请求/invoke 能力发现 | `client.streams.capabilities.discover()`；`client.capabilities.discover()` 独立保留 Namespace/Source/Stream 作用域 |
-| Trusted runtime provider / App 请求验签 | `/runtime` / `/server`；原有宿主 Symbol 协议保持不变 |
+| Trusted runtime provider / 访问者头 | `/runtime` / `/server`（`parseVisitorHeader`）；原有宿主 Symbol 协议保持不变 |
 | `unsV2`、平台操作、MQTT | `client.uns` / `client.source` / `client.stream`、现有平台入口、`/mq`；旧包全部现役公开操作已有对应 v2 操作 |
 | `uploadFile` / `uploadFileMultipart` / `resumeMultipartUpload` | `client.files.upload` / `uploadMultipart` / `resumeMultipart`；上传选项与返回类型从 `/files` 导入 |
 | `getFileUrl` / `downloadFile` / `deleteFile` | `client.files.url` / `download` / `delete`；download 返回原生 `Response` |

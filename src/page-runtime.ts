@@ -13,16 +13,6 @@ export type Tier0AppState = 'unknown' | 'running' | 'starting' | 'sleeping' | 'f
 export type Tier0Event = 'state' | 'sleeping' | 'starting' | 'resumed' | 'auth-required';
 export type Tier0AuthErrorCode = 'grant_expired' | 'signed_out' | 'need_role' | 'unavailable';
 
-/** `POST /__tier0/mqtt-token` (design 21.6). `exp` and `refresh_at` are Unix milliseconds. */
-export interface MqttTokenResponse {
-  token: string;
-  username: string;
-  client_id: string;
-  url: string;
-  exp: number;
-  refresh_at: number;
-}
-
 export interface Tier0PageRuntimeV1 {
   readonly version: string;
   readonly appId: string;
@@ -30,10 +20,6 @@ export interface Tier0PageRuntimeV1 {
   getState(): Tier0AppState;
   getSleepAt(): number | null;
   on(event: Tier0Event, listener: (detail: any) => void): () => void;
-  /** Cached until `refresh_at`; `fresh` skips the cache. Rejects with `Tier0RuntimeError`. */
-  getMqttToken(options?: { fresh?: boolean }): Promise<MqttTokenResponse>;
-  /** Added within v1: absent on older runtimes, so check before calling. */
-  reportMqttFailure?(): void;
   reportAuthError(code: Tier0AuthErrorCode): void;
   keepAwake(): void;
 }

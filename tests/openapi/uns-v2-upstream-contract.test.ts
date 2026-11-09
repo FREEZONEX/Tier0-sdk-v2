@@ -26,16 +26,16 @@ const operation = (name: string) => manifest.operations.find(item => item.name =
 
 describe('Backend App UNS access contract without generic record audit', () => {
   it('pins the exact upstream commit and all generator inputs', () => {
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('8780ce2d6c07b6afee96409795c098e330c214dd');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('59cc52688ce0144effb831eceeebb31d5a374efe');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     for (const [key, file] of Object.entries({ contract: 'contract.json', cloudSupport: 'cloud-support.json', manifest: 'manifest.json', provenance: 'provenance.json', registry: 'registry_generated.go' })) {
       expect(UNS_V2_CONTRACT_PROVENANCE.hashes[key as keyof typeof UNS_V2_CONTRACT_PROVENANCE.hashes]).toBe(
         createHash('sha256').update(read(file)).digest('hex')
       );
     }
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(91);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(92);
     expect(UNS_V2_CONTRACT_PROVENANCE.streamOperationCount).toBe(1);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(105);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(106);
     // Error envelopes are decoded by every operation, although success DTOs do not reference them.
     expect(Object.hasOwn(UNS_V2_CODEC_SCHEMAS, 'UnsV2ErrorResponse')).toBe(true);
     expect(Object.hasOwn(manifest.schemas, 'UnsV2ErrorResponse')).toBe(true);
@@ -202,13 +202,7 @@ describe('Backend App UNS access contract without generic record audit', () => {
     }
   });
 
-  it('retains create capability and source acquisition without generic record audit', () => {
-    for (const name of ['CloudAppCreateCapability']) {
-      expect(Object.hasOwn(manifest.schemas, name)).toBe(true);
-      expect(Object.hasOwn(UNS_V2_CODEC_SCHEMAS, name)).toBe(true);
-    }
-    expect(manifest.schemas.CloudAppCreateCapability.properties).toHaveProperty('inputSchema');
-    expect(manifest.schemas.CloudAppCreateCapability.properties).toHaveProperty('binding');
+  it('retains source acquisition without generic record audit', () => {
     for (const name of ['CloudRecordAuditConfig', 'CloudRecordAuditActor', 'CloudRecordAuditEvent',
       'UnsV2RecordAuditListReq', 'UnsV2RecordAuditListResponse', 'UnsV2RecordAuditAdminListReq', 'UnsV2RecordAuditAdminListResponse']) {
       expect(Object.hasOwn(manifest.schemas, name), name).toBe(false);
@@ -223,7 +217,7 @@ describe('Backend App UNS access contract without generic record audit', () => {
     for (const [name, schema] of Object.entries(manifest.schemas)) {
       if (/collection/i.test(name)) expect(schema.properties ?? {}, name).not.toHaveProperty('audit');
     }
-    expect(UNS_V2_CONTRACT_PROVENANCE.cloudContractRevision).toContain('app-create-capability/1');
+    expect(UNS_V2_CONTRACT_PROVENANCE.cloudContractRevision).toContain('app-data-rule-retirement/1');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudContractRevision).not.toContain('record-audit/1');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudContractRevision).toContain('source-bindings/1');
   });

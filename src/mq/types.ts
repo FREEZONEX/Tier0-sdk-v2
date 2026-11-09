@@ -28,8 +28,8 @@ export interface MQTTConfig {
    * Leave it unset in the platform. On the server no password is sent: the
    * node proxy puts in the App's key; username `<ws>&open` and clientId
    * `<ws>&h.<app>.<random>` come from `TIER0_WORKSPACE_ID` and
-   * `TIER0_APP_ID`. In the browser the page runtime gives a
-   * fresh token for every connection.
+   * `TIER0_APP_ID`. Browsers do not connect to the broker in the platform:
+   * the App's server subscribes and forwards what a visitor may see.
    */
   password?: string;
   keepAlive?: number;

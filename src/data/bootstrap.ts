@@ -10,9 +10,9 @@
  * - Seed documents are inserted only for collections ensure reports as
  *   `created`: fixed `_id`s, atomic chunks of 200 with a stable idempotency
  *   key per chunk, so a failed chunk (outcome unknown, or marked safe to
- *   resend) is replayed after a short wait instead of duplicated. Seed writes
- *   never carry a data subject. Preview and deployments write them the same
- *   way, as the App: both use the App's key, which the node proxy attaches.
+ *   resend) is replayed after a short wait instead of duplicated. Preview and
+ *   deployments write them the same way, as the App: both use the App's
+ *   key, which the node proxy attaches.
  * - Preview throws on SCHEMA_CONFLICT and warnings so the worker sees them;
  *   a deployment logs them and keeps serving with the IDs it has.
  * - Self-healing: a Preview reset hard-deletes collections, and a worker or
@@ -133,8 +133,6 @@ const CONFLICT_HINTS: Record<string, string> = {
   INVALID_INDEX: 'fix the index declaration',
   JOIN_UNSUPPORTED:
     'the stored schema holds a node the declaration cannot widen (e.g. enum values outside its range); repair it with schema:replace via the tier0 MCP',
-  DATA_RULE_FIELD:
-    'an employee data rule (ownerField / stateField) uses this field; keep it required with the same type, or ask a workspace admin to change the rule',
 };
 
 function describeConflicts(conflicts: EnsureConflict[]): string {
@@ -168,7 +166,6 @@ export function createBootstrap(config: BootstrapConfig) {
   let lastRebuild = Number.NEGATIVE_INFINITY;
 
   async function requestEnsure(items: CompiledCollection[]) {
-    // ensure is App-level work: it never carries the employee data subject.
     return call<{ appId?: string; results: EnsureResult[] }>('appCollectionsEnsure', { collections: items });
   }
 

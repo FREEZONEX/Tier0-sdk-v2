@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { createDataClient, DataError, defineCollection, runWithRequestContext, type SubscriptionEvent } from '../../src/data/index.js';
+import { createDataClient, DataError, defineCollection, type SubscriptionEvent } from '../../src/data/index.js';
 
 const owned = defineCollection({ alias: 'orders', name: '工单', schema: z.object({ title: z.string() }), seed: [{ _id: 'seed', title: 'Seed' }] });
 const shared = { collectionId: 'existing-devices' };
@@ -37,16 +37,13 @@ describe('existing collection references', () => {
       throw new Error(`Unexpected request: ${path}`);
     });
     const devices = data.collection<{ title: string }>(shared);
-    await runWithRequestContext(new Headers({ 'X-Tier0-App-Data-Subject': 'h.employee.s' }), async () => {
-      expect(await devices.findOne({})).toMatchObject({ _id: 'device-1', title: 'Pump' });
-      await devices.insertOne({ title: 'Valve' });
-      await devices.updateOne({ _id: 'device-1' }, { $set: { title: 'Updated' } });
-    });
+    expect(await devices.findOne({})).toMatchObject({ _id: 'device-1', title: 'Pump' });
+    await devices.insertOne({ title: 'Valve' });
+    await devices.updateOne({ _id: 'device-1' }, { $set: { title: 'Updated' } });
     expect(sent).toHaveLength(3);
     for (const request of sent) {
       expect(request.body.collectionId).toBe(shared.collectionId);
       expect(request.path).toContain(`/collections/${shared.collectionId}/records`);
-      expect(request.headers.get('x-tier0-app-data-subject')).toBe('h.employee.s');
     }
   });
 
@@ -129,7 +126,7 @@ describe('existing collection references', () => {
   });
 
   it('subscribes to an existing ID without initializing unrelated declarations', async () => {
-    const event = { eventId: 'event-1', collectionId: shared.collectionId, recordId: 'device-1', revision: 2, change: 'record', occurredAt: 1, restricted: false };
+    const event = { eventId: 'event-1', collectionId: shared.collectionId, recordId: 'device-1', revision: 2, change: 'record', occurredAt: 1 };
     const { data, sent } = fixture(path => {
       expect(path).toBe('/openapi/v2/uns/records:subscribe');
       return new Response(`id: event-1\nevent: change\ndata: ${JSON.stringify(event)}\n\n`, { headers: { 'Content-Type': 'text/event-stream' } });

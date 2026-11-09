@@ -47,7 +47,7 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
     visit(schemas[name]);
   }
   expect(Object.keys(operations)).toHaveLength(53);
-  expect(Object.keys(schemas)).toHaveLength(202);
+  expect(Object.keys(schemas)).toHaveLength(198);
   // Verify the approved context and neutral view deltas before comparing all
   // other operations and reachable schemas to the reviewed business-name digest.
   const appContext = schemas.AppContext as {
@@ -99,5 +99,9 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
   // BulkWrite descriptions, and name, directoryPath (required), description and ownerAppId on the appCollectionsList item.
   // Re-pinned again for Backend 8780ce2d6 (base 2f79a4f87): the only reachable change is three more ensure schema-note reasons
   // (DIRECTORY_PATH_NOT_APPLIED, TTL_RETAINED, OWNER_APP_TRASHED on CloudAppCollectionSchemaNote, Backend 5d6ae2834).
-  expect(digest).toBe('224928eea6c848bb86b214133113c06ad64aa153303159fb4770bcd4f1cbb567');
+  // Re-pinned for Backend 59cc52688 (app-data-rule-retirement/1): the per-employee rule schemas and the App create hint are gone
+  // (four fewer reachable schemas), the rule fields leave the App data policy and the change event, notifications.read leaves
+  // AppContext.platformPermissions, and the ensure / recordGet descriptions drop the per-employee wording. From the base: reworded
+  // UnsV2FieldOperation.path and a kind description on the generic metadata requests.
+  expect(digest).toBe('26f7ce2403cc0a0ed3607000c51e6daaf3ebf42dd201a9aaaa208e98789d2ef6');
 });
