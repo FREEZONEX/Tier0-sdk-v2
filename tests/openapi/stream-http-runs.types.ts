@@ -23,3 +23,10 @@ const missingRepair: CloudStreamRunError = { code: 'EXECUTION_FAILED', stage: 'e
 // @ts-expect-error This field describes only a known, unsent Source request.
 const inventedDispatch: CloudStreamRunError = { ...scopeError, sourceRequest: 'notStarted' };
 void [missing, nullable, safe, exact, invalidTimestamp, invalidKind, failed, unknown, missingRepair, inventedDispatch];
+
+// Native driver codes are open strings and remain distinct from the run outcome.
+const nativeFailure: Run = { ...unknown, diagnostics: {
+  hostError: { code: 'VendorFutureStatus_47', stage: 'source_read', message: 'original driver error', repair: '' },
+} };
+const originalMessage: string | undefined = nativeFailure.diagnostics?.hostError?.message;
+void originalMessage;

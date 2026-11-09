@@ -15558,6 +15558,9 @@
               "type": "integer",
               "format": "int64",
               "minimum": 0
+            },
+            "diagnostics": {
+              "$ref": "#/components/schemas/CloudStreamDiagnostics"
             }
           },
           "required": [
@@ -15566,7 +15569,8 @@
             "stats",
             "window",
             "coverage",
-            "checkedAt"
+            "checkedAt",
+            "diagnostics"
           ]
         }
       },
@@ -15672,6 +15676,12 @@
                   },
                   "error": {
                     "$ref": "#/components/schemas/CloudStreamRunError"
+                  },
+                  "delivery": {
+                    "$ref": "#/components/schemas/CloudStreamRunDelivery"
+                  },
+                  "diagnostics": {
+                    "$ref": "#/components/schemas/CloudStreamRunDiagnostics"
                   }
                 },
                 "required": [
@@ -20549,29 +20559,35 @@
     "CloudStreamRunError": {
       "type": "object",
       "additionalProperties": false,
-      "description": "服务端允许列表中的安全运行诊断；不包含凭据、上游响应正文、查询参数或任意脚本异常。旧记录或旧服务可能没有该字段。",
+      "description": "运行诊断；hostError 可保留协议库或驱动返回的原始错误码与消息。这些信息仅表示已观察到的错误，不单独证明最终执行结果。旧记录或旧服务可能没有该字段。",
       "required": [
         "code",
         "stage",
         "message",
         "repair"
       ],
+      "example": {
+        "code": "PRE_EXECUTION_REJECTED",
+        "stage": "pre_execution",
+        "message": "This attempt was rejected before execution.",
+        "repair": "Check the current Stream release, authorization and Source bindings."
+      },
       "properties": {
         "code": {
           "type": "string",
-          "description": "稳定原因码；调用方须兼容新增原因码。"
+          "description": "服务端原因码或协议库、驱动返回的原始错误码；调用方须兼容未知原因码。PRE_EXECUTION_REJECTED 仅由服务端已确认的执行前拒绝回执产生。"
         },
         "stage": {
           "type": "string",
-          "description": "已确认的失败阶段；未细分的失败为 execution，结果无法确认时为 unknown。"
+          "description": "已确认的失败阶段；未细分的失败为 execution，结果无法确认时为 unknown。执行前拒绝的阶段为 pre_execution，运行状态为 failed。"
         },
         "message": {
           "type": "string",
-          "description": "经过服务端允许列表筛选的固定原因说明。"
+          "description": "服务端运行说明，或协议库、驱动返回的原始错误消息；可包含 SQL、节点及操作上下文。"
         },
         "repair": {
           "type": "string",
-          "description": "固定修复指引；不能据此自动扩大授权或重放写操作。"
+          "description": "服务端提供的修复指引；原始协议错误没有指引时为空。不能据此自动扩大授权或重放写操作。"
         },
         "sourceRequest": {
           "type": "string",
@@ -20579,6 +20595,29 @@
             "notDispatched"
           ],
           "description": "仅描述导致该错误的 Source 请求尚未发出；不代表整个运行没有此前的外部调用或写入。无法确认或与 Source 请求无关时省略。"
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "invalidOutputField",
+            "frozenOutputRejected"
+          ],
+          "description": "服务端确定的输出拒绝原因，不包含业务值。"
+        },
+        "path": {
+          "type": "string",
+          "enum": [
+            "output",
+            "recordId",
+            "record",
+            "sample",
+            "time",
+            "quality",
+            "mode",
+            "unset",
+            "expectedRevision"
+          ],
+          "description": "校验失败的固定输出字段路径；不包含动态业务键或值。"
         }
       }
     },
@@ -25842,6 +25881,464 @@
         },
         "desiredState": {
           "type": "string"
+        }
+      }
+    },
+    "CloudStreamDiagnostics": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Read-only durable evidence for one release in the response window. Logical Record writes include same-value upserts; historical completion without commit evidence is unverified. No Source call, script execution or automatic replay is performed.",
+      "required": [
+        "release",
+        "releaseBasis",
+        "streamStatus",
+        "streamRevision",
+        "state",
+        "stage",
+        "code",
+        "message",
+        "repair",
+        "evidence",
+        "latestRun",
+        "steps"
+      ],
+      "properties": {
+        "release": {
+          "type": "string",
+          "nullable": true,
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "releaseBasis": {
+          "type": "string",
+          "enum": [
+            "activeRelease",
+            "failedRelease",
+            "none"
+          ],
+          "description": "failedRelease identifies a retained failed version, not proof that its failure caused the current stopped state."
+        },
+        "streamStatus": {
+          "type": "string"
+        },
+        "streamRevision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "writeCommitted",
+            "zeroOutput",
+            "dropped",
+            "commitBlocked",
+            "executionFailed",
+            "preExecutionRejected",
+            "outcomeUnknown",
+            "waiting",
+            "noEvidence",
+            "notDeployed",
+            "postCommitFailed",
+            "postCommitUnconfirmed"
+          ]
+        },
+        "stage": {
+          "type": "string",
+          "enum": [
+            "admission",
+            "pre_execution",
+            "execution",
+            "commit",
+            "complete",
+            "unknown",
+            "post_commit"
+          ]
+        },
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "repair": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "admittedRuns",
+            "completedRuns",
+            "failedRuns",
+            "pendingRuns",
+            "runningRuns",
+            "computedRuns",
+            "unknownRuns",
+            "zeroOutputRuns",
+            "committedWrites",
+            "committedRecords",
+            "committedSamples",
+            "commitFailedRuns",
+            "commitEvidenceRuns",
+            "unverifiedCompletedRuns",
+            "droppedRuns"
+          ],
+          "properties": {
+            "admittedRuns": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "completedRuns": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "failedRuns": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "pendingRuns": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "runningRuns": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "computedRuns": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unknownRuns": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "zeroOutputRuns": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "committedWrites": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "committedRecords": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "committedSamples": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "commitFailedRuns": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "commitEvidenceRuns": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unverifiedCompletedRuns": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "droppedRuns": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "latestRun": {
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/CloudStreamDiagnosticRun"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "inputs": {
+          "type": "array",
+          "maxItems": 64,
+          "description": "Optional Source input evidence, present only with current Source view permission. No external call is performed.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "alias",
+              "sourceId",
+              "configRevision",
+              "state"
+            ],
+            "properties": {
+              "alias": {
+                "type": "string"
+              },
+              "sourceId": {
+                "type": "string"
+              },
+              "configRevision": {
+                "type": "string"
+              },
+              "lastEdgeDataAt": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "lastCloudDataAt": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "checkedAt": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "unobserved",
+                  "stale",
+                  "observed",
+                  "disconnected"
+                ]
+              }
+            }
+          }
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 4,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "stage",
+              "state",
+              "code",
+              "message",
+              "repair"
+            ],
+            "properties": {
+              "stage": {
+                "type": "string",
+                "enum": [
+                  "admission",
+                  "execution",
+                  "commit",
+                  "post_commit"
+                ]
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "confirmed",
+                  "failed",
+                  "waiting",
+                  "unobserved"
+                ]
+              },
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "repair": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "CloudStreamDiagnosticRun": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "delivery",
+            "request",
+            "http"
+          ]
+        },
+        "release": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$",
+          "maxLength": 19
+        },
+        "entryId": {
+          "type": "string"
+        },
+        "trigger": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0
+        },
+        "finishedAt": {
+          "type": "integer",
+          "format": "int64",
+          "nullable": true,
+          "minimum": 0
+        },
+        "durationMs": {
+          "type": "number",
+          "minimum": 0,
+          "nullable": true
+        },
+        "responseSentAt": {
+          "type": "integer",
+          "format": "int64",
+          "nullable": true,
+          "minimum": 0
+        },
+        "error": {
+          "$ref": "#/components/schemas/CloudStreamRunError"
+        },
+        "delivery": {
+          "$ref": "#/components/schemas/CloudStreamRunDelivery"
+        },
+        "diagnostics": {
+          "$ref": "#/components/schemas/CloudStreamRunDiagnostics"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "release",
+        "entryId",
+        "trigger",
+        "status",
+        "createdAt",
+        "finishedAt",
+        "durationMs"
+      ]
+    },
+    "CloudStreamRunDiagnostics": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "来自运行持久结果的诊断，旧记录或没有诊断时省略。失败或结果未知时返回运行快照；completed 时仅返回提交后消息发布的 publication。调用计数是失败时快照，不证明外部调用或业务写入的最终结果。hostError 保留已观察到的宿主错误，包括协议库或驱动返回的原始错误码与消息，不证明它是脚本最终失败的原因。",
+      "properties": {
+        "publication": {
+          "$ref": "#/components/schemas/CloudStreamRunPublicationDiagnostics"
+        },
+        "hostError": {
+          "$ref": "#/components/schemas/CloudStreamRunError"
+        },
+        "runtimeCode": {
+          "type": "string",
+          "enum": [
+            "resourceLimit",
+            "timeout",
+            "recordOutputLimit",
+            "sampleOutputLimit",
+            "writeOutputLimit",
+            "output",
+            "sourceNotDispatched",
+            "sourceCall",
+            "input",
+            "syntax",
+            "execution",
+            "unclassified"
+          ]
+        },
+        "hostFailureKind": {
+          "type": "string",
+          "enum": [
+            "uns.read",
+            "uns.query",
+            "source.read",
+            "source.request",
+            "message.publish",
+            "asset.importSource"
+          ]
+        },
+        "lastHostKind": {
+          "type": "string",
+          "enum": [
+            "uns.read",
+            "uns.query",
+            "source.read",
+            "source.request",
+            "message.publish",
+            "asset.importSource"
+          ]
+        },
+        "hostCallCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "hostCompletedCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "timeoutMs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60000
+        }
+      }
+    },
+    "CloudStreamRunPublicationDiagnostics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "count"
+      ],
+      "description": "仅描述已完成 Collection 提交之后的消息发布；count 是本次冻结发布意图的数量，不证明下游处理完成。未确认、失败或结果未知时不可自动重跑 Stream 或补发消息。",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "unconfirmed",
+            "succeeded",
+            "failed",
+            "unknown"
+          ]
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "error": {
+          "$ref": "#/components/schemas/CloudStreamRunError"
+        }
+      }
+    },
+    "CloudStreamRunDelivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stage",
+        "at"
+      ],
+      "description": "仅在 pending 投递运行有可核实的发布记录时返回，执行进度以运行状态为准。",
+      "properties": {
+        "stage": {
+          "type": "string",
+          "enum": [
+            "awaiting_publish_confirmation",
+            "published"
+          ],
+          "description": "任务已入队等待发布确认时为 awaiting_publish_confirmation，发布已确认时为 published。"
+        },
+        "at": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 0,
+          "description": "以 Unix 毫秒表示等待确认时的入队时间或发布后的确认时间。"
         }
       }
     }
