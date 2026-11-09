@@ -139,7 +139,7 @@ describe('UNS v2 localhost HTTP fixture', () => {
     const start = received.length;
     respond = (_req, res) => send(res, { code: 200, msg: '', requestId: 'app-context', data: {
       appId: '14bfc189-8516-4709-a4c9-865a0f1dc345', name: 'Hosted App', revision: dataState === 'uninitialized' ? 0 : 1, dataState,
-      collections: [], platformPermissions: [],
+      collections: [], platformPermissions: ['openapi.base', 'stream.messages.publish', 'stream.messages.subscribe'],
     } });
     const out = await client().uns.dataAppContext({});
     expect(out.data.appId).toBe('14bfc189-8516-4709-a4c9-865a0f1dc345');
@@ -147,6 +147,8 @@ describe('UNS v2 localhost HTTP fixture', () => {
     expect(out.data.dataState).toBe(dataState);
     expect(out.data.revision).toBe(dataState === 'uninitialized' ? 0 : 1);
     expect(out.data.collections).toEqual([]);
+    // Fixed App capabilities (app-key-model/1) include the Stream message pair; the response passes them through as is.
+    expect(out.data.platformPermissions).toEqual(['openapi.base', 'stream.messages.publish', 'stream.messages.subscribe']);
     expect(received.length - start).toBe(1);
     expect(received.at(-1)?.path).toBe('/openapi/v2/uns/app/context');
     expect(received.at(-1)?.body).toBe('{}');
@@ -303,13 +305,13 @@ describe('UNS v2 localhost HTTP fixture', () => {
       'app-collection/2', 'metadata/1', 'app-data/3', 'hosted-control/1', 'source-bindings/1',
       'record-notifications/1', 'record-delete-samples/1', 'stream-history/1',
       'record-reads/1', 'app-context/4', 'collection-ttl/1', 'error-model/1', 'record-insert-return/1', 'stream-run-error/1',
-      'source-lifecycle/2', 'app-collections/2', 'app-data-rule-retirement/1',
+      'source-lifecycle/2', 'app-collections/2', 'app-data-rule-retirement/1', 'app-key-model/1',
     ]));
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('b6347c688615b0c277ebb696e851f3d1e3115652');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('c742be586940baf7352782124082729d85f6dbdf');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(UNS_V2_CONTRACT_PROVENANCE.sourceDerivedContractSHA256).toBe(UNS_V2_CONTRACT_PROVENANCE.hashes.contract);
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(92);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(106);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(90);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(98);
     expect(received.slice(start)).toHaveLength(1);
   });
 

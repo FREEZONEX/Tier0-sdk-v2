@@ -6817,7 +6817,7 @@
         "tags": [
           "App 与授权"
         ],
-        "description": "使用 changes 按集合原子新增、修改或移除授权；省略字段保留原值，不需回传其他集合。collections 仍用于显式完整替换，两种模式互斥。permissionLevel 的 read/readwrite/manage 对应业务记录只读、读写、管理（含删除），与底层 permissions 互斥。新增权限不能超出当前管理者能力；保留 Stream 策略边界，必须提供 expectedRevision 和 idempotencyKey。同键原样重试重放结果，不重新扩大授权。",
+        "description": "使用 changes 按集合原子新增、修改或移除授权；省略字段保留原值，不需回传其他集合。collections 仍用于显式完整替换，两种模式互斥。permissionLevel 的 read/readwrite/manage 对应业务记录只读、读写、管理（含删除），与底层 permissions 互斥。新增权限不能超出当前管理者能力；任何新增授权（新集合、加宽权限、重新启用已停用的策略）只允许工作区 Owner/Admin 的人工会话或平台导入（工作区系统 Key，无 Builder 目标、不带 Acting-Builder），其他调用方返回 403，data.reason 为 app_grant_admin_required 或 app_grant_agent_forbidden；收窄和移除不受限，下一个请求即生效。必须提供 expectedRevision 和 idempotencyKey。同键原样重试重放结果，不重新扩大授权。",
         "x-tier0-audience": "governance",
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
@@ -6888,247 +6888,10 @@
         "tags": [
           "App 与授权"
         ],
-        "description": "仅当前受管理 App 凭证可用；返回真实 App 名称和当前授权集合与 Key 权限的交集。新 App 尚无数据策略时正常返回 dataState=uninitialized、revision=0 和空集合，不创建策略或授予数据权限；按实际集合声明调用 appCollectionsEnsure 后为 ready。已有策略被管理员停用时返回 403，reason=APP_DATA_POLICY_DISABLED，不自动恢复。collections[] 含集合定义版本 revision、recordSchema、indexes、indexStatus（索引就绪状态）与 ttl；自有与授权来的集合都给出 ownerAppId（工作区集合省略）、name、description 与 directoryPath（自工作区根开始的目录名，与 appCollectionsEnsure 同形）；App 读取集合结构只用此接口。limits 给出 count、总数、queryBatch、get、订阅、TTL、并发名额与幂等窗口等边界，供客户端自适应。身份只取自服务端认证，不接受 App ID 或发行人用户参数，不返回凭据。",
+        "description": "仅当前受管理 App 凭证可用；返回真实 App 名称和当前授权集合与 Key 权限的交集。新 App 尚无数据策略时正常返回 dataState=uninitialized、revision=0 和空集合，不创建策略或授予数据权限；按实际集合声明调用 appCollectionsEnsure 后为 ready。已有策略被管理员停用时返回 403，reason=APP_DATA_POLICY_DISABLED，不自动恢复。collections[] 含集合定义版本 revision、recordSchema、indexes、indexStatus（索引就绪状态）与 ttl；自有与授权来的集合都给出 ownerAppId（工作区集合省略）、name、description 与 directoryPath（自工作区根开始的目录名，与 appCollectionsEnsure 同形）；App 读取集合结构只用此接口。limits 给出 count、总数、queryBatch、get、订阅、TTL、并发名额与幂等窗口等边界，供客户端自适应。platformPermissions 是 App 固定的 11 项平台能力与当前 Key 存储权限、Key 模式和套餐的交集，不由 App 配置。身份只取自服务端认证，不接受 App ID 或发行人用户参数，不返回凭据。",
         "x-tier0-audience": "app",
         "x-tier0-starter": true,
         "x-tier0-readonly": true,
-        "x-tier0-destructive": false
-      }
-    },
-    "/uns/app-stream-policy/get": {
-      "post": {
-        "operationId": "CloudAppStreamPolicyGet",
-        "summary": "查看 App 的 Stream 权限上限",
-        "deprecated": false,
-        "security": [
-          {
-            "ApiKey": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "appId": {
-                    "type": "string",
-                    "format": "uuid",
-                    "minLength": 36,
-                    "maxLength": 36
-                  }
-                },
-                "required": [
-                  "appId"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "查询结果。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocCloudAppStreamPolicyGetResponse"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocCommonError"
-                },
-                "example": {
-                  "code": 422,
-                  "msg": "请求参数不合法",
-                  "requestId": "request-id",
-                  "data": null,
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "reason": "filter.status must be a string",
-                    "details": [],
-                    "execution": "notStarted",
-                    "retry": {
-                      "safe": false
-                    },
-                    "path": "filter.status"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "App 与授权"
-        ],
-        "description": "读取同一真实 App 的Stream 请求与消息权限上限，需当前 Builder 会话或 full_access 个人/Agent Key，且有 uns.write 与 stream.requests.manage。此上限与具体 Stream 入口授权共同生效。",
-        "x-tier0-audience": "governance",
-        "x-tier0-starter": false,
-        "x-tier0-mcp": false,
-        "x-tier0-readonly": true,
-        "x-tier0-destructive": false
-      }
-    },
-    "/uns/app-stream-policy/update": {
-      "post": {
-        "operationId": "CloudAppStreamPolicyUpdate",
-        "summary": "更新 App 的 Stream 权限上限",
-        "deprecated": false,
-        "security": [
-          {
-            "ApiKey": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "appId": {
-                    "type": "string",
-                    "format": "uuid",
-                    "minLength": 36,
-                    "maxLength": 36
-                  },
-                  "expectedRevision": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "description": "Shared hosted policy metadata revision. 0 attaches to a real App; either data or Stream policy updates increment this revision."
-                  },
-                  "status": {
-                    "type": "string",
-                    "enum": [
-                      "active",
-                      "disabled"
-                    ]
-                  },
-                  "idempotencyKey": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 128,
-                    "description": "必填幂等键；重试同一请求时复用，相同键不得用于不同请求。"
-                  },
-                  "dryRun": {
-                    "type": "boolean",
-                    "description": "true 仅校验；false 执行写入。"
-                  },
-                  "platformPermissions": {
-                    "type": "array",
-                    "maxItems": 12,
-                    "uniqueItems": true,
-                    "description": "Hosted App platform permissions: the App definition allowlist (openapi.base, platform.users.read, notifications.send, asset.file.*, stream.requests.*) plus stream.messages.* for messageTopics. Additions only change the draft; Owner/Admin approval decides what App credentials can use.",
-                    "items": {
-                      "type": "string",
-                      "enum": [
-                        "openapi.base",
-                        "platform.users.read",
-                        "notifications.send",
-                        "asset.file.upload",
-                        "asset.file.download",
-                        "asset.file.delete",
-                        "stream.requests.read",
-                        "stream.requests.invoke",
-                        "stream.requests.write",
-                        "stream.messages.publish",
-                        "stream.messages.subscribe"
-                      ]
-                    }
-                  },
-                  "messageTopics": {
-                    "type": "array",
-                    "maxItems": 32,
-                    "items": {
-                      "$ref": "#/components/schemas/CloudStreamMessageTopicPermission"
-                    }
-                  }
-                },
-                "required": [
-                  "appId",
-                  "expectedRevision",
-                  "status",
-                  "idempotencyKey",
-                  "dryRun",
-                  "platformPermissions"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "操作结果。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocCloudAppStreamPolicyUpdateResponse"
-                },
-                "example": {
-                  "code": 200,
-                  "msg": "success",
-                  "requestId": "request-id",
-                  "data": {
-                    "status": "committed",
-                    "replayed": false,
-                    "results": [
-                      {
-                        "opId": "item-0",
-                        "action": "meta.replace",
-                        "kind": "app",
-                        "id": "example-id",
-                        "revision": 1,
-                        "status": "updated"
-                      }
-                    ]
-                  }
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DocCommonError"
-                },
-                "example": {
-                  "code": 422,
-                  "msg": "请求参数不合法",
-                  "requestId": "request-id",
-                  "data": null,
-                  "error": {
-                    "code": "INVALID_REQUEST",
-                    "reason": "filter.status must be a string",
-                    "details": [],
-                    "execution": "notStarted",
-                    "retry": {
-                      "safe": false
-                    },
-                    "path": "filter.status"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "App 与授权"
-        ],
-        "description": "复用现有 App 策略，保留 Collection 授权；需 expectedRevision、idempotencyKey 和 dryRun。仅当前 Builder 会话或 full_access 个人/Agent Key 可用，并需 uns.write 与 stream.requests.manage。不会自动授予任何 Stream 入口，也不会升级 App Key。",
-        "x-tier0-audience": "governance",
-        "x-tier0-starter": false,
-        "x-tier0-mcp": false,
-        "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
     },
@@ -16717,7 +16480,7 @@
             "type": "string"
           },
           "platformPermissions": {
-            "description": "Explicit platform capabilities; default none; current App grants intersect with key and issuer resources",
+            "description": "App 的固定平台能力与当前 Key 存储权限、Key 模式和套餐的交集；不由 App 配置，管理员不能单独授予或撤销。",
             "items": {
               "enum": [
                 "openapi.base",
@@ -16728,7 +16491,9 @@
                 "asset.file.delete",
                 "stream.requests.read",
                 "stream.requests.invoke",
-                "stream.requests.write"
+                "stream.requests.write",
+                "stream.messages.publish",
+                "stream.messages.subscribe"
               ],
               "type": "string"
             },
@@ -21000,86 +20765,6 @@
           "appName"
         ]
       },
-      "CloudAppStreamPolicy": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "appId": {
-            "type": "string",
-            "format": "uuid",
-            "minLength": 36,
-            "maxLength": 36
-          },
-          "revision": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "version": {
-            "type": "string",
-            "enum": [
-              "cloud-hosted-app-stream/v1"
-            ]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "active",
-              "disabled"
-            ]
-          },
-          "authorityStatus": {
-            "type": "string",
-            "enum": [
-              "available",
-              "notReady",
-              "notFound",
-              "unavailable"
-            ]
-          },
-          "appName": {
-            "type": "string",
-            "maxLength": 100
-          },
-          "platformPermissions": {
-            "type": "array",
-            "maxItems": 12,
-            "uniqueItems": true,
-            "description": "Hosted App platform permissions: the App definition allowlist (openapi.base, platform.users.read, notifications.send, asset.file.*, stream.requests.*) plus stream.messages.* for messageTopics. Additions only change the draft; Owner/Admin approval decides what App credentials can use.",
-            "items": {
-              "type": "string",
-              "enum": [
-                "openapi.base",
-                "platform.users.read",
-                "notifications.send",
-                "asset.file.upload",
-                "asset.file.download",
-                "asset.file.delete",
-                "stream.requests.read",
-                "stream.requests.invoke",
-                "stream.requests.write",
-                "stream.messages.publish",
-                "stream.messages.subscribe"
-              ]
-            }
-          },
-          "messageTopics": {
-            "type": "array",
-            "maxItems": 32,
-            "items": {
-              "$ref": "#/components/schemas/CloudStreamMessageTopicPermission"
-            }
-          }
-        },
-        "required": [
-          "appId",
-          "revision",
-          "version",
-          "status",
-          "authorityStatus",
-          "appName",
-          "platformPermissions"
-        ]
-      },
       "CloudAppCollectionDeclaration": {
         "type": "object",
         "additionalProperties": false,
@@ -21922,7 +21607,8 @@
                 "collection_not_granted"
               ]
             },
-            "uniqueItems": true
+            "uniqueItems": true,
+            "description": "当前不可用的原因；app_stream_ceiling 表示工作区套餐不含该动作（App 本身固定拥有 Stream 请求能力，没有按 App 的上限配置）。"
           },
           "revision": {
             "type": "integer",
@@ -21971,29 +21657,6 @@
           "page",
           "size",
           "total"
-        ]
-      },
-      "CloudStreamMessageTopicPermission": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "topic": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 128,
-            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._/-]{0,127}$"
-          },
-          "publish": {
-            "type": "boolean"
-          },
-          "subscribe": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "topic",
-          "publish",
-          "subscribe"
         ]
       },
       "CloudStreamMessageDeclaration": {
@@ -30221,132 +29884,6 @@
           },
           "data": {
             "$ref": "#/components/schemas/AppContext"
-          }
-        },
-        "required": [
-          "code",
-          "msg",
-          "requestId",
-          "data"
-        ]
-      },
-      "DocCloudAppStreamPolicyGetResponse": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "code": {
-            "type": "integer"
-          },
-          "msg": {
-            "type": "string"
-          },
-          "requestId": {
-            "type": "string"
-          },
-          "data": {
-            "$ref": "#/components/schemas/CloudAppStreamPolicy"
-          }
-        },
-        "required": [
-          "code",
-          "msg",
-          "requestId",
-          "data"
-        ]
-      },
-      "DocCloudAppStreamPolicyUpdateResult": {
-        "additionalProperties": false,
-        "properties": {
-          "opId": {
-            "type": "string",
-            "description": "输入项标识，用于关联原请求。"
-          },
-          "action": {
-            "type": "string",
-            "enum": [
-              "meta.replace"
-            ]
-          },
-          "id": {
-            "type": "string",
-            "description": "对象 ID（字符串），从发现或读取接口取得；不要把名称当成 ID。"
-          },
-          "status": {
-            "description": "该输入项的执行状态。",
-            "type": "string"
-          },
-          "kind": {
-            "type": "string"
-          },
-          "revision": {
-            "type": "integer"
-          },
-          "error": {
-            "$ref": "#/components/schemas/DocItemFault"
-          }
-        },
-        "required": [
-          "opId",
-          "action",
-          "id",
-          "status"
-        ],
-        "type": "object"
-      },
-      "DocCloudAppStreamPolicyUpdateOutcome": {
-        "additionalProperties": false,
-        "properties": {
-          "jobId": {
-            "type": "string"
-          },
-          "replayed": {
-            "type": "boolean"
-          },
-          "results": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DocCloudAppStreamPolicyUpdateResult"
-            }
-          },
-          "status": {
-            "description": "本次操作的执行状态。",
-            "enum": [
-              "committed",
-              "validated",
-              "accepted",
-              "partiallyCommitted",
-              "failed",
-              "unknown",
-              "validationFailed"
-            ],
-            "type": "string"
-          },
-          "summary": {
-            "$ref": "#/components/schemas/OutcomeSummary",
-            "description": "仅部分提交时返回的逐项执行汇总。"
-          }
-        },
-        "required": [
-          "status",
-          "replayed"
-        ],
-        "type": "object"
-      },
-      "DocCloudAppStreamPolicyUpdateResponse": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "code": {
-            "type": "integer"
-          },
-          "msg": {
-            "type": "string"
-          },
-          "requestId": {
-            "type": "string"
-          },
-          "data": {
-            "$ref": "#/components/schemas/DocCloudAppStreamPolicyUpdateOutcome"
           }
         },
         "required": [

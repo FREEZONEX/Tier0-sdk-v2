@@ -57,6 +57,7 @@ run(['--input-type=module', '-e', `
   if ('list' in client.source || 'get' in client.stream.programs || 'nodes' in client.agent || 'controls' in client.api || 'controls' in client || 'ControlError' in sdk || 'ControlResultUnknownError' in sdk) throw new Error('Retired facade aliases leaked');
   if (['sourceList', 'streamProgramCreate', 'recordInsertMany', 'recordDistinct', 'metadataFindOne'].some(name => name in raw)) throw new Error('Retired raw operations leaked');
   if ('runtime' in client.stream || 'streamRuntimeCapabilitiesGet' in raw || 'streamRuntimeCapabilitiesGet' in UNS_V2_OPERATIONS) throw new Error('Retired readiness probe leaked');
+  if (['appStreamPolicyGet', 'appStreamPolicyUpdate'].some(name => name in raw || name in client.uns || name in UNS_V2_OPERATIONS)) throw new Error('Retired App platform policy leaked');
   if (typeof client.source.documents.get !== 'function' || typeof client.stream.programs.deploy !== 'function') throw new Error('Missing domain entrypoints');
 `], consumer);
 for (const ext of ['mts', 'cts']) writeFileSync(resolve(consumer, `consumer.${ext}`), `
@@ -121,6 +122,8 @@ nestedHandle.insertOne(input, { returnDocument: 'after', projection: { 'customer
 const client: Tier0Client = createClient({ apiHost: 'https://fixture.invalid' });
 // @ts-expect-error Retired facade has no alias.
 client.controls;
+// @ts-expect-error The App platform policy is retired (app-key-model/1).
+client.uns.appStreamPolicyGet({ appId: 'app' });
 client.uns.recordFind({ collectionId: 'orders' });
 client.uns.recordInsertOne({ collectionId: 'orders', data: { code: 'A' }, returnDocument: 'after' });
 client.uns.metadataFind({ kind: 'collection', filter: { _id: 'orders' } });

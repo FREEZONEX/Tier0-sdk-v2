@@ -1,13 +1,13 @@
 {
   "repository": "FREEZONEX/Tier0-Backend",
-  "revision": "b6347c688615b0c277ebb696e851f3d1e3115652",
+  "revision": "c742be586940baf7352782124082729d85f6dbdf",
   "source": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
-  "sourceSHA256": "9ad21982c9e514f260425192fd6622bf78ae56c23a2ea1340c9d0405c55c5778",
+  "sourceSHA256": "b780f234b49e7ed04509fb09c6c14640e565e17501ddfd44f8617074a19a5481",
   "snapshotSHA256": "77d62bb4cc4e20b21bf6006525f5e318dfd5cffe8bfdf61d9e49a059dc74ea34",
   "sourceInputs": [
     {
       "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
-      "sha256": "9ad21982c9e514f260425192fd6622bf78ae56c23a2ea1340c9d0405c55c5778"
+      "sha256": "b780f234b49e7ed04509fb09c6c14640e565e17501ddfd44f8617074a19a5481"
     }
   ],
   "scope": "Public Stream requests, message connection and capability discovery only. Current UNS v5 data and single-model inputs are pinned separately; this snapshot does not assert a matching deployed Backend/SWE/App or SYS/GW/browser acceptance."

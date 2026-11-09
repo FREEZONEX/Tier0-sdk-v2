@@ -92,6 +92,13 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
   expect(reasons).not.toContain('app_control_ceiling');
   access.properties.blockedReasons.items.enum = reasons.map(reason =>
     reason === 'app_stream_ceiling' ? 'app_control_ceiling' : reason);
+  // app-key-model/1 (Backend c742be586): the 11 fixed App capabilities and the admin-only grant additions.
+  const platformPermissions = appContext.properties.platformPermissions as unknown as { items: { enum: string[] }; maxItems: number };
+  expect(platformPermissions.items.enum).toEqual(['openapi.base', 'platform.users.read', 'notifications.send', 'asset.file.upload',
+    'asset.file.download', 'asset.file.delete', 'stream.requests.read', 'stream.requests.invoke', 'stream.requests.write',
+    'stream.messages.publish', 'stream.messages.subscribe']);
+  expect(platformPermissions.maxItems).toBe(11);
+  expect(operations.appDataPolicyUpdate.description).toContain('app_grant_admin_required');
   const digest = createHash('sha256').update(JSON.stringify(canonical({ operations: baselineOperations, schemas: baselineSchemas }))).digest('hex');
   // Explicitly checked directory declarations above; unrelated Namespace operations stay pinned.
   // Re-pinned for Backend c63783eb4. The digest covers the Namespace operations and their reachable schemas only (the two Edge
@@ -103,5 +110,8 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
   // (four fewer reachable schemas), the rule fields leave the App data policy and the change event, notifications.read leaves
   // AppContext.platformPermissions, and the ensure / recordGet descriptions drop the per-employee wording. From the base: reworded
   // UnsV2FieldOperation.path and a kind description on the generic metadata requests.
-  expect(digest).toBe('26f7ce2403cc0a0ed3607000c51e6daaf3ebf42dd201a9aaaa208e98789d2ef6');
+  // Re-pinned for Backend c742be586 (app-key-model/1): no reachable schema added or removed; AppContext.platformPermissions is the
+  // fixed 11 (stream.messages.publish / subscribe added, new description), appDataPolicyUpdate describes the Owner/Admin-only
+  // grant additions, and CloudAppStreamAccessItem.blockedReasons gains a description (app_stream_ceiling = the workspace plan).
+  expect(digest).toBe('4d228cdcec45147c485efa1c96679c837bebd0b89cd324e7fc96be9d29f9cc3c');
 });

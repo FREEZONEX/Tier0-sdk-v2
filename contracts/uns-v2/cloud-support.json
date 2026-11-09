@@ -1,42 +1,6 @@
 {
   "operations": [
     {
-      "name": "appRegistrationCapabilities",
-      "permission": "workspace.api.manage",
-      "scope": "app:manage",
-      "minPermission": 3
-    },
-    {
-      "name": "appRegistrationList",
-      "permission": "workspace.api.manage",
-      "scope": "app:manage",
-      "minPermission": 3
-    },
-    {
-      "name": "appRegistrationGet",
-      "permission": "workspace.api.manage",
-      "scope": "app:manage",
-      "minPermission": 3
-    },
-    {
-      "name": "appRegistrationCreate",
-      "permission": "workspace.api.manage",
-      "scope": "app:manage",
-      "minPermission": 3
-    },
-    {
-      "name": "appRegistrationUpdate",
-      "permission": "workspace.api.manage",
-      "scope": "app:manage",
-      "minPermission": 3
-    },
-    {
-      "name": "appRegistrationPermissionsUpdate",
-      "permission": "workspace.api.manage",
-      "scope": "app:manage",
-      "minPermission": 3
-    },
-    {
       "name": "appDataPolicyGet",
       "permission": "uns.write",
       "scope": "uns:update",
@@ -44,18 +8,6 @@
     },
     {
       "name": "appDataPolicyUpdate",
-      "permission": "uns.write",
-      "scope": "uns:update",
-      "minPermission": 3
-    },
-    {
-      "name": "appStreamPolicyGet",
-      "permission": "uns.write",
-      "scope": "uns:update",
-      "minPermission": 3
-    },
-    {
-      "name": "appStreamPolicyUpdate",
       "permission": "uns.write",
       "scope": "uns:update",
       "minPermission": 3

@@ -18,9 +18,9 @@ test('rejects every retired operation, DTO, route and compatibility label', () =
 test('does not reject Namespace, Stream management or neutral interaction contracts', () => {
   assert.doesNotThrow(() => assertNoRetiredControls({
     sdkContractVersions: ['stream-requests/v1'],
-    operations: ['recordFind', 'streamDocumentUpdate', 'streamRequestGrantSet', 'appStreamPolicyGet'],
+    operations: ['recordFind', 'streamDocumentUpdate', 'streamRequestGrantSet', 'appStreamAccessList'],
     schemas: ['CloudStreamRequestGrantSetReq', 'CloudStreamRunsListResponse'],
-    policyVersion: 'cloud-hosted-app-stream/v1',
+    policyVersion: 'cloud-hosted-app-data/v1',
     paths: ['/openapi/v1/stream-requests/invoke', '/openapi/v1/stream-messages/connect'],
   }, 'fixture'));
 });

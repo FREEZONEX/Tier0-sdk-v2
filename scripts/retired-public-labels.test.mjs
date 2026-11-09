@@ -35,7 +35,7 @@ test('rejects retired public versions and reason while accepting neutral values'
   for (const value of ['cloud-hosted-app-control/v1', 'cloud-control-app/v1', 'app_control_ceiling']) {
     assert.throws(() => assertNoRetiredControls({value}, 'fixture'), /Retired Controls contract/);
   }
-  for (const value of ['cloud-hosted-app-stream/v1', 'cloud-stream-app/v1', 'app_stream_ceiling']) {
+  for (const value of ['cloud-hosted-app-data/v1', 'app_stream_ceiling']) {
     assert.doesNotThrow(() => assertNoRetiredControls({value}, 'fixture'));
   }
 });
