@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.1 (2026-11-10)
+
+- Clarify Builder grant management for existing collections across Apps in the same workspace. Document incremental `appDataPolicyUpdate` changes, revision checks and receipt verification while preserving existing grants and disabled policy status; App runtime credentials cannot manage grants.
+- Align README and bundled Skills with the Backend's unified authorization rules: management uses the current principal's effective workspace, App and resource permissions, without a separate Agent denial or platform-import exception.
+- Synchronize generated contracts to committed Backend `07ef8cd30a5465a98c8e6ee0892d02360aee8761`, including the optional `permission` field in the platform identity response. No SDK operation is removed.
+
 ## 0.10.0 (2026-11-10)
 
 First stable npm release of the new-architecture migration, including the changes recorded below for the local aenv-next prereleases and the 0.9.11 candidate.

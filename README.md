@@ -2,7 +2,7 @@
 
 Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交互均使用 `@tier0/sdk-v2`。旧 SDK 不再作为依赖。
 
-当前开发分支补齐 Builder 主动关联已有集合的指引，需搭配已部署统一集合授权规则的 Backend；这不表示已发布的 `0.10.0` 或托管 Skill 版本已经更新。
+`0.10.1` 补齐 Builder 为同一工作区内的 App 主动关联已有集合的指引，并同步接口类型与 Backend 契约 `07ef8cd30a5465a98c8e6ee0892d02360aee8761`。需搭配已部署统一集合授权规则的 Backend；本次 npm 包包含更新后的 Skills，平台托管 Skill 的版本由平台单独管理。
 
 `0.10.0` 是新架构重构分支的正式版本，包含此前 aenv-next 预发布的全部变更、MQTT 修复、逐请求异步凭据和 Sample 精确删除接口。合同同步至 Backend `91b5f3dc4024f44df32ee7aafcd83a8d470b655d`；升级前需确认目标环境已部署相应合同及运行环境，详见下方「aenv-next 运行环境」和 CHANGELOG。
 
@@ -45,10 +45,10 @@ Source / Stream 管理已统一为 Enterprise 参数：SourceDefinition 使用�
 安装正式版：
 
 ```sh
-npm install @tier0/sdk-v2@0.10.0
+npm install @tier0/sdk-v2@0.10.1
 ```
 
-维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `tier0-sdk-v2-0.10.0.tgz`。
+维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `tier0-sdk-v2-0.10.1.tgz`。
 
 个人 Key 可直接读取已有集合，无需创建平台 App；网关配置、运行示例与排错见[本地连接指南](skills/tier0-sdk-v2/references/local-connection.md)。
 
