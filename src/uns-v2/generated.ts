@@ -4102,10 +4102,10 @@ export const UNS_V2_CODEC_SCHEMAS = {"UnsV2CatalogReq":{"k":"o"},"UnsV2Transacti
 
 export const UNS_V2_CONTRACT_PROVENANCE = {
   "repository": "FREEZONEX/Tier0-Backend",
-  "revision": "c742be586940baf7352782124082729d85f6dbdf",
+  "revision": "1e6b2d7b6de7795a6509e4aafc8cd04699f5d00f",
   "version": "5.0.0",
   "source": "service/unssvr/internal/domain/unsv2/contract_generated.go#ContractJSON",
-  "cloudRevision": "c742be586940baf7352782124082729d85f6dbdf",
+  "cloudRevision": "1e6b2d7b6de7795a6509e4aafc8cd04699f5d00f",
   "cloudContractRevision": "cloud-source-impact/2+source-vendor/2+data/3+record-reads/1+stream-receipt/1+stream-run-error/1+stream-run-diagnostics/1+stream-run-delivery/1+stream-deploy-guard/1+stream-diagnostics/1+collection-namespace/1+business-name/1+http-acquisition/2+http-source-role/1+http-source-request/1+sql-inline-credentials/1+app-collection/2+collection-ownership/1+metadata/1+collection-purge/1+namespace-purge/1+app-context/4+collection-ttl/1+error-model/1+crud-consolidation/1+record-insert-return/1+lifecycle-consolidation/1+mutation-defaults/1+api-surface/2+source-stream-single-model+source-lifecycle/2+edge-discovery/1+edge-binding-status/1+edge-resource-discovery/1+unified-source-stream/1+source-health/2+app-data/3+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/2+http-in/1+app-resource-access/2+stream-control-probe-retirement/1+http-push-retirement/1+app-data-rule-retirement/1+app-key-model/1",
   "resolvedCloudContract": true,
   "enterpriseBase": {
@@ -4127,7 +4127,7 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
     {
       "scope": "source-stream-public",
       "repository": "FREEZONEX/Tier0-Backend",
-      "revision": "c742be586940baf7352782124082729d85f6dbdf",
+      "revision": "1e6b2d7b6de7795a6509e4aafc8cd04699f5d00f",
       "sourceKind": "committed",
       "inputs": {
         "contracts/uns-v2/contract.json": {
@@ -4305,7 +4305,7 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
     {
       "scope": "stream-diagnostics",
       "repository": "FREEZONEX/Tier0-Backend",
-      "revision": "c742be586940baf7352782124082729d85f6dbdf",
+      "revision": "1e6b2d7b6de7795a6509e4aafc8cd04699f5d00f",
       "sourceKind": "committed",
       "schemas": [
         "CloudStreamDiagnosticRun",
@@ -4332,7 +4332,7 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
     "contract": "270c741d22dba411b45aeedc168e1e719f0a055934f0673a6faec4544dd964ac",
     "cloudSupport": "5ef5ab95a1bb7f90657c1a290f2320df25b5d9421680da5fe2fcb6fdae3a2b5d",
     "manifest": "887b7b14fdb9900e0681622ce8c88909fa693f15c09d578c8aabd7d4fbc0c12e",
-    "provenance": "7fae5db317fc4f98ae4d2c114c567261eefa5bfaa57417685e491d12508e39da",
+    "provenance": "cbc875395be44a544c62eaf129e4bea330f46aebf327a60ee5ac8cd5f5511d9d",
     "registry": "fdab43e4df37b1aeb42abf9d5a3ba93a332d0e540cbc86525e280d61b7f060c3"
   },
   "publicOperationCount": 90,

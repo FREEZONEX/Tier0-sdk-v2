@@ -26,7 +26,7 @@ const operation = (name: string) => manifest.operations.find(item => item.name =
 
 describe('Backend App UNS access contract without generic record audit', () => {
   it('pins the exact upstream commit and all generator inputs', () => {
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('c742be586940baf7352782124082729d85f6dbdf');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('1e6b2d7b6de7795a6509e4aafc8cd04699f5d00f');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     for (const [key, file] of Object.entries({ contract: 'contract.json', cloudSupport: 'cloud-support.json', manifest: 'manifest.json', provenance: 'provenance.json', registry: 'registry_generated.go' })) {
       expect(UNS_V2_CONTRACT_PROVENANCE.hashes[key as keyof typeof UNS_V2_CONTRACT_PROVENANCE.hashes]).toBe(
@@ -185,7 +185,7 @@ describe('Backend App UNS access contract without generic record audit', () => {
       expect(operation(name)).toMatchObject({ appAllowed: false, coreOnly: false, permission: 'uns.write', minPermission: 3 });
       expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(true);
     }
-    // app-key-model/1 (Backend c742be586): an App's platform capabilities are fixed, so the hosted App platform policy and the
+    // app-key-model/1 (Backend 1e6b2d7b6): an App's platform capabilities are fixed, so the hosted App platform policy and the
     // external App registration are gone from the contract, not just from the SDK.
     for (const name of ['appStreamPolicyGet', 'appStreamPolicyUpdate', 'appRegistrationCapabilities', 'appRegistrationList',
       'appRegistrationGet', 'appRegistrationCreate', 'appRegistrationUpdate', 'appRegistrationPermissionsUpdate']) {

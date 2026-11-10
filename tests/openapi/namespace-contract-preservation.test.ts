@@ -92,7 +92,7 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
   expect(reasons).not.toContain('app_control_ceiling');
   access.properties.blockedReasons.items.enum = reasons.map(reason =>
     reason === 'app_stream_ceiling' ? 'app_control_ceiling' : reason);
-  // app-key-model/1 (Backend c742be586): the 11 fixed App capabilities and the admin-only grant additions.
+  // app-key-model/1 (Backend 1e6b2d7b6): the 11 fixed App capabilities and the admin-only grant additions.
   const platformPermissions = appContext.properties.platformPermissions as unknown as { items: { enum: string[] }; maxItems: number };
   expect(platformPermissions.items.enum).toEqual(['openapi.base', 'platform.users.read', 'notifications.send', 'asset.file.upload',
     'asset.file.download', 'asset.file.delete', 'stream.requests.read', 'stream.requests.invoke', 'stream.requests.write',
@@ -110,7 +110,7 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
   // (four fewer reachable schemas), the rule fields leave the App data policy and the change event, notifications.read leaves
   // AppContext.platformPermissions, and the ensure / recordGet descriptions drop the per-employee wording. From the base: reworded
   // UnsV2FieldOperation.path and a kind description on the generic metadata requests.
-  // Re-pinned for Backend c742be586 (app-key-model/1): no reachable schema added or removed; AppContext.platformPermissions is the
+  // Re-pinned for Backend 1e6b2d7b6 (app-key-model/1): no reachable schema added or removed; AppContext.platformPermissions is the
   // fixed 11 (stream.messages.publish / subscribe added, new description), appDataPolicyUpdate describes the Owner/Admin-only
   // grant additions, and CloudAppStreamAccessItem.blockedReasons gains a description (app_stream_ceiling = the workspace plan).
   expect(digest).toBe('4d228cdcec45147c485efa1c96679c837bebd0b89cd324e7fc96be9d29f9cc3c');

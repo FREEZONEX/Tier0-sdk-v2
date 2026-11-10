@@ -1,6 +1,6 @@
 {
   "repository": "FREEZONEX/Tier0-Backend",
-  "revision": "c742be586940baf7352782124082729d85f6dbdf",
+  "revision": "1e6b2d7b6de7795a6509e4aafc8cd04699f5d00f",
   "inputs": {
     "contracts/openapi-v2.source.json": {
       "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
@@ -31,7 +31,7 @@
     {
       "scope": "source-stream-public",
       "repository": "FREEZONEX/Tier0-Backend",
-      "revision": "c742be586940baf7352782124082729d85f6dbdf",
+      "revision": "1e6b2d7b6de7795a6509e4aafc8cd04699f5d00f",
       "sourceKind": "committed",
       "inputs": {
         "contracts/uns-v2/contract.json": {
@@ -209,7 +209,7 @@
     {
       "scope": "stream-diagnostics",
       "repository": "FREEZONEX/Tier0-Backend",
-      "revision": "c742be586940baf7352782124082729d85f6dbdf",
+      "revision": "1e6b2d7b6de7795a6509e4aafc8cd04699f5d00f",
       "sourceKind": "committed",
       "schemas": [
         "CloudStreamDiagnosticRun",
