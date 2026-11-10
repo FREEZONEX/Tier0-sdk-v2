@@ -6,7 +6,7 @@ Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交�
 
 `0.10.0` 是新架构重构分支的正式版本，包含此前 aenv-next 预发布的全部变更、MQTT 修复、逐请求异步凭据和 Sample 精确删除接口。合同同步至 Backend `91b5f3dc4024f44df32ee7aafcd83a8d470b655d`；升级前需确认目标环境已部署相应合同及运行环境，详见下方「aenv-next 运行环境」和 CHANGELOG。
 
-本地 `0.10.0-aenv.12` 在该基线上退役 machine 访问者：`subType` 仅为 `employee`，旧机器头无论是否带 grant 均拒绝，不提供兼容别名。App Key 和员工角色契约保留；不公共发布。存量部署仍含旧解析器，本次靠前门关闭机器入口并剥离外来身份头使旧调用令牌失效，不强制重新发布 App。
+本地 `0.10.1-aenv.13` 在最新 `0.10.1` 基线上保留 employee-only 访问者契约：`subType` 仅为 `employee`，旧机器头无论是否带 grant 均拒绝，不提供兼容别名。继承最新已提交 Backend 生成契约与统一权限说明，不手改生成物、不公共发布。App Key 和员工角色契约保留；存量部署仍含旧解析器，靠前门关闭机器入口并剥离外来身份头使旧调用令牌失效，不强制重新发布 App。此前 homelab 报告对应 `0.10.0-aenv.12`，不能作为本包重新部署的证据。
 
 **`0.10.0` 包含破坏性变更**：App 的平台能力固定为 11 项（含 Stream 请求和消息），没有按 App 的平台策略了：`client.uns.appStreamPolicyGet` / `appStreamPolicyUpdate` 和 `CloudAppStreamPolicy*`、`CloudStreamMessageTopicPermission` 类型随 Backend 契约删除，没有替代。托管 App Key 的 MQTT 主题只能在 App 自己的命名空间 `apps/<TIER0_APP_ID>/<preview|deployed>/…` 里，新增 `appTopic()`（`@tier0/sdk-v2/mq`）拼主题，见「MQTT」。发布时不再确认集合授权。
 
@@ -44,13 +44,13 @@ Source / Stream 管理已统一为 Enterprise 参数：SourceDefinition 使用�
 
 ## 安装与初始化
 
-安装正式版：
+本分支使用本地产出的 employee-only 包，不发布到 npm：
 
 ```sh
-npm install @tier0/sdk-v2@0.10.1
+npm install --save-exact /path/to/tier0-sdk-v2-0.10.1-aenv.13.tgz
 ```
 
-维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `tier0-sdk-v2-0.10.1.tgz`。
+维护者在本仓库构建后运行 `npm pack --ignore-scripts`，按当前变更执行契约、类型与实际产包消费检查；本地集成不执行 `npm publish`。正式 `0.10.1` 的历史说明与最新生成契约保留，但它不包含本分支的 machine 身份退役。
 
 个人 Key 可直接读取已有集合，无需创建平台 App；网关配置、运行示例与排错见[本地连接指南](skills/tier0-sdk-v2/references/local-connection.md)。
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.1-aenv.13 (local remove-apps-in-use integration)
+
+- Rebase the employee-only visitor cutover onto 0.10.1, retaining its committed Backend contract `07ef8cd30a5465a98c8e6ee0892d02360aee8761` and unified Builder grant guidance without editing generated contracts.
+- Repack for the scaffold as a distinct local artifact rather than replacing the historical 0.10.0-aenv.12 archive. No npm publication or existing App republication is performed.
+- Machine visitor identities remain rejected; employee grants, platform App Keys, data and Stream APIs keep the latest base behavior.
+
 ## 0.10.1 (2026-11-10)
 
 - Clarify Builder grant management for existing collections across Apps in the same workspace. Document incremental `appDataPolicyUpdate` changes, revision checks and receipt verification while preserving existing grants and disabled policy status; App runtime credentials cannot manage grants.
