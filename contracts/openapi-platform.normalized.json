@@ -5464,10 +5464,13 @@
       "AgentResultCreateReq": {
         "properties": {
           "cardSpec": {},
+          "charts": {},
           "dataScope": {},
+          "findings": {},
           "images": {
             "type": "array"
           },
+          "metrics": {},
           "missingData": {},
           "operationId": {
             "type": "string"
@@ -5475,6 +5478,7 @@
           "resultSchemaVersion": {
             "type": "integer"
           },
+          "severity": {},
           "source": {
             "$ref": "#/components/schemas/AgentResultSource"
           },

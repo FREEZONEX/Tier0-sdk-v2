@@ -19,6 +19,7 @@ UNS 管数据命名空间、集合、Record 和 Sample；外部连接与脚本�
 | 查询集合、筛选/排序记录 | [查询](references/read.md) | dataAppContext、metadataFind/FindOne（非 App 凭证）、collectionDescribe、recordFind |
 | 改记录、集合名称、扩展 Schema | [修改](references/update.md) | recordUpdateOne、metadataUpdateOne/Many |
 | 删记录、软删除集合 | [删除](references/delete.md) | recordDeleteOne、metadataDeleteOne/Many |
+| 精确删除选中的历史样本 | [删除](references/delete.md#精确删除历史样本) | sampleFind、sampleDeleteExact（非 App 凭证） |
 | 永久删除回收站集合 | [删除](references/delete.md) | metadataPurge、jobs |
 | 恢复集合或记录 | [恢复](references/restore.md) | metadataRestore、recordRestore |
 | 分页、历史采样、事务、写入结果 | [数据工作流](references/data-workflows.md) | sampleFind、recordTransactionExecute |

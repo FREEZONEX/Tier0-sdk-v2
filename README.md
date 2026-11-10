@@ -34,6 +34,8 @@ Source / Stream 管理已统一为 Enterprise 参数：SourceDefinition 使用�
 
 合同快照的准确 Backend 提交和输入摘要见 contracts/upstream.json；使用前需确认目标环境已部署相应合同。请求统一权限、旧探针退役门禁、Source discovery 的副作用分类及不自动重试语义保持不变。
 
+本分支新增 `client.uns.sampleDeleteExact`（Backend `sample-delete-exact/1`）：管理调用方按 `{recordId,id,time}` 清理最多 200 条明确样本，支持预览和幂等回执。App Key 不支持此操作，App 数据层不增加删除样本方法；用法见[精确删除历史样本](skills/tier0-sdk-v2/tier0-sdk-v2-uns/references/delete.md#精确删除历史样本)。
+
 既有接口收敛：平台接口统一迁移到 `/openapi/v2`；移除 21 个重复 UNS 入口和旧 Agent nodes/relations 方法。完善 Source 操作、Stream 发布回执及 UNS 创建快照的使用说明，保留精确发布编号和完整文档访问规则。
 
 ## 安装与初始化

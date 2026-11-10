@@ -39,6 +39,52 @@ const rawClient = (overrides: Parameters<typeof createClient>[0] = {}) => {
 };
 
 describe('UNS v2 localhost HTTP fixture', () => {
+  it('previews and deletes only explicit sample identities and preserves their receipt', async () => {
+    const start = received.length;
+    const samples = [
+      { recordId: 'singapore', id: 'extra-1', time: 1794232800000n },
+      { recordId: 'singapore', id: 'extra-2', time: 1794232800000n },
+    ];
+    respond = (_req, res) => send(res, { code: 200, msg: '', requestId: 'preview-samples',
+      data: { deletedCount: 1, missingCount: 1, dryRun: true } });
+    const preview = await client().uns.sampleDeleteExact({ collectionId: 'weather', samples, dryRun: true });
+    expect(preview.data).toEqual({ deletedCount: 1, missingCount: 1, dryRun: true });
+    respond = (_req, res) => send(res, { code: 200, msg: '', requestId: 'delete-samples',
+      data: { deletedCount: 1, missingCount: 1, dryRun: false } });
+    const request = { collectionId: 'weather', samples, idempotencyKey: 'remove-extra-weather' };
+    const deleted = await client().uns.sampleDeleteExact(request);
+    const replayed = await client().uns.sampleDeleteExact(request);
+    expect(deleted.data).toEqual({ deletedCount: 1, missingCount: 1, dryRun: false });
+    expect(replayed).toEqual(deleted);
+    const calls = received.slice(start);
+    expect(calls).toHaveLength(3);
+    for (const call of calls) {
+      expect(call.method).toBe('POST');
+      expect(call.path).toBe('/openapi/v2/uns/collections/weather/samples:deleteExact');
+      expect(JSON.parse(call.body).samples).toEqual(samples.map(sample => ({ ...sample, time: Number(sample.time) })));
+    }
+    expect(JSON.parse(calls[0].body)).toEqual({ collectionId: 'weather', samples: samples.map(sample => ({ ...sample, time: Number(sample.time) })), dryRun: true });
+    expect(calls[1].body).toBe(calls[2].body);
+    expect(JSON.parse(calls[1].body).idempotencyKey).toBe('remove-extra-weather');
+    expect(JSON.parse(calls[1].body)).not.toHaveProperty('dryRun');
+  });
+
+  it('does not retry or broaden an exact sample deletion rejected by the server', async () => {
+    for (const failure of [
+      { status: 403, code: 'FORBIDDEN', execution: 'notStarted', safe: false },
+      { status: 503, code: 'OUTCOME_UNKNOWN', execution: 'unknown', safe: true },
+    ] as const) {
+      const start = received.length;
+      respond = (_req, res) => send(res, { code: failure.status, msg: 'delete rejected', requestId: 'sample-failure', data: null,
+        error: { code: failure.code, reason: 'delete rejected', details: [], execution: failure.execution, retry: { safe: failure.safe } } }, failure.status);
+      await expect(client().uns.sampleDeleteExact({ collectionId: 'weather',
+        samples: [{ recordId: 'singapore', id: 'extra-1', time: 1794232800000 }], idempotencyKey: 'remove-extra-weather',
+      })).rejects.toMatchObject({ code: failure.code, operation: 'sampleDeleteExact', execution: failure.execution, retry: { safe: failure.safe } });
+      expect(received.slice(start)).toHaveLength(1);
+      expect(received.at(-1)?.path).toBe('/openapi/v2/uns/collections/weather/samples:deleteExact');
+    }
+  });
+
   it('submits a collection purge once and preserves the async receipt', async () => {
     const start = received.length;
     respond = (_req, res) => send(res, { code: 200, msg: '', requestId: 'purge-request',
@@ -253,6 +299,20 @@ describe('UNS v2 localhost HTTP fixture', () => {
     expect(received.slice(start).every(row => row.headers['x-api-key'] === 'workspace-bound-key' && row.headers.authorization === undefined)).toBe(true);
   });
 
+  it('requests summary observations without requiring diagnostic evidence or changing the default view', async () => {
+    const start = received.length;
+    const data = { id: '202', revision: 4, window: { from: 1, to: 2 }, checkedAt: 2, coverage: 'durable-admissions',
+      stats: { admitted: 0, completed: 0, failed: 0, unknown: 0, pending: 0, durationSamples: 0, successRate: null, averageDurationMs: null } };
+    respond = (_req, res) => send(res, { code: 200, msg: '', requestId: 'summary-observations', data });
+    const api = client();
+    const summary = await api.stream.observations.get({ id: '202', view: 'summary' });
+    expect(summary.data.stats).toEqual(data.stats);
+    expect(summary.data.diagnostics).toBeUndefined();
+    await api.stream.observations.get({ id: '202' });
+    expect(received.slice(start).map(row => JSON.parse(row.body))).toEqual([{ id: '202', view: 'summary' }, { id: '202' }]);
+    expect(received.slice(start).map(row => row.path)).toEqual(Array(2).fill('/openapi/v2/uns/streams/observation/get'));
+  });
+
   it('preserves per-run failure diagnostics, unknown results and legacy records in a successful runs query', async () => {
     const start = received.length;
     const base = { kind: 'delivery', release: '7', entryId: 'tick', trigger: 'timer',
@@ -307,11 +367,11 @@ describe('UNS v2 localhost HTTP fixture', () => {
       'record-reads/1', 'app-context/4', 'collection-ttl/1', 'error-model/1', 'record-insert-return/1', 'stream-run-error/1',
       'source-lifecycle/2', 'app-collections/2', 'app-data-rule-retirement/1', 'app-key-model/1',
     ]));
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('1e6b2d7b6de7795a6509e4aafc8cd04699f5d00f');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('91b5f3dc4024f44df32ee7aafcd83a8d470b655d');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     expect(UNS_V2_CONTRACT_PROVENANCE.sourceDerivedContractSHA256).toBe(UNS_V2_CONTRACT_PROVENANCE.hashes.contract);
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(90);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(98);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(91);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(99);
     expect(received.slice(start)).toHaveLength(1);
   });
 

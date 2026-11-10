@@ -1364,11 +1364,15 @@ export interface components {
         };
         AgentResultCreateReq: {
             cardSpec?: unknown;
+            charts?: unknown;
             dataScope?: unknown;
+            findings?: unknown;
             images?: unknown[];
+            metrics?: unknown;
             missingData: unknown;
             operationId: string;
             resultSchemaVersion: number | bigint;
+            severity?: unknown;
             source: components["schemas"]["AgentResultSource"];
             steps?: unknown[];
             summary?: string;

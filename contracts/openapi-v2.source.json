@@ -6350,6 +6350,15 @@
                     "type": "string",
                     "pattern": "^[1-9][0-9]*$",
                     "maxLength": 19
+                  },
+                  "view": {
+                    "type": "string",
+                    "enum": [
+                      "summary",
+                      "full"
+                    ],
+                    "default": "full",
+                    "description": "summary returns statistics only without diagnostic ledger scans. full includes diagnostic evidence. Omitted retains full for existing clients; dashboards should request summary."
                   }
                 },
                 "required": [
@@ -8236,6 +8245,158 @@
         "x-tier0-starter": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
+      }
+    },
+    "/uns/collections/{collectionId}/samples:deleteExact": {
+      "post": {
+        "operationId": "UnsV2SampleDeleteExact",
+        "summary": "精确删除指定采样",
+        "deprecated": false,
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "samples": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 200,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "recordId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "time": {
+                          "type": "integer",
+                          "format": "int64",
+                          "minimum": 1,
+                          "maximum": 253402300799999
+                        }
+                      },
+                      "required": [
+                        "recordId",
+                        "id",
+                        "time"
+                      ]
+                    }
+                  },
+                  "dryRun": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "true 仅校验；false 执行写入。"
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "可选幂等键；重试同一请求时复用，相同键不得用于不同请求。"
+                  }
+                },
+                "required": [
+                  "samples"
+                ],
+                "description": "物理删除显式 samples 清单，按当前集合及 recordId、id、time 完整身份匹配，最多 200 项；重复身份与未知字段无效。缺失项计入 missingCount；不扩大时间范围、不删除父 Record、不自动去重。dryRun=true 返回当前匹配与缺失数量且不写入。执行与回执同事务；相同幂等键重放原回执，不同请求复用键冲突。"
+              },
+              "example": {
+                "samples": [
+                  {
+                    "recordId": "device-1",
+                    "id": "sample-1",
+                    "time": 1792368000000
+                  }
+                ],
+                "dryRun": true,
+                "idempotencyKey": "delete-selected-samples"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "操作结果。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocUnsV2SampleDeleteExactResponse"
+                },
+                "example": {
+                  "code": 200,
+                  "msg": "success",
+                  "requestId": "request-id",
+                  "data": {
+                    "deletedCount": 1,
+                    "missingCount": 0,
+                    "dryRun": false
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocCommonError"
+                },
+                "example": {
+                  "code": 422,
+                  "msg": "请求参数不合法",
+                  "requestId": "request-id",
+                  "data": null,
+                  "error": {
+                    "code": "INVALID_REQUEST",
+                    "reason": "filter.status must be a string",
+                    "details": [],
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "时序数据"
+        ],
+        "parameters": [
+          {
+            "name": "collectionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "description": "物理删除 samples 清单中的完整身份（recordId、id、time），最多 200 项，time 为 Unix 毫秒。只删除当前集合内精确匹配项，其他采样和父记录保留，不自动去重。缺失项计入 missingCount；dryRun=true 仅返回当前预计删除数与缺失数，不预留样本。执行原子提交，带 idempotencyKey 重试返回原回执；变更清单须使用新键。App 凭证不可调用；MCP 凭证还需 uns.write 与 uns.delete 授权。",
+        "x-tier0-audience": "builder",
+        "x-tier0-starter": false,
+        "x-tier0-readonly": false,
+        "x-tier0-destructive": true
       }
     },
     "/uns/collections/{collectionId}/records:lock": {
@@ -29524,8 +29685,7 @@
               "stats",
               "window",
               "coverage",
-              "checkedAt",
-              "diagnostics"
+              "checkedAt"
             ]
           }
         },
@@ -30305,6 +30465,51 @@
           },
           "data": {
             "$ref": "#/components/schemas/CloudDataPage"
+          }
+        },
+        "required": [
+          "code",
+          "msg",
+          "requestId",
+          "data"
+        ]
+      },
+      "DocUnsV2SampleDeleteExactResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "deletedCount": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "实际删除数；dryRun=true 时为当前预计删除数。"
+              },
+              "missingCount": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "显式清单中未匹配的样本数。"
+              },
+              "dryRun": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "deletedCount",
+              "missingCount",
+              "dryRun"
+            ]
           }
         },
         "required": [
@@ -32951,10 +33156,13 @@
       "PlatformAgentResultCreateReq": {
         "properties": {
           "cardSpec": {},
+          "charts": {},
           "dataScope": {},
+          "findings": {},
           "images": {
             "type": "array"
           },
+          "metrics": {},
           "missingData": {},
           "operationId": {
             "type": "string"
@@ -32962,6 +33170,7 @@
           "resultSchemaVersion": {
             "type": "integer"
           },
+          "severity": {},
           "source": {
             "$ref": "#/components/schemas/PlatformAgentResultSource"
           },

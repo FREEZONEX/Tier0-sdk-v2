@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Added typed `client.uns.sampleDeleteExact` for bounded, explicit `{recordId,id,time}` Sample deletion with preview, missing counts and idempotent receipts. This Workspace management operation is unavailable to App keys; no App data-layer delete method or acquisition deduplication is added.
+- Synchronized the committed Backend contract at `91b5f3dc4024f44df32ee7aafcd83a8d470b655d`, including Stream observations' optional `view:'summary'|'full'` and optional diagnostics for summary responses, plus the optional `charts`, `findings`, `metrics` and `severity` fields on `AgentResultCreateReq`. Generated methods continue to preserve exact request identities and server retry advice without automatically retrying writes.
+
 ## 0.10.0-aenv.11 (local aenv-next prerelease)
 
 Breaking: an App's key is collections plus a fixed set of platform capabilities; there is no per-App platform policy any more (Backend `app-key-model/1`).
