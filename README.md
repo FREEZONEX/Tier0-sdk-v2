@@ -6,6 +6,8 @@ Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交�
 
 `0.10.0` 是新架构重构分支的正式版本，包含此前 aenv-next 预发布的全部变更、MQTT 修复、逐请求异步凭据和 Sample 精确删除接口。合同同步至 Backend `91b5f3dc4024f44df32ee7aafcd83a8d470b655d`；升级前需确认目标环境已部署相应合同及运行环境，详见下方「aenv-next 运行环境」和 CHANGELOG。
 
+本地 `0.10.0-aenv.12` 在该基线上退役 machine 访问者：`subType` 仅为 `employee`，旧机器头无论是否带 grant 均拒绝，不提供兼容别名。App Key 和员工角色契约保留；不公共发布。存量部署仍含旧解析器，本次靠前门关闭机器入口并剥离外来身份头使旧调用令牌失效，不强制重新发布 App。
+
 **`0.10.0` 包含破坏性变更**：App 的平台能力固定为 11 项（含 Stream 请求和消息），没有按 App 的平台策略了：`client.uns.appStreamPolicyGet` / `appStreamPolicyUpdate` 和 `CloudAppStreamPolicy*`、`CloudStreamMessageTopicPermission` 类型随 Backend 契约删除，没有替代。托管 App Key 的 MQTT 主题只能在 App 自己的命名空间 `apps/<TIER0_APP_ID>/<preview|deployed>/…` 里，新增 `appTopic()`（`@tier0/sdk-v2/mq`）拼主题，见「MQTT」。发布时不再确认集合授权。
 
 **`0.10.0-aenv.10` 是破坏性变更**：平台现在把 App 的 Key（`TIER0_API_KEY`）放在运行进程的环境里，SDK 直接用它（下文「aenv-next 运行环境」）；早期预发布说明里的节点代理模式只在没有 Key 的运行时生效。App 调平台只有一种身份，App 自身（App Key）；按用户角色收窄数据由 App 自己做，服务端用 `parseVisitorHeader()` 读前门注入的明文 `X-Tier0-Visitor` 拿到当前用户和角色。浏览器不再直连 MQTT，实时数据由 App 服务端订阅后转发（`createChangeRelay`）；请求中止信号改由 `runWithAbortSignal` 传入。删除的接口见 CHANGELOG。用旧 SDK 打包的 App 在前门改为明文访问者头后无法识别访问者，必须升级重新发布。
@@ -108,7 +110,7 @@ App 的 Key（平台注入的这把）只能调 `/openapi/v2/uns/**`、`assets/f
 
 本地开发照旧设 `TIER0_API_HOST`、`TIER0_API_KEY`，不要设 `TIER0_RUNTIME`（也不要写进 `.env` 或 `artifact.toml`）。
 
-- `@tier0/sdk-v2/server`：`parseVisitorHeader(request.headers.get(VISITOR_HEADER))` 解析前门注入的 `X-Tier0-Visitor`，返回 `{ subType, subject, grant, workspaceID, appID, runtime, appRoles, activeRole? }`。头的值是 UTF-8 JSON 对象的无填充 base64url（编码前最多 8192 字节），不签名：前门转发前剥掉客户端带来的全部 `X-Tier0-*`，再注入这一个头。解析是严格的：只接受规范的无填充 base64url；BOM、重复键、孤立的 UTF-16 代理项（如 `"\ud800"`）、未知字段、缺必填字段、类型或长度不符、`ws` 不是正整数十进制串（不带符号和前导 0）、员工没有 grant 或机器访问者带 grant、`app` 不等于 `TIER0_APP_ID` 都抛 `VisitorError`（`VISITOR_HEADER_INVALID`）；没有 `TIER0_APP_ID` 时是 `VISITOR_CONFIGURATION_INVALID`。App 用 `appRoles` 自己决定当前用户能看、能改哪些数据；平台对 App 的调用不带访问者身份，不会替 App 收窄。
+- `@tier0/sdk-v2/server`：`parseVisitorHeader(request.headers.get(VISITOR_HEADER))` 解析前门注入的 `X-Tier0-Visitor`，返回 `{ subType, subject, grant, workspaceID, appID, runtime, appRoles, activeRole? }`。头的值是 UTF-8 JSON 对象的无填充 base64url（编码前最多 8192 字节），不签名：前门转发前剥掉客户端带来的全部 `X-Tier0-*`，再注入这一个头。解析是严格的：只接受规范的无填充 base64url；BOM、重复键、孤立的 UTF-16 代理项（如 `"\ud800"`）、未知字段、缺必填字段、类型或长度不符、`ws` 不是正整数十进制串（不带符号和前导 0）、非 employee 访问者、空 grant、`app` 不等于 `TIER0_APP_ID` 都抛 `VisitorError`（`VISITOR_HEADER_INVALID`）；没有 `TIER0_APP_ID` 时是 `VISITOR_CONFIGURATION_INVALID`。App 用 `appRoles` 自己决定当前用户能看、能改哪些数据；平台对 App 的调用不带访问者身份，不会替 App 收窄。
 
   ```ts
   import { parseVisitorHeader, VISITOR_HEADER, VisitorError } from '@tier0/sdk-v2/server';
@@ -128,9 +130,9 @@ App 的 Key（平台注入的这把）只能调 `/openapi/v2/uns/**`、`assets/f
   | `workspaceID` | `ws` | 工作区 ID（十进制数字串） |
   | `appID` | `app` | 等于 `TIER0_APP_ID` |
   | `runtime` | `runtime` | `deployed` 或 `preview` |
-  | `subType` | `sub_type` | `employee` 或 `machine` |
-  | `subject` | `sub` | 员工用户 ID，或机器访问者的调用令牌 ID（1–128 字节） |
-  | `grant` | `grant` | 员工访问的 grant ID（1–128 字节）；机器访问者必须是空串 |
+  | `subType` | `sub_type` | 仅 `employee` |
+  | `subject` | `sub` | 员工用户 ID（1–128 字节） |
+  | `grant` | `grant` | 员工访问的 grant ID（1–128 字节，必填） |
   | `appRoles` | `app_roles` | 访问者在 App 里的角色（不限项数，每项 1–128 字节，整个 JSON 不超过 8192 字节；重复的去掉）；预览里是「以某角色查看」选中的角色 |
   | `activeRole` | `active_role` | 可省略，只在预览的「以某角色查看」里出现 |
 - `@tier0/sdk-v2/page-runtime`：页面运行时 v1 和平台错误（`x-sbx-error`）。

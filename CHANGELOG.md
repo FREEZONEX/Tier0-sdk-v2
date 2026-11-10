@@ -6,6 +6,12 @@
 - Align README and bundled Skills with the Backend's unified authorization rules: management uses the current principal's effective workspace, App and resource permissions, without a separate Agent denial or platform-import exception.
 - Synchronize generated contracts to committed Backend `07ef8cd30a5465a98c8e6ee0892d02360aee8761`, including the optional `permission` field in the platform identity response. No SDK operation is removed.
 
+## 0.10.0-aenv.12 (local access-settings package)
+
+- Breaking: `Visitor.subType` is only `employee`. `parseVisitorHeader()` refuses every other identity, including old machine headers with or without a grant. Employee grants remain mandatory; canonical encoding, field validation and App binding are unchanged. No machine alias or compatibility API is provided.
+- App Key authentication (`TIER0_API_KEY` → one `X-API-Key`), employee roles, data cancellation and realtime APIs are unchanged. This local package keeps the existing 0.10.0 generated Backend contracts; no contract synchronization or Backend upgrade is part of this change.
+- Existing deployed Apps retain their bundled parser. Retiring machine entry points and stripping untrusted identity headers at the platform front door invalidates old call tokens without republishing those Apps; updating this package alone does not secure an alternate ingress.
+
 ## 0.10.0 (2026-11-10)
 
 First stable npm release of the new-architecture migration, including the changes recorded below for the local aenv-next prereleases and the 0.9.11 candidate.

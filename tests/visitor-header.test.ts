@@ -53,8 +53,8 @@ describe('X-Tier0-Visitor', () => {
     expect(code(() => parseVisitorHeader(VECTOR))).toBe('VISITOR_CONFIGURATION_INVALID');
   });
 
-  it('accepts a machine visitor, Preview, an active role and no roles', () => {
-    expect(parse(encode(claims({ sub_type: 'machine', sub: 't0w_abc', grant: '', app_roles: [] })))).toMatchObject({ subType: 'machine', grant: '', appRoles: [] });
+  it('accepts employee Preview, an active role and no roles', () => {
+    expect(parse(encode(claims({ app_roles: [] })))).toMatchObject({ subType: 'employee', appRoles: [] });
     expect(parse(encode(claims({ runtime: 'preview', app_roles: ['manager', 'viewer'], active_role: 'viewer' })))).toMatchObject({
       runtime: 'preview', appRoles: ['manager', 'viewer'], activeRole: 'viewer',
     });
@@ -100,6 +100,7 @@ describe('X-Tier0-Visitor', () => {
     ['a workspace with spaces', { ws: ' 1001' }],
     ['a workspace beyond int64', { ws: '9223372036854775808' }],
     ['an employee without a grant', { grant: '' }],
+    ['a retired machine visitor without a grant', { sub_type: 'machine', sub: 't0w_abc', grant: '', app_roles: [] }],
     ['a machine visitor with a grant', { sub_type: 'machine', sub: 't0w_abc', grant: 'g-1', app_roles: [] }],
     ['another App', { app: '11111111-2222-4333-8444-555555555555' }],
     ['an unknown runtime', { runtime: 'staging' }],
