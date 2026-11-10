@@ -1,9 +1,8 @@
 import { setTimeout as delay } from 'node:timers/promises';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { jwtAuthenticator, wsconnect, type NatsConnection } from '@nats-io/nats-core';
 import { createUser } from '@nats-io/nkeys';
 import { createClient } from '../src/client.js';
-import type { AppRuntime } from '../src/runtime.js';
 import type { StreamMessage } from '../src/streams/messages.js';
 
 // Fixture HTTP adapter: POST /openapi/v2/stream-messages/connect uses the production Go issuer.
@@ -17,8 +16,7 @@ import type { StreamMessage } from '../src/streams/messages.js';
 const fixture = process.env.TIER0_STREAM_MESSAGES_FIXTURE_URL;
 const control = process.env.TIER0_STREAM_MESSAGES_FIXTURE_CONTROL_URL;
 const topic = process.env.TIER0_STREAM_MESSAGES_FIXTURE_TOPIC ?? 'sdk/contract';
-const runtimeKey = Symbol.for('tier0.sdk.app-runtime.v1');
-const runtimeGlobal = globalThis as typeof globalThis & { [runtimeKey]?: AppRuntime };
+const appId = process.env.TIER0_STREAM_MESSAGES_FIXTURE_APP_ID ?? '73ed9aae-8526-46ca-a70e-a70eef87c456';
 type Stats = {
   connections: number;
   subscriptions: number;
@@ -36,7 +34,7 @@ async function mintNativeTicket(publicKey: string): Promise<NativeTicket> {
     method: 'POST', signal: AbortSignal.timeout(3_000),
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      appId: runtimeGlobal[runtimeKey]!.appId, clientPublicKey: publicKey,
+      appId, clientPublicKey: publicKey,
       topics: [{ topic, publish: true, subscribe: false }],
     }),
   });
@@ -63,45 +61,38 @@ async function until<T>(read: () => Promise<T>, accept: (value: T) => boolean, t
 describe.skipIf(!fixture).sequential('Stream messages production Go issuer + native NATS Core contract', () => {
   let publisher: ReturnType<typeof createClient>;
   let subscriber: ReturnType<typeof createClient>;
-  let previousRuntime: AppRuntime | undefined;
   let errors: string[];
   let tickets: { clientPublicKey: string; expiresAt: string; userJwt: string }[];
 
   beforeEach(async () => {
     if (control) await fixtureControl('/__fixture/broker/start', 'POST');
-    publisher = createClient({ transportTimeoutMs: 3_000 });
-    subscriber = createClient({ transportTimeoutMs: 3_000 });
+    vi.stubEnv('TIER0_APP_ID', appId);
+    // A server client with its own key; the fixture issues tickets without checking it.
+    const recording = (async (input, init) => {
+      const response = await fetch(input, init);
+      if (response.ok && String(input).endsWith('/openapi/v2/stream-messages/connect')) {
+        const ticket = await response.clone().json() as { expiresAt: string; userJwt: string };
+        tickets.push({ clientPublicKey: (JSON.parse(String(init?.body)) as { clientPublicKey: string }).clientPublicKey, ...ticket });
+      }
+      return response;
+    }) as typeof fetch;
+    const config = { apiHost: fixture!.replace(/\/$/, ''), apiKey: 'sk-app-ws16_fixture', fetch: recording, transportTimeoutMs: 3_000 };
+    publisher = createClient(config);
+    subscriber = createClient(config);
     errors = []; tickets = [];
     publisher.streams.messages.onError(error => errors.push(error.errorCode));
     subscriber.streams.messages.onError(error => errors.push(error.errorCode));
-    previousRuntime = runtimeGlobal[runtimeKey];
-    // Exact SWE bridge behavior: symbol injection before App calls, no installAppRuntime.
-    runtimeGlobal[runtimeKey] = {
-      appId: process.env.TIER0_STREAM_MESSAGES_FIXTURE_APP_ID ?? '73ed9aae-8526-46ca-a70e-a70eef87c456',
-      request: async (path, body, { signal }) => {
-        const response = await fetch(new URL(path, fixture!), {
-          method: 'POST', redirect: 'manual', signal,
-          headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-        });
-        if (response.ok) {
-          const ticket = await response.clone().json() as { expiresAt: string; userJwt: string };
-          tickets.push({ clientPublicKey: (body as { clientPublicKey: string }).clientPublicKey, ...ticket });
-        }
-        return response;
-      },
-    };
   });
   afterEach(async () => {
     await Promise.all([publisher?.dispose(), subscriber?.dispose()]);
-    if (previousRuntime) runtimeGlobal[runtimeKey] = previousRuntime;
-    else delete runtimeGlobal[runtimeKey];
+    vi.unstubAllEnvs();
     if (control) {
       await fixtureControl('/__fixture/broker/start', 'POST');
       await until(() => fixtureControl('/__fixture/stats'), stats => stats.connections === 0 && stats.subscriptions === 0);
     }
   });
 
-  it('autodetects the SWE symbol and delivers via real TLS, JWT and independent nonce-auth keys', async () => {
+  it('delivers via real TLS, JWT and independent nonce-auth keys', async () => {
     const received: StreamMessage[] = [];
     const sub = await subscriber.streams.messages.use({ topic }).subscribe(message => { received.push(message); });
     const sent = await publisher.streams.messages.use({ topic }).publish({ text: 'SDK contract' }, { correlationId: 'sdk-native-wss' });

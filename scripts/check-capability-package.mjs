@@ -22,7 +22,7 @@ const server = createServer(async (req, res) => {
   requests++;
   invalidRequest ||= req.url !== '/openapi/v2/capabilities/discover' || req.method !== 'POST' || body !== '{}' ||
     req.headers.authorization !== undefined || req.headers['x-api-key'] !== 'installed-sdk-fixture' ||
-    req.headers['x-tier0-app-data-subject'] !== undefined || req.headers['idempotency-key'] !== undefined;
+    req.headers['idempotency-key'] !== undefined;
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(response));
 });
@@ -34,7 +34,7 @@ try {
     cjs: require('@tier0/sdk-v2'),
   };
   for (const [mode, sdk] of Object.entries(modules)) {
-    const client = sdk.createClient({ apiHost, apiKey: 'installed-sdk-fixture', unsV2AppDataSubject: 'fixture.data.subject' });
+    const client = sdk.createClient({ apiHost, apiKey: 'installed-sdk-fixture' });
     for (const vector of vectors) {
       response = vector.response;
       const before = requests;
@@ -49,7 +49,7 @@ try {
       assert.equal(requests - before, 1, `${mode}: discovery must not retry`);
     }
   }
-  assert.equal(invalidRequest, false, 'Discovery must send only the authenticated empty request, without App data delegation');
+  assert.equal(invalidRequest, false, 'Discovery must send only the authenticated empty request');
   console.log(`Installed ${pkg.name}@${pkg.version}: ${vectors.length} shared vectors passed via ESM/CJS and ${requests} local HTTP requests. Not deployed App acceptance.`);
 } finally {
   server.closeAllConnections();

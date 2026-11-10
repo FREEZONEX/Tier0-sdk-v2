@@ -6,8 +6,8 @@ export interface MQTTConfig {
    * - 平台 `/openapi/v2/info` 返回的原始 `mqttBroker`（如 `tcp://host:1883`，
    *   建议先用 {@link toWebSocketUrl} 归一后再传入，见 `@tier0/sdk-v2/mq` 的 broker 工具）。
    *
-   * 在 Tier0 预览和部署里不要传：SDK 只有在用 `TIER0_MQTT_URL`（`mqtt://`）时才走 TCP 经节点代理，
-   * 显式给的 host 会按 WebSocket 连接，经代理连不上。
+   * 在 Tier0 预览和部署里不要传：平台注入 `TIER0_MQTT_HOST` / `TIER0_MQTT_PORT`（沙箱能连到的
+   * broker 入口），不传 host 时 SDK 读它们（有 `TIER0_MQTT_URL` 时它优先）。
    */
   host?: string;
   /** WebSocket port fallback when host has no embedded WebSocket port. */
@@ -25,11 +25,11 @@ export interface MQTTConfig {
    * `connect()` may change it and refreshes automatically derived identity
    * fields; once a client exists, disconnect and create a new client to
    * change it.
-   * Leave it unset in the platform. On the server no password is sent: the
-   * node proxy puts in the App's key; username `<ws>&open` and clientId
-   * `<ws>&h.<app>.<random>` come from `TIER0_WORKSPACE_ID` and
-   * `TIER0_APP_ID`. In the browser the page runtime gives a
-   * fresh token for every connection.
+   * Leave it unset in the platform: without it the SDK uses `TIER0_API_KEY`,
+   * the App's key the platform puts in the server process environment
+   * (secret), and derives username and clientId from it. Browsers do not
+   * connect to the broker in the platform: the App's server subscribes and
+   * forwards what a visitor may see.
    */
   password?: string;
   keepAlive?: number;

@@ -72,18 +72,12 @@ describe('credential source selection', () => {
     expect(received.every(r => r.key === 'user-a' && r.auth === undefined)).toBe(true);
   });
 
-  it('preserves inherited transport limits and delegated subject in standalone clients', async () => {
+  it('preserves inherited transport limits in standalone clients', async () => {
     const config = Object.assign(Object.create({ unsV2MaxResponseBytes: 1 }), { apiHost: origin, apiKey: 'user-a' });
     await expect(createSourceClient(config).documents.get({ id: '101' })).rejects.toThrow();
     await expect(createStreamClient(config).observations.get({ id: '202' })).rejects.toThrow();
     await expect(createUnsDataClient(config).recordFind({ collectionId: 'orders' })).rejects.toThrow();
     expect(received).toHaveLength(3);
-    const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response(JSON.stringify({
-      code: 200, msg: '', requestId: 'fixture', data: { count: 1, capped: false },
-    })));
-    const delegated = Object.assign(Object.create({ unsV2AppDataSubject: 'a.employee.c' }), { apiHost: origin, apiKey: 'user-a', fetch });
-    await createUnsDataClient(delegated).recordCount({ collectionId: 'orders' });
-    expect(new Headers(fetch.mock.calls[0][1]?.headers).get('x-tier0-app-data-subject')).toBe('a.employee.c');
   });
   it('uses the environment only when all credential properties are absent', async () => {
     vi.stubEnv('TIER0_API_KEY', 'shared-env');
@@ -114,7 +108,7 @@ describe('credential source selection', () => {
     expect(received).toEqual([{ path: '/openapi/v2/auth/whoami', key: undefined, auth: undefined, storage: false }]);
   });
 
-  it('preserves non-enumerable valid credential sources and employee delegation', async () => {
+  it('preserves non-enumerable valid credential sources', async () => {
     vi.stubEnv('TIER0_API_KEY', 'shared-env');
     const syncConfig = Object.defineProperty({ apiHost: origin }, 'getApiKey', { value: () => 'user-b', enumerable: false });
     const asyncConfig = Object.defineProperty({ apiHost: origin }, 'apiKeyProvider', { value: async () => 'user-a', enumerable: false });
@@ -122,12 +116,6 @@ describe('credential source selection', () => {
     expect(a.userID).toBe(2);
     expect(b.userID).toBe(1);
     expect(received.map(r => r.key).sort()).toEqual(['user-a', 'user-b']);
-    const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response(JSON.stringify({
-      code: 200, msg: 'ok', requestId: 'r', data: { count: 1, capped: false },
-    })));
-    const delegated = Object.defineProperty({ apiHost: origin, apiKey: 'user-a', fetch }, 'unsV2AppDataSubject', { value: 'a.employee.c', enumerable: false });
-    await createClient(delegated).uns.recordCount({ collectionId: 'orders' });
-    expect(new Headers(fetch.mock.calls[0][1]?.headers).get('x-tier0-app-data-subject')).toBe('a.employee.c');
   });
 
   it.each(['http', 'cloud', 'stream', 'sse', 'upload', 'download'] as const)(

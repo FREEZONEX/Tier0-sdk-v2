@@ -234,11 +234,7 @@ export function assertEventId(value: string): void {
  */
 export type UnsV2RecordSubscribeRequest = Pick<CloudRecordSubscribeReq, 'collectionIds' | 'recordIds'>;
 
-/**
- * A committed record change. Events carry identities only: read the record to
- * see its data. `restricted`: the collection has employee data rules, so who
- * may see this record depends on the employee (see `data.subscribe`).
- */
+/** A committed record change. Events carry identities only: read the record to see its data. */
 export interface UnsV2RecordChangeEvent {
   type: 'change';
   /** Stream position (also the frame id); resume after it with `lastEventId`. */
@@ -248,7 +244,6 @@ export interface UnsV2RecordChangeEvent {
   revision: number;
   change: 'record' | 'delete';
   occurredAt: number;
-  restricted: boolean;
 }
 
 export type UnsV2SubscriptionEvent =
@@ -265,8 +260,7 @@ export type UnsV2SubscriptionEvent =
 function changeEvent(value: unknown): UnsV2RecordChangeEvent | undefined {
   if (!record(value) || typeof value.eventId !== 'string' || typeof value.collectionId !== 'string' ||
       typeof value.recordId !== 'string' || typeof value.revision !== 'number' || !Number.isSafeInteger(value.revision) ||
-      (value.change !== 'record' && value.change !== 'delete') || typeof value.occurredAt !== 'number' ||
-      typeof value.restricted !== 'boolean') return undefined;
+      (value.change !== 'record' && value.change !== 'delete') || typeof value.occurredAt !== 'number') return undefined;
   return {
     type: 'change',
     eventId: value.eventId,
@@ -275,7 +269,6 @@ function changeEvent(value: unknown): UnsV2RecordChangeEvent | undefined {
     revision: value.revision,
     change: value.change,
     occurredAt: value.occurredAt,
-    restricted: value.restricted,
   };
 }
 
@@ -300,7 +293,7 @@ export class UnsV2ClientCore {
     }
     let response: Awaited<ReturnType<CloudTransport['postText']>>;
     try {
-      response = await this.transport.postText(path, body, options, name);
+      response = await this.transport.postText(path, body, options);
     } catch (error) {
       if (!(error instanceof CloudTransportError)) throw error;
       const message = error.kind === 'TRANSPORT_TIMEOUT'
@@ -368,7 +361,7 @@ export class UnsV2ClientCore {
     const path = UNS_V2_STREAM_OPERATIONS.recordSubscribe.path + (query.size ? `?${query}` : '');
     let opened: Awaited<ReturnType<CloudTransport['getEventStream']>>;
     try {
-      opened = await this.transport.getEventStream(path, options, name);
+      opened = await this.transport.getEventStream(path, options);
     } catch (error) {
       if (!(error instanceof CloudTransportError)) throw error;
       if (error.kind === 'TRANSPORT_ABORTED') return;

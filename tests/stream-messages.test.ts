@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createUser, fromPublic } from '@nats-io/nkeys';
 import { jwtAuthenticator, wsconnect } from '@nats-io/nats-core';
 import { createClient } from '../src/client.js';
-import { installAppRuntime } from '../src/runtime.js';
 
 vi.mock('@nats-io/nats-core', async importOriginal => ({
   ...await importOriginal<typeof import('@nats-io/nats-core')>(), wsconnect: vi.fn(),
@@ -14,7 +13,6 @@ const subject = 'appmsg.v1.w7.tY2hhdC9yb29tLTE.p.dXNlcjox';
 const incoming = { version: 'stream-messages/v1', messageId: id, payload: { hello: 'world' } };
 const tick = async () => { for (let n = 0; n < 30; n++) await Promise.resolve(); };
 const clients: ReturnType<typeof createClient>[] = [];
-let uninstall: (() => void) | undefined;
 
 function connection() {
   let callback: (error: Error | null, msg: { data: Uint8Array; subject: string }) => void;
@@ -59,21 +57,21 @@ function setup(overrides: Record<string, unknown> = {}) {
       ...overrides,
     });
   });
-  uninstall = installAppRuntime({ appId: '8a5b05e5-13a0-4985-b23d-6a1e1e87ba70', request });
-  const client = createClient(); clients.push(client);
+  vi.stubEnv('TIER0_APP_ID', '8a5b05e5-13a0-4985-b23d-6a1e1e87ba70');
+  // A server client with the App's key: every issuer call is one POST through fetch.
+  const fetch = (async (url: string, init: RequestInit) => request(new URL(url).pathname, JSON.parse(String(init.body)))) as unknown as typeof globalThis.fetch;
+  const client = createClient({ apiHost: 'https://cloud.example', apiKey: 'sk-app-ws16_fixture', fetch }); clients.push(client);
   return { client, request, connections, handle: client.streams.messages.use({ topic }) };
 }
 
 beforeEach(() => { vi.useFakeTimers(); vi.mocked(wsconnect).mockReset(); });
 afterEach(async () => {
   for (const client of clients.splice(0)) await client.dispose();
-  uninstall?.(); uninstall = undefined;
-  vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks();
+  vi.useRealTimers(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.restoreAllMocks();
 });
 
-describe('Stream messages trusted runtime and NATS Core lifecycle', () => {
-  it('automatically bootstraps a browser App with a public user nkey only', async () => {
-    vi.stubGlobal('window', {});
+describe('Stream messages server client and NATS Core lifecycle', () => {
+  it('bootstraps with a public user nkey only', async () => {
     const { handle, request, connections } = setup();
     const result = await handle.publish({ hello: 'world' }, { messageId: id, correlationId: 'intent-1' });
     expect(request).toHaveBeenCalledOnce();
@@ -377,16 +375,5 @@ describe('Stream messages trusted runtime and NATS Core lifecycle', () => {
     });
     await expect(handle.publish(null)).rejects.toMatchObject({ errorCode: 'STREAM_MESSAGE_BROKER_ERROR' });
     expect(connections[0].nc.publish).toHaveBeenCalledTimes(2);
-  });
-
-  it('automatically tears down connections when the trusted App runtime unmounts', async () => {
-    const { handle, connections } = setup();
-    const sub = await handle.subscribe(vi.fn());
-    await handle.publish(null);
-    uninstall!(); await tick();
-    expect(sub.disposed).toBe(true);
-    expect(connections.every(item => item.nc.isClosed())).toBe(true);
-    expect(vi.getTimerCount()).toBe(0);
-    await expect(handle.publish(null)).rejects.toMatchObject({ errorCode: 'STREAM_MESSAGE_DISCONNECTED' });
   });
 });

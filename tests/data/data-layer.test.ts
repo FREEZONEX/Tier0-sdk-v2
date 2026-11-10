@@ -4,11 +4,10 @@ import { REBUILD_INTERVAL_MS, type EnsureResult } from '../../src/data/bootstrap
 import {
   compileCollection,
   createDataClient,
-  currentDataSubject,
   DataError,
   defineCollection,
-  runAsApp,
-  runWithRequestContext,
+  runDetached,
+  runWithAbortSignal,
   type DataClientConfig,
 } from '../../src/data/index.js';
 import { UnsV2Error } from '../../src/uns-v2/client.js';
@@ -30,7 +29,6 @@ const lines = defineCollection({
   seed: [{ _id: 'l-1', orderId: 'o-1', sku: 'S' }],
 });
 
-const SUBJECT_HEADER = 'x-tier0-app-data-subject';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 interface Sent {
@@ -411,8 +409,7 @@ describe('call deadline and cancellation', () => {
     await data.ensure();
     await withFullGate(mock, async () => {
       const controller = new AbortController();
-      const request = new Request('http://app.local/orders', { signal: controller.signal });
-      const queued = runWithRequestContext(request, () => data.collection(orders).insertOne({ code: 'A', status: 'OPEN' }));
+      const queued = runWithAbortSignal(controller.signal, () => data.collection(orders).insertOne({ code: 'A', status: 'OPEN' }));
       controller.abort();
       expect(await failed(queued)).toMatchObject({ code: 'DATA_ABORTED', status: 499, execution: 'notStarted', retry: { safe: false } });
     });
@@ -460,7 +457,6 @@ describe('bootstrap', () => {
     expect(calls).toHaveLength(1);
     expect(calls[0].body).toEqual({ collections: [compileCollection(orders), compileCollection(lines)] });
     expect((calls[0].body.collections as { indexes: unknown }[])[0].indexes).toEqual([{ path: 'code', unique: true }]);
-    expect(calls[0].headers[SUBJECT_HEADER]).toBeUndefined();
   });
 
   it('does not cache a failed ensure', async () => {
@@ -600,22 +596,22 @@ describe('bootstrap', () => {
     expect((await failed(client(opaque, { environment: 'deployed' }).ensure())).code).toBe('SCHEMA_CONFLICT');
   });
 
-  it('explains JOIN_UNSUPPORTED and DATA_RULE_FIELD conflicts like any SCHEMA_CONFLICT', async () => {
+  it('explains JOIN_UNSUPPORTED conflicts like any SCHEMA_CONFLICT', async () => {
     const conflict = fail(409, 'SCHEMA_CONFLICT', {
       conflicts: [
         { alias: 'orders', collectionId: 'c-orders', path: '', reason: 'JOIN_UNSUPPORTED' },
-        { alias: 'lines', collectionId: 'c-lines', path: 'sku', reason: 'DATA_RULE_FIELD' },
+        { alias: 'lines', collectionId: 'c-lines', path: 'sku', reason: 'TYPE_CONFLICT' },
       ],
     });
     const error = await failed(client(mockUns({ [ENSURE]: conflict })).ensure());
     expect(error.code).toBe('SCHEMA_CONFLICT');
     expect(error.message).toMatch(/orders: JOIN_UNSUPPORTED — .*schema:replace/);
-    expect(error.message).toMatch(/lines\.sku: DATA_RULE_FIELD — .*data rule/);
+    expect(error.message).toMatch(/lines\.sku: TYPE_CONFLICT — .*type cannot change/);
 
     const state = await client(mockUns({ [ENSURE]: conflict }), { environment: 'deployed' }).ensure();
     expect(state.collectionIds.get('orders')).toBe('c-orders');
     expect(state.collectionIds.get('lines')).toBe('c-lines');
-    expect(state.conflicts.map(entry => entry.reason)).toEqual(['JOIN_UNSUPPORTED', 'DATA_RULE_FIELD']);
+    expect(state.conflicts.map(entry => entry.reason)).toEqual(['JOIN_UNSUPPORTED', 'TYPE_CONFLICT']);
   });
 
   it('logs name and schema annotation hints without failing Preview or renaming an existing collection', async () => {
@@ -1326,58 +1322,58 @@ describe('transaction step validation', () => {
   });
 });
 
-describe('data subject', () => {
+describe('request abort signal', () => {
+  const COUNT_PATH = '/uns/collections/c-orders/records:count';
   const routes = () => ({
     [ENSURE]: BOTH_UNCHANGED,
-    '/uns/collections/c-orders/records:count': ok({ count: 1, capped: false }),
+    [COUNT_PATH]: ok({ count: 1, capped: false }),
     '/uns/collections/c-orders/records:bulkWrite': ok({ insertedCount: 0 }),
   });
-  const subjectOf = (entry: Sent) => entry.headers[SUBJECT_HEADER];
-  const request = (subject: string) => new Headers({ 'X-Tier0-App-Data-Subject': subject });
+  const aborted = () => {
+    const controller = new AbortController();
+    controller.abort();
+    return controller.signal;
+  };
 
-  it("forwards the request's subject to record calls but never to ensure", async () => {
-    const mock = mockUns(routes());
-    const data = client(mock);
-    await runWithRequestContext(request('h.jwt-subject.s'), () => data.collection(orders).countDocuments());
-    expect(subjectOf(mock.calls(ENSURE)[0])).toBeUndefined();
-    expect(subjectOf(mock.calls('/uns/collections/c-orders/records:count')[0])).toBe('h.jwt-subject.s');
-  });
-
-  it('keeps the subject per request across concurrent async work', async () => {
+  it('never sends a call of an aborted request', async () => {
     const mock = mockUns(routes());
     const data = client(mock);
     await data.ensure();
-    await Promise.all(
-      ['h.s-1.x', 'h.s-2.x', 'h.s-3.x'].map(subject =>
-        runWithRequestContext(request(subject), async () => {
-          await new Promise(resolve => setTimeout(resolve, 5));
-          expect(currentDataSubject()).toBe(subject);
-          return data.collection(orders).countDocuments({ by: subject });
-        }),
-      ),
-    );
-    for (const entry of mock.calls('/uns/collections/c-orders/records:count')) {
-      expect(subjectOf(entry)).toBe((entry.body.filter as { by: string }).by);
-    }
+    await expect(runWithAbortSignal(aborted(), () => data.collection(orders).countDocuments())).rejects.toMatchObject({ name: 'AbortError' });
+    expect(mock.calls(COUNT_PATH)).toHaveLength(0);
   });
 
-  it('omits the subject outside requests, in runAsApp and for seeds', async () => {
+  it('keeps the signal per request across concurrent async work', async () => {
+    const mock = mockUns(routes());
+    const data = client(mock);
+    await data.ensure();
+    const results = await Promise.allSettled([aborted(), new AbortController().signal, aborted()].map((signal, index) =>
+      runWithAbortSignal(signal, async () => {
+        await new Promise(resolve => setTimeout(resolve, 5));
+        return data.collection(orders).countDocuments({ by: index });
+      }),
+    ));
+    expect(results.map(result => result.status)).toEqual(['rejected', 'fulfilled', 'rejected']);
+    expect(mock.calls(COUNT_PATH).map(entry => entry.body.filter)).toEqual([{ by: 1 }]);
+  });
+
+  it('does not reach runDetached work, ensure or seeds', async () => {
     const mock = mockUns({ ...routes(), [ENSURE]: ensured({ alias: 'orders', collectionId: 'c-orders', status: 'created' }, { alias: 'lines', collectionId: 'c-lines' }) });
     const data = client(mock);
-    await runWithRequestContext(request('h.jwt.s'), async () => {
-      await data.collection(orders).countDocuments();
-      await runAsApp(() => data.collection(orders).countDocuments());
-    });
-    await data.collection(orders).countDocuments();
-    expect(mock.calls('/uns/collections/c-orders/records:count').map(subjectOf)).toEqual(['h.jwt.s', undefined, undefined]);
-    expect(subjectOf(mock.calls('/uns/collections/c-orders/records:bulkWrite')[0])).toBeUndefined();
+    await runWithAbortSignal(aborted(), () => runDetached(() => data.collection(orders).countDocuments()));
+    expect(mock.calls(ENSURE)).toHaveLength(1);
+    expect(mock.calls('/uns/collections/c-orders/records:bulkWrite')).toHaveLength(1);
+    expect(mock.calls(COUNT_PATH)).toHaveLength(1);
   });
 
-  it('rejects a malformed subject before any record request', async () => {
+  it('does not cancel an ensure shared with other requests when the request that started it is aborted', async () => {
     const mock = mockUns(routes());
     const data = client(mock);
-    await data.ensure();
-    await expect(runWithRequestContext(request('not a token'), () => data.collection(orders).countDocuments())).rejects.toThrow(/unsV2AppDataSubject/);
-    expect(mock.calls('/uns/collections/c-orders/records:count')).toHaveLength(0);
+    const controller = new AbortController();
+    const first = runWithAbortSignal(controller.signal, () => data.collection(orders).countDocuments());
+    controller.abort();
+    await expect(first).rejects.toMatchObject({ name: 'AbortError' });
+    expect(await data.collection(orders).countDocuments()).toMatchObject({ count: 1 });
+    expect(mock.calls(ENSURE)).toHaveLength(1);
   });
 });

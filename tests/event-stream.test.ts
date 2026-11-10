@@ -15,7 +15,6 @@ function fakeRuntime(state: ReturnType<Tier0PageRuntimeV1['getState']> = 'runnin
       listeners.get(event)!.add(listener);
       return () => listeners.get(event)!.delete(listener);
     },
-    getMqttToken: vi.fn(),
     reportAuthError: vi.fn(),
     keepAwake: vi.fn(),
   };
@@ -185,6 +184,92 @@ describe('openEventStream', () => {
     await until(() => fetch.mock.calls.length === 1);
     handle.close();
     live.end();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('openEventStream on a hidden page', () => {
+  /** A minimal `document` whose visibility the test switches. */
+  function fakeDocument(state: 'visible' | 'hidden' = 'visible') {
+    const target = new EventTarget() as EventTarget & { visibilityState: string };
+    target.visibilityState = state;
+    (globalThis as Record<string, unknown>).document = target;
+    return {
+      show: () => { target.visibilityState = 'visible'; target.dispatchEvent(new Event('visibilitychange')); },
+      hide: () => { target.visibilityState = 'hidden'; target.dispatchEvent(new Event('visibilitychange')); },
+    };
+  }
+
+  afterEach(() => {
+    delete (globalThis as Record<string, unknown>).document;
+    vi.restoreAllMocks();
+  });
+
+  it('closes the connection while hidden and resumes from the last event id when visible', async () => {
+    const page = fakeDocument();
+    const heads: Headers[] = [];
+    const signals: AbortSignal[] = [];
+    const streams: ReturnType<typeof stream>[] = [];
+    const fetch = vi.fn(async (_url: unknown, init?: RequestInit) => {
+      heads.push(new Headers(init?.headers));
+      signals.push(init!.signal!);
+      const next = stream(init?.signal);
+      streams.push(next);
+      return next.response;
+    });
+    const onResume = vi.fn();
+    const events: string[] = [];
+    const handle = openEventStream({ url: '/s', fetch: fetch as typeof globalThis.fetch, onEvent: (event) => events.push(event.data), onResume });
+    await until(() => heads.length === 1);
+    streams[0].write('id: e.7\nevent: change\ndata: one\n\n');
+    await until(() => events.length === 1);
+    page.hide();
+    await until(() => signals[0].aborted);
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(fetch).toHaveBeenCalledTimes(1);
+    page.show();
+    await until(() => heads.length === 2);
+    expect(heads[1].get('last-event-id')).toBe('e.7');
+    expect(onResume).not.toHaveBeenCalled();
+    handle.close();
+  });
+
+  it('does not connect while the page starts hidden', async () => {
+    const page = fakeDocument('hidden');
+    const live = stream();
+    const fetch = vi.fn(async () => live.response);
+    const handle = openEventStream({ url: '/s', fetch, onEvent: () => undefined });
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(fetch).not.toHaveBeenCalled();
+    page.show();
+    await until(() => fetch.mock.calls.length === 1);
+    handle.close();
+  });
+
+  it('keeps the connection with pauseWhenHidden: false', async () => {
+    const page = fakeDocument();
+    const signals: AbortSignal[] = [];
+    const fetch = vi.fn(async (_url: unknown, init?: RequestInit) => {
+      signals.push(init!.signal!);
+      return stream(init?.signal).response;
+    });
+    const handle = openEventStream({ url: '/s', fetch: fetch as typeof globalThis.fetch, onEvent: () => undefined, pauseWhenHidden: false });
+    await until(() => signals.length === 1);
+    page.hide();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(signals[0].aborted).toBe(false);
+    handle.close();
+  });
+
+  it('stops listening for visibility after close()', async () => {
+    const page = fakeDocument();
+    const fetch = vi.fn(async (_url: unknown, init?: RequestInit) => stream(init?.signal).response);
+    const handle = openEventStream({ url: '/s', fetch: fetch as typeof globalThis.fetch, onEvent: () => undefined });
+    await until(() => fetch.mock.calls.length === 1);
+    handle.close();
+    page.hide();
+    page.show();
     await new Promise((resolve) => setTimeout(resolve, 30));
     expect(fetch).toHaveBeenCalledTimes(1);
   });

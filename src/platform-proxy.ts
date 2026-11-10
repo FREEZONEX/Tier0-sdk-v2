@@ -1,11 +1,11 @@
 /**
- * Platform proxy mode (design 21.28, revised 2026-11-03 "代理注入长期 App
- * Key"). Inside a Tier0 Preview or deployment the VM holds no platform
- * credential: no `TIER0_API_KEY`, no file. The node's `sbx-api-proxy` knows
- * the VM by its source address and injects the App's long-lived API key on
- * the way to Backend and EMQX; Preview and deployments use the same key. The
- * SDK therefore reads no credential and sends none; it marks each request with
- * `X-Tier0-SDK: 1`, which the proxy requires.
+ * Platform proxy mode (design 21.28): a runtime that holds no platform
+ * credential, where the node's `sbx-api-proxy` knows the VM by its source
+ * address and injects the App's key on the way to Backend and EMQX. The SDK
+ * then reads no credential and sends none; it marks each request with
+ * `X-Tier0-SDK: 1`, which the proxy requires. Today the platform puts the
+ * App's key into the App's process as `TIER0_API_KEY`, so Apps never run in
+ * this mode; it stays for runtimes without a key.
  *
  * The mode is on when `TIER0_RUNTIME` is `deployed` or `preview` and
  * `TIER0_API_KEY` is not set. Any other value of `TIER0_RUNTIME` without

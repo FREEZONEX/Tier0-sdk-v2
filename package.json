@@ -1,6 +1,6 @@
 {
   "name": "@tier0/sdk-v2",
-  "version": "0.10.0-aenv.9",
+  "version": "0.10.0-aenv.11",
   "description": "Tier0 Cloud new-architecture SDK for TypeScript and JavaScript",
   "license": "MIT",
   "type": "module",
@@ -172,16 +172,6 @@
       }
     },
     "./package.json": "./package.json",
-    "./runtime": {
-      "import": {
-        "types": "./dist/esm/runtime.d.ts",
-        "default": "./dist/esm/runtime.js"
-      },
-      "require": {
-        "types": "./dist/cjs/runtime.d.ts",
-        "default": "./dist/cjs/runtime.js"
-      }
-    },
     "./streams": {
       "import": {
         "types": "./dist/esm/streams/index.d.ts",

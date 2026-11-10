@@ -12,22 +12,12 @@ function markdown(dir) {
 
 const files = ['README.md', ...markdown('skills')];
 
-test('guidance never tells an App that members.listApp is unavailable through the node proxy', () => {
+test('guidance never tells an App that members.listApp is unavailable', () => {
   for (const file of files) {
     for (const line of readFileSync(file, 'utf8').split('\n')) {
       if (!/listApp|access-members\/list/.test(line)) continue;
       assert.doesNotMatch(line, /当前不可用|不转发 `\/openapi\/v2\/apps\/access-members\/list`/, `${file}: ${line}`);
     }
-  }
-});
-
-test('the proxy path list names apps/access-members/list as forwarded, not refused', () => {
-  for (const file of ['README.md', 'skills/tier0-sdk-v2/SKILL.md']) {
-    const line = readFileSync(file, 'utf8').split('\n').find(text => text.startsWith('代理只转发'));
-    assert.ok(line, file);
-    const [forwarded, refused] = line.split('白名单外的接口');
-    assert.match(forwarded, /apps\/access-members\/list/, file);
-    assert.doesNotMatch(refused, /members\.listApp/, file);
   }
 });
 

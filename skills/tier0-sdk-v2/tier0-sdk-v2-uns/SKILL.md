@@ -5,7 +5,7 @@ description: 使用 @tier0/sdk-v2 的 client.uns 完成新架构集合、Schema�
 
 # UNS 数据操作
 
-UNS 管数据命名空间、集合、Record 和 Sample；外部连接与脚本分别用 [Source](../tier0-sdk-v2-source/SKILL.md)、[Stream](../tier0-sdk-v2-stream/SKILL.md)。服务端 `createClient()` 在平台里读 TIER0_API_HOST、节点代理注入 App 的 Key，本地开发读 TIER0_API_HOST / TIER0_API_KEY，或显式传 apiHost/apiKey。数据权限不自动授予管理权限：管理操作中 App 凭证只能调用本 App 集合的 appCollectionsEnsure / SchemaReplace / Archive / Restore；appDataPolicyGet/Update 的调用方必须是持有 uns.write 的登录会话、持有 uns.write 且 full_access、不绑定 App 的 personal / agent Key，或治理会话；运行时 App 凭证不能管理数据授权。
+UNS 管数据命名空间、集合、Record 和 Sample；外部连接与脚本分别用 [Source](../tier0-sdk-v2-source/SKILL.md)、[Stream](../tier0-sdk-v2-stream/SKILL.md)。服务端 `createClient()` 读 TIER0_API_HOST / TIER0_API_KEY（平台里由平台注入 App 的 Key），或显式传 apiHost/apiKey。数据权限不自动授予管理权限：管理操作中 App 凭证只能调用本 App 集合的 appCollectionsEnsure / SchemaReplace / Archive / Restore；appDataPolicyGet/Update 的调用方必须是持有 uns.write 的登录会话、持有 uns.write 且 full_access、不绑定 App 的 personal / agent Key，或治理会话；新增授权（新集合、放宽权限、从 disabled 重新启用）只接受工作区 Owner/Admin 的人工会话或平台导入，其他调用方回 403（reason `app_grant_admin_required` / `app_grant_agent_forbidden`），收窄和移除不受此限；运行时 App 凭证不能管理数据授权。
 
 先按[命名空间指导](references/namespace.md)区分凭证：`namespace()` 走 OpenAPI，但当前不对 App Key 开放；App 查询可用集合走 `dataAppContext`，不能改用同样受限的 `appCollectionsList`。Agent / Personal Key 也须满足当前工作空间权限；不要从“使用 SDK / MCP”推定权限。
 

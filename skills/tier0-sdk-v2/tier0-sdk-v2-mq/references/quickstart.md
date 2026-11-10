@@ -45,7 +45,7 @@ export async function subscribeTelemetry(
 
 回调是 (topic,payload)，payload 为字符串。subscribe 返回 void，订阅失败通过 error 事件，不把函数返回当 broker SUBACK。此例独占连接；共享连接只退订自己的 handler，不关闭其他消费者。
 
-+ 匹配一层，# 匹配多层，订阅范围必须属于任务和主题授权。主题和消息格式以目标平台的实际契约为准。App 服务端订阅新 UNS Record 变更用 `@tier0/sdk-v2/data` 的 `data.subscribe`（`records:subscribe` 服务端推送），不是 MQTT 主题。
++ 匹配一层，# 匹配多层，订阅范围必须属于任务和主题授权。在 Tier0 App 里用平台注入的 App Key 时，主题只能在 App 自己的命名空间里：`filter` / `topic` 用 `appTopic('telemetry/#')` 这样拼（`apps/<TIER0_APP_ID>/<TIER0_RUNTIME>/…`），其他主题会被拒绝。主题和消息格式以目标平台的实际契约为准。App 服务端订阅新 UNS Record 变更用 `@tier0/sdk-v2/data` 的 `data.subscribe`（`records:subscribe` 服务端推送），不是 MQTT 主题。
 
 ## 发布
 

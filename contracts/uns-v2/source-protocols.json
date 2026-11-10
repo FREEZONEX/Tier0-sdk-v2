@@ -1,15 +1,15 @@
 {
   "provenance": {
     "repository": "FREEZONEX/Tier0-Enterprise-New",
-    "revision": "d0874671d59bf6e292f0e93a2a94edb9d9b24257",
+    "revision": "23388b2d04b692ebb798fabc89c15541d952a092",
     "path": "backend/internal/domain/unsv2/contract_generated.go",
-    "sha256": "8c38aa924dc540adb031d91fe448a1af341870cba4a6eb500034fc904ba62cad"
+    "sha256": "ef0207033e2e27de102c76182600b08db413e2decafaa3c3d94bdd17feaa70ab"
   },
   "description": "Shared wire schemas, not a claim that every target implements every protocol. Query the target protocols/list for operations, credentialKinds and explicit unsupported capabilities.",
   "schemas": {
     "SourceDefinition": {
       "additionalProperties": false,
-      "description": "Select the matching protocol configuration. Native file-read uses file.resources, edge-sql uses sql.query, and PI uses http.parameters.",
+      "description": "Unified Source connection. Choose the matching protocol object; edge-sql uses one of sql.query (preset) or sql.queries (named). Query the target protocol catalog for installed execution, TLS and state capabilities.",
       "properties": {
         "credentialRef": {
           "description": "Opaque existing credential reference returned for authorized editing and accepted on input. It contains no secret. Provision secrets only through create.credentials or credentials/update; secret material is never returned in the document.",
@@ -926,12 +926,12 @@
             "sql:tool-loans",
             "sql:tool-sharpenings",
             "sql:tool-suppliers",
-            "sql:quality-inspections",
             "sql:wms-schema",
             "sql:wms-inventory",
-            "sql:wms-movements"
+            "sql:wms-movements",
+            "sql:quality-inspections"
           ],
-          "description": "Select an Edge-owned read-only query with bound parameters. WMS business queries require a declared table and column mapping."
+          "description": "Preset approved business SELECT, supported on Cloud and Enterprise. Tool/WMS presets require PostgreSQL; quality-inspections requires SQL Server. Fixed reads support keyset scan; verify-full TLS is required. Query and queries are mutually exclusive."
         },
         "wms": {
           "$ref": "#/components/schemas/WMSMapping"
@@ -949,7 +949,7 @@
             "minLength": 1,
             "maxLength": 32768
           },
-          "description": "Named queries are declared only on Source, never on new Stream acquisition. Target catalog determines capability: Cloud PostgreSQL/MySQL preview is transaction-read-only with read mode; SQL Server has no public preview mode and reports potentially-writing Stream execution requiring explicit management authorization. No named-query scan pagination. Supported preview limit is 1..100 and timeoutMs 100..10000."
+          "description": "Source-owned named queries on Cloud and Enterprise; never override SQL in Stream acquisition. PostgreSQL/MySQL use read-only transactions and bounded read. SQL Server has no public preview or live-query dryRun; explicitly authorized Stream execution is potentially writing and uses effect journaling. No named-query scan. limit 1..100; timeoutMs 100..10000."
         },
         "tlsMode": {
           "type": "string",
@@ -1086,7 +1086,7 @@
     },
     "NativeSourceDocument": {
       "additionalProperties": false,
-      "description": "Select the matching protocol configuration. Native file-read uses file.resources, edge-sql uses sql.query, and PI uses http.parameters.",
+      "description": "Unified Source connection. Choose the matching protocol object; edge-sql uses one of sql.query (preset) or sql.queries (named). Query the target protocol catalog for installed execution, TLS and state capabilities.",
       "properties": {
         "credentialRef": {
           "description": "Opaque existing credential reference returned for authorized editing and accepted on input. It contains no secret. Provision secrets only through create.credentials or credentials/update; secret material is never returned in the document.",
@@ -1962,6 +1962,21 @@
           "type": "object",
           "additionalProperties": true,
           "description": "Protocol acquisition only; cannot override connection or credentials."
+        },
+        "alias": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
+          "maxLength": 64
+        },
+        "resources": {
+          "type": "array",
+          "maxItems": 1000,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          }
         }
       },
       "oneOf": [
@@ -1992,6 +2007,20 @@
                   "configRevision"
                 ]
               }
+            ]
+          }
+        }
+      ],
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "alias"
+            ]
+          },
+          "then": {
+            "required": [
+              "resources"
             ]
           }
         }

@@ -1,364 +1,128 @@
-// Server-only entry point. Browser HTTP clients remain independent of node:crypto.
-import { createHash, createPublicKey, verify, type KeyObject } from 'node:crypto';
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
-import { APP_REQUEST_IDENTITY_CONTRACT as contract } from './app-identity-contract.generated.js';
+// Server-only entry point: the App's view of the request it is serving.
 import { getEnvVar } from './runtime-env.js';
 
-export const APP_REQUEST_IDENTITY_HEADER = contract.header;
-
-export class AppRequestIdentityError extends Error {
-  constructor(public readonly code: 'APP_IDENTITY_INVALID' | 'APP_IDENTITY_CONFIGURATION_INVALID') {
-    super(code);
-    this.name = 'AppRequestIdentityError';
-  }
-}
-
-export interface VerifiedCloudAppUser {
-  readonly kind: 'gateway-user';
-  readonly userID: string;
-  readonly workspaceID: string;
-  readonly appID: string;
-  readonly roleKeys: readonly string[];
-  readonly requestID: string;
-  readonly issuedAt: number;
-  readonly expiresAt: number;
-  readonly verificationKeyID: string;
-}
-
-export interface CloudAppIdentityAuthority {
-  appID: string;
-  workspaceID: string;
-  /** Pinned server configuration, never a key or URL taken from the request. */
-  publicKeys: unknown;
-}
-
-export interface CloudAppIdentityRequest {
-  assertion: string | undefined;
-  method: string;
-  requestURI: string;
-  /** Exact bytes received from the gateway, before JSON parsing or normalization. */
-  body: Uint8Array;
-}
-
-const invalid = () => new AppRequestIdentityError('APP_IDENTITY_INVALID');
-const invalidConfig = () => new AppRequestIdentityError('APP_IDENTITY_CONFIGURATION_INVALID');
-const appPattern = new RegExp(contract.appIDPattern);
-const kidPattern = new RegExp(contract.keyIDPattern);
-const methodPattern = new RegExp(contract.methodPattern);
 const maxID = BigInt('9223372036854775807');
+/** A positive decimal int64 without sign or leading zero. */
 const validID = (value: unknown): value is string =>
   typeof value === 'string' && /^[1-9]\d{0,18}$/.test(value) && BigInt(value) <= maxID;
 const isObject = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === 'object' && !Array.isArray(value);
-const exactKeys = (value: Record<string, unknown>, keys: readonly string[]) =>
-  Object.keys(value).length === keys.length && Object.keys(value).every((key) => keys.includes(key));
-const validString = (value: unknown, maxBytes: number): value is string =>
-  typeof value === 'string' && value.length > 0 && Buffer.byteLength(value) <= maxBytes &&
-  Buffer.from(value).toString('utf8') === value && !/[\u0000-\u001f\u007f-\u009f]/.test(value);
-const decode = (value: string) => {
-  if (!/^[A-Za-z0-9_-]+$/.test(value)) throw invalid();
-  const bytes = Buffer.from(value, 'base64url');
-  if (bytes.toString('base64url') !== value) throw invalid();
-  return bytes;
-};
 
-/** Verifies request provenance, not business authorization or delegated UNS permissions. */
-export function createCloudAppRequestVerifier(authority: CloudAppIdentityAuthority) {
-  if (!isObject(authority) || typeof authority.appID !== 'string' || !appPattern.test(authority.appID) || !validID(authority.workspaceID)) throw invalidConfig();
-  const appID = authority.appID;
-  const workspaceID = authority.workspaceID;
-  const keys = new Map<string, KeyObject>();
-  try {
-    let raw = authority.publicKeys;
-    if (typeof raw === 'string') {
-      if (Buffer.byteLength(raw) > contract.maxTokenBytes * contract.maxKeys) throw invalidConfig();
-      raw = JSON.parse(raw);
-    }
-    if (!isObject(raw) || !exactKeys(raw, ['keys']) || !Array.isArray(raw.keys) ||
-        raw.keys.length === 0 || raw.keys.length > contract.maxKeys) throw invalidConfig();
-    for (const key of raw.keys) {
-      if (!isObject(key) || !exactKeys(key, contract.publicKeyFields) || key.kty !== 'OKP' ||
-          key.crv !== 'Ed25519' || typeof key.kid !== 'string' || !kidPattern.test(key.kid) ||
-          keys.has(key.kid) || typeof key.x !== 'string' || decode(key.x).length !== 32) throw invalidConfig();
-      keys.set(key.kid, createPublicKey({ key: { kty: 'OKP', crv: 'Ed25519', x: key.x }, format: 'jwk' }));
-    }
-  } catch { throw invalidConfig(); }
+/** Set by the front door on every request it forwards to the App, after stripping any `X-Tier0-*` the client sent. */
+export const VISITOR_HEADER = 'X-Tier0-Visitor';
 
-  return (request: CloudAppIdentityRequest): VerifiedCloudAppUser => {
-    try {
-      if (typeof request.assertion !== 'string' || Buffer.byteLength(request.assertion) > contract.maxTokenBytes ||
-          !(request.body instanceof Uint8Array) || request.body.byteLength > contract.maxBodyBytes ||
-          !methodPattern.test(request.method) || !validString(request.requestURI, contract.maxURIBytes) ||
-          !request.requestURI.startsWith('/') || request.requestURI.startsWith('//')) throw invalid();
-      const parts = request.assertion.split('.');
-      if (parts.length !== 3) throw invalid();
-      const header: unknown = JSON.parse(decode(parts[0]).toString('utf8'));
-      if (!isObject(header) || !exactKeys(header, contract.requiredHeaderFields) ||
-          header.alg !== contract.algorithm || header.typ !== contract.type ||
-          typeof header.kid !== 'string' || !kidPattern.test(header.kid)) throw invalid();
-      const key = keys.get(header.kid);
-      const signature = decode(parts[2]);
-      if (!key || signature.length !== 64 ||
-          !verify(null, Buffer.from(parts[0] + '.' + parts[1], 'ascii'), key, signature)) throw invalid();
-      const claims: unknown = JSON.parse(decode(parts[1]).toString('utf8'));
-      if (!isObject(claims) || !exactKeys(claims, contract.requiredClaims) ||
-          claims.ver !== contract.version || claims.iss !== contract.issuer || claims.aud !== contract.audience ||
-          !validID(claims.sub) || claims.workspaceID !== workspaceID || claims.appID !== appID ||
-          claims.method !== request.method || claims.requestURI !== request.requestURI ||
-          typeof claims.bodySHA256 !== 'string' || !/^[a-f0-9]{64}$/.test(claims.bodySHA256) ||
-          claims.bodySHA256 !== createHash('sha256').update(request.body).digest('hex') ||
-          typeof claims.iat !== 'number' || !Number.isSafeInteger(claims.iat) || claims.iat <= 0 ||
-          typeof claims.exp !== 'number' || !Number.isSafeInteger(claims.exp) || claims.exp <= claims.iat ||
-          claims.exp - claims.iat > contract.maxTTLSeconds ||
-          typeof claims.jti !== 'string' || !/^[a-f0-9]{32}$/.test(claims.jti) ||
-          !Array.isArray(claims.roles) || claims.roles.length > contract.maxRoles ||
-          claims.roles.some((role) => !validString(role, contract.maxRoleBytes) || role.trim() !== role) ||
-          new Set(claims.roles).size !== claims.roles.length) throw invalid();
-      const now = Math.floor(Date.now() / 1000);
-      if (claims.iat > now + contract.clockSkewSeconds || now >= claims.exp + contract.clockSkewSeconds) throw invalid();
-      return Object.freeze({
-        kind: 'gateway-user' as const, userID: claims.sub, workspaceID, appID,
-        roleKeys: Object.freeze([...claims.roles] as string[]), requestID: claims.jti,
-        issuedAt: claims.iat, expiresAt: claims.exp, verificationKeyID: header.kid,
-      });
-    } catch { throw invalid(); }
-  };
-}
+/** Limit of the JSON before encoding. */
+const VISITOR_MAX_JSON_BYTES = 8192;
+/** Unpadded base64url of `VISITOR_MAX_JSON_BYTES`. */
+const VISITOR_MAX_HEADER_LENGTH = Math.ceil((VISITOR_MAX_JSON_BYTES * 4) / 3);
+const VISITOR_MAX_STRING_BYTES = 128;
+const VISITOR_FIELDS: ReadonlySet<string> = new Set(['ws', 'app', 'runtime', 'sub_type', 'sub', 'grant', 'app_roles', 'active_role']);
 
-export const VISITOR_TOKEN_HEADER = 'X-Tier0-Visitor';
+export type VisitorErrorCode = 'VISITOR_HEADER_INVALID' | 'VISITOR_CONFIGURATION_INVALID';
 
-const VISITOR_ISSUER = 'tier0-frontdoor';
-/** Design 21.0: at most 60 s valid, verified with 60 s of clock tolerance. */
-const VISITOR_MAX_TTL_SECONDS = 60;
-const VISITOR_CLOCK_SKEW_SECONDS = 60;
-const VISITOR_MAX_BYTES = 8192;
-const VISITOR_KID = /^[A-Za-z0-9_.-]{1,128}$/;
-
-export type VisitorTokenErrorCode = 'VISITOR_TOKEN_INVALID' | 'VISITOR_TOKEN_CONFIGURATION_INVALID';
-
-export class VisitorTokenError extends Error {
-  constructor(public readonly code: VisitorTokenErrorCode) {
+export class VisitorError extends Error {
+  constructor(public readonly code: VisitorErrorCode) {
     super(code);
-    this.name = 'VisitorTokenError';
+    this.name = 'VisitorError';
   }
 }
 
-/** The verified claims of a visitor token (access design 4.4). */
-export interface VerifiedVisitor {
+/** The visitor of a request, from `X-Tier0-Visitor`. */
+export interface Visitor {
   readonly subType: 'employee' | 'machine';
+  /** Employee user ID, or the call token ID of a machine visitor. */
   readonly subject: string;
+  /** Grant of an employee's access; empty for a machine visitor. */
   readonly grant: string;
   readonly workspaceID: string;
   readonly appID: string;
   readonly runtime: 'deployed' | 'preview';
-  /** Roles of this visitor in the App; in Preview, the selected "view as" roles. */
+  /** Roles of this visitor in the App; in Preview, the roles selected in "view as". */
   readonly appRoles: readonly string[];
+  /** Only in Preview's "view as". */
   readonly activeRole?: string;
-  readonly issuedAt: number;
-  readonly expiresAt: number;
-  readonly tokenID: string;
-  readonly verificationKeyID: string;
 }
 
-export interface VisitorKeySource {
-  /** Current verification keys by `kid`. Called on every verification. */
-  keys(): ReadonlyMap<string, KeyObject>;
+export interface ParseVisitorOptions {
+  /** The App the header must name. Defaults to `TIER0_APP_ID`. */
+  appID?: string;
 }
 
-/** Parses a JWKS document into Ed25519 keys by `kid`; a malformed key is skipped, so one bad entry cannot stop a rotation. */
-export function parseVisitorJwks(document: unknown): Map<string, KeyObject> {
-  const keys = new Map<string, KeyObject>();
-  if (!isObject(document) || !Array.isArray(document.keys)) throw new VisitorTokenError('VISITOR_TOKEN_CONFIGURATION_INVALID');
-  for (const key of document.keys) {
-    if (!isObject(key) || key.kty !== 'OKP' || key.crv !== 'Ed25519' || typeof key.kid !== 'string' || !VISITOR_KID.test(key.kid) || typeof key.x !== 'string') continue;
-    try {
-      keys.set(key.kid, createPublicKey({ key: { kty: 'OKP', crv: 'Ed25519', x: key.x }, format: 'jwk' }));
-    } catch {
-      // Skip it, see above.
+/** A UTF-16 surrogate without its pair, as JSON escapes like "\ud800" can produce. */
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+
+/**
+ * Raw key tokens of the top-level object, for spotting duplicates
+ * (`JSON.parse` keeps the last silently). Values of the visitor are strings
+ * and arrays of strings, so only depth 1 holds keys.
+ */
+function topLevelKeys(json: string): string[] {
+  const keys: string[] = [];
+  let depth = 0;
+  for (let i = 0; i < json.length; i += 1) {
+    const char = json[i];
+    if (char === '{' || char === '[') depth += 1;
+    else if (char === '}' || char === ']') depth -= 1;
+    else if (char === '"') {
+      const start = i;
+      for (i += 1; i < json.length && json[i] !== '"'; i += 1) if (json[i] === '\\') i += 1;
+      let next = i + 1;
+      while (next < json.length && /\s/.test(json[next])) next += 1;
+      if (depth === 1 && json[next] === ':') keys.push(json.slice(start, i + 1));
     }
   }
   return keys;
 }
 
+const bytes = (value: string) => Buffer.byteLength(value, 'utf8');
+const sized = (value: unknown, min: number, max: number): value is string =>
+  typeof value === 'string' && !LONE_SURROGATE.test(value) && bytes(value) >= min && bytes(value) <= max;
+
 /**
- * Keys from `<dir>/tier0-frontdoor.json` (design 21.7). The guest agent replaces
- * the file whole on rotation, so it is reread when `(ino, mtime_ns, size)`
- * changes; every verification sees the latest set. While a replacement cannot
- * be parsed, the last good set stays in use.
+ * Parses `X-Tier0-Visitor`: the unpadded base64url (RFC 4648 §5) of a UTF-8
+ * JSON object of at most 8192 bytes. The header is not signed; the front door
+ * is the only way into the App and replaces whatever the client sent. Parsing
+ * is strict: a byte order mark, a duplicate key, a lone UTF-16 surrogate
+ * (e.g. `"\ud800"`), an unknown or missing field, a wrong type or length, a `ws` that
+ * is not a positive decimal ID without sign or leading zero, an employee
+ * without a grant or a machine visitor with one, or an `app` other than this
+ * App's throws `VISITOR_HEADER_INVALID`. Without an App ID
+ * (`TIER0_APP_ID` unset) it throws `VISITOR_CONFIGURATION_INVALID`.
  */
-export function frontdoorKeysFromDir(dir: string | undefined = getEnvVar('TIER0_JWKS_DIR')): VisitorKeySource {
-  if (!dir?.trim()) throw new VisitorTokenError('VISITOR_TOKEN_CONFIGURATION_INVALID');
-  const path = join(dir.trim(), 'tier0-frontdoor.json');
-  let stamp: string | undefined;
-  let current = new Map<string, KeyObject>();
-  return {
-    keys() {
-      try {
-        const stat = statSync(path, { bigint: true });
-        const next = `${stat.ino}:${stat.mtimeNs}:${stat.size}`;
-        if (next !== stamp) {
-          current = parseVisitorJwks(JSON.parse(readFileSync(path, 'utf8')));
-          // `dev-` kids belong to the development signer; the platform never trusts one.
-          for (const kid of current.keys()) if (kid.startsWith('dev-')) current.delete(kid);
-          stamp = next;
-        }
-      } catch {
-        // Keep the last good set; an empty one refuses every token.
-      }
-      return current;
-    },
-  };
-}
-
-/** Without the directory, keys are fetched from the front door at this interval (design 21.0: verifiers refresh within 60 s). */
-export const FRONTDOOR_JWKS_REFRESH_MS = 60_000;
-/** An unknown `kid` triggers an early refresh at most this often, so a rotation is picked up without waiting a full interval. */
-export const FRONTDOOR_JWKS_MISS_REFRESH_MS = 10_000;
-const FRONTDOOR_JWKS_TIMEOUT_MS = 10_000;
-const FRONTDOOR_JWKS_MAX_BYTES = 64 * 1024;
-
-export interface FrontdoorKeysFromUrlOptions {
-  refreshMs?: number;
-  missRefreshMs?: number;
-  /** For tests; defaults to the global `fetch`. */
-  fetch?: typeof fetch;
-}
-
-/** A key source fed by background fetches. `ready()` resolves after the first fetch settles, successful or not. */
-export interface RefreshingVisitorKeySource extends VisitorKeySource {
-  ready(): Promise<void>;
-  /** Stops the refresh timer. */
-  close(): void;
-}
-
-/** A key set that reports lookups of an unknown `kid` (they start an early refresh). */
-class MissAwareKeys extends Map<string, KeyObject> {
-  constructor(entries: Iterable<readonly [string, KeyObject]>, private readonly onMiss: () => void) {
-    super(entries);
+export function parseVisitorHeader(value: string | null | undefined, options: ParseVisitorOptions = {}): Visitor {
+  const appID = options.appID ?? getEnvVar('TIER0_APP_ID')?.trim();
+  if (!appID) throw new VisitorError('VISITOR_CONFIGURATION_INVALID');
+  const fail = () => new VisitorError('VISITOR_HEADER_INVALID');
+  if (typeof value !== 'string' || value.length === 0 || value.length > VISITOR_MAX_HEADER_LENGTH || !/^[A-Za-z0-9_-]+$/.test(value)) throw fail();
+  const raw = Buffer.from(value, 'base64url');
+  // Only the canonical encoding: no padding, no stray trailing bits.
+  if (raw.length > VISITOR_MAX_JSON_BYTES || raw.toString('base64url') !== value) throw fail();
+  // A UTF-8 byte order mark is not part of the contract (TextDecoder would drop it silently).
+  if (raw[0] === 0xef && raw[1] === 0xbb && raw[2] === 0xbf) throw fail();
+  let claims: unknown;
+  let json: string;
+  try {
+    json = new TextDecoder('utf-8', { fatal: true }).decode(raw);
+    claims = JSON.parse(json);
+  } catch {
+    throw fail();
   }
-
-  override get(kid: string): KeyObject | undefined {
-    const key = super.get(kid);
-    if (!key) this.onMiss();
-    return key;
-  }
-}
-
-/**
- * Keys fetched from the front door's public JWKS (`https://<app>.<apps domain>/__tier0/jwks.json`, given to published
- * Apps as `TIER0_JWKS_URL`). Published Apps run without the guest agent that writes `TIER0_JWKS_DIR`. The set is
- * refreshed every `refreshMs`, and early (at most every `missRefreshMs`) when a token names an unknown `kid`; the
- * verification that saw the unknown kid still fails, the next one sees the new set. A failed or malformed fetch
- * keeps the last good set. Until the first fetch lands the set is empty and every token is refused.
- */
-export function frontdoorKeysFromUrl(url: string | undefined = getEnvVar('TIER0_JWKS_URL'), options: FrontdoorKeysFromUrlOptions = {}): RefreshingVisitorKeySource {
-  const target = url?.trim();
-  if (!target || !/^https?:\/\//i.test(target)) throw new VisitorTokenError('VISITOR_TOKEN_CONFIGURATION_INVALID');
-  const doFetch = options.fetch ?? globalThis.fetch;
-  if (typeof doFetch !== 'function') throw new VisitorTokenError('VISITOR_TOKEN_CONFIGURATION_INVALID');
-  const refreshMs = options.refreshMs ?? FRONTDOOR_JWKS_REFRESH_MS;
-  const missRefreshMs = options.missRefreshMs ?? FRONTDOOR_JWKS_MISS_REFRESH_MS;
-  let inflight: Promise<void> | undefined;
-  let lastStart = 0;
-  const onMiss = () => { if (Date.now() - lastStart >= missRefreshMs) void refresh(); };
-  let current: Map<string, KeyObject> = new MissAwareKeys([], onMiss);
-
-  const refresh = (): Promise<void> => {
-    if (inflight) return inflight;
-    lastStart = Date.now();
-    inflight = (async () => {
-      try {
-        const response = await doFetch(target, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(FRONTDOOR_JWKS_TIMEOUT_MS) });
-        if (!response.ok) return;
-        const text = await response.text();
-        if (Buffer.byteLength(text) > FRONTDOOR_JWKS_MAX_BYTES) return;
-        const parsed = parseVisitorJwks(JSON.parse(text));
-        current = new MissAwareKeys([...parsed].filter(([kid]) => !kid.startsWith('dev-')), onMiss);
-      } catch {
-        // Keep the last good set.
-      } finally {
-        inflight = undefined;
-      }
-    })();
-    return inflight;
-  };
-
-  const first = refresh();
-  const timer = setInterval(() => { void refresh(); }, refreshMs);
-  timer.unref?.();
-  return {
-    keys: () => current,
-    ready: () => first,
-    close: () => clearInterval(timer),
-  };
-}
-
-/**
- * The default key source: `TIER0_JWKS_DIR` when it exists (sessions and the old runtime, where an agent writes the
- * file), otherwise the front door's public JWKS at `TIER0_JWKS_URL` (published Apps on AENV).
- */
-export function frontdoorKeys(): VisitorKeySource {
-  const dir = getEnvVar('TIER0_JWKS_DIR')?.trim();
-  if (dir && existsSync(dir)) return frontdoorKeysFromDir(dir);
-  if (getEnvVar('TIER0_JWKS_URL')?.trim()) return frontdoorKeysFromUrl();
-  if (dir) return frontdoorKeysFromDir(dir);
-  throw new VisitorTokenError('VISITOR_TOKEN_CONFIGURATION_INVALID');
-}
-
-export interface VisitorVerifierConfig {
-  /** Expected `aud` is `app:<appID>`. Defaults to `TIER0_APP_ID`. */
-  appID?: string;
-  /** Defaults to `frontdoorKeys()`: the `TIER0_JWKS_DIR` file, or the front door's public JWKS at `TIER0_JWKS_URL`. */
-  keys?: VisitorKeySource;
-}
-
-/**
- * Visitor token verification, contract v2 (access design 4.4). Checks signature,
- * `kid`, `iss`, `typ`, `aud` and the time window. Unlike
- * `createCloudAppRequestVerifier` it binds neither the request body nor the
- * release: the front door cannot know which release serves the request.
- */
-export function createVisitorTokenVerifier(config: VisitorVerifierConfig = {}) {
-  const source = config.keys ?? frontdoorKeys();
-  const fixedAppID = config.appID;
-  const fail = () => new VisitorTokenError('VISITOR_TOKEN_INVALID');
-
-  return (token: string | null | undefined): VerifiedVisitor => {
-    const appID = fixedAppID ?? getEnvVar('TIER0_APP_ID')?.trim();
-    if (!appID) throw new VisitorTokenError('VISITOR_TOKEN_CONFIGURATION_INVALID');
-    try {
-      if (typeof token !== 'string' || Buffer.byteLength(token) > VISITOR_MAX_BYTES) throw fail();
-      const parts = token.split('.');
-      if (parts.length !== 3) throw fail();
-      const header: unknown = JSON.parse(decode(parts[0]).toString('utf8'));
-      if (!isObject(header) || header.alg !== 'EdDSA' || typeof header.kid !== 'string') throw fail();
-      const key = source.keys().get(header.kid);
-      const signature = decode(parts[2]);
-      if (!key || signature.length !== 64 ||
-          !verify(null, Buffer.from(parts[0] + '.' + parts[1], 'ascii'), key, signature)) throw fail();
-      const claims: unknown = JSON.parse(decode(parts[1]).toString('utf8'));
-      if (!isObject(claims) || claims.iss !== VISITOR_ISSUER || claims.typ !== 'visitor' || claims.aud !== `app:${appID}` ||
-          (claims.sub_type !== 'employee' && claims.sub_type !== 'machine') ||
-          !validString(claims.sub, 128) || (claims.sub_type === 'employee' && !validString(claims.grant, 128)) || !validID(claims.ws) ||
-          (claims.runtime !== 'deployed' && claims.runtime !== 'preview') ||
-          !Array.isArray(claims.app_roles) || claims.app_roles.some((role) => !validString(role, contract.maxRoleBytes)) ||
-          (claims.active_role !== undefined && claims.active_role !== null && claims.active_role !== '' && !validString(claims.active_role, contract.maxRoleBytes)) ||
-          typeof claims.iat !== 'number' || !Number.isSafeInteger(claims.iat) ||
-          typeof claims.exp !== 'number' || !Number.isSafeInteger(claims.exp) || claims.exp <= claims.iat ||
-          claims.exp - claims.iat > VISITOR_MAX_TTL_SECONDS || !validString(claims.jti, 128)) throw fail();
-      const now = Math.floor(Date.now() / 1000);
-      if (claims.iat > now + VISITOR_CLOCK_SKEW_SECONDS || now >= claims.exp + VISITOR_CLOCK_SKEW_SECONDS) throw fail();
-      return Object.freeze({
-        subType: claims.sub_type, subject: claims.sub, grant: typeof claims.grant === 'string' ? claims.grant : '',
-        workspaceID: claims.ws, appID, runtime: claims.runtime,
-        appRoles: Object.freeze([...new Set(claims.app_roles as string[])]),
-        ...(typeof claims.active_role === 'string' && claims.active_role ? { activeRole: claims.active_role } : {}),
-        issuedAt: claims.iat, expiresAt: claims.exp, tokenID: claims.jti, verificationKeyID: header.kid,
-      });
-    } catch (error) {
-      if (error instanceof VisitorTokenError && error.code === 'VISITOR_TOKEN_CONFIGURATION_INVALID') throw error;
-      throw fail();
-    }
-  };
+  if (!isObject(claims) || Object.keys(claims).some((key) => !VISITOR_FIELDS.has(key))) throw fail();
+  // Every key at most once, each spelling decoded ("\u0077s" is "ws").
+  const keys = topLevelKeys(json).map((token) => JSON.parse(token) as string);
+  if (new Set(keys).size !== keys.length) throw fail();
+  const { ws, app, runtime, sub_type: subType, sub, grant, app_roles: appRoles, active_role: activeRole } = claims;
+  if (!validID(ws) || app !== appID ||
+      (runtime !== 'deployed' && runtime !== 'preview') ||
+      (subType !== 'employee' && subType !== 'machine') ||
+      !sized(sub, 1, VISITOR_MAX_STRING_BYTES) ||
+      // An employee's access always has a grant; a machine visitor has none.
+      typeof grant !== 'string' || (subType === 'employee' ? !sized(grant, 1, VISITOR_MAX_STRING_BYTES) : grant !== '') ||
+      !Array.isArray(appRoles) || appRoles.some((role) => !sized(role, 1, VISITOR_MAX_STRING_BYTES)) ||
+      (activeRole !== undefined && !sized(activeRole, 1, VISITOR_MAX_STRING_BYTES))) throw fail();
+  return Object.freeze({
+    subType, subject: sub, grant, workspaceID: ws, appID, runtime,
+    appRoles: Object.freeze([...new Set(appRoles as string[])]),
+    ...(activeRole === undefined ? {} : { activeRole }),
+  });
 }

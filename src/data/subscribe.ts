@@ -23,20 +23,16 @@
  *   `delete` always passes, a late one too, and forgets the record's
  *   revision, since a record written again under the same ID may start
  *   over at revision 1.
- * - Changes in collections with employee data rules (`restricted`) come as
- *   collection-level notices unless `restricted: "record"` is asked for.
  * - Aborting `signal` or leaving the loop ends the iteration without error.
- * - A subscription opened inside a request keeps that request's delegation,
- *   which lasts 10 minutes. Backend renews it on the open stream, but a
- *   reconnect after it expired is refused and ends the iteration; the next
- *   request with a new delegation opens it again (design 21.7). Never fall
- *   back to `runAsApp` for that. A deployed App uses `runAsApp` for one
- *   App-wide stream, as the Scaffold's change hub does.
+ * - The stream runs as the App: it sees every change of the collections
+ *   granted to the App. A server opens one per process and fans it out to
+ *   browsers with `createChangeRelay`, filtering per browser by what the App
+ *   lets that visitor see.
  *
  * Events carry identities only, never record data; read the record to show it.
  */
 import { isStaleCollectionError, type EnsureState } from './bootstrap.js';
-import type { CallOptions, DataOpenStream } from './call.js';
+import type { DataOpenStream } from './call.js';
 import { assertEventId, UNS_V2_SUBSCRIBE_MAX_COLLECTIONS, UNS_V2_SUBSCRIBE_MAX_RECORD_IDS } from '../uns-v2/client.js';
 import { collectionLabel, type CollectionTarget } from './define.js';
 import { DataError } from './error.js';
@@ -57,14 +53,6 @@ export interface SubscribeOptions {
   collections?: readonly (CollectionTarget | string)[];
   /** Only changes of these record IDs (1–100, duplicates ignored), when exactly one collection is watched. */
   recordIds?: readonly string[];
-  /**
-   * How changes in collections with employee data rules arrive.
-   * `collection` (default): as a collection-level notice without record ID
-   * or revision, safe to forward to any employee. `record`: the full event,
-   * for server-side consumers that do not forward it to browsers, or that
-   * redact per recipient with `redactRestricted`.
-   */
-  restricted?: 'collection' | 'record';
   /** Resume after this event (e.g. a browser's `Last-Event-ID`). */
   lastEventId?: string;
   signal?: AbortSignal;
@@ -72,51 +60,37 @@ export interface SubscribeOptions {
   idleTimeoutMs?: number;
 }
 
-interface ChangeBase {
+/**
+ * One record committed (`record`) or deleted (`delete`) at `revision`. A
+ * `record` change is never at or below a revision already passed on for the
+ * same record since its last delete; a `delete` may be.
+ */
+export interface RecordChange {
   type: 'change';
   eventId: string;
   /** Alias of a declared collection, or the ID of an existing collection reference. */
   collection: string;
   collectionId: string;
   occurredAt: number;
-  /**
-   * The collection has employee data rules: whether an employee may see this
-   * record depends on who they are. Such changes arrive as `CollectionChange`
-   * unless the subscription asked for `restricted: "record"`.
-   */
-  restricted: boolean;
-}
-
-/**
- * One record committed (`record`) or deleted (`delete`) at `revision`. A
- * `record` change is never at or below a revision already passed on for the
- * same record since its last delete; a `delete` may be.
- */
-export interface RecordChange extends ChangeBase {
   change: 'record' | 'delete';
   recordId: string;
   revision: number;
 }
 
-/** Something in the collection changed; which record is not disclosed. Reload through the data rules. */
-export interface CollectionChange extends ChangeBase {
-  change: 'collection';
-}
-
-export type ChangeEvent = RecordChange | CollectionChange;
 /** `reason`: `CURSOR_EXPIRED`, `SCOPE_CHANGED` (from UNS) or `COLLECTION_RECREATED`. */
-export type SubscriptionEvent = ChangeEvent | { type: 'reset'; reason: string; message?: string };
+export type SubscriptionEvent = RecordChange | { type: 'reset'; reason: string; message?: string };
 
 /**
- * The event as an employee's browser may see it: a change in a collection
- * with employee data rules becomes a collection-level notice without record
- * ID or revision, so it does not reveal records the employee may not read.
- * Other events pass unchanged.
+ * What `data.subscribe` tells a server-side consumer about the upstream
+ * (`createChangeRelay` uses it; not part of the public API).
  */
-export function redactRestricted<E extends SubscriptionEvent>(event: E): E | CollectionChange {
-  if (event.type !== 'change' || !event.restricted || event.change === 'collection') return event;
-  const { eventId, collection, collectionId, occurredAt, restricted } = event;
-  return { type: 'change', eventId, collection, collectionId, occurredAt, restricted, change: 'collection' };
+export interface SubscribeObserver {
+  /** A connection is streaming: its first frame (the connect heartbeat) arrived. */
+  connected?(): void;
+  /** The resume position moved: a heartbeat position or a change, dropped or not. */
+  position?(eventId: string): void;
+  /** An attempt failed and will be retried after a wait (e.g. 429 over the subscription limit, `APP_NOT_READY`). */
+  retrying?(error: DataError): void;
 }
 
 export interface SubscribeRuntime {
@@ -126,8 +100,6 @@ export interface SubscribeRuntime {
   resolve(target: CollectionTarget): Promise<string>;
   lookup(target: CollectionTarget | string): CollectionTarget;
   declared: readonly CollectionTarget[];
-  subject(): string | undefined;
-  delegation(): string | undefined;
 }
 
 function reconnectDelay(failures: number, afterMs: number | undefined): number {
@@ -180,7 +152,7 @@ function pause(ms: number, signal: AbortSignal): Promise<void> {
 }
 
 export function createSubscribe(runtime: SubscribeRuntime) {
-  return async function* subscribe(options: SubscribeOptions = {}): AsyncGenerator<SubscriptionEvent, void, undefined> {
+  return async function* subscribe(options: SubscribeOptions = {}, observer: SubscribeObserver = {}): AsyncGenerator<SubscriptionEvent, void, undefined> {
     const definitions = [...new Set((options.collections ?? runtime.declared).map(runtime.lookup))];
     if (definitions.length < 1 || definitions.length > UNS_V2_SUBSCRIBE_MAX_COLLECTIONS) {
       throw new TypeError(`data.subscribe watches 1–${UNS_V2_SUBSCRIBE_MAX_COLLECTIONS} collections; got ${definitions.length}.`);
@@ -190,10 +162,7 @@ export function createSubscribe(runtime: SubscribeRuntime) {
       throw new TypeError(`data.subscribe takes 1–${UNS_V2_SUBSCRIBE_MAX_RECORD_IDS} recordIds, of exactly one collection.`);
     }
     if (options.lastEventId !== undefined) assertEventId(options.lastEventId);
-    const redact = (options.restricted ?? 'collection') === 'collection';
     const idleMs = options.idleTimeoutMs ?? SUBSCRIBE_IDLE_TIMEOUT_MS;
-    // The subject of the request that subscribed; an App-level subscription carries none.
-    const call: CallOptions = { dataSubject: runtime.subject(), delegation: runtime.delegation() };
     const stop = new AbortController();
     const onAbort = () => stop.abort();
     options.signal?.addEventListener('abort', onAbort, { once: true });
@@ -202,7 +171,9 @@ export function createSubscribe(runtime: SubscribeRuntime) {
     let failures = 0;
     const seen = new SeenRevisions(SUBSCRIBE_SEEN_RECORDS_MAX);
     /** Waits, longer each time, before the next attempt. */
-    const backOff = async (afterMs?: number) => {
+    const backOff = async (error: DataError) => {
+      observer.retrying?.(error);
+      const afterMs = error.retry.afterMs;
       failures += 1;
       await pause(reconnectDelay(failures, afterMs), stop.signal);
     };
@@ -214,7 +185,7 @@ export function createSubscribe(runtime: SubscribeRuntime) {
         } catch (error) {
           // A freshly imported App answers APP_NOT_READY for a while: keep waiting for it.
           if (!(error instanceof DataError) || !error.retry.safe || stop.signal.aborted) throw error;
-          await backOff(error.retry.afterMs);
+          await backOff(error);
           continue;
         }
         const aliases = new Map<string, string>();
@@ -234,18 +205,26 @@ export function createSubscribe(runtime: SubscribeRuntime) {
         const openedAt = Date.now();
         let healthy = false;
         let reset = false;
+        let streaming = false;
         try {
           arm();
           const stream = runtime.openStream(
             { collectionIds: [...aliases.keys()], ...(recordIds ? { recordIds } : {}) },
-            { ...call, lastEventId, signal: connection.signal },
+            { lastEventId, signal: connection.signal },
           );
           for await (const event of stream) {
             arm();
             if (Date.now() - openedAt >= HEALTHY_CONNECTION_MS) healthy = true;
+            if (!streaming) {
+              streaming = true;
+              observer.connected?.();
+            }
             if (event.type === 'heartbeat') {
               // The connect heartbeat names the current position: resuming from it loses nothing.
-              if (event.eventId !== undefined) lastEventId = event.eventId;
+              if (event.eventId !== undefined) {
+                lastEventId = event.eventId;
+                observer.position?.(event.eventId);
+              }
               continue;
             }
             if (event.type === 'reset') {
@@ -259,19 +238,18 @@ export function createSubscribe(runtime: SubscribeRuntime) {
             healthy = true;
             // A dropped change is still a resume position.
             lastEventId = event.eventId;
+            observer.position?.(event.eventId);
             if (!seen.admit(event.collectionId, event.recordId, event.revision, event.change)) continue;
-            const change: RecordChange = {
+            yield {
               type: 'change',
               eventId: event.eventId,
               collection: aliases.get(event.collectionId) ?? event.collectionId,
               collectionId: event.collectionId,
               occurredAt: event.occurredAt,
-              restricted: event.restricted,
               change: event.change,
               recordId: event.recordId,
               revision: event.revision,
             };
-            yield redact ? redactRestricted(change) : change;
           }
         } catch (error) {
           if (stop.signal.aborted) return;
@@ -282,7 +260,7 @@ export function createSubscribe(runtime: SubscribeRuntime) {
               changed = await runtime.rebuild(state, error, definitions);
             } catch (cause) {
               if (!(cause instanceof DataError) || !cause.retry.safe) throw cause;
-              await backOff(cause.retry.afterMs);
+              await backOff(cause);
               continue;
             }
             if (!changed) throw error;
@@ -293,7 +271,7 @@ export function createSubscribe(runtime: SubscribeRuntime) {
             continue;
           }
           if (!error.retry.safe) throw error;
-          await backOff(error.retry.afterMs);
+          await backOff(error);
           continue;
         } finally {
           clearTimeout(idle);

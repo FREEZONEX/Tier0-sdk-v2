@@ -21,6 +21,7 @@ describe('Tier0MQClient', () => {
     vi.stubEnv('TIER0_MQTT_HOST', undefined);
     vi.stubEnv('TIER0_MQTT_PORT', undefined);
     vi.stubEnv('TIER0_API_KEY', 'sk-app-ws1_fixture');
+    vi.stubEnv('TIER0_APP_ID', undefined);
     eventHandlers = {};
     subscribeCallbacks = [];
 

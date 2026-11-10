@@ -26,16 +26,16 @@ const operation = (name: string) => manifest.operations.find(item => item.name =
 
 describe('Backend App UNS access contract without generic record audit', () => {
   it('pins the exact upstream commit and all generator inputs', () => {
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('8780ce2d6c07b6afee96409795c098e330c214dd');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('1e6b2d7b6de7795a6509e4aafc8cd04699f5d00f');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     for (const [key, file] of Object.entries({ contract: 'contract.json', cloudSupport: 'cloud-support.json', manifest: 'manifest.json', provenance: 'provenance.json', registry: 'registry_generated.go' })) {
       expect(UNS_V2_CONTRACT_PROVENANCE.hashes[key as keyof typeof UNS_V2_CONTRACT_PROVENANCE.hashes]).toBe(
         createHash('sha256').update(read(file)).digest('hex')
       );
     }
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(91);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(90);
     expect(UNS_V2_CONTRACT_PROVENANCE.streamOperationCount).toBe(1);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(105);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(98);
     // Error envelopes are decoded by every operation, although success DTOs do not reference them.
     expect(Object.hasOwn(UNS_V2_CODEC_SCHEMAS, 'UnsV2ErrorResponse')).toBe(true);
     expect(Object.hasOwn(manifest.schemas, 'UnsV2ErrorResponse')).toBe(true);
@@ -185,30 +185,27 @@ describe('Backend App UNS access contract without generic record audit', () => {
       expect(operation(name)).toMatchObject({ appAllowed: false, coreOnly: false, permission: 'uns.write', minPermission: 3 });
       expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(true);
     }
-    for (const name of ['appStreamPolicyGet', 'appStreamPolicyUpdate']) {
-      // aenv-next（Backend 4665b03d4）：App 平台权限与 Stream 解耦，托管策略页读写只要 uns.write，新增权限另由 Owner/Admin 把关。
-      expect(operation(name)).toMatchObject({ appAllowed: false, permission: 'uns.write', minPermission: 3 });
-      expect(operation(name).coreOnly).not.toBe(true);
-      expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(true);
-    }
-    for (const name of ['appRegistrationCapabilities', 'appRegistrationList', 'appRegistrationGet',
-      'appRegistrationCreate', 'appRegistrationUpdate', 'appRegistrationPermissionsUpdate']) {
-      expect(operation(name)).toMatchObject({ appAllowed: false, coreOnly: true });
+    // app-key-model/1 (Backend 1e6b2d7b6): an App's platform capabilities are fixed, so the hosted App platform policy and the
+    // external App registration are gone from the contract, not just from the SDK.
+    for (const name of ['appStreamPolicyGet', 'appStreamPolicyUpdate', 'appRegistrationCapabilities', 'appRegistrationList',
+      'appRegistrationGet', 'appRegistrationCreate', 'appRegistrationUpdate', 'appRegistrationPermissionsUpdate']) {
+      expect(manifest.operations.some(item => item.name === name), name).toBe(false);
+      expect(contract.operations.some(item => item.name === name), name).toBe(false);
       expect(Object.hasOwn(UNS_V2_OPERATIONS, name), name).toBe(false);
     }
+    for (const name of ['CloudAppStreamPolicy', 'CloudAppStreamPolicyGetReq', 'CloudAppStreamPolicyGetResponse',
+      'CloudAppStreamPolicyMutationResponse', 'CloudAppStreamPolicyUpdateReq', 'CloudStreamMessageTopicPermission']) {
+      expect(Object.hasOwn(manifest.schemas, name), name).toBe(false);
+      expect(Object.hasOwn(UNS_V2_CODEC_SCHEMAS, name), name).toBe(false);
+    }
+    expect(UNS_V2_CONTRACT_PROVENANCE.cloudContractRevision).toContain('+app-key-model/1');
     for (const name of ['appAccessGet', 'appAccessUpdate']) {
       expect(manifest.operations.some(item => item.name === name)).toBe(false);
       expect(Object.hasOwn(UNS_V2_OPERATIONS, name)).toBe(false);
     }
   });
 
-  it('retains create capability and source acquisition without generic record audit', () => {
-    for (const name of ['CloudAppCreateCapability']) {
-      expect(Object.hasOwn(manifest.schemas, name)).toBe(true);
-      expect(Object.hasOwn(UNS_V2_CODEC_SCHEMAS, name)).toBe(true);
-    }
-    expect(manifest.schemas.CloudAppCreateCapability.properties).toHaveProperty('inputSchema');
-    expect(manifest.schemas.CloudAppCreateCapability.properties).toHaveProperty('binding');
+  it('retains source acquisition without generic record audit', () => {
     for (const name of ['CloudRecordAuditConfig', 'CloudRecordAuditActor', 'CloudRecordAuditEvent',
       'UnsV2RecordAuditListReq', 'UnsV2RecordAuditListResponse', 'UnsV2RecordAuditAdminListReq', 'UnsV2RecordAuditAdminListResponse']) {
       expect(Object.hasOwn(manifest.schemas, name), name).toBe(false);
@@ -223,7 +220,7 @@ describe('Backend App UNS access contract without generic record audit', () => {
     for (const [name, schema] of Object.entries(manifest.schemas)) {
       if (/collection/i.test(name)) expect(schema.properties ?? {}, name).not.toHaveProperty('audit');
     }
-    expect(UNS_V2_CONTRACT_PROVENANCE.cloudContractRevision).toContain('app-create-capability/1');
+    expect(UNS_V2_CONTRACT_PROVENANCE.cloudContractRevision).toContain('app-data-rule-retirement/1');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudContractRevision).not.toContain('record-audit/1');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudContractRevision).toContain('source-bindings/1');
   });

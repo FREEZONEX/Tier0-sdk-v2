@@ -1,6 +1,6 @@
 ---
 name: tier0-sdk-v2-data
-description: 使用 @tier0/sdk-v2/data 在 App 服务端声明并读写本 App 的 UNS 集合：Zod 建模、种子与 TTL、Mongo 风格读写、带总数分页与分组计数、原子批量与事务、变更订阅、员工数据主体、Schema 演进和错误码处理。
+description: 使用 @tier0/sdk-v2/data 在 App 服务端声明并读写本 App 的 UNS 集合：Zod 建模、种子与 TTL、Mongo 风格读写、带总数分页与分组计数、原子批量与事务、变更订阅与转发给浏览器、Schema 演进和错误码处理。
 ---
 
 # App 数据层
@@ -9,13 +9,13 @@ description: 使用 @tier0/sdk-v2/data 在 App 服务端声明并读写本 App �
 
 `@tier0/sdk-v2/data` 是 App 业务数据的服务端入口：用 `defineCollection` 声明集合，`createDataClient` 在首次访问时一次性 ensure 全部声明，然后用 Mongo 驱动风格的集合句柄读写 UNS 记录。没有 SQL、ORM、连接串或迁移步骤；Preview 与部署后的 App 共用同一批集合和记录。
 
-员工专用请求入口需要在缺失员工断言时停止，可使用 [员工请求必须携带身份](references/employee-required.md) 的显式入口；签名与授权由服务端验证。
+所有数据调用都是 App 自身：平台不按当前用户收窄。按用户角色决定谁能看、能改哪些记录由 App 在服务端自己做，当前用户和角色从访问者头读（`@tier0/sdk-v2/server` 的 `parseVisitorHeader`，见[身份与框架集成](../references/integration.md)）。
 
 这里创建的集合以 `ownerAppId` 标识唯一所属 App。使用已有或其他 App 共享的集合时，用 `data.collection({ collectionId })` 获取句柄；可选 `schema` 仅做本地写入校验，不创建或修改集合。已有 ID 引用同样用于 `queryBatch`、`transact` 和 `subscribe`，不放入 `createDataClient` 的 `collections` 声明数组，不执行 ensure 或写种子。无需服务端 alias，仍须当前 App 已有相应集合授权；SDK 不授予权限，复用不改变所属关系。底层 [UNS](../tier0-sdk-v2-uns/SKILL.md) 的记录接口仍可直接按 ID 使用。
 
-数据读写只在服务端代码（业务 service）里用 `@tier0/sdk-v2/data`：该入口依赖 Node 内置模块，浏览器打包会直接失败。组件和 route 的客户端代码只能从 `@tier0/sdk-v2/data/define` 取集合声明和类型（`defineCollection`、`Doc`、`NewDoc` 等），它不加载数据运行时，可以进浏览器包。需要 `zod` 4。底层调用 SDK 生成的 UNS 操作（`appCollectionsEnsure`、`recordFind`、`recordTransactionExecute` 等），Tier0 预览和部署里只读平台设置的 TIER0_API_HOST，不需要也读不到 Key，节点代理注入 App 的长期 Key（预览和正式同一把，行为相同，种子在 ensure 时以 App 身份写入）；本地开发另设 TIER0_API_KEY。
+数据读写只在服务端代码（业务 service）里用 `@tier0/sdk-v2/data`：该入口依赖 Node 内置模块，浏览器打包会直接失败。组件和 route 的客户端代码只能从 `@tier0/sdk-v2/data/define` 取集合声明和类型（`defineCollection`、`Doc`、`NewDoc` 等），它不加载数据运行时，可以进浏览器包。需要 `zod` 4。底层调用 SDK 生成的 UNS 操作（`appCollectionsEnsure`、`recordFind`、`recordTransactionExecute` 等），Tier0 预览和部署里读平台注入的 TIER0_API_HOST 和 App 的 Key TIER0_API_KEY（种子在 ensure 时以 App 身份写入）；本地开发自己设这两个。
 
-Data 客户端创建时固定 Host 和 Key（含环境值），不支持 `getApiKey` 或 `apiKeyProvider`；切换身份、Host 或环境凭证时须新建客户端，不能让 bootstrap、重试或订阅状态跨身份复用。员工数据委托仍按请求绑定到固定的 App Key。
+Data 客户端创建时固定 Host 和 Key（含环境值），不支持 `getApiKey` 或 `apiKeyProvider`；切换身份、Host 或环境凭证时须新建客户端，不能让 bootstrap、重试或订阅状态跨身份复用。
 
 服务端已从可信身份链取得某主体的有效 Key 时，可用 `createDataClient({ apiHost, apiKey })` 为该主体创建独立实例，通过 `collection({ collectionId })` 访问其已获授权的现有集合；不要跨主体共享该实例。Key 轮换后创建新实例。声明集合的 ensure/seed 仍由服务端判断凭证是否有权限，不因创建客户端而获得授权。
 
@@ -26,14 +26,14 @@ Data 客户端创建时固定 Host 和 Key（含环境值），不支持 `getApi
 | 用户任务 | 参考 |
 | --- | --- |
 | 声明集合、选字段类型、索引、种子数据、文档建模 | [建模](references/modeling.md) |
-| 查询、按 ID 读取、一页一次请求（queryBatch）、分页、聚合、写入、批量与原子性、订阅变更 | [读写](references/read-write.md) |
-| 状态流转、并发编辑、跨文档不变量、计数器、员工身份与后台任务 | [一致性与身份](references/consistency.md) |
+| 查询、按 ID 读取、一页一次请求（queryBatch）、分页、聚合、写入、批量与原子性、订阅变更并转发给浏览器 | [读写](references/read-write.md) |
+| 状态流转、并发编辑、跨文档不变量、计数器、请求中止与后台任务 | [一致性与请求上下文](references/consistency.md) |
 | 加字段、改类型、改描述、收窄 Schema | [Schema 演进](references/schema-evolution.md) |
 | DataError 字段、UNS 错误码与处理 | [错误码](references/errors.md) |
 
 ## 最小用法
 
-新 App 没有集合时是正常空态：`uns.dataAppContext({})` 返回 `dataState: "uninitialized"` 和空集合，不创建任何数据。无需先调用 context 或手工激活数据策略；声明真实业务集合后，第一次数据访问会自动初始化。`dataState: "ready"` 也不代表可访问整个工作空间，仍以返回的集合授权为准。引用已有 WMS 等集合需要明确共享授权，不能创建同名空集合代替。管理员停用返回 `FORBIDDEN`、reason `APP_DATA_POLICY_DISABLED`，不得自动恢复。
+新 App 没有集合时是正常空态：`uns.dataAppContext({})` 返回 `dataState: "uninitialized"` 和空集合，不创建任何数据。无需先调用 context 或手工激活数据策略；声明真实业务集合后，第一次数据访问会自动初始化。`dataState: "ready"` 也不代表可访问整个工作空间，仍以返回的集合授权为准。引用已有 WMS 等外部集合要由工作区 Owner/Admin 在 App 设置里授权（Builder agent 加不了），不能创建同名空集合代替；授权删掉后下一个请求起被拒绝。管理员停用返回 `FORBIDDEN`、reason `APP_DATA_POLICY_DISABLED`，不得自动恢复。
 
 ```ts
 import { z } from 'zod';

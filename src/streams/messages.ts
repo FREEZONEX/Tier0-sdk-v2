@@ -1,7 +1,6 @@
 import type { NatsConnection, Subscription } from '@nats-io/nats-core';
 import type { KeyPair } from '@nats-io/nkeys';
 import { getCurrentAppId } from '../runtime-context.js';
-import { onAppRuntimeDispose } from '../runtime.js';
 import type { StreamJSON } from './requests.js';
 import { StreamTransport } from './transport.js';
 import type { components } from './contract.generated.js';
@@ -82,7 +81,6 @@ function envelope(value: unknown, maxPayload: number): value is StreamMessage {
 /** One permission-scoped session. Every connection gets a fresh key and JWT. */
 class MessageSession implements StreamMessageSubscription {
   disposed = false;
-  readonly runtime: ReturnType<StreamTransport['runtime']>;
   private connection?: NatsConnection;
   private subscription?: Subscription;
   private connecting?: Promise<void>;
@@ -98,7 +96,6 @@ class MessageSession implements StreamMessageSubscription {
   private expiresAt = 0;
   private brokerError?: StreamMessageError;
   private disposing?: Promise<void>;
-  private removeRuntimeListener?: () => void;
 
   constructor(
     private transport: StreamTransport,
@@ -107,10 +104,7 @@ class MessageSession implements StreamMessageSubscription {
     private report: StreamMessageErrorHandler,
     private remove: () => void,
     private handler?: (value: StreamMessage) => void | Promise<void>,
-  ) {
-    this.runtime = transport.runtime();
-    if (this.runtime) this.removeRuntimeListener = onAppRuntimeDispose(this.runtime, () => { void this.dispose(); });
-  }
+  ) {}
 
   async ready(): Promise<void> {
     if (this.disposed) throw fail('DISPOSED', 'Stream messages session disposed.');
@@ -143,7 +137,7 @@ class MessageSession implements StreamMessageSubscription {
       if (this.disposed) return;
       const connectionKey = createUser();
       key = connectionKey;
-      const appId = this.transport.runtime()?.appId ?? getCurrentAppId();
+      const appId = getCurrentAppId();
       const request: components['schemas']['StreamMessagesConnectReq'] = {
         appId, topics: [{ topic: this.topic, publish: this.mode === 'publish', subscribe: this.mode === 'subscribe' }],
         clientPublicKey: connectionKey.getPublicKey(),
@@ -344,7 +338,6 @@ class MessageSession implements StreamMessageSubscription {
     this.disposed = true;
     this.connected = false;
     this.abort.abort();
-    this.removeRuntimeListener?.();
     clearTimeout(this.reconnectTimer);
     clearTimeout(this.expiryTimer);
     this.subscription?.unsubscribe();
@@ -410,7 +403,6 @@ export class StreamMessagesClient {
         if (publisher?.disposed) {
           const previous = publisher;
           await previous.dispose();
-          if (previous.runtime !== this.transport.runtime()) throw fail('DISCONNECTED', 'Stream messages disconnected.');
           if (publisher === previous) publisher = undefined;
         }
         if (!publisher) publisher = session('publish');

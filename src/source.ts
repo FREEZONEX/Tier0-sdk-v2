@@ -26,7 +26,7 @@ export function bindSourceClient(raw: UnsV2Client) {
 export type SourceClient = ReturnType<typeof bindSourceClient>;
 export type SourceClientConfig = ClientConfig & CloudTransportConfig;
 export function createSourceClient(config: SourceClientConfig = {}): SourceClient {
-  const snapshot = snapshotClientConfig(config, ['transportTimeoutMs', 'unsV2MaxResponseBytes', 'unsV2AppDataSubject']);
+  const snapshot = snapshotClientConfig(config, ['transportTimeoutMs', 'unsV2MaxResponseBytes']);
   const http = new HttpClient(snapshot);
   return bindSourceClient(createUnsV2Client(() => http, snapshot));
 }

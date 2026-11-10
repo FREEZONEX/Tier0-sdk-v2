@@ -47,7 +47,7 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
     visit(schemas[name]);
   }
   expect(Object.keys(operations)).toHaveLength(53);
-  expect(Object.keys(schemas)).toHaveLength(202);
+  expect(Object.keys(schemas)).toHaveLength(198);
   // Verify the approved context and neutral view deltas before comparing all
   // other operations and reachable schemas to the reviewed business-name digest.
   const appContext = schemas.AppContext as {
@@ -92,6 +92,13 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
   expect(reasons).not.toContain('app_control_ceiling');
   access.properties.blockedReasons.items.enum = reasons.map(reason =>
     reason === 'app_stream_ceiling' ? 'app_control_ceiling' : reason);
+  // app-key-model/1 (Backend 1e6b2d7b6): the 11 fixed App capabilities and the admin-only grant additions.
+  const platformPermissions = appContext.properties.platformPermissions as unknown as { items: { enum: string[] }; maxItems: number };
+  expect(platformPermissions.items.enum).toEqual(['openapi.base', 'platform.users.read', 'notifications.send', 'asset.file.upload',
+    'asset.file.download', 'asset.file.delete', 'stream.requests.read', 'stream.requests.invoke', 'stream.requests.write',
+    'stream.messages.publish', 'stream.messages.subscribe']);
+  expect(platformPermissions.maxItems).toBe(11);
+  expect(operations.appDataPolicyUpdate.description).toContain('app_grant_admin_required');
   const digest = createHash('sha256').update(JSON.stringify(canonical({ operations: baselineOperations, schemas: baselineSchemas }))).digest('hex');
   // Explicitly checked directory declarations above; unrelated Namespace operations stay pinned.
   // Re-pinned for Backend c63783eb4. The digest covers the Namespace operations and their reachable schemas only (the two Edge
@@ -99,5 +106,12 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
   // BulkWrite descriptions, and name, directoryPath (required), description and ownerAppId on the appCollectionsList item.
   // Re-pinned again for Backend 8780ce2d6 (base 2f79a4f87): the only reachable change is three more ensure schema-note reasons
   // (DIRECTORY_PATH_NOT_APPLIED, TTL_RETAINED, OWNER_APP_TRASHED on CloudAppCollectionSchemaNote, Backend 5d6ae2834).
-  expect(digest).toBe('224928eea6c848bb86b214133113c06ad64aa153303159fb4770bcd4f1cbb567');
+  // Re-pinned for Backend b6347c688 (app-data-rule-retirement/1): the per-employee rule schemas and the App create hint are gone
+  // (four fewer reachable schemas), the rule fields leave the App data policy and the change event, notifications.read leaves
+  // AppContext.platformPermissions, and the ensure / recordGet descriptions drop the per-employee wording. From the base: reworded
+  // UnsV2FieldOperation.path and a kind description on the generic metadata requests.
+  // Re-pinned for Backend 1e6b2d7b6 (app-key-model/1): no reachable schema added or removed; AppContext.platformPermissions is the
+  // fixed 11 (stream.messages.publish / subscribe added, new description), appDataPolicyUpdate describes the Owner/Admin-only
+  // grant additions, and CloudAppStreamAccessItem.blockedReasons gains a description (app_stream_ceiling = the workspace plan).
+  expect(digest).toBe('4d228cdcec45147c485efa1c96679c837bebd0b89cd324e7fc96be9d29f9cc3c');
 });

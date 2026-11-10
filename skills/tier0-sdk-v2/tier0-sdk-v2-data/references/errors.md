@@ -38,10 +38,10 @@ export function toResponse(error: unknown): Response {
 
 | code | 含义 |
 | --- | --- |
-| `DATA_NOT_CONFIGURED` (503) | 缺少 TIER0_API_HOST（或 apiHost）；本地开发还缺 TIER0_API_KEY（或 apiKey）。平台里不需要 Key，节点代理注入 App 的 Key |
+| `DATA_NOT_CONFIGURED` (503) | 缺少 TIER0_API_HOST（或 apiHost），或缺少 TIER0_API_KEY（或 apiKey）。平台里两者都由平台注入；没绑 App 的会话两者都没有 |
 | `DATA_TIMEOUT` (503) | UNS 未在超时内应答（每次调用从开始算共 25 秒，含排队与重试，`transportTimeoutMs` 可调）；写入时 `outcomeUnknown` 为 true、不重试 |
 | `DATA_OVERLOADED` (503) | 本进程 6 个请求名额一直占满，调用在超时前没排到，**没有发出**（`execution: 'notStarted'`，`retry.safe`）；减少并发或合并读取 |
-| `DATA_ABORTED` (499) | 业务请求已中止（`runWithRequestContext(request, …)` 的 `request.signal`）：排队中的调用不再发出（`notStarted`），已发出的写入 `outcomeUnknown` |
+| `DATA_ABORTED` (499) | 业务请求已中止（`runWithAbortSignal(request.signal, …)` 传入的信号）：排队中的调用不再发出（`notStarted`），已发出的写入 `outcomeUnknown` |
 | `DATA_UNREACHABLE` (503) | 连不上数据服务（读会自动重试）；网关地址只在原始错误里，不进 message |
 | `HTTP_502` / `HTTP_503` / `HTTP_504` (503) | 网关在滚动发布、Pod 重启时未经 UNS 直接返回；读会自动重试，写入时 `outcomeUnknown` 为 true、不重试 |
 | `DATA_BAD_RESPONSE` (502) | UNS 应答不符合契约 |
@@ -58,7 +58,7 @@ export function toResponse(error: unknown): Response {
 
 | code | 含义与处理 |
 | --- | --- |
-| `SCHEMA_CONFLICT` (409) | 声明无法与存储合并，没有任何改动。`data.conflicts` 列出 `{ alias, path, reason, current?, declared? }`：`TYPE_CONFLICT` → 换新字段名；`LIMIT_EXCEEDED` → 拆分结构；`JOIN_UNSUPPORTED` → 存储中有声明无法放宽的节点，用 `schema:replace` 修复；`DATA_RULE_FIELD` → 员工数据规则（owner/state 字段）在用该路径，保持必填且类型不变，或请管理员修改规则；`OPEN_OBJECT` → 用 `z.object`；`ALIAS_IN_USE` → 选择未占用的 alias；`NAME_IN_USE` → 选择同目录下不同且有业务含义的 name，保留 alias，不拼随机后缀；`INVALID_INDEX` → 修正索引 |
+| `SCHEMA_CONFLICT` (409) | 声明无法与存储合并，没有任何改动。`data.conflicts` 列出 `{ alias, path, reason, current?, declared? }`：`TYPE_CONFLICT` → 换新字段名；`LIMIT_EXCEEDED` → 拆分结构；`JOIN_UNSUPPORTED` → 存储中有声明无法放宽的节点，用 `schema:replace` 修复；`OPEN_OBJECT` → 用 `z.object`；`ALIAS_IN_USE` → 选择未占用的 alias；`NAME_IN_USE` → 选择同目录下不同且有业务含义的 name，保留 alias，不拼随机后缀；`INVALID_INDEX` → 修正索引 |
 | `INVALID_REQUEST` (400)，`path=collections/<i>/directoryPath` | 新建集合缺少目录或路径非法。声明实际业务路径后再调用；不回退到缺少业务范围的根级 App 目录，不添加虚构层级 |
 | `SCHEMA_CONFLICT`，`data.reason=DIRECTORY_PATH_CONFLICT` | 路径被已归档目录或同名非目录对象占用；核对真实目录，不能自动恢复、改名或扩大授权 |
 | `DIRECTORY_PATH_NOT_APPLIED`（`ignored` 提示） | 已有 alias 的目录与声明不同；保留当前位置继续服务。需要移动时走明确授权的元数据操作，ensure 不迁移 |
@@ -87,9 +87,9 @@ export function toResponse(error: unknown): Response {
 
 记录调用上的 `data.reason`：`COLLECTION_NOT_GRANTED`（403，授权不覆盖该集合或操作）与 `COLLECTION_NOT_FOUND`（403/404，集合不存在或写入目标已回收）仅对声明集合触发[自愈](consistency.md#首次访问与自愈)，已有 ID 引用直接报告错误；回收不使已有授权的历史读取失效。`APP_PERMISSION_MISSING`（403，`data.missingPermission`）表示 Key 缺少权限，例如删除记录需要 `uns.delete`——业务记录通常以状态结束（`CANCELLED`、`ARCHIVED`）而不是删除。
 
-## 节点代理错误
+## 平台代理模式的错误
 
-Tier0 预览和部署里，平台请求经过节点代理（`sbx-api-proxy`），它按 VM 源地址注入 App 的长期 Key（预览和正式同一把）。代理自己产生的错误带响应头 `X-Tier0-Proxy: not-forwarded`，响应体 `{code, message, retry_after_ms?}`，请求**没有到达平台**，所以 `execution` 是 `notStarted`，写入重发也安全。`DataError.code`、`UnsV2Error.code`、`ApiError.errorCode` 都是下表的 `code`。
+只在平台代理模式下出现：`TIER0_RUNTIME` 为 `deployed` / `preview` 而进程里没有 `TIER0_API_KEY`，SDK 不发凭据、请求经节点代理（`sbx-api-proxy`）由它附加 App 的 Key。当前平台给 App 注入 `TIER0_API_KEY`，不会进入这个模式。代理自己产生的错误带响应头 `X-Tier0-Proxy: not-forwarded`，响应体 `{code, message, retry_after_ms?}`，请求**没有到达平台**，所以 `execution` 是 `notStarted`，写入重发也安全。`DataError.code`、`UnsV2Error.code`、`ApiError.errorCode` 都是下表的 `code`。
 
 | code | 含义与处理 |
 | --- | --- |
@@ -98,8 +98,8 @@ Tier0 预览和部署里，平台请求经过节点代理（`sbx-api-proxy`）�
 | `sbx_proxy_credential_pending` (503) | 绑定在，但 App 的 Key 还没送到代理。SDK 已按 `retry_after_ms` 重试 3 次，仍失败就稍后再试 |
 | `sbx_proxy_no_credential` (403) | 这台 VM 永远没有 Key：会话没有绑定 App，只能调 `/openapi/v2/info`。不重试 |
 | `sbx_proxy_unbound` (403) | 这台 VM 当前没有绑定：实例正在启动、停止或被替换，等平台恢复 |
-| `sbx_proxy_bad_request` (400) | 请求格式被拒：absolute-form、`CONNECT`、`Upgrade`、路径含 `.` / `..` / `//` / `%2f` / `%2e` / `%5c` / `;`、多个 `X-Tier0-Delegation`、请求头超过 32 KiB 或 100 个 |
+| `sbx_proxy_bad_request` (400) | 请求格式被拒：absolute-form、`CONNECT`、`Upgrade`、路径含 `.` / `..` / `//` / `%2f` / `%2e` / `%5c` / `;`、请求头超过 32 KiB 或 100 个 |
 | `sbx_proxy_forbidden` (403) | 缺 `X-Tier0-SDK: 1`，或带了 `Forwarded` / `X-Forwarded-*` / `X-Real-IP`。直接用 `fetch` / `curl` 时自己加 `X-Tier0-SDK: 1` |
-| `sbx_proxy_not_found` (404) | 路径不在代理白名单里：只转发 `/openapi/v2/uns/**`、`assets/**`、`notifications/send`、`notifications/get`、`platform/getMembers`、`apps/access-members/list`、`info`（白名单内但 App 的 Key 无权的接口，如 Source / Stream 管理，由 Backend 回 403） |
+| `sbx_proxy_not_found` (404) | 路径不在代理白名单里：只转发 `/openapi/v2/uns/**`、`assets/**`、`notifications/send`、`notifications/get`、`platform/getMembers`、`apps/access-members/list`、`info`（白名单内但 App 的 Key 无权的接口，如 Source / Stream 管理、`assets/upload`，由 Backend 回 403；App 的 Key 在 `assets/` 下只能调 `assets/files/**`） |
 
 只有带 `X-Tier0-Proxy: not-forwarded` 的 `503` / `429` 会被 SDK 自动重试；平台返回的 5xx 不重试。

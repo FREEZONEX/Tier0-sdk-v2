@@ -39,25 +39,21 @@ export async function nextOrderNumber() {
 
 `transact` 的结果状态不是 `committed`（`dryRun` 时为 `validated`）会抛 `TRANSACTION_FAILED`，`details.results` 带每一步的错误。
 
-## 调用身份
+## 调用身份与请求上下文
 
-每次调用都使用平台注入的 App Key。处理业务请求时，数据层还会转发网关签发的员工断言（`X-Tier0-App-Data-Subject`），让 UNS 的数据规则与记录租约作用于该员工。集合 ensure 与种子写入以 App 身份执行。
+每次调用都是 App 自身，使用平台注入的 App Key；集合 ensure、种子写入、记录租约、幂等键都只按 App 区分，不按当前用户区分。按用户角色决定谁能看、能改什么由 App 在服务端自己做（当前用户和角色见[身份与框架集成](../../references/integration.md)的访问者头）。
 
-App 的请求入口用 `runWithRequestContext(request, next)` 打开请求上下文（传 `Request` 本身：调用方断开时，还在排队的数据调用不再发出，进行中的被取消；只传 `request.headers` 则没有取消）；脱离请求的工作（定时器、队列、发出即不管的后续任务）放进 `runAsApp(() => ...)`，这些调用不带员工身份；员工身份下取得的租约不能由这类 App 级工作释放。断言格式由 SDK 校验（三段 base64url），格式不合法时调用在发出请求前失败。
+请求入口用 `runWithAbortSignal(request.signal, next)` 把请求的中止信号交给数据层：调用方断开时，这个请求还在排队的数据调用不再发出（`DATA_ABORTED`，`notStarted`），进行中的被取消。脱离请求的工作（定时器、队列、发出即不管的后续任务）放进 `runDetached(() => ...)`，不随请求中止。ensure、种子写入和 `data.subscribe` 本来就不受请求中止影响。
 
 ```ts
-import { currentDataSubject, runAsApp, runWithRequestContext } from '@tier0/sdk-v2/data';
+import { runDetached, runWithAbortSignal } from '@tier0/sdk-v2/data';
 
 export function handleRequest<T>(request: Request, next: () => Promise<T>): Promise<T> {
-  return runWithRequestContext(request, next);
+  return runWithAbortSignal(request.signal, next);
 }
 
 export function scheduleFollowUp(task: () => Promise<void>) {
-  setTimeout(() => void runAsApp(task), 1000);
-}
-
-export function servingEmployee(): boolean {
-  return currentDataSubject() !== undefined;
+  setTimeout(() => void runDetached(task), 1000);
 }
 ```
 

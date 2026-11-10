@@ -79,8 +79,6 @@ export interface CollectionRuntime {
   resolve(target: CollectionTarget | string): Promise<string>;
   /** Runs a call, re-ensuring and retrying once when its collection ID went stale (see bootstrap). */
   recover<R>(fn: () => Promise<R>, options: { collections: readonly CollectionTarget[]; retry?: boolean }): Promise<R>;
-  /** Data subject of the request being served. */
-  subject(): string | undefined;
   /** Abort signal of the request being served. */
   signal(): AbortSignal | undefined;
 }
@@ -391,7 +389,6 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
   private async send<R>(operation: UnsV2OperationName, body: Record<string, unknown>, options: CallOptions = {}): Promise<R> {
     const collectionId = await this.runtime.resolve(this.definition);
     return this.runtime.call<R>(operation, { collectionId, ...compact(body) }, {
-      dataSubject: this.runtime.subject(),
       signal: this.runtime.signal(),
       ...options,
     });
@@ -422,9 +419,9 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
 
   /**
    * Records by ID, in the order asked for (each ID once, at its first
-   * position); IDs that do not exist, are deleted or are hidden by employee
-   * data rules are listed in `missing` alike. More than 100 IDs are read in
-   * chunks of 100 (not one snapshot).
+   * position); IDs that do not exist or are deleted are listed in
+   * `missing`. More than 100 IDs are read in chunks of 100 (not one
+   * snapshot).
    */
   async get(ids: readonly string[], options: { projection?: Projection } = {}): Promise<{ items: WithMeta<T>[]; missing: string[] }> {
     const unique = [...new Set(ids)];

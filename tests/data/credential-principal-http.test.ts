@@ -40,7 +40,7 @@ function startFixture(serverName: string): Promise<string> {
       res.writeHead(200, { 'content-type': 'text/event-stream' });
       const revision = reconnectMode ? ++reconnectCount : 1;
       const eventId = reconnectMode ? `${key}-${revision}` : key;
-      const event = { eventId, collectionId: `${key}-orders`, recordId: 'r', revision, change: 'record', occurredAt: 1000, restricted: false };
+      const event = { eventId, collectionId: `${key}-orders`, recordId: 'r', revision, change: 'record', occurredAt: 1000 };
       res.end(`id: ${eventId}\nevent: change\ndata: ${JSON.stringify(event)}\n\n`);
       return;
     }

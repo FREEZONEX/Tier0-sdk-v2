@@ -129,6 +129,16 @@ export const OPENAPI_OPERATIONS = {
     "requestSchema": "Platform_SdknotificationsGetRequest",
     "responseSchema": "Platform_SdknotificationsGetWire"
   },
+  "notificationsList": {
+    "name": "notificationsList",
+    "method": "POST",
+    "path": "/openapi/v2/notifications/list",
+    "pathParams": [],
+    "mode": "direct",
+    "readonly": true,
+    "requestSchema": "Platform_SdknotificationsListRequest",
+    "responseSchema": "Platform_SdknotificationsListWire"
+  },
   "membersListWorkspace": {
     "name": "membersListWorkspace",
     "method": "POST",
@@ -464,6 +474,7 @@ export function createOpenAPI(http: HttpClient) {
   "notifications": {
     "send": (body: components['schemas']["SdknotificationsSendRequest"], options?: RequestOptions) => http.operation<components['schemas']["SdknotificationsSendData"]>(OPENAPI_OPERATIONS["notificationsSend"], { body }, options),
     "get": (body: components['schemas']["SdknotificationsGetRequest"], options?: RequestOptions) => http.operation<components['schemas']["SdknotificationsGetData"]>(OPENAPI_OPERATIONS["notificationsGet"], { body }, options),
+    "list": (body?: components['schemas']["SdknotificationsListRequest"], options?: RequestOptions) => http.operation<components['schemas']["SdknotificationsListData"]>(OPENAPI_OPERATIONS["notificationsList"], { body }, options),
   },
   "members": {
     "listWorkspace": (body?: components['schemas']["SdkmembersListWorkspaceRequest"], options?: RequestOptions) => http.operation<components['schemas']["SdkmembersListWorkspaceData"]>(OPENAPI_OPERATIONS["membersListWorkspace"], { body }, options),

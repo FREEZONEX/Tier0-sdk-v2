@@ -57,6 +57,7 @@ run(['--input-type=module', '-e', `
   if ('list' in client.source || 'get' in client.stream.programs || 'nodes' in client.agent || 'controls' in client.api || 'controls' in client || 'ControlError' in sdk || 'ControlResultUnknownError' in sdk) throw new Error('Retired facade aliases leaked');
   if (['sourceList', 'streamProgramCreate', 'recordInsertMany', 'recordDistinct', 'metadataFindOne'].some(name => name in raw)) throw new Error('Retired raw operations leaked');
   if ('runtime' in client.stream || 'streamRuntimeCapabilitiesGet' in raw || 'streamRuntimeCapabilitiesGet' in UNS_V2_OPERATIONS) throw new Error('Retired readiness probe leaked');
+  if (['appStreamPolicyGet', 'appStreamPolicyUpdate'].some(name => name in raw || name in client.uns || name in UNS_V2_OPERATIONS)) throw new Error('Retired App platform policy leaked');
   if (typeof client.source.documents.get !== 'function' || typeof client.stream.programs.deploy !== 'function') throw new Error('Missing domain entrypoints');
 `], consumer);
 for (const ext of ['mts', 'cts']) writeFileSync(resolve(consumer, `consumer.${ext}`), `
@@ -69,16 +70,17 @@ const displayNameCollection: UnsV2Request<'appCollectionsEnsure'> = { collection
 void [namedCollection, unnamedCollection, displayNameCollection];
 import { client as appClient, StreamRequestResultUnknownError, type StreamMessage } from '@tier0/sdk-v2';
 import { StreamRequestsClient, StreamMessagesClient } from '@tier0/sdk-v2/streams';
-import { installAppRuntime } from '@tier0/sdk-v2/runtime';
 const request = appClient.streams.requests.use<{ code: string }, { accepted: boolean }>({ code: 'orders.approve' });
 const invocation: Promise<boolean> = request.invoke({ code: 'A' }, { idempotencyKey: 'intent-1' }).then(result => result.result.accepted);
 const subscription = appClient.streams.messages.use<{ code: string }>({ topic: 'orders/accepted' }).subscribe((message: StreamMessage<{ code: string }>) => { void message.payload.code; });
-void [invocation, subscription, StreamRequestsClient, StreamMessagesClient, StreamRequestResultUnknownError, installAppRuntime];
+void [invocation, subscription, StreamRequestsClient, StreamMessagesClient, StreamRequestResultUnknownError];
 ${[...retiredControlSchemas, 'ControlJSON', 'PublicControl', 'ControlDiscoverOptions', 'ControlDiscoverResponse',
   'ControlTransportConfig', 'CloudClientConfig', 'ControlInvokeOptions', 'ControlInvokeResponse', 'ControlErrorInfo',
   'ControlError', 'ControlResultUnknownError', 'ControlHandle', 'ControlsClient', 'controls', 'DEFAULT_CONTROL_TRANSPORT_TIMEOUT_MS'].map(name =>
   `// @ts-expect-error Retired public declaration must not be exported.\nimport type { ${name} } from '@tier0/sdk-v2';`).join('\n')}
-import { Tier0MQClient } from '@tier0/sdk-v2/mq';
+import { Tier0MQClient, appTopic } from '@tier0/sdk-v2/mq';
+const namespacedTopic: string = appTopic('alarms/#');
+void namespacedTopic;
 import { createSourceClient } from '@tier0/sdk-v2/source';
 import { createStreamClient } from '@tier0/sdk-v2/stream';
 import { createDataClient, type Doc } from '@tier0/sdk-v2/data';
@@ -122,6 +124,8 @@ nestedHandle.insertOne(input, { returnDocument: 'after', projection: { 'customer
 const client: Tier0Client = createClient({ apiHost: 'https://fixture.invalid' });
 // @ts-expect-error Retired facade has no alias.
 client.controls;
+// @ts-expect-error The App platform policy is retired (app-key-model/1).
+client.uns.appStreamPolicyGet({ appId: 'app' });
 client.uns.recordFind({ collectionId: 'orders' });
 client.uns.recordInsertOne({ collectionId: 'orders', data: { code: 'A' }, returnDocument: 'after' });
 client.uns.metadataFind({ kind: 'collection', filter: { _id: 'orders' } });
@@ -153,7 +157,7 @@ handle.distinct('code');
 void Tier0MQClient;
 `);
 run([resolve(root, 'node_modules/typescript/bin/tsc'), '--noEmit', '--strict', '--skipLibCheck', '--module', 'NodeNext', '--target', 'ES2022', 'consumer.mts', 'consumer.cts'], consumer);
-for (const subpath of ['', '/source', '/stream', '/streams', '/runtime', '/mq', '/react', '/vue', '/data/define']) {
+for (const subpath of ['', '/source', '/stream', '/streams', '/mq', '/react', '/vue', '/data/define']) {
   const result = await build({ absWorkingDir: consumer, stdin: { contents: `export * from '@tier0/sdk-v2${subpath}';`, resolveDir: consumer }, bundle: true, platform: 'browser', format: 'esm', write: false, metafile: true, logLevel: 'silent' });
   if (!subpath && Object.keys(result.metafile.inputs).some(path => /node_modules[\\/](mqtt|react|vue|zod)[\\/]|cloud-server|[\\/]data[\\/]/.test(path))) throw new Error('Root entry loads an optional browser/server dependency');
   if (subpath === '/data/define' && (Object.keys(result.metafile.inputs).some(path => /^node:|[\\/]data[\\/](context|bootstrap|call|client|collection|error)\.js$/.test(path)) ||

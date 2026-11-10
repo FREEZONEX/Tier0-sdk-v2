@@ -57,6 +57,6 @@ listCollections 的 metadataFind 仅用于 Workspace 集成（会话、personal 
 
 ## 回收集合的历史读取
 
-按原 collectionId 读取 Record、Sample、count 或 aggregate；既有授权、员工行规则和字段权限仍生效。活跃 Topic 可继续读取其引用的回收集合。活跃 App 的 dataAppContext 保留仍可读的回收集合，但不授予新增能力；回收中的 App 自身不能运行。
+按原 collectionId 读取 Record、Sample、count 或 aggregate；既有授权和字段权限仍生效。活跃 Topic 可继续读取其引用的回收集合。活跃 App 的 dataAppContext 保留仍可读的回收集合，但不授予新增能力；回收中的 App 自身不能运行。
 
 已知 ID 直接读取，不必先恢复集合或查询元数据。数据层也可用 `data.collection({ collectionId })`，不会 ensure、写种子或补授权。只有 Workspace 集成确需回收对象定义时，才用 metadataFind 的 state=deleted 或 all；App Key 仍不调用该接口。[回收规则](delete.md#回收规则)说明写入和恢复边界。

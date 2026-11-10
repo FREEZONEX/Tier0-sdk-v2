@@ -68,7 +68,6 @@ describe('StreamRequest real HTTP fixture (no external credentials)', () => {
       for (const row of rows) {
         expect(row.headers.authorization).toBeUndefined();
         expect(row.headers['x-api-key']).toBe(key);
-        expect(row.headers['x-tier0-app-data-subject']).toBeUndefined();
       }
       expect(rows[3].body).toMatchObject({ appId, topics: [{ topic: 'server/env', publish: true, subscribe: false }] });
       expect((rows[3].body as { clientPublicKey: string }).clientPublicKey).toMatch(/^U[A-Z2-7]{55}$/);

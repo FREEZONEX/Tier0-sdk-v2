@@ -816,6 +816,150 @@
         "x-tier0-min-permission": 1
       }
     },
+    "/openapi/v2/notifications/list": {
+      "post": {
+        "description": "分页查询消息通知发送记录（不含正文）：个人 Key 且主人是空间 owner/admin 时查看整个空间，否则只看本 Key 发送的；全空间范围包含管理端派发的记录（keyId 为字符串 0）",
+        "operationId": "PlatformV2ListNotifications",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListNotificationsReq"
+              }
+            }
+          },
+          "required": true,
+          "x-originalParamName": "body"
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SdknotificationsListWire"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "description": "Platform operation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Platform operation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Platform operation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Platform operation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Platform operation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Platform operation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Platform operation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Platform operation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Platform operation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationError"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Platform operation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationError"
+                }
+              }
+            }
+          }
+        },
+        "summary": "查询消息通知发送记录列表",
+        "tags": [
+          "通知"
+        ],
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "x-tier0-readonly": true,
+        "x-tier0-destructive": false,
+        "x-tier0-audience": "builder",
+        "x-tier0-platform": true,
+        "x-tier0-permission": "notifications.read",
+        "x-tier0-min-permission": 1
+      }
+    },
     "/openapi/v2/platform/getMembers": {
       "post": {
         "operationId": "PlatformV2GetMembers",
@@ -2705,6 +2849,7 @@
             "type": "string"
           },
           "mode": {
+            "description": "已废弃（2026-11-04）：test/live 由平台按 API Key 与 sender.type 判定，传入值不生效（仅未区分预览/部署的存量 App 凭证过渡期沿用）。test 消息只出现在该 App 的 Building 预览铃铛，不进消息中心，也不做终端推送",
             "type": "string"
           },
           "recipientUserId": {
@@ -2752,7 +2897,7 @@
             "type": "string"
           },
           "type": {
-            "description": "枚举 app/other/system，缺省 other；system 仅平台内部发送方（如 UNS Agent）可用；App 凭证不能使用 system，sender.type=app 时 sender.id 以凭证绑定的 App 为准；只有 App 绑定凭证或平台 App 凭证发出的 type=app 才会作为 App 展示，其他 Key 自报 type=app 会被降级为 other，接口照常返回成功；建信归 workspace 分组（System tab）",
+            "description": "枚举 app/other/system，缺省 other；system 仅平台内部发送方（如 UNS Agent）可用；App 凭证不能使用 system，sender.type=app 时 sender.id 以凭证绑定的 App 为准；只有 App 绑定凭证或平台 App 凭证发出的 type=app 才会作为 App 展示，其他 Key 自报 type=app 会被降级为 other，接口照常返回成功；建信归 workspace 分组（System tab）。Builder 里的 Agent（经 Tier0 MCP）发通知：发 Builder 内部通知用 type=app（sender.id 仍须填写，以会话绑定的 App 为准），只进该 App 的预览铃铛；发系统通知用 type=system 且 id=uns-agent，进正式消息中心",
             "type": "string",
             "enum": [
               "app",
@@ -2772,6 +2917,14 @@
           "messageId": {
             "type": "string"
           },
+          "recipientName": {
+            "description": "Recipient display name (nickName, falling back to userName); an empty string when the recipient is not a member of this Workspace or the name cannot be looked up for now; never affects the send result",
+            "type": "string"
+          },
+          "recipientUserId": {
+            "description": "Recipient user ID of the request (a large integer carried as string); on an idempotent hit it is the recipient of the existing request",
+            "type": "string"
+          },
           "status": {
             "type": "string"
           }
@@ -2779,7 +2932,8 @@
         "required": [
           "messageId",
           "status",
-          "createdAt"
+          "createdAt",
+          "recipientUserId"
         ],
         "type": "object"
       },
@@ -2832,6 +2986,14 @@
           "messageId": {
             "type": "string"
           },
+          "recipientName": {
+            "description": "Recipient display name (nickName, falling back to userName); an empty string when the recipient is not a member of this Workspace or the name cannot be looked up for now",
+            "type": "string"
+          },
+          "recipientUserId": {
+            "description": "Recipient user ID of the request (a large integer carried as string), same as the recipientUserId given when sending",
+            "type": "string"
+          },
           "status": {
             "type": "string"
           },
@@ -2844,7 +3006,8 @@
           "type",
           "status",
           "createdAt",
-          "channels"
+          "channels",
+          "recipientUserId"
         ],
         "type": "object"
       },
@@ -2879,6 +3042,139 @@
           "status",
           "targetCount",
           "successCount"
+        ],
+        "type": "object"
+      },
+      "ListNotificationsReq": {
+        "properties": {
+          "messageId": {
+            "description": "Filter by message ID (a large integer carried as string, a positive integer); omitted or empty string means no filter",
+            "type": "string"
+          },
+          "page": {
+            "description": "Page number, 1-based; defaults to 1 when omitted, an explicit value must be >= 1",
+            "type": "integer"
+          },
+          "recipientUserId": {
+            "description": "Filter by recipient user ID (a large integer carried as string, a positive integer); omitted or empty string means no filter",
+            "type": "string"
+          },
+          "size": {
+            "description": "Items per page; defaults to 20 when omitted, an explicit value must be between 1 and 100",
+            "type": "integer"
+          },
+          "status": {
+            "description": "Filter by status: accepted / sent / failed; omitted or empty string means no filter, any other value is rejected with 400",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ListNotificationsResp": {
+        "properties": {
+          "list": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationListItem"
+            },
+            "type": "array"
+          },
+          "page": {
+            "description": "Page number actually used",
+            "type": "integer"
+          },
+          "size": {
+            "description": "Items per page actually used",
+            "type": "integer"
+          },
+          "total": {
+            "description": "Total number of records matching the filters",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "list",
+          "total",
+          "page",
+          "size"
+        ],
+        "type": "object"
+      },
+      "NotificationListItem": {
+        "properties": {
+          "channels": {
+            "description": "Requested terminal reminder channels, elements are web / mobile; an empty array for a silent message",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "completedAt": {
+            "description": "Completion time, RFC 3339 UTC; empty while the request is not completed",
+            "type": "string"
+          },
+          "createdAt": {
+            "description": "Creation time, RFC 3339 UTC",
+            "type": "string"
+          },
+          "errorCode": {
+            "description": "Only filled when status is failed",
+            "type": "string"
+          },
+          "keyId": {
+            "description": "ID of the API key that sent the message (a large integer carried as string); the string 0 for records dispatched from the admin console",
+            "type": "string"
+          },
+          "message": {
+            "description": "Only filled when status is failed",
+            "type": "string"
+          },
+          "messageId": {
+            "description": "Message ID (a large integer carried as string)",
+            "type": "string"
+          },
+          "mode": {
+            "description": "test / live",
+            "type": "string"
+          },
+          "recipientName": {
+            "description": "Recipient display name (nickName, falling back to userName); an empty string when the recipient is not a member of this Workspace or the name cannot be looked up for now",
+            "type": "string"
+          },
+          "recipientUserId": {
+            "description": "Recipient user ID (a large integer carried as string)",
+            "type": "string"
+          },
+          "senderId": {
+            "description": "Machine identifier of the sender, self-reported, for display only",
+            "type": "string"
+          },
+          "senderName": {
+            "description": "Display name of the sender, self-reported, for display only",
+            "type": "string"
+          },
+          "senderType": {
+            "description": "app / other / system; self-reported by the sender, for display only",
+            "type": "string"
+          },
+          "status": {
+            "description": "accepted / sent / failed",
+            "type": "string"
+          },
+          "title": {
+            "description": "Notification title; the content is never returned by this endpoint",
+            "type": "string"
+          }
+        },
+        "required": [
+          "messageId",
+          "createdAt",
+          "status",
+          "mode",
+          "channels",
+          "senderType",
+          "keyId",
+          "recipientUserId",
+          "title"
         ],
         "type": "object"
       },
@@ -6548,6 +6844,15 @@
       },
       "SdknotificationsGetWire": {
         "$ref": "#/components/schemas/SdknotificationsGetData"
+      },
+      "SdknotificationsListRequest": {
+        "$ref": "#/components/schemas/ListNotificationsReq"
+      },
+      "SdknotificationsListData": {
+        "$ref": "#/components/schemas/ListNotificationsResp"
+      },
+      "SdknotificationsListWire": {
+        "$ref": "#/components/schemas/SdknotificationsListData"
       },
       "SdkmembersListWorkspaceRequest": {
         "$ref": "#/components/schemas/PlatformGetMembersReq"
