@@ -29,10 +29,10 @@ export class VisitorError extends Error {
 
 /** The visitor of a request, from `X-Tier0-Visitor`. */
 export interface Visitor {
-  readonly subType: 'employee' | 'machine';
-  /** Employee user ID, or the call token ID of a machine visitor. */
+  readonly subType: 'employee';
+  /** Employee user ID. */
   readonly subject: string;
-  /** Grant of an employee's access; empty for a machine visitor. */
+  /** Grant of the employee's access. */
   readonly grant: string;
   readonly workspaceID: string;
   readonly appID: string;
@@ -84,9 +84,9 @@ const sized = (value: unknown, min: number, max: number): value is string =>
  * is the only way into the App and replaces whatever the client sent. Parsing
  * is strict: a byte order mark, a duplicate key, a lone UTF-16 surrogate
  * (e.g. `"\ud800"`), an unknown or missing field, a wrong type or length, a `ws` that
- * is not a positive decimal ID without sign or leading zero, an employee
- * without a grant or a machine visitor with one, or an `app` other than this
- * App's throws `VISITOR_HEADER_INVALID`. Without an App ID
+ * is not a positive decimal ID without sign or leading zero, a non-employee
+ * visitor, an empty grant, or an `app` other than this App's throws
+ * `VISITOR_HEADER_INVALID`. Without an App ID
  * (`TIER0_APP_ID` unset) it throws `VISITOR_CONFIGURATION_INVALID`.
  */
 export function parseVisitorHeader(value: string | null | undefined, options: ParseVisitorOptions = {}): Visitor {
@@ -114,10 +114,9 @@ export function parseVisitorHeader(value: string | null | undefined, options: Pa
   const { ws, app, runtime, sub_type: subType, sub, grant, app_roles: appRoles, active_role: activeRole } = claims;
   if (!validID(ws) || app !== appID ||
       (runtime !== 'deployed' && runtime !== 'preview') ||
-      (subType !== 'employee' && subType !== 'machine') ||
+      subType !== 'employee' ||
       !sized(sub, 1, VISITOR_MAX_STRING_BYTES) ||
-      // An employee's access always has a grant; a machine visitor has none.
-      typeof grant !== 'string' || (subType === 'employee' ? !sized(grant, 1, VISITOR_MAX_STRING_BYTES) : grant !== '') ||
+      !sized(grant, 1, VISITOR_MAX_STRING_BYTES) ||
       !Array.isArray(appRoles) || appRoles.some((role) => !sized(role, 1, VISITOR_MAX_STRING_BYTES)) ||
       (activeRole !== undefined && !sized(activeRole, 1, VISITOR_MAX_STRING_BYTES))) throw fail();
   return Object.freeze({

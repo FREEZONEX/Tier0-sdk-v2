@@ -19,7 +19,7 @@ export function visitorOf(request: Request): Visitor | null {
 }
 ```
 
-返回 `{ subType: 'employee' | 'machine', subject, grant, workspaceID, appID, runtime: 'deployed' | 'preview', appRoles, activeRole? }`。`appRoles` 是访问者在 App 里的角色（预览里是「以某角色查看」选中的角色），`activeRole` 只在预览的「以某角色查看」里出现，只用于展示。
+返回 `{ subType: 'employee', subject, grant, workspaceID, appID, runtime: 'deployed' | 'preview', appRoles, activeRole? }`。仅接受员工，`grant` 必须为 1–128 字节；旧 machine 头无论是否带 grant 均拒绝，不提供兼容 API。`appRoles` 是访问者在 App 里的角色（预览里是「以某角色查看」选中的角色），`activeRole` 只在预览的「以某角色查看」里出现，只用于展示。
 
 App 调平台只有一种身份：App 自身（App Key，平台注入在运行进程的 `TIER0_API_KEY` 里，SDK 直接用）。平台不按访问者收窄 App 的数据，按角色决定当前用户能看、能改哪些记录是 App 自己的事：在服务端按 `appRoles` 过滤查询条件、拒绝写入，返回给浏览器前裁掉不该看的字段。不要把访问者 ID 或角色当成平台调用的参数去「代表」用户。
 

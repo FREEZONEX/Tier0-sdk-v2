@@ -1,10 +1,22 @@
 # Changelog
 
+## 0.10.1-aenv.13 (local remove-apps-in-use integration)
+
+- Rebase the employee-only visitor cutover onto 0.10.1, retaining its committed Backend contract `07ef8cd30a5465a98c8e6ee0892d02360aee8761` and unified Builder grant guidance without editing generated contracts.
+- Repack for the scaffold as a distinct local artifact rather than replacing the historical 0.10.0-aenv.12 archive. No npm publication or existing App republication is performed.
+- Machine visitor identities remain rejected; employee grants, platform App Keys, data and Stream APIs keep the latest base behavior.
+
 ## 0.10.1 (2026-11-10)
 
 - Clarify Builder grant management for existing collections across Apps in the same workspace. Document incremental `appDataPolicyUpdate` changes, revision checks and receipt verification while preserving existing grants and disabled policy status; App runtime credentials cannot manage grants.
 - Align README and bundled Skills with the Backend's unified authorization rules: management uses the current principal's effective workspace, App and resource permissions, without a separate Agent denial or platform-import exception.
 - Synchronize generated contracts to committed Backend `07ef8cd30a5465a98c8e6ee0892d02360aee8761`, including the optional `permission` field in the platform identity response. No SDK operation is removed.
+
+## 0.10.0-aenv.12 (local access-settings package)
+
+- Breaking: `Visitor.subType` is only `employee`. `parseVisitorHeader()` refuses every other identity, including old machine headers with or without a grant. Employee grants remain mandatory; canonical encoding, field validation and App binding are unchanged. No machine alias or compatibility API is provided.
+- App Key authentication (`TIER0_API_KEY` → one `X-API-Key`), employee roles, data cancellation and realtime APIs are unchanged. This local package keeps the existing 0.10.0 generated Backend contracts; no contract synchronization or Backend upgrade is part of this change.
+- Existing deployed Apps retain their bundled parser. Retiring machine entry points and stripping untrusted identity headers at the platform front door invalidates old call tokens without republishing those Apps; updating this package alone does not secure an alternate ingress.
 
 ## 0.10.0 (2026-11-10)
 
