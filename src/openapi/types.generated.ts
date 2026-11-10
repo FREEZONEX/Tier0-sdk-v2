@@ -902,6 +902,7 @@ export interface components {
             email: string;
             keyPrefix: string;
             keyType: string;
+            permission?: string;
             permissions: string[];
             roles: string[];
             userID: number | bigint;

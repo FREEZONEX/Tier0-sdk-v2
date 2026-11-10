@@ -2413,6 +2413,9 @@
           "keyType": {
             "type": "string"
           },
+          "permission": {
+            "type": "string"
+          },
           "permissions": {
             "items": {
               "type": "string"

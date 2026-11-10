@@ -6826,7 +6826,7 @@
         "tags": [
           "App 与授权"
         ],
-        "description": "使用 changes 按集合原子新增、修改或移除授权；省略字段保留原值，不需回传其他集合。collections 仍用于显式完整替换，两种模式互斥。permissionLevel 的 read/readwrite/manage 对应业务记录只读、读写、管理（含删除），与底层 permissions 互斥。新增权限不能超出当前管理者能力；任何新增授权（新集合、加宽权限、重新启用已停用的策略）只允许工作区 Owner/Admin 的人工会话或平台导入（工作区系统 Key，无 Builder 目标、不带 Acting-Builder），其他调用方返回 403，data.reason 为 app_grant_admin_required 或 app_grant_agent_forbidden；收窄和移除不受限，下一个请求即生效。必须提供 expectedRevision 和 idempotencyKey。同键原样重试重放结果，不重新扩大授权。",
+        "description": "使用 changes 按集合原子新增、修改或移除授权；省略字段保留原值，不需回传其他集合。collections 仍用于显式完整替换，两种模式互斥。permissionLevel 的 read/readwrite/manage 对应业务记录只读、读写、管理（含删除），与底层 permissions 互斥。内置 Builder 使用系统 Key 自身的当前权限完成授权，不依赖对话人的角色或确认；已绑定 Builder 目标时，只能修改该 App。新增权限不能超出当前管理者能力；新增、加宽、重新启用、收窄和移除复用当前管理主体、工作区、App 生命周期与提交前凭据校验，不另设平台导入特例。保存后下一个请求即生效，不改变集合归属；App 运行凭据不能管理授权。必须提供 expectedRevision 和 idempotencyKey。同键原样重试重放结果，不重新扩大授权。",
         "x-tier0-audience": "governance",
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
@@ -33957,6 +33957,9 @@
             "type": "string"
           },
           "keyType": {
+            "type": "string"
+          },
+          "permission": {
             "type": "string"
           },
           "permissions": {

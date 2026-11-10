@@ -26,7 +26,7 @@ const operation = (name: string) => manifest.operations.find(item => item.name =
 
 describe('Backend App UNS access contract without generic record audit', () => {
   it('pins the exact upstream commit and all generator inputs', () => {
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('91b5f3dc4024f44df32ee7aafcd83a8d470b655d');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('07ef8cd30a5465a98c8e6ee0892d02360aee8761');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     for (const [key, file] of Object.entries({ contract: 'contract.json', cloudSupport: 'cloud-support.json', manifest: 'manifest.json', provenance: 'provenance.json', registry: 'registry_generated.go' })) {
       expect(UNS_V2_CONTRACT_PROVENANCE.hashes[key as keyof typeof UNS_V2_CONTRACT_PROVENANCE.hashes]).toBe(
@@ -183,7 +183,9 @@ describe('Backend App UNS access contract without generic record audit', () => {
     expect(management.filter(item => item.appAllowed).map(item => item.name).sort()).toEqual(appCollectionLifecycle);
     for (const item of management) {
       expect(item.appAllowed, item.name).toBe(['appCollectionsEnsure', 'appCollectionsSchemaReplace', 'appCollectionsArchive', 'appCollectionsRestore'].includes(item.name));
-      expect(item.permissionAnyOf.some(permission => permission.includes('manage')), item.name).toBe(false);
+      const governanceAlternative = ['appDataPolicyGet', 'appDataPolicyUpdate'].includes(item.name);
+      expect(item.permissionAnyOf.filter(permission => permission.includes('manage')), item.name)
+        .toEqual(governanceAlternative ? ['workspace.api.manage'] : []);
     }
     for (const name of appCollectionLifecycle) {
       expect(operation(name)).toMatchObject({ appAllowed: true, permission: 'uns.write', minPermission: 3 });
