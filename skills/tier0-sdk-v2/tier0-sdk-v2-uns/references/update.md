@@ -63,7 +63,7 @@ export async function renameDevice(
 
 ## 已有集合授权给 App
 
-这是 Builder 的管理操作，使用内置 MCP 注入的系统身份；不从 App 运行时取得管理 Key，也不需要对话用户具有 Owner/Admin 角色或再次确认。外部 personal / agent Key 按自身当前权限调用同一接口。服务端校验工作区、目标 App 和所授资源权限，App 运行时凭证不能管理授权。
+这是 Builder 的管理操作，使用内置 MCP 注入的系统身份；不从 App 运行时取得管理 Key，也不需要对话用户具有 Owner/Admin 角色或再次确认。外部 personal / agent Key 按自身当前权限调用同一接口。Builder 可为同一工作区内的 App 管理授权，当前绑定 App 仅是构建上下文。服务端校验工作区、目标 App 状态和所授资源权限，App 运行时凭证不能管理授权。
 
 - 先发现并确认真实的 `collectionId`、结构和当前目标 `appId`；保留已有集合所属 App、目录和数据，不创建同名空集合代替。
 - 调用 `appDataPolicyGet({ appId })` 读取当前策略及 `revision`。使用 `appDataPolicyUpdate` 的 `changes` 增量提交，以 `action: 'upsert'`、实际 `collectionId` 和业务所需 `permissions` 关联集合；`alias` 可省略，不能同时传 `collections`。`upsert` 指定该集合的完整目标权限，其他集合授权保留。
