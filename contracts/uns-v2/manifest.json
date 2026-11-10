@@ -1020,7 +1020,10 @@
       "audience": "governance",
       "starter": false,
       "method": "POST",
-      "permissionAnyOf": [],
+      "permissionAnyOf": [
+        "uns.write",
+        "workspace.api.manage"
+      ],
       "minPermission": 3,
       "scope": "uns:update",
       "readOnly": true,
@@ -1050,12 +1053,15 @@
       "appAllowed": false,
       "resourceId": 3340,
       "summary": "Hosted App Collection policy: Update",
-      "description": "Manage Collection access for an existing hosted App. Requires a current Builder session or full_access personal/Agent key. Adding any grant (new Collection, wider permissions or re-enabling a disabled policy) is limited to a workspace Owner/Admin human session or platform import (workspace system key without a Builder target or Acting-Builder); other callers get 403 with data.reason app_grant_admin_required or app_grant_agent_forbidden. Narrowing and removal stay open to the App manager and take effect on the next request. Shared data is granted to the recipient App collections; runtime App credentials cannot manage grants.",
+      "description": "Manage Collection access for an existing hosted App using a current Builder session or an authorized full_access personal, Agent or platform system key. Built-in Builder uses its system key's current permissions, independently of the conversation user's role or confirmation. A bound Builder target must match the recipient App. New grants cannot exceed the caller's current resource permissions; workspace, App lifecycle and credential checks apply before commit. Additions, widening, re-enabling, narrowing and removal use the same authorization rules, without a platform import exception. Changes take effect on the next request and do not change Collection ownership. Runtime App credentials cannot manage grants.",
       "cloudExtension": true,
       "audience": "governance",
       "starter": false,
       "method": "POST",
-      "permissionAnyOf": [],
+      "permissionAnyOf": [
+        "uns.write",
+        "workspace.api.manage"
+      ],
       "minPermission": 3,
       "scope": "uns:update",
       "readOnly": false,

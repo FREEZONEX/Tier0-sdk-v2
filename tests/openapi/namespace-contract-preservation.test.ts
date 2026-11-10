@@ -92,13 +92,17 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
   expect(reasons).not.toContain('app_control_ceiling');
   access.properties.blockedReasons.items.enum = reasons.map(reason =>
     reason === 'app_stream_ceiling' ? 'app_control_ceiling' : reason);
-  // app-key-model/1 (Backend 1e6b2d7b6): the 11 fixed App capabilities and the admin-only grant additions.
+  // App 平台能力保持 11 项，已有集合授权使用当前管理主体的权限。
   const platformPermissions = appContext.properties.platformPermissions as unknown as { items: { enum: string[] }; maxItems: number };
   expect(platformPermissions.items.enum).toEqual(['openapi.base', 'platform.users.read', 'notifications.send', 'asset.file.upload',
     'asset.file.download', 'asset.file.delete', 'stream.requests.read', 'stream.requests.invoke', 'stream.requests.write',
     'stream.messages.publish', 'stream.messages.subscribe']);
   expect(platformPermissions.maxItems).toBe(11);
-  expect(operations.appDataPolicyUpdate.description).toContain('app_grant_admin_required');
+  expect(operations.appDataPolicyUpdate.description).toContain("system key's current permissions");
+  expect(operations.appDataPolicyUpdate.description).toContain('Runtime App credentials cannot manage grants');
+  for (const name of ['appDataPolicyGet', 'appDataPolicyUpdate']) {
+    expect(operations[name].permissionAnyOf).toEqual(['uns.write', 'workspace.api.manage']);
+  }
   const digest = createHash('sha256').update(JSON.stringify(canonical({ operations: baselineOperations, schemas: baselineSchemas }))).digest('hex');
   // Explicitly checked directory declarations above; unrelated Namespace operations stay pinned.
   // Re-pinned for Backend c63783eb4. The digest covers the Namespace operations and their reachable schemas only (the two Edge
@@ -113,5 +117,6 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
   // Re-pinned for Backend 1e6b2d7b6 (app-key-model/1): no reachable schema added or removed; AppContext.platformPermissions is the
   // fixed 11 (stream.messages.publish / subscribe added, new description), appDataPolicyUpdate describes the Owner/Admin-only
   // grant additions, and CloudAppStreamAccessItem.blockedReasons gains a description (app_stream_ceiling = the workspace plan).
-  expect(digest).toBe('4d228cdcec45147c485efa1c96679c837bebd0b89cd324e7fc96be9d29f9cc3c');
+  // 本次只更新 App 授权描述及两个管理操作的现有治理权限备选，结构不变。
+  expect(digest).toBe('ebf8d452a7e5af63f94289289a5d28a3efe4b39ab3c2d7764d1026b4081e8b3a');
 });

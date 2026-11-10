@@ -2,9 +2,11 @@
 
 Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交互均使用 `@tier0/sdk-v2`。旧 SDK 不再作为依赖。
 
+当前开发分支补齐 Builder 主动关联已有集合的指引，需搭配已部署统一集合授权规则的 Backend；这不表示已发布的 `0.10.0` 或托管 Skill 版本已经更新。
+
 `0.10.0` 是新架构重构分支的正式版本，包含此前 aenv-next 预发布的全部变更、MQTT 修复、逐请求异步凭据和 Sample 精确删除接口。合同同步至 Backend `91b5f3dc4024f44df32ee7aafcd83a8d470b655d`；升级前需确认目标环境已部署相应合同及运行环境，详见下方「aenv-next 运行环境」和 CHANGELOG。
 
-**`0.10.0` 包含破坏性变更**：App 的平台能力固定为 11 项（含 Stream 请求和消息），没有按 App 的平台策略了：`client.uns.appStreamPolicyGet` / `appStreamPolicyUpdate` 和 `CloudAppStreamPolicy*`、`CloudStreamMessageTopicPermission` 类型随 Backend 契约删除，没有替代。托管 App Key 的 MQTT 主题只能在 App 自己的命名空间 `apps/<TIER0_APP_ID>/<preview|deployed>/…` 里，新增 `appTopic()`（`@tier0/sdk-v2/mq`）拼主题，见「MQTT」。外部集合只由工作区 Owner/Admin 授权，发布时不再确认。
+**`0.10.0` 包含破坏性变更**：App 的平台能力固定为 11 项（含 Stream 请求和消息），没有按 App 的平台策略了：`client.uns.appStreamPolicyGet` / `appStreamPolicyUpdate` 和 `CloudAppStreamPolicy*`、`CloudStreamMessageTopicPermission` 类型随 Backend 契约删除，没有替代。托管 App Key 的 MQTT 主题只能在 App 自己的命名空间 `apps/<TIER0_APP_ID>/<preview|deployed>/…` 里，新增 `appTopic()`（`@tier0/sdk-v2/mq`）拼主题，见「MQTT」。发布时不再确认集合授权。
 
 **`0.10.0-aenv.10` 是破坏性变更**：平台现在把 App 的 Key（`TIER0_API_KEY`）放在运行进程的环境里，SDK 直接用它（下文「aenv-next 运行环境」）；早期预发布说明里的节点代理模式只在没有 Key 的运行时生效。App 调平台只有一种身份，App 自身（App Key）；按用户角色收窄数据由 App 自己做，服务端用 `parseVisitorHeader()` 读前门注入的明文 `X-Tier0-Visitor` 拿到当前用户和角色。浏览器不再直连 MQTT，实时数据由 App 服务端订阅后转发（`createChangeRelay`）；请求中止信号改由 `runWithAbortSignal` 传入。删除的接口见 CHANGELOG。用旧 SDK 打包的 App 在前门改为明文访问者头后无法识别访问者，必须升级重新发布。
 
@@ -100,7 +102,7 @@ Data 高层会跨请求复用 ensure 结果、重放带幂等键的 seed、恢�
 | `TIER0_APP_ID` | App ID（`getCurrentAppId()` 先读它，再读旧的 `APP_ID`） |
 | `TIER0_RUNTIME` | `deployed` 或 `preview`；只由平台设置，本地开发不要设（它还决定 `members.listApp()` 的口径和平台代理模式） |
 
-App 的 Key（平台注入的这把）只能调 `/openapi/v2/uns/**`、`assets/files/**`（`client.files`；同在 `assets/` 下的 `assets/upload` 不在内，回 403）、`notifications/send`、`platform/getMembers`（`members.listWorkspace()`）、`apps/access-members/list`（`members.listApp()`）、`stream-requests/discover` 和 `stream-requests/<code>/describe|invoke`（`client.streams.requests`）、`stream-messages/connect`（`client.streams.messages`）、`capabilities/discover`、`info`，Backend 在每个入口都这样限制，其他接口（`system.whoami()`、`notifications.get`、`mqttAuth`、`agent`）回 403 `hosted_app_key_route_forbidden`；在 App 设置里另签给外部系统用的 App Key 不受这张表限制。App 的平台能力固定 11 项，每个 App 都有，不在 App 设置里配置：`openapi.base`、`platform.users.read`、`notifications.send`、`asset.file.upload` / `download` / `delete`、`stream.requests.read` / `invoke` / `write`、`stream.messages.publish` / `subscribe`。实际生效的是它们和 Key 自身权限、Key 模式、工作区套餐的交集（`uns.dataAppContext({})` 返回的 `platformPermissions`），例如套餐不含 Stream 时 Stream 请求和消息仍被拒绝。数据只能访问 App 自己建的集合，以及工作区 Owner/Admin 在 App 设置里授权的外部集合（Builder agent 加不了外部集合授权）；授权删掉后下一个请求起生效，`records:subscribe` 在下一轮长轮询（最多约 15 秒）收到 `SCOPE_CHANGED`。MQTT 只能用 App 自己的命名空间，见 [MQTT](#mqtt)。
+App 的 Key（平台注入的这把）只能调 `/openapi/v2/uns/**`、`assets/files/**`（`client.files`；同在 `assets/` 下的 `assets/upload` 不在内，回 403）、`notifications/send`、`platform/getMembers`（`members.listWorkspace()`）、`apps/access-members/list`（`members.listApp()`）、`stream-requests/discover` 和 `stream-requests/<code>/describe|invoke`（`client.streams.requests`）、`stream-messages/connect`（`client.streams.messages`）、`capabilities/discover`、`info`，Backend 在每个入口都这样限制，其他接口（`system.whoami()`、`notifications.get`、`mqttAuth`、`agent`）回 403 `hosted_app_key_route_forbidden`；在 App 设置里另签给外部系统用的 App Key 不受这张表限制。App 的平台能力固定 11 项，每个 App 都有，不在 App 设置里配置：`openapi.base`、`platform.users.read`、`notifications.send`、`asset.file.upload` / `download` / `delete`、`stream.requests.read` / `invoke` / `write`、`stream.messages.publish` / `subscribe`。实际生效的是它们和 Key 自身权限、Key 模式、工作区套餐的交集（`uns.dataAppContext({})` 返回的 `platformPermissions`），例如套餐不含 Stream 时 Stream 请求和消息仍被拒绝。数据只能访问 App 自己建的集合及已获授权的已有集合；内置 Builder 以自身系统身份主动关联已有集合，不查询对话用户的角色或要求其确认，App 运行时凭证不能自行扩大授权；授权删掉后下一个请求起生效，`records:subscribe` 在下一轮长轮询（最多约 15 秒）收到 `SCOPE_CHANGED`。MQTT 只能用 App 自己的命名空间，见 [MQTT](#mqtt)。
 
 **平台代理模式**（保留给不带 Key 的运行时）：`TIER0_RUNTIME` 为 `deployed` 或 `preview`、而进程里没有 `TIER0_API_KEY` 时，SDK 不读也不发任何凭据，每个请求带 `X-Tier0-SDK: 1`，只对节点代理自己产生的 `503`、`429`（带 `X-Tier0-Proxy: not-forwarded`，`code` 以 `sbx_proxy_` 开头）按 `retry_after_ms` 最多重试 3 次；MQTT 用 `TIER0_MQTT_URL`（`mqtt://`）且不发 password。传了有值的 `apiKey`，或给了 `getApiKey` / `apiKeyProvider` 的客户端始终按显式配置。没有 `TIER0_API_KEY` 而 `TIER0_RUNTIME` 是其他非空值时，SDK 抛出配置错误，不猜测模式。当前平台给绑定 App 的会话和已发布的 App 都注入 `TIER0_API_KEY`，不会进入这个模式；没绑 App 的会话没有 Key 也没有 `TIER0_API_HOST`，调平台会报 `DATA_NOT_CONFIGURED` 一类的配置错误。
 
@@ -246,7 +248,7 @@ await tier0.uns.recordFind(
 
 `client.capabilities` 只校验 Namespace/Source/Stream 管理合同，不要求全局交互标签；同包 `client.streams.capabilities` 独立校验 App 请求合同，不阻断 Namespace。各自消费的核心合同未知仍拒绝，不将方法存在当作授权或运行就绪。
 
-实际集合 ID 和有效权限从平台配置/数据上下文取得。管理操作中，App 凭证只能调用本 App 集合的 `appCollectionsEnsure` / `appCollectionsSchemaReplace` / `appCollectionsArchive` / `appCollectionsRestore`；SDK 中存在 `metadataInsertOne` 等其他管理方法，不表示 App 凭证有对应权限。App 数据授权 `appDataPolicyGet` / `appDataPolicyUpdate` 的调用方必须是：持有 `uns.write` 的登录会话、持有 `uns.write` 且 full_access、不绑定 App 的 personal / agent Key，或治理会话；其中**新增**授权（新集合、放宽权限、从 `disabled` 重新启用）只接受工作区 Owner/Admin 的人工会话或平台导入，其他调用方回 403（`data.reason` 为 `app_grant_admin_required` 或 `app_grant_agent_forbidden`），收窄和移除不受此限、下一个请求起生效；运行时 App 凭证不能管理授权。Core-only 后台接口不导出到公开 SDK。
+实际集合 ID 和有效权限从平台配置/数据上下文取得。管理操作中，App 凭证只能调用本 App 集合的 `appCollectionsEnsure` / `appCollectionsSchemaReplace` / `appCollectionsArchive` / `appCollectionsRestore`；SDK 中存在 `metadataInsertOne` 等其他管理方法，不表示 App 凭证有对应权限。App 数据授权 `appDataPolicyGet` / `appDataPolicyUpdate` 使用当前管理主体的有效权限：持有 `uns.write` 的登录会话，持有 `uns.write` 且 full_access、不属于 App 运行时的 personal / agent / service-system Key，或治理会话。内置 Builder 用自身系统身份关联已有集合；新增、扩大、收窄和移除授权都复用工作区、目标 App、当前资源权限和提交前凭据校验，没有按 Agent 身份额外拒绝或平台导入特例。App 运行时凭证不能管理授权，撤销下一个请求起生效。已有集合关联流程见 [修改与授权](skills/tier0-sdk-v2/tier0-sdk-v2-uns/references/update.md#已有集合授权给-app)。Core-only 后台接口不导出到公开 SDK。
 
 UNS 保留 `{ code, msg, requestId, data }` 完整响应。平台 v2 包装接口返回已解包的 `data`，通知/能力发现返回直接对象。业务错误即使 HTTP 为 200 也会抛出 `ApiError`。
 

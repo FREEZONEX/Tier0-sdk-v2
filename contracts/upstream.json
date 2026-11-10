@@ -1,18 +1,18 @@
 {
   "repository": "FREEZONEX/Tier0-Backend",
-  "revision": "91b5f3dc4024f44df32ee7aafcd83a8d470b655d",
+  "revision": "07ef8cd30a5465a98c8e6ee0892d02360aee8761",
   "inputs": {
     "contracts/openapi-v2.source.json": {
       "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
-      "sha256": "7cfb7842abedb8e01c3cb98ada5a4659f095953dbd9b6d4545a52ac1cddd4667"
+      "sha256": "34d26890bc3a3ca36c6a66d58bc3e1369b06a80a185e134ff7a6cde2ff9069cc"
     },
     "contracts/uns-v2/contract.json": {
       "path": "service/unssvr/internal/domain/unsv2/contract_generated.go#ContractJSON",
-      "sha256": "c35a28e1c29d001ebbcc39942c3f3b34bfddd95f29242e9b20769f587fa81989"
+      "sha256": "385729868bdb995f6e88d75718918c40b6c4e77020dbb966b95b846d80b17f05"
     },
     "contracts/uns-v2/manifest.json": {
       "path": "share/unscontract/manifest.json",
-      "sha256": "3f7dee6dc17185bd038465979f5163d3a6f69e134e048aaa0613fcca15473e12"
+      "sha256": "20cf20bda214c677c3aeecdf77a9ed23b942cfa7a2c0b6479a29349f429f80c9"
     },
     "contracts/uns-v2/cloud-support.json": {
       "path": "share/unscontract/cloud-support.json",
@@ -20,7 +20,7 @@
     },
     "contracts/uns-v2/registry_generated.go": {
       "path": "share/unscontract/registry_generated.go",
-      "sha256": "1e70b4882e69608599d0e8cf7dcdf3dbbcefd6c63f613fdcad79ae200cc9d885"
+      "sha256": "62ded8104932a2745bfc836194fd355d488cdbe0a63a21768a87bce18eb47c7c"
     },
     "contracts/uns-v2/source-protocols.json": {
       "path": "share/unscontract/source-protocols.json",
@@ -31,20 +31,20 @@
     {
       "scope": "source-stream-public",
       "repository": "FREEZONEX/Tier0-Backend",
-      "revision": "91b5f3dc4024f44df32ee7aafcd83a8d470b655d",
+      "revision": "07ef8cd30a5465a98c8e6ee0892d02360aee8761",
       "sourceKind": "committed",
       "inputs": {
         "contracts/uns-v2/contract.json": {
           "path": "service/unssvr/internal/domain/unsv2/contract_generated.go",
-          "sourceSHA256": "60cefba9e23816543d6a120356d83a872fd858deb16d479b1b0d7bdd1325b5f9",
-          "baseSHA256": "225c8c0a8a6fcee6b401c53dfd4c6e4774ab8dedc39b6b2019ed8a144712115a",
-          "resultSHA256": "c35a28e1c29d001ebbcc39942c3f3b34bfddd95f29242e9b20769f587fa81989"
+          "sourceSHA256": "e41fa8d161d889839b08ab66f90c2b8541613bc5f67236361ddf37ee8e34e961",
+          "baseSHA256": "6c4468b0327d195c9f0e3e1b3ac75992ee12fbc8c811715d131c4934c39bab3e",
+          "resultSHA256": "385729868bdb995f6e88d75718918c40b6c4e77020dbb966b95b846d80b17f05"
         },
         "contracts/uns-v2/manifest.json": {
           "path": "share/unscontract/manifest.json",
-          "sourceSHA256": "c848cb78f9df391fb481fc00b0de2990d837dd67bbcac2db6bddf863ce72300e",
-          "baseSHA256": "c848cb78f9df391fb481fc00b0de2990d837dd67bbcac2db6bddf863ce72300e",
-          "resultSHA256": "3f7dee6dc17185bd038465979f5163d3a6f69e134e048aaa0613fcca15473e12"
+          "sourceSHA256": "6bc2f181d2aa51401d14612c2ee1aee1a115407a24c9bfb0374b4ebff8b44463",
+          "baseSHA256": "6bc2f181d2aa51401d14612c2ee1aee1a115407a24c9bfb0374b4ebff8b44463",
+          "resultSHA256": "20cf20bda214c677c3aeecdf77a9ed23b942cfa7a2c0b6479a29349f429f80c9"
         },
         "contracts/uns-v2/cloud-support.json": {
           "path": "share/unscontract/cloud-support.json",
@@ -54,9 +54,9 @@
         },
         "contracts/uns-v2/registry_generated.go": {
           "path": "share/unscontract/registry_generated.go",
-          "sourceSHA256": "484889dee3896227b7a65b2b142cd2326b5875dbbafb285f5d48a5ad94f85b2e",
-          "baseSHA256": "484889dee3896227b7a65b2b142cd2326b5875dbbafb285f5d48a5ad94f85b2e",
-          "resultSHA256": "1e70b4882e69608599d0e8cf7dcdf3dbbcefd6c63f613fdcad79ae200cc9d885"
+          "sourceSHA256": "17966db0acbe1ce9104bb987157d5ea6b611ed37531319e22bae6608cbdf38bc",
+          "baseSHA256": "17966db0acbe1ce9104bb987157d5ea6b611ed37531319e22bae6608cbdf38bc",
+          "resultSHA256": "62ded8104932a2745bfc836194fd355d488cdbe0a63a21768a87bce18eb47c7c"
         },
         "contracts/uns-v2/source-protocols.json": {
           "path": "share/unscontract/source-protocols.json",
