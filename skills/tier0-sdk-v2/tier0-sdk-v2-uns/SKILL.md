@@ -5,7 +5,7 @@ description: 使用 @tier0/sdk-v2 的 client.uns 完成新架构集合、Schema�
 
 # UNS 数据操作
 
-UNS 管数据命名空间、集合、Record 和 Sample；外部连接与脚本分别用 [Source](../tier0-sdk-v2-source/SKILL.md)、[Stream](../tier0-sdk-v2-stream/SKILL.md)。服务端 `createClient()` 读 TIER0_API_HOST / TIER0_API_KEY（平台里由平台注入 App 的 Key），或显式传 apiHost/apiKey。管理操作中 App 运行时凭证只能调用本 App 集合的 appCollectionsEnsure / SchemaReplace / Archive / Restore，不能管理数据授权。appDataPolicyGet/Update 使用当前管理主体的有效权限：持有 uns.write 的登录会话，持有 uns.write 且 full_access、不属于 App 运行时的 personal / agent / service-system Key，或治理会话。内置 Builder 以自身系统身份主动关联已有集合，不查询对话用户的角色、不要求其确认；外部 Key 按自身权限执行。新增、扩大、收窄和移除授权走同一管理校验，受工作区、目标 App、当前资源权限和提交前凭据复验约束，没有 Agent 身份禁令或平台导入特例。
+UNS 管数据命名空间、集合、Record 和 Sample；外部连接与脚本分别用 [Source](../tier0-sdk-v2-source/SKILL.md)、[Stream](../tier0-sdk-v2-stream/SKILL.md)。服务端 `createClient()` 读 TIER0_API_HOST / TIER0_API_KEY（平台里由平台注入 App 的 Key），或显式传 apiHost/apiKey。管理操作中 App 运行时凭证只能调用本 App 集合的 appCollectionsEnsure / SchemaReplace / Archive / Restore，不能管理数据授权。appDataPolicyGet/Update 使用当前管理主体的有效权限：持有 uns.write 的登录会话，持有 uns.write 且 full_access、不属于 App 运行时的 personal / agent / service-system Key，或治理会话。内置 Builder 以自身系统身份主动为同一工作区的 App 关联已有集合，当前绑定 App 不限制授权目标，不查询对话用户的角色、不要求其确认；外部 Key 按自身权限执行。新增、扩大、收窄和移除授权走同一管理校验，受工作区、目标 App、当前资源权限和提交前凭据复验约束，没有 Agent 身份禁令或平台导入特例。
 
 先按[命名空间指导](references/namespace.md)区分凭证：`namespace()` 走 OpenAPI，但当前不对 App Key 开放；App 查询可用集合走 `dataAppContext`，不能改用同样受限的 `appCollectionsList`。Agent / Personal Key 也须满足当前工作空间权限；不要从“使用 SDK / MCP”推定权限。
 
