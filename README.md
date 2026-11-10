@@ -2,9 +2,9 @@
 
 Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交互均使用 `@tier0/sdk-v2`。旧 SDK 不再作为依赖。
 
-`0.10.0-aenv.11` 是 aenv-next 的本地预发布版本，基于 `0.9.10`、base 2026-11-05 的 MQTT 修复和 base 的 `0.9.11` 待发布候选（含 `0.9.9` 的 `metadataPurge` 与凭证查询说明、`0.9.8` 的 App 集合业务目录声明 `directoryPath`），未发布到 npm；内容见下方「aenv-next 运行环境」。
+`0.10.0` 是新架构重构分支的正式版本，包含此前 aenv-next 预发布的全部变更、MQTT 修复、逐请求异步凭据和 Sample 精确删除接口。合同同步至 Backend `91b5f3dc4024f44df32ee7aafcd83a8d470b655d`；升级前需确认目标环境已部署相应合同及运行环境，详见下方「aenv-next 运行环境」和 CHANGELOG。
 
-**`0.10.0-aenv.11` 是破坏性变更**：App 的平台能力固定为 11 项（含 Stream 请求和消息），没有按 App 的平台策略了：`client.uns.appStreamPolicyGet` / `appStreamPolicyUpdate` 和 `CloudAppStreamPolicy*`、`CloudStreamMessageTopicPermission` 类型随 Backend 契约删除，没有替代。托管 App Key 的 MQTT 主题只能在 App 自己的命名空间 `apps/<TIER0_APP_ID>/<preview|deployed>/…` 里，新增 `appTopic()`（`@tier0/sdk-v2/mq`）拼主题，见「MQTT」。外部集合只由工作区 Owner/Admin 授权，发布时不再确认。
+**`0.10.0` 包含破坏性变更**：App 的平台能力固定为 11 项（含 Stream 请求和消息），没有按 App 的平台策略了：`client.uns.appStreamPolicyGet` / `appStreamPolicyUpdate` 和 `CloudAppStreamPolicy*`、`CloudStreamMessageTopicPermission` 类型随 Backend 契约删除，没有替代。托管 App Key 的 MQTT 主题只能在 App 自己的命名空间 `apps/<TIER0_APP_ID>/<preview|deployed>/…` 里，新增 `appTopic()`（`@tier0/sdk-v2/mq`）拼主题，见「MQTT」。外部集合只由工作区 Owner/Admin 授权，发布时不再确认。
 
 **`0.10.0-aenv.10` 是破坏性变更**：平台现在把 App 的 Key（`TIER0_API_KEY`）放在运行进程的环境里，SDK 直接用它（下文「aenv-next 运行环境」）；早期预发布说明里的节点代理模式只在没有 Key 的运行时生效。App 调平台只有一种身份，App 自身（App Key）；按用户角色收窄数据由 App 自己做，服务端用 `parseVisitorHeader()` 读前门注入的明文 `X-Tier0-Visitor` 拿到当前用户和角色。浏览器不再直连 MQTT，实时数据由 App 服务端订阅后转发（`createChangeRelay`）；请求中止信号改由 `runWithAbortSignal` 传入。删除的接口见 CHANGELOG。用旧 SDK 打包的 App 在前门改为明文访问者头后无法识别访问者，必须升级重新发布。
 
@@ -40,13 +40,13 @@ Source / Stream 管理已统一为 Enterprise 参数：SourceDefinition 使用�
 
 ## 安装与初始化
 
-维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `.tgz`。本分支的功能应使用检查通过的 `tier0-sdk-v2-0.10.0-aenv.11.tgz` 在业务项目中验证：
+安装正式版：
 
 ```sh
-npm install /path/to/tier0-sdk-v2-0.10.0-aenv.11.tgz
+npm install @tier0/sdk-v2@0.10.0
 ```
 
-`0.10.0-aenv.11` 正式发布后再使用 `npm install @tier0/sdk-v2@0.10.0-aenv.11`。发布前，npm 的既有版本和 `next` 标签不代表本分支的完整功能。
+维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `tier0-sdk-v2-0.10.0.tgz`。
 
 个人 Key 可直接读取已有集合，无需创建平台 App；网关配置、运行示例与排错见[本地连接指南](skills/tier0-sdk-v2/references/local-connection.md)。
 

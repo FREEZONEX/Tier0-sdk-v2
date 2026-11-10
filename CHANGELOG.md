@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.10.0 (2026-11-10)
+
+First stable npm release of the new-architecture migration, including the changes recorded below for the local aenv-next prereleases and the 0.9.11 candidate.
+
+- Breaking: hosted Apps call the platform as their own App Key. Employee delegation, visitor-token verification and per-App platform policies are removed; use `parseVisitorHeader()` for trusted front-door visitor context, `runWithAbortSignal()` for cancellation and `createChangeRelay()` for server-mediated realtime data.
+- App platform capabilities are fixed by the Backend contract. MQTT topics use the App namespace through `appTopic()`; external collection grants require a workspace Owner/Admin.
+- Include explicit credential-source isolation, asynchronous per-request `apiKeyProvider`, single-header `X-API-Key` authentication, static Data-client identity and MQTT reconnect fixes.
+- Include the native Source/Stream contract and diagnostic updates. Deploy against a Backend and App runtime that support these contracts; the prior local prerelease entries below describe the migration details.
 
 - Added typed `client.uns.sampleDeleteExact` for bounded, explicit `{recordId,id,time}` Sample deletion with preview, missing counts and idempotent receipts. This Workspace management operation is unavailable to App keys; no App data-layer delete method or acquisition deduplication is added.
 - Synchronized the committed Backend contract at `91b5f3dc4024f44df32ee7aafcd83a8d470b655d`, including Stream observations' optional `view:'summary'|'full'` and optional diagnostics for summary responses, plus the optional `charts`, `findings`, `metrics` and `severity` fields on `AgentResultCreateReq`. Generated methods continue to preserve exact request identities and server retry advice without automatically retrying writes.
