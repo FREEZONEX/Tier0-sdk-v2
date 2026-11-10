@@ -54,9 +54,30 @@ metadataDeleteMany 使用明确 filter 和 maxDocs。默认原子；超过上限
 
 恢复范围和授权区别见[恢复](restore.md)。保留的物理索引仍占配额，归档不释放索引空间。
 
-业务记录使用 recordDeleteOne/Many，传 collectionId 和明确 filter，编辑型流程同时传 expectedRevision。不要把元数据软删除解释成逐条删除该集合的 Record。Sample 的删除是独立的显式时间范围操作，具体影响遵循当前数据 API 契约。
+业务记录使用 recordDeleteOne/Many，传 collectionId 和明确 filter，编辑型流程同时传 expectedRevision。不要把元数据软删除解释成逐条删除该集合的 Record。Sample 使用独立的精确清单或显式时间范围删除接口；清理选定样本使用下面的 sampleDeleteExact。
 
 成功回执已确认本次操作，不再固定读回验证。结果未知时保留原意图键，按对象身份核对；需要展示最新状态时再刷新。版本冲突应重新读取并由调用方处理，不自动覆盖。
+
+## 精确删除历史样本
+
+Workspace 管理调用方通过 `client.uns.sampleDeleteExact` 删除当前集合内的明确样本清单，最多 200 条，需要 `uns.delete` 权限；MCP 凭证另需 `uns.write` 授权。运行时 App Key 不支持此操作，也没有对应的 App 数据层方法。
+
+从 `sampleFind` 结果复制 `{recordId,id,time}`，保留原始 Unix 毫秒时间；`id` 不能替代完整身份，`receivedAt` 不能替代 `time`。不接受空清单、重复身份、filter 或时间范围。清理重复样本时，由业务判断哪些样本重复、保留哪条，只把多余项放入清单；接口本身不判断重复，也不改变采集逻辑。
+
+```ts
+import { createClient, type Tier0Client, type UnsV2SampleDeleteExactReq } from '@tier0/sdk-v2';
+
+export async function deleteSelectedSamples(
+  collectionId: string, samples: UnsV2SampleDeleteExactReq['samples'],
+  intentKey: string, dryRun = true, client: Tier0Client = createClient(),
+) {
+  return client.uns.sampleDeleteExact({ collectionId, samples, dryRun, idempotencyKey: intentKey });
+}
+```
+
+`dryRun:true` 仅返回当时的匹配数量，不删除或预留样本。执行时使用同一清单和 `dryRun:false`；省略 dryRun 也会执行。返回 `{deletedCount,missingCount,dryRun}`：deletedCount 在预览时是预计删除数，执行时是实际删除数；missingCount 是未匹配到的完整键数。整批精确删除与回执同事务，不修改父 Record 或未列出的样本。
+
+相同执行请求重试复用相同 `idempotencyKey`，修改清单需要新键。SDK 不自动重试；结局未知时按完整键查询核对，遵循错误中的 execution/retry，不改用范围删除或重建集合。`sampleDeleteRange` 仍不向 MCP 开放。
 
 ## 永久删除回收站集合
 

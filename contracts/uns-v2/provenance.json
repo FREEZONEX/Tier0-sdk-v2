@@ -1,10 +1,10 @@
 {
   "repository": "FREEZONEX/Tier0-Backend",
-  "revision": "1e6b2d7b6de7795a6509e4aafc8cd04699f5d00f",
+  "revision": "91b5f3dc4024f44df32ee7aafcd83a8d470b655d",
   "version": "5.0.0",
   "source": "service/unssvr/internal/domain/unsv2/contract_generated.go#ContractJSON",
-  "cloudRevision": "1e6b2d7b6de7795a6509e4aafc8cd04699f5d00f",
-  "cloudContractRevision": "cloud-source-impact/2+source-vendor/2+data/3+record-reads/1+stream-receipt/1+stream-run-error/1+stream-run-diagnostics/1+stream-run-delivery/1+stream-deploy-guard/1+stream-diagnostics/1+collection-namespace/1+business-name/1+http-acquisition/2+http-source-role/1+http-source-request/1+sql-inline-credentials/1+app-collection/2+collection-ownership/1+metadata/1+collection-purge/1+namespace-purge/1+app-context/4+collection-ttl/1+error-model/1+crud-consolidation/1+record-insert-return/1+lifecycle-consolidation/1+mutation-defaults/1+api-surface/2+source-stream-single-model+source-lifecycle/2+edge-discovery/1+edge-binding-status/1+edge-resource-discovery/1+unified-source-stream/1+source-health/2+app-data/3+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/2+http-in/1+app-resource-access/2+stream-control-probe-retirement/1+http-push-retirement/1+app-data-rule-retirement/1+app-key-model/1",
+  "cloudRevision": "91b5f3dc4024f44df32ee7aafcd83a8d470b655d",
+  "cloudContractRevision": "cloud-source-impact/2+source-vendor/2+data/3+record-reads/1+stream-receipt/1+stream-run-error/1+stream-run-diagnostics/1+stream-run-delivery/1+stream-deploy-guard/1+stream-diagnostics/1+collection-namespace/1+business-name/1+http-acquisition/2+http-source-role/1+http-source-request/1+sql-inline-credentials/1+app-collection/2+collection-ownership/1+metadata/1+collection-purge/1+namespace-purge/1+app-context/4+collection-ttl/1+error-model/1+crud-consolidation/1+record-insert-return/1+lifecycle-consolidation/1+mutation-defaults/1+api-surface/2+source-stream-single-model+source-lifecycle/2+edge-discovery/1+edge-binding-status/1+edge-resource-discovery/1+unified-source-stream/1+source-health/2+app-data/3+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/2+http-in/1+app-resource-access/2+stream-control-probe-retirement/1+http-push-retirement/1+app-data-rule-retirement/1+app-key-model/1+sample-delete-exact/1",
   "resolvedCloudContract": true,
   "enterpriseBase": {
     "repository": "FREEZONEX/Tier0-Enterprise-New",
@@ -20,25 +20,25 @@
       "capability": "x-tier0-opcua-server: static available=false; online availability is workspace/registry authoritative"
     }
   },
-  "sourceDerivedContractSHA256": "270c741d22dba411b45aeedc168e1e719f0a055934f0673a6faec4544dd964ac",
+  "sourceDerivedContractSHA256": "c35a28e1c29d001ebbcc39942c3f3b34bfddd95f29242e9b20769f587fa81989",
   "schemaUpdates": [
     {
       "scope": "source-stream-public",
       "repository": "FREEZONEX/Tier0-Backend",
-      "revision": "1e6b2d7b6de7795a6509e4aafc8cd04699f5d00f",
+      "revision": "91b5f3dc4024f44df32ee7aafcd83a8d470b655d",
       "sourceKind": "committed",
       "inputs": {
         "contracts/uns-v2/contract.json": {
           "path": "service/unssvr/internal/domain/unsv2/contract_generated.go",
-          "sourceSHA256": "2bc2b9c8a9f1ed7a0a7a5b8e924b4b1d682eecb62b5db8618acac3695e920f7f",
-          "baseSHA256": "67a771bf5ba72aa9305a2aca6cf8e461409154ecc822c1e399d3ddf95d53ef71",
-          "resultSHA256": "270c741d22dba411b45aeedc168e1e719f0a055934f0673a6faec4544dd964ac"
+          "sourceSHA256": "60cefba9e23816543d6a120356d83a872fd858deb16d479b1b0d7bdd1325b5f9",
+          "baseSHA256": "225c8c0a8a6fcee6b401c53dfd4c6e4774ab8dedc39b6b2019ed8a144712115a",
+          "resultSHA256": "c35a28e1c29d001ebbcc39942c3f3b34bfddd95f29242e9b20769f587fa81989"
         },
         "contracts/uns-v2/manifest.json": {
           "path": "share/unscontract/manifest.json",
-          "sourceSHA256": "9a33e64bea31243e2adcc1927de48e588212073db378d3e124144e9d38d64b0b",
-          "baseSHA256": "9a33e64bea31243e2adcc1927de48e588212073db378d3e124144e9d38d64b0b",
-          "resultSHA256": "887b7b14fdb9900e0681622ce8c88909fa693f15c09d578c8aabd7d4fbc0c12e"
+          "sourceSHA256": "c848cb78f9df391fb481fc00b0de2990d837dd67bbcac2db6bddf863ce72300e",
+          "baseSHA256": "c848cb78f9df391fb481fc00b0de2990d837dd67bbcac2db6bddf863ce72300e",
+          "resultSHA256": "3f7dee6dc17185bd038465979f5163d3a6f69e134e048aaa0613fcca15473e12"
         },
         "contracts/uns-v2/cloud-support.json": {
           "path": "share/unscontract/cloud-support.json",
@@ -48,9 +48,9 @@
         },
         "contracts/uns-v2/registry_generated.go": {
           "path": "share/unscontract/registry_generated.go",
-          "sourceSHA256": "860bd198e3424323d69c36f8c19c909dcebfabc1c0b6eabd7e2a875f2c17e872",
-          "baseSHA256": "860bd198e3424323d69c36f8c19c909dcebfabc1c0b6eabd7e2a875f2c17e872",
-          "resultSHA256": "fdab43e4df37b1aeb42abf9d5a3ba93a332d0e540cbc86525e280d61b7f060c3"
+          "sourceSHA256": "484889dee3896227b7a65b2b142cd2326b5875dbbafb285f5d48a5ad94f85b2e",
+          "baseSHA256": "484889dee3896227b7a65b2b142cd2326b5875dbbafb285f5d48a5ad94f85b2e",
+          "resultSHA256": "1e70b4882e69608599d0e8cf7dcdf3dbbcefd6c63f613fdcad79ae200cc9d885"
         },
         "contracts/uns-v2/source-protocols.json": {
           "path": "share/unscontract/source-protocols.json",
@@ -198,31 +198,7 @@
         "UnsV2StreamProgramVersionsListResponse",
         "WMSMapping"
       ],
-      "sourceContractRevision": "cloud-source-impact/2+source-vendor/2+data/3+record-reads/1+stream-receipt/1+stream-run-error/1+stream-run-diagnostics/1+stream-run-delivery/1+stream-deploy-guard/1+stream-diagnostics/1+collection-namespace/1+business-name/1+http-acquisition/2+http-source-role/1+http-source-request/1+sql-inline-credentials/1+app-collection/2+collection-ownership/1+metadata/1+collection-purge/1+namespace-purge/1+app-context/4+collection-ttl/1+error-model/1+crud-consolidation/1+record-insert-return/1+lifecycle-consolidation/1+mutation-defaults/1+api-surface/2+source-stream-single-model+source-lifecycle/2+edge-discovery/1+edge-binding-status/1+edge-resource-discovery/1+unified-source-stream/1+source-health/2+app-data/3+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/2+http-in/1+app-resource-access/2+stream-control-probe-retirement/1+http-push-retirement/1+app-data-rule-retirement/1+app-key-model/1"
-    },
-    {
-      "scope": "stream-diagnostics",
-      "repository": "FREEZONEX/Tier0-Backend",
-      "revision": "1e6b2d7b6de7795a6509e4aafc8cd04699f5d00f",
-      "sourceKind": "committed",
-      "schemas": [
-        "CloudStreamDiagnosticRun",
-        "CloudStreamDiagnostics",
-        "CloudStreamObservationGetResponse",
-        "CloudStreamRunDelivery",
-        "CloudStreamRunDiagnostics",
-        "CloudStreamRunError",
-        "CloudStreamRunPublicationDiagnostics",
-        "CloudStreamRunsListResponse"
-      ],
-      "inputs": {
-        "contracts/uns-v2/manifest.json": {
-          "path": "share/unscontract/manifest.json",
-          "sourceSHA256": "9a33e64bea31243e2adcc1927de48e588212073db378d3e124144e9d38d64b0b",
-          "baseSHA256": "887b7b14fdb9900e0681622ce8c88909fa693f15c09d578c8aabd7d4fbc0c12e",
-          "resultSHA256": "887b7b14fdb9900e0681622ce8c88909fa693f15c09d578c8aabd7d4fbc0c12e"
-        }
-      }
+      "sourceContractRevision": "cloud-source-impact/2+source-vendor/2+data/3+record-reads/1+stream-receipt/1+stream-run-error/1+stream-run-diagnostics/1+stream-run-delivery/1+stream-deploy-guard/1+stream-diagnostics/1+collection-namespace/1+business-name/1+http-acquisition/2+http-source-role/1+http-source-request/1+sql-inline-credentials/1+app-collection/2+collection-ownership/1+metadata/1+collection-purge/1+namespace-purge/1+app-context/4+collection-ttl/1+error-model/1+crud-consolidation/1+record-insert-return/1+lifecycle-consolidation/1+mutation-defaults/1+api-surface/2+source-stream-single-model+source-lifecycle/2+edge-discovery/1+edge-binding-status/1+edge-resource-discovery/1+unified-source-stream/1+source-health/2+app-data/3+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/2+http-in/1+app-resource-access/2+stream-control-probe-retirement/1+http-push-retirement/1+app-data-rule-retirement/1+app-key-model/1+sample-delete-exact/1"
     }
   ],
   "note": "Source/Stream public operations and transitive schemas are synchronized separately; unrelated operation contracts retain their pinned base."

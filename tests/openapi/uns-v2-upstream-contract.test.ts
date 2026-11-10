@@ -26,16 +26,16 @@ const operation = (name: string) => manifest.operations.find(item => item.name =
 
 describe('Backend App UNS access contract without generic record audit', () => {
   it('pins the exact upstream commit and all generator inputs', () => {
-    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('1e6b2d7b6de7795a6509e4aafc8cd04699f5d00f');
+    expect(UNS_V2_CONTRACT_PROVENANCE.revision).toBe('91b5f3dc4024f44df32ee7aafcd83a8d470b655d');
     expect(UNS_V2_CONTRACT_PROVENANCE.cloudRevision).toBe(UNS_V2_CONTRACT_PROVENANCE.revision);
     for (const [key, file] of Object.entries({ contract: 'contract.json', cloudSupport: 'cloud-support.json', manifest: 'manifest.json', provenance: 'provenance.json', registry: 'registry_generated.go' })) {
       expect(UNS_V2_CONTRACT_PROVENANCE.hashes[key as keyof typeof UNS_V2_CONTRACT_PROVENANCE.hashes]).toBe(
         createHash('sha256').update(read(file)).digest('hex')
       );
     }
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(90);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(91);
     expect(UNS_V2_CONTRACT_PROVENANCE.streamOperationCount).toBe(1);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(98);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(99);
     // Error envelopes are decoded by every operation, although success DTOs do not reference them.
     expect(Object.hasOwn(UNS_V2_CODEC_SCHEMAS, 'UnsV2ErrorResponse')).toBe(true);
     expect(Object.hasOwn(manifest.schemas, 'UnsV2ErrorResponse')).toBe(true);
@@ -156,6 +156,25 @@ describe('Backend App UNS access contract without generic record audit', () => {
     for (const name of ['recordExplain', 'recordGet', 'recordQueryBatch', 'recordSubscribe']) {
       expect(operation(name).appAllowed, name).toBe(true);
     }
+  });
+
+  it('exposes bounded exact sample deletion for management without opening App or MCP range deletion', () => {
+    for (const document of [manifest, contract]) {
+      expect(document.operations.find(item => item.name === 'sampleDeleteExact')).toMatchObject({
+        permission: 'uns.delete', minPermission: 3, appAllowed: false, mcp: true,
+      });
+      expect(document.operations.find(item => item.name === 'sampleDeleteRange')).toMatchObject({ mcp: false });
+      expect(document.schemas.UnsV2SampleDeleteExactReq).toMatchObject({
+        additionalProperties: false, required: ['collectionId', 'samples'],
+        properties: { samples: { minItems: 1, maxItems: 200, uniqueItems: true, items: {
+          additionalProperties: false, required: ['recordId', 'id', 'time'],
+          properties: { time: { type: 'integer', format: 'int64' } },
+        } } },
+      });
+    }
+    expect(UNS_V2_OPERATIONS.sampleDeleteExact).toMatchObject({ mutation: true, idempotencyKey: true,
+      path: '/openapi/v2/uns/collections/:collectionId/samples:deleteExact', pathParams: ['collectionId'] });
+    expect(UNS_V2_CONTRACT_PROVENANCE.cloudContractRevision).toContain('+sample-delete-exact/1');
   });
 
   it('keeps App credentials outside generic management while preserving owned-collection lifecycle and Core-only boundaries', () => {

@@ -460,11 +460,25 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     finished();
   });
 
+  it('previews and executes the documented exact sample deletion using the selected identities', async () => {
+    const samples = [{ recordId: 'singapore', id: 'extra-1', time: 1794232800000 }];
+    steps = [true, false].map(dryRun => ({ path: 'collections/weather/samples:deleteExact', check: body => expect(body).toEqual({
+      collectionId: 'weather', samples, dryRun, idempotencyKey: 'remove-extra-weather',
+    }), data: { deletedCount: 1, missingCount: 0, dryRun } }));
+    const { deleteSelectedSamples } = example('uns', 'delete', 2);
+    const preview = await deleteSelectedSamples('weather', samples, 'remove-extra-weather', undefined, client);
+    const deleted = await deleteSelectedSamples('weather', samples, 'remove-extra-weather', false, client);
+    expect(preview.data).toEqual({ deletedCount: 1, missingCount: 0, dryRun: true });
+    expect(deleted.data).toEqual({ deletedCount: 1, missingCount: 0, dryRun: false });
+    expect(calls).toHaveLength(2);
+    finished();
+  });
+
   it('submits the documented collection purge without claiming completion', async () => {
     steps = [{ path: 'metadata:purge', check: body => expect(body).toEqual({
       kind: 'collection', ids: ['devices'], idempotencyKey: 'purge-devices',
     }), data: { status: 'accepted', jobId: 'purge-job', replayed: false, results: [] } }];
-    const result = await example('uns', 'delete', 2).purgeCollections(['devices'], 'purge-devices', client);
+    const result = await example('uns', 'delete', 3).purgeCollections(['devices'], 'purge-devices', client);
     expect(result.state).toBe('submitted');
     expect(result.receipt.data).toMatchObject({ status: 'accepted', jobId: 'purge-job' });
     expect(calls).toHaveLength(1);
