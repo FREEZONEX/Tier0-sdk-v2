@@ -56,7 +56,7 @@ export async function createCustomHeaderSource(
 
 apiKey 参数由服务端密钥提供者传入。不能写成 `values:{apiKey:...}` 并期望自动翻译头名，也不能写成 `values:{headerName:...,value:...}`。Authorization、Cookie、Host 等协议保留头不接受这种认证配置。公开租户或客户头可按上游合同放 http.headers。
 
-Plex 模板使用 `sourceType:'plex-mes'`，其 `credentials:{kind:'custom',values:{apiKey}}` 则是厂商语义合同；宿主注入认证头和 http.parameters.tenantId/pcn。**当前 Cloud 该模板的厂商凭据不能用于普通 source.request**，只能按已发布原生操作调用；改进诊断不代表已接通。需要根下自定义业务路由时采用匹配其认证的普通 HTTP 配置，不直接改 sourceType 后沿用旧厂商凭据引用。Enterprise 以目标发现为准。
+Plex 模板使用 `sourceType:'plex-mes'`，其 `credentials:{kind:'custom',values:{apiKey}}` 则是厂商语义合同；宿主注入认证头和 http.parameters.tenantId/pcn。支持复用厂商认证的 Cloud 后端允许同一模板通过 source.request 请求根下自定义业务路由，沿用认证引用和参数，无需改 sourceType 或重建 Source。命名原生操作继续按其目录调用。SDK 文档更新不代表目标后端已部署；Enterprise 以目标发现为准。
 
 ## 其他连接
 
