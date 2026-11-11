@@ -26,7 +26,7 @@ export async function* listSources(client: Tier0Client = createClient()) {
 }
 ```
 
-Cloud 普通 HTTP 直接在绑定的 Stream 使用 source.request，不需要资源 catalog 前置检查；厂商原生操作使用 discover，目录资源按返回的 configRevision、resourceRef、modes 和 schema 调用。
+Cloud 普通 HTTP 直接在绑定的 Stream 使用 source.request，不需要资源 catalog 前置检查。支持复用厂商认证的后端也允许同一厂商 Source 请求根下自定义路径；认证不由目录资源决定。命名厂商原生操作使用 discover，目录资源按返回的 configRevision、resourceRef、modes 和 schema 调用。
 
 `probe` 会访问外部系统，按连接排障或有限数据验证的任务需要使用。健康状态、资源预览和业务采集成功是不同证据。保留连接检查与数据检查的各自阶段；配置变更后旧检查不能代表新版本。
 

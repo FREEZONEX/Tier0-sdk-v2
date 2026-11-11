@@ -33,7 +33,7 @@ description: 使用 @tier0/sdk-v2 的 client.stream 创建和编辑 Stream、绑
 
 支持简化请求合同的后端用 `api.stream.onRequest({id}, handler)` 注册普通请求，超时沿用 script.timeoutMs，无需声明业务 sideEffect、idempotency、schema 或版本。平台默认执行一次，不自动重跑 handler；业务校验、普通调用异常的 catch、重试、幂等与补偿由代码处理。可选调用键只用于同次请求的传输去重，历史发布保留原合同。最小示例见 [Stream 交互](../tier0-sdk-v2-streams/SKILL.md#stream-端对应入口)。
 
-HTTP 读写权限按实际操作检查，GET/HEAD 不因使用 onRequest 而要求写声明；权限、凭据、资源边界和执行限额仍生效。当前 Cloud 的厂商认证 Source 不支持通用 source.request，应使用其目录中的原生操作，或能表达真实认证的普通 HTTP Source。自定义路径不能仅改成 vendor 资源名；不兼容按 reason/path/repair 修正。
+HTTP 读写权限按实际操作检查，GET/HEAD 不因使用 onRequest 而要求写声明；权限、凭据、资源边界和执行限额仍生效。支持复用厂商认证的 Cloud 后端允许在同一 Source 上使用 source.request 请求根下业务路径，认证仍由宿主处理；命名原生操作继续按目录调用。自定义路径不需要登记为 vendor 资源；旧后端不支持时按 reason/path/repair 核对版本，不通过删除 sourceType 绕过认证。
 
 ## 修订与执行结局
 

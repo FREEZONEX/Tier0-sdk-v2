@@ -11,7 +11,7 @@
 | SQL | edge-sql；支持连接独立创建的目标可暂不配置查询，读取前声明固定 sql.query 或 sql.queries，二者互斥；脚本按已声明查询执行 |
 | 厂商模板 | sourceType 与参数、凭据及资源按对应目录；原生操作保留其参数和路由语义 |
 
-Cloud 普通 HTTP `custom` 凭据的唯一 values 键是实际认证头名；Plex 模板的 `values.apiKey` 是语义字段。两者不能互换，见[创建](create.md#自定义-http-认证头)。当前 Cloud 厂商凭据不能直接用于普通 source.request；Enterprise 组合以目标发现为准。
+Cloud 普通 HTTP `custom` 凭据的唯一 values 键是实际认证头名；Plex 模板的 `values.apiKey` 是语义字段。两者不能互换，见[创建](create.md#自定义-http-认证头)。支持复用厂商认证的 Cloud 后端中，同一厂商 Source 可通过 source.request 调用根下业务路径，沿用原认证和参数，无需新增目录资源；Enterprise 组合以目标发现为准。
 
 http.headers 只放公开业务头，http.parameters 放公开厂商参数。TLS/证书引用依目标 `tlsReferencesSupported` 与凭据 schema；不能用文件路径冒充资产 ID 或另一 Source 的引用。
 
