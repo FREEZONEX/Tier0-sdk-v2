@@ -1,13 +1,15 @@
-# 查询 Source
+# 查询 Source 与诊断
 
-| 方法 | POST 路径 | 输入 | data |
-| --- | --- | --- | --- |
-| source.documents.list | /openapi/v2/uns/sources/documents/list | page、size、search、protocol、health、archived、includeDocument | list、total、page、hasMore、nextPage |
-| source.documents.get | /openapi/v2/uns/sources/documents/get | id（必填）、view:'summary' 或 'full' | id、revision、状态；full 才包含完整 document |
-| source.runtime.get | /openapi/v2/uns/sources/runtime/get | id（必填） | 运行状态 |
-| source.observations.get | /openapi/v2/uns/sources/observations/get | items：id、expectedRevision | 指定源和修订的观测 |
+| 需要的信息 | 方法 |
+|---|---|
+| 列表与安全摘要 | source.documents.list |
+| 当前 revision | source.documents.get({id,view:'summary'}) |
+| 完整连接文档 | source.documents.get({id,view:'full'}) |
+| 运行状态 / 指定修订观测 | source.runtime.get / source.observations.get |
+| 协议与实际资源 | source.protocols.list、source.discover、source.resources.catalog（按目标支持的入口） |
+| 连接或有限数据检测 | source.probe |
 
-page 从 1 开始，size 1–200。列表默认安全摘要。get 省略 view 时返回 full；summary 需要 uns.source.view 或 uns.source.manage，full 需要 uns.source.manage；API Key 读取完整文档还必须是 full_access（includeDocument:true 同样适用）。未知 revision 时可读取 summary；要完整替换 document 或查看配置时读取 full。已持有写回执中的 ID/revision 时，可直接提交 patch，无需为了编辑再 get；服务端仍会检查版本冲突。摘要不能用于重建完整配置。
+列表 page 从 1 开始，按 hasMore/nextPage 翻页。摘要不含完整配置，不能直接写回为 document。已有创建或更新回执时可复用其 ID/revision，不必为每一步再次 get。
 
 ```ts
 import { createClient, type Tier0Client } from '@tier0/sdk-v2';
@@ -18,16 +20,14 @@ export async function* listSources(client: Tier0Client = createClient()) {
     const { data } = await client.source.documents.list({ page, size: 100, includeDocument: false });
     yield data.list;
     if (!data.hasMore) return;
-    if (typeof data.nextPage !== 'number' || data.nextPage <= page) throw new Error('无有效下一页');
+    if (typeof data.nextPage !== 'number' || data.nextPage <= page) throw new Error('Invalid next page');
     page = data.nextPage;
   }
 }
-export async function readSource(id: string, client: Tier0Client = createClient()) {
-  const current = await client.source.documents.get({ id, view: 'summary' });
-  return { current: current.data };
-}
 ```
 
-查询摘要只需一次请求。需要完整配置时显式使用 `documents.get({ id, view: 'full' })`；需要运行观测时使用已有摘要或写回执的 `id/revision` 调用 `observations.get({ items: [{ id, expectedRevision: revision }] })`，无需再次读取详情。
+Cloud 普通 HTTP 直接在绑定的 Stream 使用 source.request，不需要资源 catalog 前置检查；厂商原生操作使用 discover，目录资源按返回的 configRevision、resourceRef、modes 和 schema 调用。
 
-ID 不得转 Number；跨页不是稳定快照。权限错误、网络故障与不存在应分别处理，不能把任何 get 失败当成删除成功。probe 可能触达外部系统，不属于单纯读取。
+`probe` 会访问外部系统，按连接排障或有限数据验证的任务需要使用。健康状态、资源预览和业务采集成功是不同证据。保留连接检查与数据检查的各自阶段；配置变更后旧检查不能代表新版本。
+
+ID 保持字符串；跨页不是稳定快照。权限拒绝、网络失败、资源不存在按结构化错误区分，不能把读取失败当作已删除。
