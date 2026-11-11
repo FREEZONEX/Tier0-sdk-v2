@@ -182,6 +182,12 @@ function excludedFields(not) {
 
 function typeFor(schema, nested = false) {
   if (!schema || typeof schema !== 'object' || Object.keys(schema).length === 0) return 'UnsV2JSONValue';
+  // 联合必填的否定要求至少缺少其中一个字段，仍允许全部省略。
+  if (schema.properties && Object.keys(schema.not || {}).length === 1 && schema.not.required?.length > 1) {
+    const { not, ...shape } = schema;
+    const alternatives = not.required.map(name => `{ ${JSON.stringify(name)}?: never }`);
+    return `(${typeFor(shape, nested)} & (${alternatives.join(' | ')}))`;
+  }
   // 单字段排除可以准确表达，避免 SQL 凭据误带 HTTP method。
   if (schema.properties && schema.not && excludedFields(schema.not)) {
     const { not, ...shape } = schema;

@@ -5,11 +5,11 @@
     "path": "backend/internal/domain/unsv2/contract_generated.go",
     "sha256": "ef0207033e2e27de102c76182600b08db413e2decafaa3c3d94bdd17feaa70ab"
   },
-  "description": "Shared wire schemas, not a claim that every target implements every protocol. Query the target protocols/list for operations, credentialKinds and explicit unsupported capabilities.",
+  "description": "Cloud wire schemas. Query the target protocols/list for operations, credentialKinds and explicit unsupported capabilities.",
   "schemas": {
     "SourceDefinition": {
       "additionalProperties": false,
-      "description": "Unified Source connection. Choose the matching protocol object; edge-sql uses one of sql.query (preset) or sql.queries (named). Query the target protocol catalog for installed execution, TLS and state capabilities.",
+      "description": "Unified Source connection. Choose the matching protocol object. Query the target protocol catalog for installed execution, TLS and state capabilities.",
       "properties": {
         "credentialRef": {
           "description": "Opaque existing credential reference returned for authorized editing and accepted on input. It contains no secret. Provision secrets only through create.credentials or credentials/update; secret material is never returned in the document.",
@@ -960,28 +960,13 @@
         }
       },
       "type": "object",
-      "oneOf": [
-        {
-          "required": [
-            "query"
-          ],
-          "not": {
-            "required": [
-              "queries"
-            ]
-          }
-        },
-        {
-          "required": [
-            "queries"
-          ],
-          "not": {
-            "required": [
-              "query"
-            ]
-          }
-        }
-      ]
+      "not": {
+        "required": [
+          "query",
+          "queries"
+        ]
+      },
+      "description": "Cloud database connection. Omit query and queries to create a connection without SQL resources. Declare either a preset or named queries before reading data."
     },
     "WMSMapping": {
       "additionalProperties": false,
@@ -1086,7 +1071,7 @@
     },
     "NativeSourceDocument": {
       "additionalProperties": false,
-      "description": "Unified Source connection. Choose the matching protocol object; edge-sql uses one of sql.query (preset) or sql.queries (named). Query the target protocol catalog for installed execution, TLS and state capabilities.",
+      "description": "Unified Source connection. Choose the matching protocol object. Query the target protocol catalog for installed execution, TLS and state capabilities.",
       "properties": {
         "credentialRef": {
           "description": "Opaque existing credential reference returned for authorized editing and accepted on input. It contains no secret. Provision secrets only through create.credentials or credentials/update; secret material is never returned in the document.",

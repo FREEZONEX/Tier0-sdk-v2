@@ -105,6 +105,10 @@ void [oldApiKeyMaterial, invalidApiKeyMethod, vendorSessionInline];
 
 const sqlCredentials: SourceCredentials = { kind: 'basic', username: 'fixture', secret: 'fixture-only' };
 sdk.source.documents.create({ document: { name: 'PG', protocol: 'edge-sql', endpoint: 'postgres://fixture.invalid/database', sql: { queries: { inventory: 'SELECT id FROM inventory' }, tlsMode: 'verify-full' } }, credentials: sqlCredentials, idempotencyKey: 'sql-create' });
+sdk.source.documents.create({ document: { name: 'PG connection', protocol: 'edge-sql', endpoint: 'postgres://fixture.invalid/database', sql: { tlsMode: 'verify-full' } }, credentials: sqlCredentials, idempotencyKey: 'sql-connection-create' });
+// @ts-expect-error SQL 预设与命名查询不能同时提供。
+const conflictingSQLQueries: import('../../src/index.js').SourceDefinition['sql'] = { query: 'sql:tool-inventory', queries: { inventory: 'SELECT id FROM inventory' } };
+void conflictingSQLQueries;
 // @ts-expect-error SQL 连接不接受 HTTP method。
 const sqlHTTPMethod: SourceCredentials = { kind: 'usernamePassword', method: 'GET', material: { username: 'fixture', password: 'fixture-only' } };
 void sqlHTTPMethod;

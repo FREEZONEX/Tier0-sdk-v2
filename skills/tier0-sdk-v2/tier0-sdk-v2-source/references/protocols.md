@@ -8,7 +8,7 @@
 | OAuth Client | protocol:oauth2；公开授权配置放 http.oauth，秘密经 credentials 导入 |
 | HTTP Server | protocol:http-api、role:server，托管 endpoint 按目标目录；业务路由属于 Stream |
 | MQTT / OPC UA / Modbus | mqtt / opcua / modbus-tcp；连接在 Source，采集参数在 Stream acquisition |
-| SQL | edge-sql；声明固定 sql.query 或目标支持的 sql.queries，脚本按已声明查询执行 |
+| SQL | edge-sql；支持连接独立创建的目标可暂不配置查询，读取前声明固定 sql.query 或 sql.queries，二者互斥；脚本按已声明查询执行 |
 | 厂商模板 | sourceType 与参数、凭据及资源按对应目录；原生操作保留其参数和路由语义 |
 
 Cloud 普通 HTTP `custom` 凭据的唯一 values 键是实际认证头名；Plex 模板的 `values.apiKey` 是语义字段。两者不能互换，见[创建](create.md#自定义-http-认证头)。当前 Cloud 厂商凭据不能直接用于普通 source.request；Enterprise 组合以目标发现为准。

@@ -3601,7 +3601,7 @@
       "appAllowed": false,
       "mcp": false,
       "summary": "读取 Stream 入口授权",
-      "description": "Current manager session or full_access personal/Agent key only. Returns a snapshotToken binding the recipient, code, published binding and all stored target grants. The token is a compare-and-set version, not an execution credential. App/service credentials cannot manage grants.",
+      "description": "Current manager session or authorized full_access personal, Agent or service key. System keys use their own effective permissions; Builder may manage Apps in the same workspace independently of its current App binding. Returns a snapshotToken binding the recipient, code, published binding and all stored target grants. The token is a compare-and-set version, not an execution credential. Granted actions must be within the current key permissions. App runtime and restricted OAuth credentials cannot manage grants.",
       "example": {
         "code": "device.read",
         "principalKind": "app",
@@ -5895,7 +5895,7 @@
     },
     "SourceDefinition": {
       "additionalProperties": false,
-      "description": "Unified Source connection. Choose the matching protocol object; edge-sql uses one of sql.query (preset) or sql.queries (named). Query the target protocol catalog for installed execution, TLS and state capabilities.",
+      "description": "Unified Source connection. Choose the matching protocol object. Query the target protocol catalog for installed execution, TLS and state capabilities.",
       "properties": {
         "credentialRef": {
           "description": "Opaque existing credential reference returned for authorized editing and accepted on input. It contains no secret. Provision secrets only through create.credentials or credentials/update; secret material is never returned in the document.",
@@ -18229,13 +18229,44 @@
             },
             "securityMode": {
               "type": "string",
-              "const": "SignAndEncrypt"
+              "enum": [
+                "SignAndEncrypt",
+                "None"
+              ]
             },
             "securityPolicy": {
               "type": "string",
-              "const": "Basic256Sha256"
+              "enum": [
+                "Basic256Sha256",
+                "None"
+              ]
             }
-          }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "securityMode": {
+                    "const": "None"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "securityPolicy": {
+                    "const": "None"
+                  }
+                }
+              },
+              "else": {
+                "properties": {
+                  "securityPolicy": {
+                    "const": "Basic256Sha256"
+                  }
+                }
+              }
+            }
+          ]
         }
       }
     },
@@ -24615,28 +24646,13 @@
         }
       },
       "type": "object",
-      "oneOf": [
-        {
-          "required": [
-            "query"
-          ],
-          "not": {
-            "required": [
-              "queries"
-            ]
-          }
-        },
-        {
-          "required": [
-            "queries"
-          ],
-          "not": {
-            "required": [
-              "query"
-            ]
-          }
-        }
-      ]
+      "not": {
+        "required": [
+          "query",
+          "queries"
+        ]
+      },
+      "description": "Cloud database connection. Omit query and queries to create a connection without SQL resources. Declare either a preset or named queries before reading data."
     },
     "WMSMapping": {
       "additionalProperties": false,
@@ -25376,7 +25392,7 @@
     },
     "SourceDefinitionPatch": {
       "additionalProperties": false,
-      "description": "Unified Source connection. Choose the matching protocol object; edge-sql uses one of sql.query (preset) or sql.queries (named). Query the target protocol catalog for installed execution, TLS and state capabilities.",
+      "description": "Unified Source connection. Choose the matching protocol object. Query the target protocol catalog for installed execution, TLS and state capabilities.",
       "properties": {
         "credentialRef": {
           "description": "Opaque existing credential reference returned for authorized editing and accepted on input. It contains no secret. Provision secrets only through create.credentials or credentials/update; secret material is never returned in the document.",
