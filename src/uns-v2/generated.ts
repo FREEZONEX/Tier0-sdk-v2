@@ -2284,7 +2284,7 @@ export type CloudAppStreamAccessItem = {
   "actions": Array<"stream.requests.read" | "stream.requests.invoke" | "stream.requests.write">;
   "configuredActive": 1 | 2;
   "state": "available" | "blocked";
-  "blockedReasons": Array<"grant_revoked" | "grant_invalid" | "recipient_unavailable" | "stream_inactive" | "binding_unavailable" | "deployer_unavailable" | "state_changed" | "grant_insufficient" | "app_stream_ceiling" | "target_not_granted" | "collection_not_granted">;
+  "blockedReasons": Array<"grant_revoked" | "grant_invalid" | "recipient_unavailable" | "stream_inactive" | "binding_unavailable" | "deployer_unavailable" | "execution_identity_denied" | "execution_identity_unavailable" | "execution_identity_mismatch" | "runtime_unavailable" | "source_binding_unavailable" | "state_changed" | "grant_insufficient" | "app_stream_ceiling" | "target_not_granted" | "collection_not_granted">;
   "revision": UnsV2Integer;
 };
 
@@ -3857,7 +3857,6 @@ export const UNS_V2_OPERATIONS = {
   "appCollectionsArchive": { path: "/openapi/v2/uns/app/collections/archive", pathParams: [], request: "CloudAppCollectionAliasReq", response: "CloudAppCollectionStateResponse", mutation: true, idempotencyKey: false, scope: "uns:update" },
   "appCollectionsRestore": { path: "/openapi/v2/uns/app/collections/restore", pathParams: [], request: "CloudAppCollectionAliasReq", response: "CloudAppCollectionStateResponse", mutation: true, idempotencyKey: false, scope: "uns:update" },
   "appCollectionsList": { path: "/openapi/v2/uns/app/collections/list", pathParams: [], request: "CloudAppCollectionsListReq", response: "CloudAppCollectionsListResponse", mutation: false, idempotencyKey: false, scope: "uns:read" },
-  "appStreamAccessList": { path: "/openapi/v2/uns/app-stream-access/list", pathParams: [], request: "CloudAppStreamAccessListReq", response: "CloudAppStreamAccessListResponse", mutation: false, idempotencyKey: false, scope: "stream.requests:manage" },
   "sampleFind": { path: "/openapi/v2/uns/collections/:collectionId/samples:find", pathParams: ["collectionId"], request: "UnsV2SampleFindReq", response: "UnsV2SampleFindResponse", mutation: false, idempotencyKey: false, scope: "uns:read" },
   "sampleAggregate": { path: "/openapi/v2/uns/collections/:collectionId/samples:aggregate", pathParams: ["collectionId"], request: "UnsV2SampleAggregateReq", response: "UnsV2SampleAggregateResponse", mutation: false, idempotencyKey: false, scope: "uns:read" },
   "sampleDeleteExact": { path: "/openapi/v2/uns/collections/:collectionId/samples:deleteExact", pathParams: ["collectionId"], request: "UnsV2SampleDeleteExactReq", response: "UnsV2SampleDeleteExactResponse", mutation: true, idempotencyKey: true, scope: "uns:update" },
@@ -3908,6 +3907,7 @@ export const UNS_V2_OPERATIONS = {
   "streamSampleTest": { path: "/openapi/v2/uns/streams/sample/test", pathParams: [], request: "CloudStreamSampleTestReq", response: "CloudStreamSampleTestResponse", mutation: false, idempotencyKey: false, scope: "stream:manage" },
   "streamRequestGrantGet": { path: "/openapi/v2/uns/stream-requests/grants/get", pathParams: [], request: "CloudStreamRequestGrantGetReq", response: "CloudStreamRequestGrantGetResponse", mutation: false, idempotencyKey: false, scope: "stream.requests:manage" },
   "streamRequestGrantSet": { path: "/openapi/v2/uns/stream-requests/grants/set", pathParams: [], request: "CloudStreamRequestGrantSetReq", response: "CloudStreamRequestGrantSetResponse", mutation: true, idempotencyKey: false, scope: "stream.requests:manage" },
+  "appStreamAccessList": { path: "/openapi/v2/uns/app-stream-access/list", pathParams: [], request: "CloudAppStreamAccessListReq", response: "CloudAppStreamAccessListResponse", mutation: false, idempotencyKey: false, scope: "stream.requests:manage" },
   "sourceOpcuaEndpoints": { path: "/openapi/v2/uns/sources/opcua/endpoints", pathParams: [], request: "CloudSourceOpcuaEndpointsReq", response: "CloudSourceOpcuaEndpointsResponse", mutation: false, idempotencyKey: false, scope: "source:manage" },
   "sourceResourceCatalog": { path: "/openapi/v2/uns/sources/resources/catalog", pathParams: [], request: "CloudSourceResourceCatalogReq", response: "CloudSourceResourceCatalogResponse", mutation: false, idempotencyKey: false, scope: "source:read" },
   "sourceResourceRead": { path: "/openapi/v2/uns/sources/resources/preview", pathParams: [], request: "CloudSourceResourceReadReq", response: "CloudSourceResourceReadResponse", mutation: false, idempotencyKey: false, scope: "source:read" },
@@ -3957,7 +3957,6 @@ export interface UnsV2OperationMap {
   "appCollectionsArchive": { request: CloudAppCollectionAliasReq; response: CloudAppCollectionStateResponse };
   "appCollectionsRestore": { request: CloudAppCollectionAliasReq; response: CloudAppCollectionStateResponse };
   "appCollectionsList": { request: CloudAppCollectionsListReq; response: CloudAppCollectionsListResponse };
-  "appStreamAccessList": { request: CloudAppStreamAccessListReq; response: CloudAppStreamAccessListResponse };
   "sampleFind": { request: UnsV2SampleFindReq; response: UnsV2SampleFindResponse };
   "sampleAggregate": { request: UnsV2SampleAggregateReq; response: UnsV2SampleAggregateResponse };
   "sampleDeleteExact": { request: UnsV2SampleDeleteExactReq; response: UnsV2SampleDeleteExactResponse };
@@ -4008,6 +4007,7 @@ export interface UnsV2OperationMap {
   "streamSampleTest": { request: CloudStreamSampleTestReq; response: CloudStreamSampleTestResponse };
   "streamRequestGrantGet": { request: CloudStreamRequestGrantGetReq; response: CloudStreamRequestGrantGetResponse };
   "streamRequestGrantSet": { request: CloudStreamRequestGrantSetReq; response: CloudStreamRequestGrantSetResponse };
+  "appStreamAccessList": { request: CloudAppStreamAccessListReq; response: CloudAppStreamAccessListResponse };
   "sourceOpcuaEndpoints": { request: CloudSourceOpcuaEndpointsReq; response: CloudSourceOpcuaEndpointsResponse };
   "sourceResourceCatalog": { request: CloudSourceResourceCatalogReq; response: CloudSourceResourceCatalogResponse };
   "sourceResourceRead": { request: CloudSourceResourceReadReq; response: CloudSourceResourceReadResponse };
@@ -4051,7 +4051,6 @@ export interface UnsV2Operations {
   appCollectionsArchive(request: CloudAppCollectionAliasReq, options?: RequestOptions): Promise<CloudAppCollectionStateResponse>;
   appCollectionsRestore(request: CloudAppCollectionAliasReq, options?: RequestOptions): Promise<CloudAppCollectionStateResponse>;
   appCollectionsList(request: CloudAppCollectionsListReq, options?: RequestOptions): Promise<CloudAppCollectionsListResponse>;
-  appStreamAccessList(request: CloudAppStreamAccessListReq, options?: RequestOptions): Promise<CloudAppStreamAccessListResponse>;
   sampleFind(request: UnsV2SampleFindReq, options?: RequestOptions): Promise<UnsV2SampleFindResponse>;
   sampleAggregate(request: UnsV2SampleAggregateReq, options?: RequestOptions): Promise<UnsV2SampleAggregateResponse>;
   sampleDeleteExact(request: UnsV2SampleDeleteExactReq, options?: RequestOptions): Promise<UnsV2SampleDeleteExactResponse>;
@@ -4102,6 +4101,7 @@ export interface UnsV2Operations {
   streamSampleTest(request: CloudStreamSampleTestReq, options?: RequestOptions): Promise<CloudStreamSampleTestResponse>;
   streamRequestGrantGet(request: CloudStreamRequestGrantGetReq, options?: RequestOptions): Promise<CloudStreamRequestGrantGetResponse>;
   streamRequestGrantSet(request: CloudStreamRequestGrantSetReq, options?: RequestOptions): Promise<CloudStreamRequestGrantSetResponse>;
+  appStreamAccessList(request: CloudAppStreamAccessListReq, options?: RequestOptions): Promise<CloudAppStreamAccessListResponse>;
   sourceOpcuaEndpoints(request: CloudSourceOpcuaEndpointsReq, options?: RequestOptions): Promise<CloudSourceOpcuaEndpointsResponse>;
   sourceResourceCatalog(request: CloudSourceResourceCatalogReq, options?: RequestOptions): Promise<CloudSourceResourceCatalogResponse>;
   sourceResourceRead(request: CloudSourceResourceReadReq, options?: RequestOptions): Promise<CloudSourceResourceReadResponse>;
@@ -4142,37 +4142,37 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
       "capability": "x-tier0-opcua-server: static available=false; online availability is workspace/registry authoritative"
     }
   },
-  "sourceDerivedContractSHA256": "7a5888e68028975367ff4fd9fa2ea4dab8273ea5da1700633d0a1a6a349b6d64",
+  "sourceDerivedContractSHA256": "265c1455d3cf8cd745d578e8942739ff0da5dc49cebe622a910ad617450840bb",
   "schemaUpdates": [
     {
       "scope": "source-stream-public",
       "repository": "FREEZONEX/Tier0-Backend",
-      "revision": "df1bd75bd98d1c619c990c1cdeb63a4c4334851d",
+      "revision": "0edf6335c76dfd442a071ee706be3a523c8ecbfb",
       "sourceKind": "committed",
       "inputs": {
         "contracts/uns-v2/contract.json": {
           "path": "service/unssvr/internal/domain/unsv2/contract_generated.go",
-          "sourceSHA256": "c9c76889cc2847fb9c89fa321518414c044503361f3dd8abc115d2a4ed98a979",
+          "sourceSHA256": "c28b13dbf107df140a5fd47b00ae96b3d68ed35729b6d13a853f5f842bd7ba41",
           "baseSHA256": "6c4468b0327d195c9f0e3e1b3ac75992ee12fbc8c811715d131c4934c39bab3e",
-          "resultSHA256": "7a5888e68028975367ff4fd9fa2ea4dab8273ea5da1700633d0a1a6a349b6d64"
+          "resultSHA256": "265c1455d3cf8cd745d578e8942739ff0da5dc49cebe622a910ad617450840bb"
         },
         "contracts/uns-v2/manifest.json": {
           "path": "share/unscontract/manifest.json",
-          "sourceSHA256": "5dc8f0b746267760060c451847644994f081e4f3a353c28014182ae40c08b043",
+          "sourceSHA256": "b74d03080a31d5eae56f7419564925c97c7a527b62599cad98f5e234ad00df2d",
           "baseSHA256": "6bc2f181d2aa51401d14612c2ee1aee1a115407a24c9bfb0374b4ebff8b44463",
-          "resultSHA256": "58f2b8c074f99f5c9abe2fbcf2eefc555f8d4b7cac9eb1f1383b341648b5ec3e"
+          "resultSHA256": "8d78cc7fde6d2a6ba8aea56cc3f13134d3470c7fd0899e0a94472211a621ee55"
         },
         "contracts/uns-v2/cloud-support.json": {
           "path": "share/unscontract/cloud-support.json",
           "sourceSHA256": "44e702a2f9b406db86ef352f98abe53e6d8dcb87d18aa15c3e6dc8dd8ddff424",
           "baseSHA256": "44e702a2f9b406db86ef352f98abe53e6d8dcb87d18aa15c3e6dc8dd8ddff424",
-          "resultSHA256": "5ef5ab95a1bb7f90657c1a290f2320df25b5d9421680da5fe2fcb6fdae3a2b5d"
+          "resultSHA256": "a1feaba48061fce10ed5ffa5ef444b478631cd5c2c85d221b73e3c62cbe93c94"
         },
         "contracts/uns-v2/registry_generated.go": {
           "path": "share/unscontract/registry_generated.go",
           "sourceSHA256": "17966db0acbe1ce9104bb987157d5ea6b611ed37531319e22bae6608cbdf38bc",
           "baseSHA256": "17966db0acbe1ce9104bb987157d5ea6b611ed37531319e22bae6608cbdf38bc",
-          "resultSHA256": "62ded8104932a2745bfc836194fd355d488cdbe0a63a21768a87bce18eb47c7c"
+          "resultSHA256": "fa33ff73c8bdefe2431968cb0ae0f43ffe8afc06186dbcd6f3c89b7fbde39e28"
         },
         "contracts/uns-v2/source-protocols.json": {
           "path": "share/unscontract/source-protocols.json",
@@ -4182,6 +4182,10 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
         }
       },
       "schemas": [
+        "CloudAppStreamAccessItem",
+        "CloudAppStreamAccessListReq",
+        "CloudAppStreamAccessListResponse",
+        "CloudAppStreamAccessPage",
         "CloudEdgeSourceStateUpdateReq",
         "CloudEdgeSourceStateUpdateResponse",
         "CloudPlatformReadiness",
@@ -4325,11 +4329,11 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
   ],
   "note": "Source/Stream public operations and transitive schemas are synchronized separately; unrelated operation contracts retain their pinned base.",
   "hashes": {
-    "contract": "7a5888e68028975367ff4fd9fa2ea4dab8273ea5da1700633d0a1a6a349b6d64",
-    "cloudSupport": "5ef5ab95a1bb7f90657c1a290f2320df25b5d9421680da5fe2fcb6fdae3a2b5d",
-    "manifest": "58f2b8c074f99f5c9abe2fbcf2eefc555f8d4b7cac9eb1f1383b341648b5ec3e",
-    "provenance": "fdc92827e9f0617d98aa1f8fde1dfc7c2bff3236f8e7e7fd5f1d21cf3f5df943",
-    "registry": "62ded8104932a2745bfc836194fd355d488cdbe0a63a21768a87bce18eb47c7c"
+    "contract": "265c1455d3cf8cd745d578e8942739ff0da5dc49cebe622a910ad617450840bb",
+    "cloudSupport": "a1feaba48061fce10ed5ffa5ef444b478631cd5c2c85d221b73e3c62cbe93c94",
+    "manifest": "8d78cc7fde6d2a6ba8aea56cc3f13134d3470c7fd0899e0a94472211a621ee55",
+    "provenance": "839e9282540e9e4a9850583c71b257fbc3cb50e28e364c3649fd35a52d7091c8",
+    "registry": "fa33ff73c8bdefe2431968cb0ae0f43ffe8afc06186dbcd6f3c89b7fbde39e28"
   },
   "publicOperationCount": 91,
   "streamOperationCount": 1,

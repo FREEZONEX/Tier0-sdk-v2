@@ -85,13 +85,18 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
   expect(baselineOperations.appStreamAccessList.resource).toBe('stream');
   baselineOperations.appStreamAccessList.resource = 'control';
   const access = baselineSchemas.CloudAppStreamAccessItem as {
-    properties: {blockedReasons: {items: {enum: string[]}}};
+    properties: {blockedReasons: {items: {enum: string[]}; description: string}};
   };
   const reasons = access.properties.blockedReasons.items.enum;
   expect(reasons.filter(reason => reason === 'app_stream_ceiling')).toHaveLength(1);
   expect(reasons).not.toContain('app_control_ceiling');
-  access.properties.blockedReasons.items.enum = reasons.map(reason =>
+  const executionReasons = ['execution_identity_denied', 'execution_identity_unavailable',
+    'execution_identity_mismatch', 'runtime_unavailable', 'source_binding_unavailable'];
+  for (const reason of executionReasons) expect(reasons.filter(value => value === reason)).toHaveLength(1);
+  expect(access.properties.blockedReasons.description).toContain('deployer_unavailable 仅兼容旧服务');
+  access.properties.blockedReasons.items.enum = reasons.filter(reason => !executionReasons.includes(reason)).map(reason =>
     reason === 'app_stream_ceiling' ? 'app_control_ceiling' : reason);
+  access.properties.blockedReasons.description = '当前不可用的原因；app_stream_ceiling 表示工作区套餐不含该动作（App 本身固定拥有 Stream 请求能力，没有按 App 的上限配置）。';
   // App 平台能力保持 11 项，已有集合授权使用当前管理主体的权限。
   const platformPermissions = appContext.properties.platformPermissions as unknown as { items: { enum: string[] }; maxItems: number };
   expect(platformPermissions.items.enum).toEqual(['openapi.base', 'platform.users.read', 'notifications.send', 'asset.file.upload',

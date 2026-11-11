@@ -1396,47 +1396,6 @@
       }
     },
     {
-      "name": "appStreamAccessList",
-      "suffix": "/uns/app-stream-access/list",
-      "handler": "CloudAppStreamAccessList",
-      "request": "CloudAppStreamAccessListReq",
-      "response": "CloudAppStreamAccessListResponse",
-      "permission": "stream.requests.manage",
-      "scope": "stream.requests:manage",
-      "minPermission": 3,
-      "resource": "stream",
-      "mutation": "",
-      "runtime": true,
-      "resourceId": 3320,
-      "appAllowed": false,
-      "mcp": false,
-      "summary": "分页读取 App 的 Stream 授权",
-      "description": "Paginated configured Stream entry grants for one App, resolved by the server with current authorization blockers. Defaults to unrevoked grants. This is a management snapshot, not execution authority or a guarantee of device availability. No scripts, source settings or credentials are returned.",
-      "example": {
-        "appId": "11111111-1111-4111-8111-111111111111",
-        "page": 1,
-        "size": 20
-      },
-      "cloudExtension": true,
-      "audience": "governance",
-      "starter": false,
-      "method": "POST",
-      "permissionAnyOf": [],
-      "readOnly": true,
-      "tags": [
-        "App 与授权"
-      ],
-      "operation": "appStreamAccessList",
-      "path": "/uns/app-stream-access/list",
-      "supported": true,
-      "requestSchema": {
-        "$ref": "#/components/schemas/CloudAppStreamAccessListReq"
-      },
-      "responseSchema": {
-        "$ref": "#/components/schemas/CloudAppStreamAccessListResponse"
-      }
-    },
-    {
       "name": "sampleFind",
       "handler": "UnsV2SampleFind",
       "request": "UnsV2SampleFindReq",
@@ -3667,6 +3626,47 @@
       },
       "responseSchema": {
         "$ref": "#/components/schemas/CloudStreamRequestGrantSetResponse"
+      }
+    },
+    {
+      "name": "appStreamAccessList",
+      "suffix": "/uns/app-stream-access/list",
+      "handler": "CloudAppStreamAccessList",
+      "request": "CloudAppStreamAccessListReq",
+      "response": "CloudAppStreamAccessListResponse",
+      "permission": "stream.requests.manage",
+      "scope": "stream.requests:manage",
+      "minPermission": 3,
+      "resource": "stream",
+      "mutation": "",
+      "runtime": true,
+      "resourceId": 3320,
+      "appAllowed": false,
+      "mcp": false,
+      "summary": "分页读取 App 的 Stream 授权",
+      "description": "Paginated configured Stream entry grants for one App, resolved by the server with current authorization blockers. Defaults to unrevoked grants. This is a management snapshot, not execution authority or a guarantee of device availability. No scripts, source settings or credentials are returned.",
+      "example": {
+        "appId": "11111111-1111-4111-8111-111111111111",
+        "page": 1,
+        "size": 20
+      },
+      "cloudExtension": true,
+      "audience": "governance",
+      "starter": false,
+      "method": "POST",
+      "permissionAnyOf": [],
+      "readOnly": true,
+      "tags": [
+        "App 与授权"
+      ],
+      "operation": "appStreamAccessList",
+      "path": "/uns/app-stream-access/list",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/CloudAppStreamAccessListReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/CloudAppStreamAccessListResponse"
       }
     },
     {
@@ -17470,6 +17470,11 @@
               "stream_inactive",
               "binding_unavailable",
               "deployer_unavailable",
+              "execution_identity_denied",
+              "execution_identity_unavailable",
+              "execution_identity_mismatch",
+              "runtime_unavailable",
+              "source_binding_unavailable",
               "state_changed",
               "grant_insufficient",
               "app_stream_ceiling",
@@ -17478,7 +17483,7 @@
             ]
           },
           "uniqueItems": true,
-          "description": "当前不可用的原因；app_stream_ceiling 表示工作区套餐不含该动作（App 本身固定拥有 Stream 请求能力，没有按 App 的上限配置）。"
+          "description": "当前不可用的原因。execution_identity_denied 表示 SYS 拒绝执行身份；execution_identity_unavailable 表示身份服务不可用；execution_identity_mismatch 表示身份响应不匹配；runtime_unavailable 表示运行时不可用；source_binding_unavailable 表示 Source 状态、访问权限或凭据绑定不可用。deployer_unavailable 仅兼容旧服务。app_stream_ceiling 表示工作区套餐不含该动作。"
         },
         "revision": {
           "type": "integer",

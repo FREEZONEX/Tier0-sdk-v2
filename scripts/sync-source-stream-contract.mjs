@@ -18,7 +18,7 @@ const upstream = path => preview ? readFileSync(resolve(backend, path)) : git('s
 const local = path => readFileSync(resolve(root, path));
 const digest = value => createHash('sha256').update(value).digest('hex');
 const json = value => Buffer.from(JSON.stringify(value, null, 2) + '\n');
-const selected = name => /^(source|stream)/.test(name);
+const selected = name => /^(source|stream)/.test(name) || name === 'appStreamAccessList';
 const sourcePaths = {
   'contracts/uns-v2/contract.json': 'service/unssvr/internal/domain/unsv2/contract_generated.go',
   'contracts/uns-v2/manifest.json': 'share/unscontract/manifest.json',
