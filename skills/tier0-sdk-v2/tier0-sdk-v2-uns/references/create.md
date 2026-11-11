@@ -1,66 +1,46 @@
-# 创建集合与记录
+# 新建集合与记录
 
-元数据使用 metadataInsertOne（POST /openapi/v2/uns/metadata）或 metadataBulkWrite 的 insertOne 项；kind 指定 directory/topic/collection。单条提供 data、可选 id；批量提供同一 kind 的 operations[{insertOne:{id?,data}}]。idempotencyKey 标识一个写入意图；dryRun=true 仅校验。schemaVersion 由服务端赋默认值。
+集合定义与记录内容使用不同接口。App 自有集合通常由 [数据层声明](../../tier0-sdk-v2-data/references/modeling.md) ensure；已有集合直接用真实 ID，不再创建同名集合。
 
-集合 data 必须包含 name、recordSchema，可选 description、parentId、sampleSchema、indexes、semantics。parentId=null 表示根目录。索引创建后仍需确认状态为 ready。
+## 工作区集合
 
-目录、集合和主题使用现有 name 填写易读的真实业务名称，语言遵循用户偏好和已有术语；不要用程序 alias、随机串或 ID 代替名称，不提供 displayName 或名称回退。name 为 1–63 个 Unicode 字符，无首尾空白，不含 `/` 或空字符；同目录重名时选择明确的业务名称，不自动拼接随机后缀。工业目录按[命名空间](namespace.md)指导复用已有 ISA-95 设备层级，只创建业务已知的层级，非工业业务不强套工厂结构；修改既有名称须有用户授权，不借整理名称改写 ID、alias、权限或移动数据。
-
-下例传入已查询确认的父目录 ID；只有业务位置确实在根目录时才传 `null`。
-
-```ts
-import { createClient, type Tier0Client, type UnsV2Request } from '@tier0/sdk-v2';
-
-export async function createDeviceCollection(
-  collectionId: string, name: string, parentId: string | null,
-  intentKey: string, client: Tier0Client = createClient(),
-) {
-  const request: UnsV2Request<'metadataInsertOne'> = {
-    kind: 'collection', id: collectionId,
-    data: {
-      name, parentId,
-      recordSchema: {
-        type: 'object', additionalProperties: false, required: ['name', 'enabled'],
-        properties: { name: { type: 'string' }, enabled: { type: 'boolean' } },
-      },
-      sampleSchema: {
-        type: 'object', additionalProperties: false, required: ['temperature'],
-        properties: { temperature: { type: 'number', format: 'double', unit: '°C' } },
-      },
-    },
-  };
-  const receipt = await client.uns.metadataInsertOne({ ...request, dryRun: false, idempotencyKey: intentKey });
-  if (receipt.data.status !== 'committed') return { state: 'unconfirmed' as const, receipt };
-  const current = await client.uns.metadataFind({ kind: 'collection', filter: { _id: collectionId }, limit: 1 });
-  if (!current.data.items[0]) throw new Error('集合创建有回执，读回未确认');
-  return { state: 'committed' as const, receipt, current: current.data.items[0] };
-}
-```
-
-普通创建直接提交，服务端在提交时校验。只有需要展示预检结果时才单独使用 `dryRun: true`，预检不锁定提交条件。示例提交后读取一次，是为了返回服务端补全的集合结构和 revision；仅需创建回执时可省略这次读取。
-
-单条 Record 新增默认返回 insertedId/status/replayed。需要创建后的数据、revision 和时间戳时，传 returnDocument:'after'，同一次写入返回 value，无需再查询；可配合 projection，调用者必须同时具有读取权限。幂等重放返回原始创建快照，后续读取最新状态仍用 recordGet/recordFind。dryRun 的 value 是未提交预览。
-
-returnDocument 只允许 none（默认）或 after，不支持 before；projection 只能和 after 一起传。新增仍是 insert，已存在的 ID 不会变成更新。after 的 value 包括服务端补入的字段，但只返回当前授权可见的数据：普通数据权限需 uns.write 和 uns.read，App 还要满足集合的 record:write / record:read 及当前员工、行和字段策略。服务端在提交前校验读取权限，重放时也重新校验；旧回执不能绕过已撤销的授权。
-
-省略 returnDocument 与显式 none 保持相同幂等语义。不能用同一个意图键把原来的 none 改成 after 补取快照，否则返回 IDEMPOTENCY_CONFLICT；已创建的记录应改用读取接口。after 重放可对原始快照应用 projection，但不会变成最新记录。创建快照中的 revision 可用于下一次修改；若已有并发修改，版本冲突仍需显式处理。
-
-批量新增返回 insertedCount/insertedIds 及适用的逐项错误。insertedIds 的键是原始输入从 0 开始的索引。省略自定义 ID 时从成功回执取得实际 ID，不能把名称当成 ID。
+metadataInsertOne 接收 kind:'collection'、data:{name,parentId?,recordSchema,sampleSchema?,indexes?}，可选 id/idempotencyKey/dryRun。父目录使用实际 ID，业务目录见 [命名空间](namespace.md)。名称与程序 alias 独立，不用名称当 ID。
 
 ```ts
 import { createClient, type Tier0Client } from '@tier0/sdk-v2';
 
-export async function insertDevice(
-  collectionId: string, id: string, name: string, intentKey: string,
-  client: Tier0Client = createClient(),
-) {
-  const receipt = await client.uns.recordInsertOne({
-    collectionId, id, data: { name, enabled: true }, dryRun: false, idempotencyKey: intentKey, returnDocument: 'after',
+export async function createCollection(parentId: string | null, intentKey: string, client: Tier0Client = createClient()) {
+  return client.uns.metadataInsertOne({
+    kind: 'collection',
+    data: {
+      name: '生产工单', parentId,
+      recordSchema: {
+        type: 'object', additionalProperties: false, required: ['code'],
+        properties: { code: { type: 'string' }, quantity: { type: 'integer', format: 'int32' } },
+      },
+      indexes: [{ path: 'code', unique: true }],
+    },
+    idempotencyKey: intentKey,
   });
-  if (receipt.data.status !== 'committed') return { state: 'unconfirmed' as const, receipt };
-  if (!receipt.data.value) throw new Error('创建回执缺少请求的快照');
-  return { state: 'committed' as const, receipt, created: receipt.data.value };
 }
 ```
 
-记录创建与集合创建使用不同意图键。未知结果先按 ID 核对内容，不仅检查存在；SDK 不自动重试。
+保存 insertedId；需要服务器补全的结构/revision 时再读取。Schema 数值使用 integer/int32、number/float|double，嵌套同样处理；format 不转换或舍入。索引创建异步，ready 后才依赖唯一约束。
+
+## 新增记录与创建快照
+
+```ts
+import { createClient, type Tier0Client } from '@tier0/sdk-v2';
+
+export async function insertOrder(collectionId: string, id: string, code: string, intentKey: string, client: Tier0Client = createClient()) {
+  const receipt = await client.uns.recordInsertOne({
+    collectionId, id, data: { code }, returnDocument: 'after',
+    dryRun: false, idempotencyKey: intentKey,
+  });
+  return receipt.data;
+}
+```
+
+检查 status:'committed'；after 的 value 是 `{id,data,revision,...}` 原始快照，业务字段在 data 中。默认 none 只返回 ID/计数，after 额外需要当前读取权限，projection 仅与 after 同用；新增不支持 before。dryRun 只预览。
+
+同键重放返回原创建快照，不代表当前最新版本；不能用原键把 none 改为 after。新增同 ID 不会自动更新或恢复。批量 insertedIds 按原始零基序号对应输入。未知结局按 ID 核对内容并遵守 execution/retry，见 [数据工作流](data-workflows.md)。

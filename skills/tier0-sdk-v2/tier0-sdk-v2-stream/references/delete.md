@@ -1,28 +1,13 @@
 # 删除 Stream
 
-方法：`stream.programs.delete`；POST `/openapi/v2/uns/streams/program/delete`。
-
-| 字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| id | string | 是 | 十进制字符串 |
-| expectedRevision | integer | 建议提供 | 当前回执或查询的修订 |
-| dryRun | boolean | 是 | true 预检；false 提交 |
-| idempotencyKey | string | 否 | 最多 128 字符 |
-
-使用已确认目标的回执或查询快照，评估活跃发布/调用依赖。运行中的 Stream 可直接删除，删除会同时撤销后续执行准入；无需先停用。删除请求不自动授予对 Source/UNS 数据的清理权限。
+`client.stream.programs.delete({id,expectedRevision,dryRun:false,idempotencyKey})` 删除指定 Stream。使用真实 ID 和当前修订；运行中的 Stream 可直接删除并撤销后续准入，不要求先停用。
 
 ```ts
-import { createClient, type Tier0Client, type CloudStreamStopView } from '@tier0/sdk-v2';
+import { createClient, type Tier0Client } from '@tier0/sdk-v2';
 
-export async function deleteStream(
-  current: Pick<CloudStreamStopView, 'id' | 'revision'>, intentKey: string, client: Tier0Client = createClient(),
-) {
-  const receipt = await client.stream.programs.delete({
-    id: current.id, expectedRevision: current.revision, dryRun: false, idempotencyKey: intentKey,
-  });
-  if (!('deleted' in receipt.data) || receipt.data.deleted !== true) throw new Error('未确认删除');
-  return { receipt, current: receipt.data };
+export async function deleteStream(id: string, revision: number, intentKey: string, client: Tier0Client = createClient()) {
+  return client.stream.programs.delete({id,expectedRevision:revision,dryRun:false,idempotencyKey:intentKey});
 }
 ```
 
-成功 data 为 `{id,revision,deleted:true}`；预检为 `{validated:true,sideEffects:false}`。默认以 deleted 回执确认本次删除，无需遍历归档列表。需要独立审计时再按页查询 programs.list({archived:true,page,size})，找不到不能伪造读回确认。不要捕获所有 get 异常并返回删除成功。并发冲突重新评估，不用无版本保护的请求覆盖。
+成功 data 为 `{id,revision,deleted:true}`；dryRun:true 返回预检结果，不代表删除。删除 Stream 不连带清理 Source 或 Collection 数据。版本冲突后重新比较状态；结果未知先核对，不把任意 get 错误当作已删除。

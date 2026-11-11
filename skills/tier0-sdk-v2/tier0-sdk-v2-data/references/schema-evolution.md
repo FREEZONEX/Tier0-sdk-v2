@@ -1,43 +1,32 @@
 # Schema 演进
 
-Preview 与部署后的 App 共用集合，较旧的部署版本随时可能用它的旧声明冷启动。因此 ensure 只会**放宽**：存储是所有运行过的声明的并集，每个版本的写入都保持有效。按变更类型选择做法：
+JSONB 存储仍受 Schema、索引和 Topic 字段引用约束。ensure 只放宽，允许预览与旧部署的声明同时使用同一集合；它不迁移、转换或清空记录。
 
-| 变更 | 做法 |
+| 改动 | 做法 |
 | --- | --- |
-| 新增可选字段（任意层级，含数组元素内）、新增枚举值、字段改为可选、`int` → `number`、放宽或去掉 `min`/`max`、新增索引 | 修改声明；下次访问时 ensure 生效 |
-| 修改集合名称 | 通过 tier0 MCP 的 metadata:updateOne 显式修改 name，保留 alias/ID；修改声明后重复 ensure 不覆盖已有名称 |
-| 修改集合目录 | `directoryPath` 只决定首次创建位置；已有 alias 不自动移动，差异报告 `DIRECTORY_PATH_NOT_APPLIED`。确认迁移授权后使用元数据接口，不通过改 alias 重建集合 |
-| 修改 `.describe()` 文本或集合 `description` | 修改声明，然后通过 tier0 MCP 执行 `schema:replace`，请求体从 `compileCollection(declaration)` 中只选 `alias`、`recordSchema`、`indexes`、`description`，不传 `name`（先 `dryRun`：期望 `widened`；`narrowed` 说明存储里还有该声明之外的内容，例如其他版本的字段——合并进请求体或停止）。ensure 保留已存储的描述并报告 `ANNOTATION_NOT_APPLIED`；新字段和新集合在创建时带上描述 |
-| 新增每条记录都必须有的字段 | 先以 `.optional()` 加入，所有写入路径都写它，回填旧记录，等部署版本也写入后再用 `schema:replace` 改为必填 |
-| 删除或重命名字段 | 代码不再使用旧字段（它可以留在存储里）；新名字就是新的可选字段。通过 tier0 MCP 一次性回填（`records:updateMany` 配 `$rename` / `$set`） |
-| 修改字段类型 | 换一个新字段名，回填，读取时以旧字段兜底。ensure 从不转换类型（`SCHEMA_CONFLICT`） |
-| 删除枚举值、可选改必填、从存储删除字段、删除索引、收紧 `min`/`max` | 只能在部署版本不再写旧形态之后：通过 tier0 MCP `schema:replace`，先 `dryRun` |
+| 新可选字段、扩展枚举、改可选、int → number、放宽范围、新索引 | 修改声明，由下次 ensure 合并 |
+| 改业务名称或目录 | 元数据更新；ensure 保留现有名称/目录，路径差异报告 DIRECTORY_PATH_NOT_APPLIED |
+| 改描述/注解 | 显式 schema:replace；ensure 保留旧值并报告 ANNOTATION_NOT_APPLIED |
+| 新增必填字段 | 先可选，部署写入逻辑、回填旧记录，再验证并收紧 |
+| 重命名或改变字段类型 | 新字段与旧字段兼容读写，回填后再决定是否移除旧结构 |
+| 删除字段/枚举/索引、收紧范围、缩短或移除 TTL | 显式 schema:replace，检查存量数据和旧写入方 |
 
-不要为了“重置” Schema 而 `deleteMany` 或重建集合：部署版本的数据会一起丢失。修改 `seed` 不会重新写种子。
+## 显式结构替换
 
-## 运行时代码与 worker 操作的边界
-
-`schema:replace`、`archive`、`restore` 由 worker 通过 tier0 MCP 显式执行（`/uns/app/collections/schema:replace`、`archive`、`restore`），App 运行时代码不调用。数据层导出的 `compileCollection(declaration)` 给出与运行时 ensure 完全一致的条目 `{ alias, name, directoryPath?, recordSchema, indexes, description? }`，可用于 ensure `dryRun`。`schema:replace` 只接收其中的 alias、recordSchema、indexes、description，不接收 name 或 directoryPath；不能把 compileCollection 的完整结果直接作为替换请求。
+通过管理流程调用 `/uns/app/collections/schema:replace`，传 alias、完整 recordSchema/indexes、当前 expectedRevision，可带 description。不要把 ensure 声明里的 name/directoryPath 发送到该入口。
 
 ```ts
-import { z } from 'zod';
-import { compileCollection, defineCollection } from '@tier0/sdk-v2/data';
+import { compileCollection, type CollectionDefinition } from '@tier0/sdk-v2/data';
 
-const tickets = defineCollection({
-  alias: 'tickets',
-  name: '问题工单', directoryPath: ['问题管理'],
-  schema: z.object({ title: z.string().describe('Short summary'), severity: z.enum(['LOW', 'HIGH']).optional() }),
-});
-
-/** schema:replace 请求体的基础；expectedRevision 取自 ensure 结果的集合 revision。 */
-export function replaceBody(expectedRevision: number) {
-  const { alias, recordSchema, indexes, description } = compileCollection(tickets);
-  return { alias, recordSchema, indexes, ...(description ? { description } : {}), expectedRevision, dryRun: true };
+// 具体声明由应用导入；从编译结果只取替换接口需要的字段。
+export function replacement(declaration: CollectionDefinition, expectedRevision: number) {
+  const { alias, recordSchema, indexes, description } = compileCollection(declaration);
+  return { alias, recordSchema, indexes, description, expectedRevision, dryRun: true };
 }
 ```
 
-Schema 中 `ignored`、`warnings`、`conflicts`、`violations` 的路径用 `.` 连接属性，用 `[]` 表示数组元素（`lines.[].qty`）。
+可用 dryRun 查看 unchanged/widened/narrowed 和 warnings。收窄会验证已有记录：SCHEMA_DATA_VIOLATION 返回违规位置，SCHEMA_MIGRATION_TOO_LARGE 表示超过扫描限额，REFERENCED 表示字段仍被引用。通过校验才提交，不自动修改记录值；收窄后旧版本写入可能被拒绝。
 
-集合 archive 的数据与授权变化见[回收规则](../../tier0-sdk-v2-uns/references/delete.md#回收规则)，restore 的范围与授权区别见[恢复](../../tier0-sdk-v2-uns/references/restore.md)。
+普通 metadataUpdateOne 的 $set.recordSchema 同样替换完整 Schema，但集合有数据时仅接受兼容放宽，不能把它当绕过存量校验的入口。revision 冲突重新读取比较，不自动覆盖。
 
-新声明的 number/integer 默认带 double/int32 格式；ensure 不改写已有字段注解，原无格式字段仍保持 legacy 显示。已有字段格式迁移需读取并保留完整 Schema，先通过 schema:replace dryRun 检查，再按明确迁移授权执行。
+修改 seed 不重写种子；删除记录会影响同一集合的预览与部署，并物理删除关联 Sample。归档与恢复见 [回收规则](../../tier0-sdk-v2-uns/references/delete.md#回收规则)。

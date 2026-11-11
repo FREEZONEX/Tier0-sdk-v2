@@ -1,169 +1,72 @@
-# 声明集合与建模
+# Collection 建模
 
-`defineCollection({ alias, name, directoryPath, schema, indexes?, description?, seed? })` 返回冻结的声明；全部声明放进一个数组传给 `createDataClient({ collections })`。声明文件从 `@tier0/sdk-v2/data/define` 导入：它不含数据运行时，组件和 route 也能引用这些声明与 `Doc` 类型。alias 在 App 内唯一、不区分大小写，匹配 `^[A-Za-z][A-Za-z0-9_-]{0,62}$`。
+每种需要独立持久化和查询的业务实体一个集合。随实体一起修改的有界明细可嵌入文档；共享对象按 ID 引用并按需要保存展示快照。列表统计尽量在服务端聚合，避免逐条读取关联数据。
 
-`name` 是必填的业务名称，界面直接展示，例如“生产工单”；1–63 个 Unicode 字符，无首尾空白，不含 `/` 或空字符。`alias` 是独立、稳定的程序标识，例如 `production_orders`，改业务名称不改 alias 或集合 ID。名称应表达实际用途，语言遵循用户偏好和已有业务术语，不附加无业务含义的随机串、时间戳或 ID。没有 displayName，也不从 alias 回退生成名称。ensure 只在首次创建时写入 name；命中已有 alias 时保留用户当前名称，显式改名走 MCP 元数据更新。
-
-已有集合直接引用实际 ID，不需要 alias、name 或注册到声明数组；只使用已有集合时可调用 `createDataClient({})`。可选 `schema` 沿用数据层的本地写入校验规则；省略时由服务端验证存储 schema。ID 引用不会 ensure、写种子、改变 owner 或自动补授权，被删或撤权时直接报告错误。
-
-```ts
-import { createDataClient } from '@tier0/sdk-v2/data';
-
-const data = createDataClient({});
-const devices = { collectionId: 'existing-device-collection-id' };
-const handle = data.collection<{ code: string }>(devices);
-const rows = await handle.find({}).toArray();
-const counts = await data.queryBatch({ devices: handle.query.count() });
-await data.transact([{ opId: 'read-device', action: 'record.read', collection: devices, id: 'device-1' }]);
-// 订阅同样使用 ID 引用；事件的 collection 字段为该 ID。
-const changes = data.subscribe({ collections: [devices] });
-void [rows, counts, changes];
-```
+## 声明或引用
 
 ```ts
 import { z } from 'zod';
 import { defineCollection, type Doc } from '@tier0/sdk-v2/data/define';
 
-export const customers = defineCollection({
-  alias: 'customers',
-  name: '客户',
-  directoryPath: ['销售管理'],
-  schema: z.object({ name: z.string(), tier: z.enum(['A', 'B', 'C']) }),
-  indexes: [{ path: 'name' }],
-  seed: [
-    { _id: 'cust-1', name: 'Acme', tier: 'A' },
-    { _id: 'cust-2', name: 'Globex', tier: 'B' },
-  ],
-});
-
-export const salesOrders = defineCollection({
-  alias: 'sales_orders',
-  name: '销售订单',
-  directoryPath: ['销售管理', '订单履约'],
-  description: 'Customer sales orders',
+export const orders = defineCollection({
+  alias: 'orders', name: '销售订单', directoryPath: ['销售管理'],
   schema: z.object({
-    code: z.string(),
-    status: z.enum(['DRAFT', 'CONFIRMED', 'SHIPPED', 'CANCELLED']),
+    code: z.string(), status: z.enum(['DRAFT', 'CONFIRMED', 'CANCELLED']),
     customer: z.object({ id: z.string(), name: z.string() }),
     lines: z.array(z.object({ sku: z.string(), qty: z.number().int().min(1).meta({ format: 'int32' }) })),
     notes: z.string().optional(),
-    orderedOn: z.string().describe('YYYY-MM-DD'),
-    confirmedAt: z.string().optional().describe('ISO-8601 UTC from toISOString()'),
   }),
-  indexes: [{ path: 'code', unique: true }, { paths: ['status', 'orderedOn'] }, { path: 'lines', kind: 'gin' }],
-  seed: [
-    { _id: 'so-1', code: 'SO-1', status: 'DRAFT', customer: { id: 'cust-1', name: 'Acme' }, lines: [], orderedOn: '2026-01-05' },
-  ],
+  indexes: [{ path: 'code', unique: true }, { path: 'status' }, { path: 'lines', kind: 'gin' }],
 });
-export type SalesOrder = Doc<typeof salesOrders>;
-
-export const collections = [customers, salesOrders] as const;
-
-// API 入参 Schema 从声明派生，再追加输入规则。
-export const createSalesOrderInput = salesOrders.schema
-  .omit({ status: true, confirmedAt: true })
-  .extend({ code: z.string().trim().min(1).max(32) });
+export type Order = Doc<typeof orders>;
 ```
+
+name 是展示的业务名称（1–63 字符，无首尾空白、斜杠或 NUL），alias 是稳定程序标识，匹配 `^[A-Za-z][A-Za-z0-9_-]{0,62}$`、App 内不区分大小写唯一。ensure 保留已有 alias 的名称、ID 和目录，改名使用元数据更新。
+
+```ts
+import { createDataClient } from '@tier0/sdk-v2/data';
+
+const data = createDataClient({});
+export const inventory = data.collection<{ sku: string; available: number }>({
+  collectionId: 'existing-inventory-id',
+});
+```
+
+已有 ID 引用不加入声明数组，不需要 alias；可选 schema 用于本地写入校验，省略则由服务端校验。该引用也可用于 queryBatch/transact/subscribe，不建集合、种子或授权。
 
 ## 按实际业务范围声明目录
 
-新建集合必须提供 `directoryPath`，类型保留可选仅为兼容已经存在的 alias。路径从 Workspace 根开始，包含 1–16 个名称；每段 1–63 个 Unicode 字符，无首尾空白、`/` 或空字符。SDK 校验后复制并冻结数组，按原样发送，不自动追加 App 名称或补层级。已知业务范围下可以显式声明 App 或业务模块目录，例如 `directoryPath: ['工厂', '产线', 'MES']` 后放“工单”集合；不应仅用根级 App 名称代替已知工厂和产线范围。
+新集合 directoryPath 从 Workspace 根开始，1–16 个名称，每段 1–63 字符，不含 `/`、NUL 或首尾空白。工业场景复用已知 ISA-95 企业/工厂/车间/工作中心/工作单元，只声明实际需要的已知层级；允许在实际范围下放 MES 业务模块。共享数据放在共同祖先，非工业业务用自己的目录。
 
-工业场景按实际 ISA-95 设备层级组织：企业 → 工厂/站点 → 区域/车间 → 工作中心（产线等）→ 工作单元。先通过元数据查询确认已有目录、名称与父子关系，复用完整已知路径。只保留业务实际需要且已知的层级，不要求五层齐全；跨产线共享集合放在共同祖先，不为每个集合重复建一套树。非工业业务按真实业务目录组织。
+ensure 同事务复用或创建目录、集合和授权，不需要先 metadataInsertOne。路径被归档目录或非目录对象占用返回 DIRECTORY_PATH_CONFLICT；已有 alias 的路径变化返回 DIRECTORY_PATH_NOT_APPLIED，不自动移动。目录不决定所属 App 或共享权限。
 
-例如业务已明确“苏州工厂”的“装配一线”及 MES 应用，产线工单放在 MES 下，工厂共享物料仍放在工厂下；无需编造企业或车间：
+## 存储 Schema
 
-```ts
-import { z } from 'zod';
-import { defineCollection } from '@tier0/sdk-v2/data/define';
+使用 Zod 4 的闭合对象、string、number/integer（可带 min/max）、boolean、enum、array、嵌套对象和 optional。nullable、union、default、transform、pattern、字符串长度等不属于可存储子集，放在 API 入参验证里。嵌套最多 8 层，每对象最多 128 属性，每枚举最多 100 值；枚举值需符合该字段数值范围。
 
-export const lineOrders = defineCollection({
-  alias: 'line_orders', name: '产线工单',
-  directoryPath: ['苏州工厂', '装配一线', 'MES'],
-  schema: z.object({ code: z.string() }),
-});
-export const siteMaterials = defineCollection({
-  alias: 'site_materials', name: '工厂物料',
-  directoryPath: ['苏州工厂'],
-  schema: z.object({ code: z.string() }),
-});
-```
-
-后端在同一事务中逐级复用或创建活动目录，再创建集合；已归档目录或同名非目录对象会明确报冲突，不自动恢复或追加随机后缀。目录位置不代表数据授权或 App 所属关系；共享目录不会成为某个 App 的专属资源。
-
-目录声明只决定首次创建位置。ensure 找到已有 alias 时保留集合 ID、现有目录和用户改名；不同路径返回 `DIRECTORY_PATH_NOT_APPLIED`，不移动已有集合，也不为了被忽略的路径创建目录。要整理存量数据，需要明确迁移授权后用元数据接口操作。不要通过改 alias 复制集合来绕过这一规则。
-
-## 可存储的 Zod 子集
-
-集合 Schema 会转成 UNS 记录 Schema 子集；不能存储的写法在 `compileCollection` / 首次 ensure 时抛 `CollectionSchemaError`，并给出替代写法。
-
-| 使用 | 不要用 |
-| --- | --- |
-| `z.string()`、`z.number()`、`z.number().int()`、`z.boolean()` | `z.date()`、`z.bigint()`、`z.any()`、`z.unknown()` |
-| 数字上的 `.min()` / `.max()`（闭区间） | `.positive()`、`.gt()`、`.lt()`、`.multipleOf()` |
-| `z.enum([...])` | `z.literal()`、union、`.nullable()`、`.nullish()` |
-| `.optional()`（字段可缺省） | 存 `null`：不写该字段，清空用 `$unset` |
-| `z.object({...})`（始终封闭）、`z.array(item)` | `z.record()`、`z.looseObject()`、`.catchall()`、`z.tuple()` |
-| 普通 `z.string()`，格式与长度在 API 入参校验 | `z.email()`、`z.uuid()`、`.regex()`、字符串 `.min(1)` |
-| 在 service 里补默认值 | `.default()`、`.catch()`、`.transform()` |
-
-日期存 `"YYYY-MM-DD"` 字符串，时刻存 `toISOString()` 的 ISO-8601 UTC 字符串，两者都能按字符串排序和范围过滤。`_id` 与 `_meta`（`revision`、`createdAt`、`updatedAt`，Unix 毫秒）是系统字段，不要声明。
-
-限制：对象最多嵌套 8 层、每个对象 128 个属性、每个字段 100 个枚举值；`.describe()` 最多 2048 个 UTF-8 字节（约 680 个汉字）；集合 `description` 最多 512 个字符。字段与集合描述只在首次创建时写入，之后修改要走 `schema:replace`（见 [Schema 演进](schema-evolution.md)）。
-
-## 字段类型标注
-
-新建数值字段必须明确选择 int、float 或 double，普通小数默认 double。需要在 Collection 中明确显示 `int`、`float`、`double`、`datetime` 时，通过 Zod 元数据添加格式声明。传输仍使用 JSON Schema 的 `integer` / `number` / `string`：
-
-| 声明 | 传输 Schema | 显示类型 |
+| 类型 | Zod | 原始 Schema |
 | --- | --- | --- |
-| `z.int().meta({ format: 'int32' })` | `{ type: 'integer', format: 'int32' }` | `int` |
-| `z.number().meta({ format: 'float' })` | `{ type: 'number', format: 'float' }` | `float` |
-| `z.number().meta({ format: 'double' })` | `{ type: 'number', format: 'double' }` | `double` |
-| `z.string().meta({ format: 'date-time' })` | `{ type: 'string', format: 'date-time' }` | `datetime` |
+| 整数 | z.number().int().meta({format:'int32'}) | integer + int32 |
+| 普通小数 | z.number().meta({format:'double'}) | number + double |
+| 单精度注解 | z.number().meta({format:'float'}) | number + float |
+| 时间字符串注解 | z.string().meta({format:'date-time'}) | string + date-time |
 
-`format` 当前是类型展示注解，不额外限制数值范围或精度，也不舍入数据。写入仍按原来的 Zod 类型和显式 `.min()` / `.max()` 校验；需要业务范围时应继续声明边界。SDK 编译时递归为普通 `z.number()` 补 `double`，为 `z.int()` / `z.number().int()` 补 `int32`；显式 float/double 与 date-time 保留，普通字符串不补格式，也不根据样本数值推断精度。只接受上表四种类型与格式组合。
+格式仅为注解，不转换或舍入、不保证位宽或日期字符串合法。SDK 对未标注整数/小数补 int32/double；原始 MCP 请求自行提供格式。真实日期验证可放在输入 schema 的 z.iso.datetime()，不要把带 pattern 的输入 Schema 直接当集合 Schema。
 
-`datetime` 仍保存原始字符串，不校验日期是否有效、不解析或转换时区；`"not a date"` 也能通过字符串类型校验。需要日期合法性保证时，在 API 入参 Schema 单独使用 `z.iso.datetime()`；这类带 `pattern` 的验证器不能直接作为可存储的集合声明。新增注解不改变 Sample 外层 `time` 的毫秒时间戳协议、已有校验和业务时间含义。
+写入按声明严格校验，读取可能含其他版本新增字段、枚举或缺少后来加入的字段，不做严格解析；页面须兼容这些情况。
 
 ## 索引
 
-`{ path }` 或复合 `{ paths }`（最多 3 个不同路径）；业务键加 `unique: true`；一个数组/对象字段用 `kind: 'gin'`；每个集合最多 16 个。路径只能沿对象属性走：数组元素里的字段（`lines.sku`）不能直接建索引，改为给 `lines` 建 GIN 或把值放到顶层字段。列表页过滤和排序用到的字段要建索引。
+使用 `{path}` 或最多 3 字段的 `{paths}`；业务唯一键加 unique:true；数组/对象可用单字段 kind:'gin'，不能 unique。路径沿对象属性，不直接索引数组元素里的属性；每集合最多 16 个索引，实际配额以服务端为准。过滤和排序常用字段应考虑索引。
+
+唯一索引异步创建，ready 后才可依赖唯一约束或 upsert。upsert 要求 _id 等值或一个 ready 唯一索引全部字段等值。软删除记录释放唯一键，恢复可能与活动记录冲突。
 
 ### 过期自动删除（TTL）
 
-会话、验证码、临时预约这类到期就该消失的记录，用 TTL 索引让 UNS 自动删除，不要写定时清理任务：
+索引 `{path:'issuedAt',expireAfterSeconds:300}` 配合 integer 字段存 Unix 毫秒。每集合最多一个、单字段、非唯一 btree；60–31536000 秒，缺字段的记录不清理，Source 管理集合不支持 TTL。
 
-```ts
-import { z } from 'zod';
-import { defineCollection } from '@tier0/sdk-v2/data/define';
-
-export const loginCodes = defineCollection({
-  alias: 'login_codes',
-  name: '登录验证码',
-  directoryPath: ['账号管理', '登录验证'],
-  schema: z.object({ phone: z.string(), code: z.string(), issuedAt: z.number().int().meta({ format: 'int32' }) }),
-  // issuedAt 存 Date.now()；签发 5 分钟后删除。
-  indexes: [{ path: 'phone' }, { path: 'issuedAt', expireAfterSeconds: 300 }],
-});
-```
-
-- 字段声明为 `z.number().int()`，存 Unix 毫秒（通常是 `Date.now()`）；记录在该时刻再过 `expireAfterSeconds`（60–31536000 秒）后被删除。删除有分钟级延迟，读取时仍要自己比较时间。
-- 每个集合最多 1 个 TTL 索引，只能是单个 `path`、不能 `unique`。缺这个字段的记录不会过期。
-- 过期删除是**物理删除**，不能 restore；集合有效时，软删除的记录同样按 TTL 清理，集合回收后停止 TTL 清理。
-- ensure 只能新增 TTL 或把时间加长；缩短或去掉要通过 tier0 MCP 的 `schema:replace`。
-
-集合软删除和 App 回收保留查询索引，物理索引仍占配额；归档不释放索引空间，见[回收规则](../../tier0-sdk-v2-uns/references/delete.md#回收规则)。
+TTL 物理删除记录及关联 Sample，不能恢复，清理有延迟，业务读取仍判断过期时间。ensure 可新增/延长，缩短/移除需显式结构替换。集合回收后停止 TTL；保留索引仍占配额。
 
 ## 种子数据
 
-种子是基线记录：固定 `_id`，各生命周期状态自洽，相互引用用这些 ID；每个集合最多 1000 条。只在 ensure 报告集合为 `created` 时写入一次（每 200 条一个原子分块，分块带固定幂等键，重试安全）；修改 `seed` 不会改动已存在的集合。不要在服务启动或列表为空时从代码插入基线数据。构建期可以对每条种子调用 `validateDocument(definition, document)` 校验。
-
-## 按文档建模，而不是按表
-
-- 属于同一记录、随它一起变化的内容（订单行、检查步骤、审批历史）嵌在该文档的数组里，一次写入保持一致；数组保持有界。
-- 共享实体按 ID 引用，并快照需要展示的字段（`customer: { id, name }`），不要在读取时 join。`aggregate` 有 `$lookup`，但有行数限制，不要用它搭列表页。
-- 每种业务对象一个集合，而不是每个页面一个集合。
-- “最新优先”用 `_meta.createdAt` / `_meta.updatedAt`，由 UNS 维护。
-
-直接通过 MCP 提交 recordSchema/sampleSchema 时必须提供上述 type + format；Zod 编译兜底不处理原始请求。ensure 保留已有字段注解，无格式的存量字段需读取完整 Schema、保留其他约束，通过 schema:replace 先 dryRun 再按明确迁移授权执行。
+seed 是新集合的基线记录，使用固定 _id，最多 1000 条。只在 ensure 报告 created 时按原子分块写入；修改 seed 或列表为空不会重新播种。构建时可用 validateDocument 检查种子。Preview 和部署共享数据，不通过删集合“重置”种子。

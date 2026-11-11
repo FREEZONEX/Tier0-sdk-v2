@@ -11,7 +11,15 @@ function example(domain: string, file: string, index = 0): Record<string, (...ar
   const markdown = readFileSync(new URL('../skills/tier0-sdk-v2/tier0-sdk-v2-' + domain + '/references/' + file + '.md', import.meta.url), 'utf8');
   const blocks = [...markdown.matchAll(/^\x60\x60\x60(?:ts|typescript)\r?\n([\s\S]*?)^\x60\x60\x60/gm)];
   if (!blocks[index]) throw new Error('Missing documentation example');
-  const code = ts.transpileModule(blocks[index][1], {
+  return compileExample(blocks[index][1]);
+}
+
+function packageExample(file: string): Record<string, (...args: any[]) => any> {
+  return compileExample(readFileSync(new URL('../examples/' + file + '.ts', import.meta.url), 'utf8'));
+}
+
+function compileExample(input: string): Record<string, (...args: any[]) => any> {
+  const code = ts.transpileModule(input, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;
   const exports = {};
@@ -90,18 +98,36 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
   it.each(['source', 'stream'])('reads a %s summary without requiring full-document access or observations', async domain => {
     const current = domain === 'source' ? source() : stream();
     steps = [{ path: `${domain}s/documents/get`, check: body => expect(body).toEqual({ id: current.id, view: 'summary' }), data: current }];
-    const workflow = example(domain, 'read');
-    const result = await workflow[domain === 'source' ? 'readSource' : 'readStream'](current.id, client);
-    expect(result.current.id).toBe(current.id);
+    if (domain === 'source') {
+      const result = await client.source.documents.get({ id: current.id, view: 'summary' });
+      expect(result.data.id).toBe(current.id);
+    } else {
+      const result = await client.stream.documents.get({ id: current.id, view: 'summary' });
+      expect(result.data.id).toBe(current.id);
+    }
     expect(calls).toHaveLength(1);
+    finished();
+  });
+
+  it('traverses Source summary pages without loading full documents', async () => {
+    steps = [
+      { path: 'sources/documents/list', check: body => expect(body).toEqual({ page: 1, size: 100, includeDocument: false }),
+        data: { list: [source()], total: 2, page: 1, hasMore: true, nextPage: 2 } },
+      { path: 'sources/documents/list', check: body => expect(body).toEqual({ page: 2, size: 100, includeDocument: false }),
+        data: { list: [source(2)], total: 2, page: 2, hasMore: false, nextPage: 0 } },
+    ];
+    const pages = [];
+    for await (const result of example('source', 'read').listSources(client)) pages.push(result);
+    expect(pages).toEqual([[source()], [source(2)]]);
+    expect(calls).toHaveLength(2);
     finished();
   });
 
   it('reads existing collection records without requiring metadata access', async () => {
     steps = [{ path: 'collections/devices/records:find', data: records(record()) }];
-    const result = await example('uns', 'read', 1).readDevices('devices', client);
-    expect(result.items).toEqual([record()]);
-    expect(result.pageInfo.hasMore).toBe(false);
+    const result = await example('uns', 'read').readRecords('devices', client);
+    expect(result.data.items).toEqual([record()]);
+    expect(result.data.pageInfo.hasMore).toBe(false);
     expect(calls).toHaveLength(1);
     finished();
   });
@@ -111,7 +137,41 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
       code: 403, msg: 'Collection not granted', requestId: 'denied', data: { reason: 'COLLECTION_NOT_GRANTED' },
       error: { code: 'FORBIDDEN', details: [], execution: 'notStarted', retry: { safe: false } },
     }) }];
-    await expect(example('uns', 'read', 1).readDevices('devices', client)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(example('uns', 'read').readRecords('devices', client)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    expect(calls).toHaveLength(1);
+    finished();
+  });
+
+  it.each([0, 0n])('initializes an uncreated App policy when its revision is %s', async revision => {
+    const appId = '11111111-2222-4333-8444-555555555555';
+    steps = [
+      { path: 'app-data-policy/get', check: body => expect(body).toEqual({ appId }),
+        data: { appId, revision: 0, status: 'disabled', collections: [], authorityStatus: 'available' } },
+      { path: 'app-data-policy/update', check: body => expect(body).toEqual({
+        appId, expectedRevision: 0, status: 'active',
+        changes: [{ action: 'upsert', collectionId: 'devices', permissions: ['record:read'] }],
+        idempotencyKey: 'grant-devices', dryRun: false,
+      }), data: outcome() },
+    ];
+    // Exercise both zero representations while keeping the actual HTTP fixture valid JSON.
+    const accessClient = { ...client, uns: { ...client.uns,
+      appDataPolicyGet: async (request: sdk.CloudAppDataPolicyGetReq) => {
+        const response = await client.uns.appDataPolicyGet(request);
+        return { ...response, data: { ...response.data, revision } };
+      },
+    } };
+    const result = await example('uns', 'update', 1).grantRead(appId, 'devices', 'grant-devices', accessClient);
+    expect(result.data.status).toBe('committed');
+    expect(calls).toHaveLength(2);
+    finished();
+  });
+
+  it('stops before writing when an existing App policy is disabled', async () => {
+    const appId = '11111111-2222-4333-8444-555555555555';
+    steps = [{ path: 'app-data-policy/get', check: body => expect(body).toEqual({ appId }),
+      data: { appId, revision: 4, status: 'disabled', collections: [], authorityStatus: 'available' } }];
+    await expect(example('uns', 'update', 1).grantRead(appId, 'devices', 'grant-devices', client))
+      .rejects.toThrow('App 数据策略已停用');
     expect(calls).toHaveLength(1);
     finished();
   });
@@ -129,26 +189,23 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
       }
     }
   });
-  it('executes unreferenced Source create, rename, disable and delete using current revisions', async () => {
+  it('executes unreferenced Source create, rename and delete without assuming a state-management prerequisite', async () => {
     steps = [
       { path: 'sources/documents/create', check: b => expect(b).toMatchObject({
         dryRun: false, idempotencyKey: 'create-source', document: source().document }), data: source() },
       { path: 'sources/documents/update', check: b => expect(b).toEqual({
         id: source().id, dryRun: false, expectedRevision: 1, idempotencyKey: 'rename-source',
         patch: { name: 'renamed' } }), data: source(2, 'renamed') },
-      { path: 'sources/documents/state/update', check: b => expect(b).toMatchObject({ id: source().id, expectedRevision: 2, desiredState: 'disabled' }), data: source(3, 'renamed') },
-      { path: 'sources/documents/delete', check: b => expect(b).toMatchObject({ id: source().id, expectedRevision: 3 }), data: { id: source().id } },
+      { path: 'sources/documents/delete', check: b => expect(b).toMatchObject({ id: source().id, expectedRevision: 2 }), data: { id: source().id } },
     ];
-    const created = await example('source', 'create').createHttpSource('https://fixture.invalid', 'orders', 'create-source', client);
-    expect(created.current).toEqual(source());
-    const changed = await example('source', 'update').renameSource(created.current.id, created.current.revision, 'renamed', 'rename-source', client);
-    expect(changed.current).toEqual(source(2, 'renamed'));
-    const disabled = await client.source.documents.state.update({ id: changed.current.id,
-      expectedRevision: changed.current.revision, desiredState: 'disabled', dryRun: false });
-    const deleted = await example('source', 'delete').deleteSource(changed.current.id,
-      disabled.data.revision, 'delete-source', client);
-    expect(deleted.state).toBe('archived');
-    expect(calls).toHaveLength(4);
+    const created = await example('source', 'create').createSource(source().document, undefined, 'create-source', client);
+    expect(created.data).toEqual(source());
+    const changed = await example('source', 'update').renameSource(created.data.id, created.data.revision, 'renamed', 'rename-source', client);
+    expect(changed.data).toEqual(source(2, 'renamed'));
+    const deleted = await example('source', 'delete').deleteSource(changed.data.id,
+      changed.data.revision, 'delete-source', client);
+    expect(deleted.data).toEqual({ id: source().id });
+    expect(calls).toHaveLength(3);
     finished();
   });
 
@@ -170,25 +227,26 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
         expect(script).not.toContain('fixture-ref');
       }, data: stream() },
     ];
-    const created = await example('source', 'create', 1).createAuthenticatedHttpSource(
-      endpoint, 'inventory', 'fixture-only', 'create-authenticated', client);
-    expect(created.current).toEqual(current);
-    await example('stream', 'create').createHttpStream(created.current, 'inventory', 'inventory-stream', 'create-stream', client);
+    const created = await example('source', 'create').createSource(
+      { name: 'inventory', protocol: 'http-api', role: 'client', endpoint, http: { authentication: 'bearer' } },
+      { kind: 'bearer', secret: 'fixture-only' }, 'create-authenticated', client);
+    expect(created.data).toEqual(current);
+    await example('stream', 'create').createHttpStream(created.data, 'inventory', 'inventory-stream', 'create-stream', client);
     const module = { exports: undefined as unknown as (api: unknown) => void };
     runInNewContext(script, { module });
     const request = vi.fn().mockResolvedValue({ status: 200, data: [{ sku: 'fixture-sku', quantity: 12 }] });
     const write = vi.fn();
     const output = vi.fn().mockReturnValue({ write });
     const use = vi.fn().mockReturnValue({ request });
-    const every = vi.fn();
-    module.exports({ sources: { use }, uns: { use: output }, stream: { every } });
+    const onTimer = vi.fn();
+    module.exports({ sources: { use }, uns: { use: output }, stream: { onTimer } });
     expect(use).toHaveBeenCalledWith({ id: current.id, resources: [] });
     expect(request).not.toHaveBeenCalled();
-    expect(every.mock.calls[0][0]).toEqual({ id: 'tick', intervalMs: 60000 });
-    await expect(every.mock.calls[0][1]()).resolves.toEqual({ acceptedRows: 1 });
+    expect(onTimer.mock.calls[0][0]).toEqual({ id: 'inventory', intervalMs: 60000 });
+    await expect(onTimer.mock.calls[0][1]()).resolves.toBeUndefined();
     expect(output).toHaveBeenCalledWith({ collectionId: 'inventory', access: 'write' });
     expect(write).toHaveBeenCalledExactlyOnceWith({ recordId: 'fixture-sku', record: { sku: 'fixture-sku', quantity: 12 } });
-    expect(request).toHaveBeenCalledWith({ method: 'GET', path: 'inventory', query: { limit: '5000' } });
+    expect(request).toHaveBeenCalledWith({ method: 'GET', path: 'inventory', query: { limit: '40' } });
     expect(calls).toHaveLength(2);
     finished();
   });
@@ -196,18 +254,50 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
   it.each([
     { kind: 'basic', username: 'fixture-user', secret: 'fixture-only' },
     { kind: 'bearer', secret: 'fixture-only' },
-    { kind: 'custom', values: { key: 'fixture-only' } },
+    { kind: 'custom', values: { 'X-Plex-Connect-Api-Key': 'fixture-only' } },
     { kind: 'oauth2', secret: 'fixture-only' },
   ])('creates inline $kind credentials without inventing a client-side method default', async credentials => {
+    const document = { name: 'orders', protocol: credentials.kind === 'oauth2' ? 'oauth2' : 'http-api',
+      role: 'client', endpoint: 'https://fixture.invalid',
+      http: credentials.kind === 'oauth2' ? { oauth: { grantType: 'client_credentials',
+        tokenUrl: 'https://fixture.invalid/token', clientId: 'fixture-client', clientAuthentication: 'client_secret_post' } }
+        : { authentication: credentials.kind } };
     steps = [{ path: 'sources/documents/create', check: body => {
       expect(body).toEqual({ dryRun: false, idempotencyKey: 'create-inline',
-        document: { name: 'orders', protocol: 'http-api',
-          role: 'client', endpoint: 'https://fixture.invalid', http: { authentication: credentials.kind } },
-        credentials });
+        document, credentials });
+      expect(JSON.stringify(body.document)).not.toContain('fixture-only');
     }, data: source() }];
-    const created = await example('source', 'create', 3).createHttpSourceWithCredentials(
-      { name: 'orders', protocol: 'http-api', role: 'client', endpoint: 'https://fixture.invalid', http: { authentication: credentials.kind } }, credentials, 'create-inline', client);
-    expect(created.current).toEqual(source());
+    const created = await example('source', 'create').createSource(document, credentials, 'create-inline', client);
+    expect(created.data).toEqual(source());
+    expect(calls).toHaveLength(1);
+    finished();
+  });
+
+  it('imports the exact generic HTTP authentication header without exposing the secret in the Source document', async () => {
+    steps = [{ path: 'sources/documents/create', check: body => {
+      expect(body.credentials).toEqual({ kind: 'custom', values: { 'X-Plex-Connect-Api-Key': 'fixture-header-secret' } });
+      expect(body.document).toEqual({ name: 'custom-api', protocol: 'http-api', role: 'client',
+        endpoint: 'https://fixture.invalid/api/', http: { authentication: 'custom' } });
+      expect(JSON.stringify(body.document)).not.toContain('fixture-header-secret');
+      expect(body.document.sourceType).toBeUndefined();
+    }, data: source() }];
+    const receipt = await example('source', 'create', 1).createCustomHeaderSource(
+      'https://fixture.invalid/api/', 'custom-api', 'fixture-header-secret', 'header-create', client);
+    expect(JSON.stringify(receipt)).not.toContain('fixture-header-secret');
+    expect(calls).toHaveLength(1);
+    finished();
+  });
+
+  it('preserves the semantic apiKey field for a Plex template instead of renaming it as a generic HTTP header', async () => {
+    const document = { name: 'plex', protocol: 'http-api', sourceType: 'plex-mes', role: 'client',
+      endpoint: 'https://fixture.invalid/', http: { authentication: 'custom', parameters: { tenantId: 'tenant', pcn: '123456' } } };
+    const credentials = { kind: 'custom', values: { apiKey: 'fixture-plex-secret' } };
+    steps = [{ path: 'sources/documents/create', check: body => {
+      expect(body.document).toEqual(document);
+      expect(body.credentials).toEqual(credentials);
+      expect(JSON.stringify(body.document)).not.toContain('fixture-plex-secret');
+    }, data: source() }];
+    await example('source', 'create').createSource(document, credentials, 'plex-create', client);
     expect(calls).toHaveLength(1);
     finished();
   });
@@ -218,16 +308,19 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
       id: source().id, expectedRevision: 1, action: 'update', patch: config,
     }), data: { ...impact(), counts: { draft: 1, activeRelease: 0, historicalRelease: 0 } } }];
     const workflow = example('source', 'update', 1);
-    const plan = await workflow.prepareSourceConfigUpdate(source().id, 1, config, client);
-    expect(plan.impact.counts.draft).toBe(1);
+    const reviewed = await example('source', 'changes').collectSourceImpact({
+      id: source().id, expectedRevision: 1, action: 'update', patch: config,
+    }, client);
+    expect(reviewed.counts.draft).toBe(1);
     expect(calls).toHaveLength(1);
     finished();
     steps = [{ path: 'sources/documents/update', check: b => expect(b).toEqual({
       id: source().id, expectedRevision: 1, patch: config,
       confirmedImpactRevision: token, dryRun: false, idempotencyKey: 'reviewed-config-change',
     }), data: { ...source(2), document: { ...source(2).document, ...config } } }];
-    const changed = await workflow.commitSourceConfigUpdate(plan, 'reviewed-config-change', client);
-    expect(changed.current).toEqual({ ...source(2), document: { ...source(2).document, ...config } });
+    const changed = await workflow.updateSourceWithImpact(source().id, 1, config, reviewed.impactRevision,
+      'reviewed-config-change', client);
+    expect(changed.data).toEqual({ ...source(2), document: { ...source(2).document, ...config } });
     expect(calls).toHaveLength(2);
     finished();
   });
@@ -256,8 +349,8 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     steps = [{ path: 'sources/documents/create', check: body => expect(body).toEqual({
       dryRun: false, idempotencyKey: 'create-server', document: serverDocument,
     }), data: { ...current, document: serverDocument } }];
-    const created = await example('source', 'create', 2).createHttpServerSource('orders-in', 'create-server', client);
-    expect(created.current.document).toEqual(serverDocument);
+    const created = await example('source', 'create').createSource(serverDocument, undefined, 'create-server', client);
+    expect(created.data.document).toEqual(serverDocument);
     expect(calls).toHaveLength(1);
     finished();
   });
@@ -276,6 +369,16 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     finished();
   });
 
+  it('uses the returned Source configuration revision rather than its document revision', async () => {
+    const current = { ...source(12), configRevision: 7 };
+    steps = [{ path: 'streams/documents/create', check: body => {
+      expect(body.program.sourceBindings).toEqual([{ sourceId: current.id, configRevision: 7, acquisition: {} }]);
+    }, data: stream() }];
+    await example('stream', 'create').createHttpStream(current, 'inventory', 'orders-stream', 'create-stream', client);
+    expect(calls).toHaveLength(1);
+    finished();
+  });
+
   it.each([200, 401, 403, 429, 502])('HTTP collection example checks upstream status %s before accepting data', async status => {
     let script = '';
     steps = [{ path: 'streams/documents/create', check: body => { script = body.program.script.code; }, data: stream() }];
@@ -285,20 +388,20 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     let handler: () => Promise<unknown> = async () => { throw new Error('Missing handler'); };
     const request = vi.fn().mockResolvedValue({ status, data: [{ sku: 'fixture', quantity: 3 }], headers: { secret: 'secret-marker' } });
     const write = vi.fn();
-    module.exports({ sources: { use: () => ({ request }) }, uns: { use: () => ({ write }) }, stream: { every: (entry: { intervalMs: number }, run: typeof handler) => {
+    module.exports({ sources: { use: () => ({ request }) }, uns: { use: () => ({ write }) }, stream: { onTimer: (entry: { intervalMs: number }, run: typeof handler) => {
       expect(entry.intervalMs).toBe(60000);
       handler = run;
     } } });
     if (status === 200) {
-      await expect(handler()).resolves.toEqual({ acceptedRows: 1 });
+      await expect(handler()).resolves.toBeUndefined();
       expect(write).toHaveBeenCalledExactlyOnceWith({ recordId: 'fixture', record: { sku: 'fixture', quantity: 3 } });
       write.mockClear();
       request.mockResolvedValueOnce({ status: 200, data: { error: 'secret-marker' } });
-      await expect(handler()).rejects.toThrow('Unexpected upstream inventory response format');
+      await expect(handler()).rejects.toThrow('Invalid inventory response');
       request.mockResolvedValueOnce({ status: 200, data: [{ sku: 'valid', quantity: 1 }, { sku: 'bad', quantity: 'not-a-number' }] });
       await expect(handler()).rejects.toThrow('Invalid inventory row');
     } else {
-      await expect(handler()).rejects.toThrow('Upstream inventory HTTP request failed');
+      await expect(handler()).rejects.toThrow('Invalid inventory response');
     }
     expect(write).not.toHaveBeenCalled();
     expect(request).toHaveBeenCalledTimes(status === 200 ? 3 : 1);
@@ -310,11 +413,10 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     current.document.role = 'server';
     current.document.endpoint = 'http://managed';
     steps = [
-      { path: 'sources/documents/get', check: body => expect(body).toEqual({ id: current.id, view: 'full' }), data: current },
       { path: 'streams/documents/create', check: body => {
         expect(body).not.toHaveProperty('program');
         expect(body.document.sources).toEqual([
-          { alias: 'incoming', sourceId: current.id, configRevision: 7, resources: [], acquisition: {} },
+          { alias: 'incoming', sourceId: current.id, configRevision: 7, resources: [] },
         ]);
         const server = {};
         let route: unknown;
@@ -327,31 +429,30 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
         });
         expect(route).toEqual({ id: 'orders', source: server, method: 'POST', path: '/orders/:id' });
         expect(handler!({ request: { params: { id: 'A-001' }, body: { quantity: 2 } } })).toEqual({
-          status: 200, body: { orderId: 'A-001', payload: { quantity: 2 } },
+          status: 200, body: { orderId: 'A-001' },
         });
       }, data: stream() },
     ];
-    await example('stream', 'http-server').createHttpServerStream(current.id, 'incoming-orders', 'save-route', client);
-    expect(calls).toHaveLength(2);
-    const snippet = readFileSync(new URL('../skills/tier0-sdk-v2/tier0-sdk-v2-stream/references/http-server.md', import.meta.url), 'utf8');
-    expect(snippet).toContain(readFileSync(new URL('../examples/http-server.ts', import.meta.url), 'utf8'));
+    const created = await example('stream', 'http-server').createHttpServerStream(current.id, 7, 'incoming-orders', 'save-route', client);
+    expect(created.data).toEqual(stream());
+    expect(calls).toHaveLength(1);
     finished();
   });
 
   it.each([
     ['http-api', 'client'], ['http-api', undefined], ['http_push', undefined], ['http', undefined],
-  ])('rejects %s/%s before saving an HTTPServer route', async (protocol, role) => {
+  ])('standalone HTTPServer example rejects %s/%s before saving a route', async (protocol, role) => {
     const current = source();
     steps = [{ path: 'sources/documents/get', data: { ...current,
       document: { ...current.document, protocol, role } } }];
-    await expect(example('stream', 'http-server').createHttpServerStream(
+    await expect(packageExample('http-server').createHttpServerStream(
       current.id, 'incoming-orders', 'save-route', client,
     )).rejects.toThrow('此入站路由示例需要 HTTP API Server Source');
     expect(calls).toHaveLength(1);
     finished();
   });
 
-  it.each([false, true])('awaits the early HTTP reply before bounded work; write failure=%s', async failWrite => {
+  it.each([false, true])('standalone example awaits the early HTTP reply before bounded work; write failure=%s', async failWrite => {
     const current = source(7);
     current.document.role = 'server';
     current.document.endpoint = 'http://managed';
@@ -364,7 +465,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
         code = body.document.script.code;
       }, data: stream() },
     ];
-    await example('stream', 'http-server', 1).createHttpServerEarlyReplyStream(
+    await packageExample('http-server-early-reply').createHttpServerEarlyReplyStream(
       current.id, 'orders', 'early-orders', 'save-early-route', client,
     );
     const events: string[] = [];
@@ -399,8 +500,6 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     if (failWrite) await expect(execution).rejects.toBe(writeError);
     else await expect(execution).resolves.toBeUndefined();
     expect(events).toEqual(['reply-start', 'reply-sent', 'write']);
-    const snippet = readFileSync(new URL('../skills/tier0-sdk-v2/tier0-sdk-v2-stream/references/http-server.md', import.meta.url), 'utf8');
-    expect(snippet).toContain(readFileSync(new URL('../examples/http-server-early-reply.ts', import.meta.url), 'utf8'));
     finished();
   });
 
@@ -412,7 +511,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     await expect(example('stream', 'create').createHttpStream(
       { ...current, document: { ...current.document, protocol, role } },
       'inventory', 'orders-stream', 'create-stream', client,
-    )).rejects.toThrow('此主动请求示例需要 HTTP API Client Source');
+    )).rejects.toThrow('Generic HTTP client Source required');
     expect(calls).toHaveLength(0);
     finished();
   });
@@ -422,13 +521,12 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
       { path: 'streams/documents/create', check: b => {
         expect(b.program.sourceBindings).toEqual([{ sourceId: source().id, configRevision: 1, acquisition: {} }]);
         expect(b.program.script.code).toContain('api.sources.use');
-        expect(b.program.script.code).toContain('api.stream.every');
-        expect(b.program.script.code).not.toMatch(/\.onTimer\(|\.onEvent\(|\.secrets\(|\bcontrol\s*:/);
+        expect(b.program.script.code).toContain('api.stream.onTimer');
       }, data: stream() },
       { path: 'streams/documents/update', check: b => expect(b).toMatchObject({
         expectedRevision: 1, document: { ...stream().document, description: 'updated' } }), data: stream(2, 'updated') },
       { path: 'streams/program/deploy', check: b => expect(b).toMatchObject({
-        expectedRevision: 2, expectedSourceRevision: 1, dryRun: false }),
+        expectedRevision: 2, expectedActiveVersion: '0', dryRun: false, idempotencyKey: 'deploy-stream' }),
         data: { id: stream().id, revision: 2, activeVersion: '9007199254740997', activeRelease: 1 } },
       { path: 'streams/documents/disable', check: b => expect(b).toMatchObject({
         expectedRevision: 2, expectedActiveVersion: '9007199254740997' }), data: { id: stream().id, revision: 3, status: 'disabled', activeVersion: '0', activeRelease: 0 } },
@@ -436,13 +534,15 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
         data: { id: stream().id, revision: 3, deleted: true } },
     ];
     const created = await example('stream', 'create').createHttpStream(source(), 'inventory', 'orders-stream', 'create-stream', client);
-    const id = created.current.id;
-    const updated = await example('stream', 'update').updateStreamDescription(created.current, 'updated', 'update-stream', client);
-    const deployed = await example('stream', 'deploy').deployStream(updated.current, 'deploy-stream', client);
-    expect(deployed.release).toBe(1);
-    const disabled = await example('stream', 'deploy').disableStream(deployed.receipt.data, 'disable-stream', client);
-    const deleted = await example('stream', 'delete').deleteStream(disabled.current, 'delete-stream', client);
-    expect(deleted.current.id).toBe(id);
+    const id = created.data.id;
+    const updated = await example('stream', 'update').updateStreamDescription(created.data, 'updated', 'update-stream', client);
+    const deployed = await example('stream', 'deploy').deployStream(updated.data, 'deploy-stream', client);
+    expect(deployed.data.activeRelease).toBe(1);
+    const disabled = await client.stream.documents.disable({ id, expectedRevision: deployed.data.revision,
+      expectedActiveVersion: deployed.data.activeVersion, dryRun: false, idempotencyKey: 'disable-stream' });
+    if (!('revision' in disabled.data)) throw new Error('Missing disabled revision');
+    const deleted = await example('stream', 'delete').deleteStream(id, disabled.data.revision, 'delete-stream', client);
+    expect(deleted.data.id).toBe(id);
     expect(calls).toHaveLength(5);
     finished();
   });
@@ -466,7 +566,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
       collectionId: 'weather', samples, dryRun, idempotencyKey: 'remove-extra-weather',
     }), data: { deletedCount: 1, missingCount: 0, dryRun } }));
     const { deleteSelectedSamples } = example('uns', 'delete', 2);
-    const preview = await deleteSelectedSamples('weather', samples, 'remove-extra-weather', undefined, client);
+    const preview = await deleteSelectedSamples('weather', samples, 'remove-extra-weather', true, client);
     const deleted = await deleteSelectedSamples('weather', samples, 'remove-extra-weather', false, client);
     expect(preview.data).toEqual({ deletedCount: 1, missingCount: 0, dryRun: true });
     expect(deleted.data).toEqual({ deletedCount: 1, missingCount: 0, dryRun: false });
@@ -479,73 +579,57 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
       kind: 'collection', ids: ['devices'], idempotencyKey: 'purge-devices',
     }), data: { status: 'accepted', jobId: 'purge-job', replayed: false, results: [] } }];
     const result = await example('uns', 'delete', 3).purgeCollections(['devices'], 'purge-devices', client);
-    expect(result.state).toBe('submitted');
-    expect(result.receipt.data).toMatchObject({ status: 'accepted', jobId: 'purge-job' });
+    expect(result.data).toMatchObject({ status: 'accepted', jobId: 'purge-job' });
     expect(calls).toHaveLength(1);
     finished();
   });
 
-  it('executes metadata and Record CRUD, Schema replacement, soft delete and restore', async () => {
+  it('executes Collection and Record writes with returned snapshots and caller revisions', async () => {
     steps = [
       { path: 'metadata', check: b => {
-        expect(b).toMatchObject({ dryRun: false, idempotencyKey: 'create-collection', data: { parentId: 'workshop-1' } });
-        expect(b.data.recordSchema.required).toEqual(['name', 'enabled']);
-      }, data: outcome() },
-      { path: 'metadata:find', data: { items: [collection()] } },
-      { path: 'collections/devices/records', check: b => expect(b.returnDocument).toBe('after'),
-        data: { insertedId: 'device-1', value: record(), status: 'committed', replayed: false } },
-      { path: 'collections/devices/records:find', data: records(record()) },
+        expect(b).toMatchObject({ idempotencyKey: 'create-collection', data: { parentId: 'workshop-1' } });
+        expect(b.data.recordSchema.required).toEqual(['code']);
+        expect(b.data.recordSchema.properties.quantity).toEqual({ type: 'integer', format: 'int32' });
+      }, data: { ...outcome(), insertedId: 'devices' } },
+      { path: 'collections/devices/records', check: b => expect(b).toMatchObject({
+        id: 'device-1', data: { code: 'WO-1' }, returnDocument: 'after', idempotencyKey: 'insert-record',
+      }), data: { insertedId: 'device-1', value: record(), status: 'committed', replayed: false } },
       { path: 'collections/devices/records:updateOne', check: b => expect(b).toMatchObject({
-        filter: { _id: 'device-1' }, expectedRevision: 1, update: { $set: { name: 'pump-2' } }, upsert: false }),
-        data: { status: 'committed', matchedCount: 1, modifiedCount: 1, replayed: false } },
-      { path: 'collections/devices/records:find', data: records(record(2, 'pump-2')) },
-      { path: 'metadata:find', data: { items: [collection()] } },
-      { path: 'metadata:updateOne', check: b => {
-        expect(b.update.$set.recordSchema.properties.location).toEqual({ type: 'string' });
-        expect(b.update.$set.recordSchema.required).toEqual(['name', 'enabled']);
-        expect(b.update.$set).not.toHaveProperty('sampleSchema');
-      }, data: outcome('validated') },
-      { path: 'metadata:updateOne', data: outcome() },
-      { path: 'metadata:find', data: { items: [collection(2)] } },
-      { path: 'metadata:updateOne', check: b => expect(b).toMatchObject({
-        kind: 'collection', filter: { _id: 'devices' }, expectedRevision: 2,
-        update: { $set: { name: 'renamed' } }, returnDocument: 'after', upsert: false,
-      }), data: { ...outcome(), value: { ...collection(3), data: { ...collection().data, name: 'renamed' } } } },
+        filter: { _id: 'device-1' }, expectedRevision: 1, update: { $set: { name: 'pump-2' } }, returnDocument: 'after',
+      }), data: { ...outcome(), matchedCount: 1, modifiedCount: 1, value: record(2, 'pump-2') } },
       { path: 'collections/devices/records:deleteOne', check: b => expect(b.expectedRevision).toBe(2),
-        data: { status: 'committed', deletedCount: 1, replayed: false } },
-      { path: 'collections/devices/records:restore', data: { status: 'committed', restoredCount: 1, restoredIds: ['device-1'], replayed: false } },
+        data: { ...outcome(), deletedCount: 1 } },
+      { path: 'collections/devices/records:restore', data: { ...outcome(), restoredCount: 1, restoredIds: ['device-1'] } },
       { path: 'metadata:deleteOne', check: b => expect(b.expectedRevision).toBe(3), data: { ...outcome(), deletedCount: 1 } },
       { path: 'metadata:restore', check: b => expect(b.items[0].expectedRevision).toBe(4), data: { ...outcome(), restoredCount: 1 } },
     ];
-    await example('uns', 'create').createDeviceCollection('devices', 'devices', 'workshop-1', 'create-collection', client);
-    const inserted = await example('uns', 'create', 1).insertDevice('devices', 'device-1', 'pump', 'insert-record', client);
-    expect(inserted.created).toEqual(record());
-    await example('uns', 'update', 2).renameDevice('devices', 'device-1', 'pump-2', 'update-record', client);
-    const schema = { ...collection().data.recordSchema, properties: { ...collection().data.recordSchema.properties, location: { type: 'string' } } };
-    await example('uns', 'update', 1).replaceRecordSchema('devices', schema, 'schema-change', client);
-    await example('uns', 'update').renameCollection('devices', 'renamed', 'rename-collection', client);
-    const beforeDelete = calls.length;
-    expect((await example('uns', 'delete').deleteDevice('devices', 'device-1', 2, 'delete-record', client)).state).toBe('committed');
-    expect((await example('uns', 'restore').restoreDevice('devices', 'device-1', 'restore-record', client)).state).toBe('committed');
-    expect((await example('uns', 'delete', 1).deleteCollection('devices', 3, 'delete-collection', client)).state).toBe('deleted');
-    expect((await example('uns', 'restore').restoreCollection('devices', 4, 'restore-collection', client)).state).toBe('committed');
-    expect(calls.length - beforeDelete).toBe(4);
+    const created = await example('uns', 'create').createCollection('workshop-1', 'create-collection', client);
+    expect(created.data.insertedId).toBe('devices');
+    const inserted = await example('uns', 'create', 1).insertOrder('devices', 'device-1', 'WO-1', 'insert-record', client);
+    expect(inserted.value).toEqual(record());
+    const updated = await example('uns', 'update').renameRecord('devices', 'device-1', 1, 'pump-2', 'update-record', client);
+    expect(updated.data.value).toEqual(record(2, 'pump-2'));
+    expect((await example('uns', 'delete').deleteRecord('devices', 'device-1', 2, 'delete-record', client)).data.deletedCount).toBe(1);
+    expect((await example('uns', 'restore').restoreRecord('devices', 'device-1', 'restore-record', client)).data.restoredIds).toEqual(['device-1']);
+    expect((await example('uns', 'delete', 1).deleteCollection('devices', 3, 'delete-collection', client)).data.deletedCount).toBe(1);
+    expect((await example('uns', 'restore').restoreCollection('devices', 4, 'restore-collection', client)).data.restoredCount).toBe(1);
+    expect(calls).toHaveLength(7);
     finished();
   });
 
   it.each([
-    { file: 'delete', index: 0, method: 'deleteDevice', args: ['devices', 'device-1', 2, 'delete-record'],
+    { file: 'delete', index: 0, method: 'deleteRecord', args: ['devices', 'device-1', 2, 'delete-record'],
       path: 'collections/devices/records:deleteOne', data: { ...outcome(), deletedCount: 0 } },
     { file: 'delete', index: 1, method: 'deleteCollection', args: ['devices', 3, 'delete-collection'],
       path: 'metadata:deleteOne', data: { ...outcome(), deletedCount: 0 } },
-    { file: 'restore', index: 0, method: 'restoreDevice', args: ['devices', 'device-1', 'restore-record'],
+    { file: 'restore', index: 0, method: 'restoreRecord', args: ['devices', 'device-1', 'restore-record'],
       path: 'collections/devices/records:restore', data: { ...outcome(), restoredCount: 0, restoredIds: [] } },
     { file: 'restore', index: 0, method: 'restoreCollection', args: ['devices', 4, 'restore-collection'],
       path: 'metadata:restore', data: { ...outcome(), restoredCount: 0, items: [] } },
-  ])('does not report $method success when its target was not changed', async test => {
+  ])('preserves zero affected counts for $method without dependent reads', async test => {
     steps = [{ path: test.path, data: test.data }];
     const result = await example('uns', test.file, test.index)[test.method](...test.args, client);
-    expect(result.state).toBe('unconfirmed');
+    expect(result.data).toEqual(test.data);
     expect(calls).toHaveLength(1);
     finished();
   });
@@ -575,9 +659,8 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     steps = [
       { path: 'metadata', check: b => expect(b.data.parentId).toBeNull(), data: outcome('unconfirmed') },
     ];
-    const result = await example('uns', 'create').createDeviceCollection('devices', 'devices', null, 'create', client);
-    expect(result.state).toBe('unconfirmed');
-    expect(result.receipt.data.status).toBe('unconfirmed');
+    const result = await example('uns', 'create').createCollection(null, 'create', client);
+    expect(result.data.status).toBe('unconfirmed');
     finished();
   });
 
@@ -589,10 +672,14 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     finished();
   });
 
-  it('does not insert when updating an absent Record', async () => {
-    steps = [{ path: 'collections/devices/records:find', data: records() }];
-    await expect(example('uns', 'update', 2).renameDevice('devices', 'missing', 'new', 'rename', client))
-      .rejects.toThrow('记录不存在');
+  it('does not upsert when updating an absent Record', async () => {
+    steps = [{ path: 'collections/devices/records:updateOne', check: body => {
+      expect(body.upsert ?? false).toBe(false);
+      expect(body.filter).toEqual({ _id: 'missing' });
+    }, data: { ...outcome(), matchedCount: 0, modifiedCount: 0, value: null } }];
+    const result = await example('uns', 'update').renameRecord('devices', 'missing', 1, 'new', 'rename', client);
+    expect(result.data.matchedCount).toBe(0);
+    expect(result.data.value).toBeNull();
     expect(calls).toHaveLength(1);
     finished();
   });

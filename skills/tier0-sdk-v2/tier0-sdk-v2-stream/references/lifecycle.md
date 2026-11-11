@@ -1,28 +1,32 @@
-# Stream 样例测试与流程衔接
+# 样例测试与业务验收
 
-创建并发布时，将 [创建](create.md) 或 [修改](update.md) 回执中的草稿直接交给 [发布](deploy.md)，再用发布回执的 activeRelease [观察运行](read.md#观察本次发布)，无需在发布前后各 get 一次。只有缺少当前草稿、处理版本冲突或需要最新状态时才 [查询](read.md)。停用、回滚和 [删除](delete.md) 按任务选择，不自动执行整套生命周期。
+创建/修改回执可直接用于发布；发布回执用于观察该 release 的运行。只执行任务需要的生命周期步骤，已有当前快照无需在每步前后 get。
 
-HTTP 采集的常规顺序是选定或创建 Source → 用 Source 回执绑定并保存 Stream → 发布 → 观察该发布的真实采集。Source 保存基址和认证，Stream 指定 method/path/query。预检按需使用；静态校验只能发现可确定的问题，脚本动态请求仍需通过代表性实际运行验证，不能把配置通过、网络可达或样例通过等同于采集成功。
+## 隔离样例
 
-## 原生文档样例测试
-
-方法：stream.sampleTest；输入 document、entryId、input。document 来自 documents.get 的完整草稿，entryId 必须在该文档注册的 entries 内。
+`stream.sampleTest` 使用完整 document、该文档注册的 entryId 和样例 input。它检验映射行为，writePreview 不写线上数据。
 
 ```ts
-import { createClient, type Tier0Client, type UnsV2JSONValue } from '@tier0/sdk-v2';
+import { createClient, type Tier0Client, type CloudStreamDocument, type UnsV2JSONValue } from '@tier0/sdk-v2';
 
 export async function testStreamSample(
-  id: string, entryId: string, input: UnsV2JSONValue, client: Tier0Client = createClient(),
+  document: CloudStreamDocument, entryId: string, input: UnsV2JSONValue,
+  client: Tier0Client = createClient(),
 ) {
-  const { data: current } = await client.stream.documents.get({ id, view: 'full' });
-  if (!('document' in current)) throw new Error('需要完整 Stream 文档');
-  if (!current.document.entries?.some(entry => entry.id === entryId)) throw new Error('入口不在草稿中');
-  const response = await client.stream.sampleTest({ document: current.document, entryId, input });
-  return { status: response.data.status, errorCode: response.data.errorCode,
-    writes: response.data.writePreview, logs: response.data.logs, mode: response.data.mode };
+  return client.stream.sampleTest({document,entryId,input});
 }
 ```
 
-HTTP 成功也要检查 completed/failed 和 errorCode。模式为 isolated-sample，writePreview 不是线上写入；样例成功不能证明线上依赖健康。日志可能有业务数据，不直接公开。
+检查结果 status 为 completed/failed 以及 errorCode，不能仅看 HTTP 成功。样例日志可能包含业务数据；样例成功不证明线上 Source 可达或提交成功。
 
-所有 Source/Stream 接口返回完整 code/msg/requestId/data。预检、草稿保存、发布回执和真实运行应分别记录；不要以 SDK 本地测试通过宣称完成真实环境联调。
+## 按任务验收
+
+| 任务 | 需要确认 |
+| --- | --- |
+| 周期采集 | timer 真实触发，本次 release/entryId 运行完成 |
+| 持续订阅 | 对应 Source/资源有真实输入，入口完成业务提交 |
+| 请求返回 | 调用完成及返回值符合合同 |
+| Collection 落库 | 上述运行证据加按业务键读回 Record/Sample |
+| 消息发布 | 与业务提交分开检查消息发布回执 |
+
+`return response.data` 不会落库；`write` 返回 buffered 也不是提交完成。缺少输入时报告等待条件，读回失败时保留已确认的运行结果。失败或 unknown 的旧任务不因新脚本自动安全重跑，见 [运行诊断](read.md)。

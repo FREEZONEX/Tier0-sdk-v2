@@ -1,219 +1,114 @@
-# 读写
+# 记录读写
 
-`data.collection(declaration)` 返回按声明推断类型的句柄（也可用 alias 字符串，类型由调用方指定）。读到的记录是扁平文档 `{ _id, ...字段, _meta }`；过滤、排序、投影都用同样的路径（`status`、`customer.id`、`_id`、`_meta.updatedAt`），不加 `data.` 前缀。
+`data.collection(declaration)` 或 `data.collection({collectionId})` 返回集合句柄。SDK 文档为 `{_id,...业务字段,_meta}`；过滤、排序、投影直接写 status/customer.id/_meta.revision，不加 data.。
 
 ```ts
-import { z } from 'zod';
-import { createDataClient, defineCollection } from '@tier0/sdk-v2/data';
+import { createDataClient } from '@tier0/sdk-v2/data';
 
-const workOrders = defineCollection({
-  alias: 'work_orders',
-  name: '生产工单', directoryPath: ['生产管理'],
-  schema: z.object({
-    code: z.string(),
-    status: z.enum(['DRAFT', 'RELEASED', 'DONE']),
-    line: z.object({ id: z.string(), name: z.string() }),
-    targetQty: z.number().int().min(1).meta({ format: 'int32' }),
-    notes: z.string().optional(),
-  }),
-  indexes: [{ path: 'code', unique: true }, { path: 'status' }],
-});
-const data = createDataClient({ collections: [workOrders] });
-const orders = data.collection(workOrders);
+const data = createDataClient({});
+const orders = data.collection<{ code: string; status: string; notes?: string }>({ collectionId: 'orders-id' });
 
-export async function dashboard(page: number) {
-  const recent = await orders.find({ status: { $in: ['RELEASED', 'DONE'] } }, { sort: { '_meta.createdAt': -1 }, limit: 50 }).toArray();
-  // 一页 + 总数是一次请求；total.capped 为 true 时显示成 "10000+"。
-  const listPage = await orders.findPage({ status: 'RELEASED' }, { sort: { code: 1 }, page, pageSize: 20 });
-  // 每个状态的数量：一次 $group，不要按状态逐个 countDocuments。
-  const byStatus = await orders.countBy('status');
-  const totals = await orders
-    .aggregate<{ _id: string; total: number }>([{ $match: { status: 'DONE' } }, { $group: { _id: '$line.id', total: { $sum: '$targetQty' } } }])
-    .toArray();
-  return { recent, listPage, byStatus, totals };
+export async function listOrders(page: number) {
+  return orders.findPage({ status: 'RELEASED' }, { sort: { code: 1 }, page, pageSize: 20 });
 }
 
-/** 角标只需要知道“有没有超过 99 条”。 */
-export async function releasedBadge() {
-  const { count, capped } = await orders.countDocuments({ status: 'RELEASED' }, { maxCount: 99 });
-  return capped ? '99+' : String(count);
-}
-
-export async function addNote(id: string, notes: string, revision: number) {
+export async function saveNote(id: string, revision: number, notes: string) {
   return orders.updateOne({ _id: id }, { $set: { notes } }, { expectedRevision: revision });
 }
 
-export async function createWorkOrder(
-  code: string, line: { id: string; name: string }, targetQty: number, intentKey: string,
-) {
-  const { value } = await orders.insertOne({ code, status: 'DRAFT', line, targetQty }, {
-    returnDocument: 'after', projection: { code: 1, 'line.name': 1 }, idempotencyKey: intentKey,
-  });
-  // 投影后的业务字段可能缺失，元信息仍必有；revision 可交给下一次更新。
-  return { id: value._id, revision: value._meta.revision, code: value.code, lineName: value.line?.name };
+export async function createOrder(code: string, intentKey: string) {
+  return orders.insertOne({ code, status: 'DRAFT' }, { returnDocument: 'after', idempotencyKey: intentKey });
 }
 ```
 
-## 一个页面一次请求：`data.queryBatch`
+## 查询
 
-页面要同时显示列表、总数、各状态数量、某条记录时，用 `data.queryBatch` 把这些读取合成一次请求（最多 20 个），结果来自同一个快照，不要分别发多个请求：
+| 方法 | 返回与用途 |
+| --- | --- |
+| find(filter,options) | 游标；toArray 取结果，显式给 limit |
+| findOne(filter) | 文档或 null |
+| get(ids) | `{items,missing}`，按请求 ID 顺序；超过 100 个自动分批 |
+| findPage(filter,{page,pageSize,...}) | `{items,total:{count,capped},page,pageSize}`，列表与总数同请求 |
+| countDocuments(filter,{maxCount}) | `{count,capped}`，只需角标阈值时设较小 maxCount |
+| countBy(field,filter) | `[{value,count}]`，按字段分组 |
+| distinct(field,filter) | 取完所有页的去重值 |
+| aggregate(pipeline) | 服务端统计游标，支持受限聚合与 lookup |
+
+capped:true 显示 N+，不要当精确总数。get 的 missing 包含不存在或不可读 ID。单次读取最多 200 行，跨请求游标不是固定快照。
+
+过滤支持比较、集合、逻辑和数组操作符；`$contains` 是 1–256 字节的字符串子串匹配，仅 ASCII 字母忽略大小写，无通配符/正则，不能利用索引。`$in` 最多 200 值，sort 最多 4 字段；宽泛查询可能 QUERY_TIMEOUT。
+
+## 同一页面的多项读取
 
 ```ts
-import { z } from 'zod';
-import { createDataClient, defineCollection } from '@tier0/sdk-v2/data';
+import { createDataClient } from '@tier0/sdk-v2/data';
 
-const workOrders = defineCollection({
-  alias: 'work_orders',
-  name: '生产工单', directoryPath: ['生产管理'],
-  schema: z.object({ code: z.string(), status: z.enum(['DRAFT', 'RELEASED', 'DONE']) }),
-  indexes: [{ path: 'code', unique: true }, { path: 'status' }],
-});
-const data = createDataClient({ collections: [workOrders] });
-const orders = data.collection(workOrders);
+const data = createDataClient({});
+const orders = data.collection<{ code: string; status: string }>({ collectionId: 'orders-id' });
 
-export async function ordersScreen(page: number, selectedId: string) {
-  const { list, byStatus, selected } = await data.queryBatch({
-    list: orders.query.findPage({ status: { $ne: 'DONE' } }, { sort: { code: 1 }, page, pageSize: 20 }),
+export async function dashboard(page: number, selectedId: string) {
+  return data.queryBatch({
+    list: orders.query.findPage({}, { sort: { code: 1 }, page, pageSize: 20 }),
     byStatus: orders.query.countBy('status'),
     selected: orders.query.get([selectedId]),
   });
-  return { list, byStatus, selected: selected.items[0] ?? null };
 }
 ```
 
-- 读取用 `collection.query.*` 构造：`find`（首页，可带 `maxCount` 附带总数）、`findPage`、`count`、`countBy`、`distinct`、`aggregate`、`get`；每项只返回一页（最多 200 行），`get` 最多 100 个 ID。
-- 结果按名字返回，类型与对应方法一致。名字只能用字母、数字、`_` `.` `-`。
-- 某一项被拒（过滤条件不合法、无授权）时整个调用抛出该项的 `DataError`；传 `{ settle: true }` 则每项返回 `{ ok: true, value }` 或 `{ ok: false, error }`。语句超时或整批超过 2000 行 / 8 MiB 时整批失败。
+queryBatch 最多 20 项，同一快照；无需快照一致性时不强制使用。默认单项失败抛 DataError，`{settle:true}` 按项返回 `{ok,value|error}`。单项最多 200 行，整批 2000 行/8 MiB 上限；支持 query.find/findPage/count/countBy/distinct/aggregate/get。
 
-## 方法
+## 写入
 
-| 读取 | 说明 |
+| 方法 | 语义 |
 | --- | --- |
-| `find(filter, { sort, limit, projection })` | 游标，每页最多 200 条；列表读取始终给 `limit` |
-| `findOne(filter)` | 无匹配返回 `null` |
-| `get(ids, { projection })` | 按 `_id` 读取，返回 `{ items, missing }`，`items` 按请求顺序（重复的 ID 只取第一次出现）；不存在或已删除的 ID 一律进 `missing`。超过 100 个自动分批 |
-| `findPage(filter, { sort, page, pageSize, maxCount })` | 页码分页，一次请求返回 `{ items, total: { count, capped }, page, pageSize }`；pageSize 最多 200，总数默认数到 10000（`maxCount` 最多 100000），超过时 `capped: true` |
-| `countDocuments(filter, { maxCount })` | 返回 `{ count, capped }`，默认数到 100000；只要阈值时给小的 `maxCount`（如角标 `99+`） |
-| `countBy(field, filter)` | 每个取值的数量 `[{ value, count }]`，从多到少；一次 `$group` |
-| `distinct(field, filter)` | 会取完所有页 |
-| `aggregate(pipeline)` | `$match` `$sort` `$group` `$project` `$set` `$unwind` `$skip` `$limit` `$count` `$lookup`；`$lookup.from` 写声明或 alias，数据层换成集合 ID。`$exists` / `$distinct` / `$frequencies` 阶段不执行，改用 `countBy`、`distinct` 或 `$group` |
+| insertOne/insertMany | 可传 _id；新增不会更新同 ID |
+| updateOne/updateMany | 操作符更新，例如 $set/$inc/$unset/$push |
+| replaceOne | 完整替换，会移除 replacement 以外的业务字段 |
+| deleteOne/deleteMany | 软删除 Record，同时物理删除关联 Sample |
+| findOneAndUpdate/Replace/Delete | 原子读改写，返回所选快照 |
+| bulkWrite | 同集合混合写入，原子 |
+| data.transact | 跨集合原子步骤，见 [一致性](consistency.md) |
 
-| 写入 | 说明 |
-| --- | --- |
-| `insertOne(doc, options)`、`insertMany(docs)` | 可带 `_id`；单条默认返回 `{ insertedId }`，`returnDocument:'after'` 同次写入返回 `{ insertedId, value }`；`insertMany` 最多 200 条、原子 |
-| `updateOne` / `updateMany` / `replaceOne` | 更新用操作符（`$set` `$inc` `$push` `$unset`…）；`replaceOne` 会丢掉其他代码版本写入的字段 |
-| `deleteOne` / `deleteMany` | 软删除，App Key 需要 `uns.delete` |
-| `findOneAndUpdate` / `findOneAndReplace` / `findOneAndDelete` | 原子读改写，默认返回更新后的文档 |
-| `bulkWrite(ops)` | `insertOne` / `updateOne` / `replaceOne` / `deleteOne` 混合，最多 200 项、原子 |
-| `data.transact(steps)` | 跨集合原子写，见 [一致性](consistency.md) |
-
-新建后需要显示保存结果或继续按版本编辑时，使用 `insertOne(doc, { returnDocument: 'after', idempotencyKey })`。`value` 与查询结果一样是 `{ _id, ...业务字段, _meta }`，包含服务端生成的数据和 `_meta.revision`，无需额外查询。返回快照需要当前读取权限；`projection` 只能与 `after` 一起提供。重放返回当次创建的快照，不能当成记录当前最新版本；之后的版本冲突仍需显式读取并处理。
-
-带 `projection` 时，返回类型将业务字段递归标为可选，包括嵌套对象和数组元素的字段；读取前需判断是否存在。`_id` 和 `_meta` 仍然必有。不带 `projection` 的 `after` 保持完整文档类型。
-
-上面的 createWorkOrder 在一次记录写入中取得投影和修订；首次使用集合时仍会先 ensure 声明，不代表首次调用总共只有一次 HTTP。用于跨调用恢复时保存 intentKey，并重发同一创建意图；不要把原来的默认返回改为 after 来补取数据。读取权限在首次提交和历史重放时都检查，具体边界见 [UNS 创建快照](../../tier0-sdk-v2-uns/references/create.md)。
+insertOne 默认返回 insertedId；指定 returnDocument:'after' 同时返回扁平 value 和 `_meta.revision`，无需额外查询。projection 仅随 after，投影后的业务字段类型可选，_id/_meta 仍有。返回快照额外需要当前读取权限，首次提交与重放均校验；重放是原创建快照，不是当前最新版。
 
 ## 批量与原子性
 
-| 调用 | 上限 | 原子 |
-| --- | --- | --- |
-| `insertMany`、`bulkWrite`、`data.transact` | 每次 ≤200 项，超过在发送前抛 `BATCH_LIMIT_EXCEEDED` | 是，全部或全不 |
-| `updateMany`、`deleteMany` | 无上限，翻页处理所有匹配 | 否，逐条提交；已有提交后失败时错误保留原 `code`，`execution: 'committed'`、`retry.safe: false`，`details` 是累计结果（`matchedCount` 等、`status: 'partiallyCommitted'`、续做位置 `resumeAfter`） |
+insertMany、bulkWrite、transact 每次最多 200 项，全部成功或回滚。超过时按块执行，每块独立原子；需要跨调用恢复的块使用稳定 ID 或显式意图键。
 
-超过 200 条按 200 分块写入（循环分块即可），每块是一次独立的原子调用：数据层自动给每次调用生成幂等键并在重试中复用，不需要手写；要让“某块写过就不再写”跨进程重启也成立，用固定 `_id`（或按业务意图显式传 `idempotencyKey`）。多条文档必须一起成功或失败时，用一次 `data.transact`（≤200 步），不要用 `updateMany`。不要在循环里逐条调用数据层：读用一次 `get` / `$in` 或 `queryBatch`，写用 `insertMany` / `updateMany` / `bulkWrite` 或 `data.transact`。
+updateMany/deleteMany 分页处理全部匹配，整体非原子。部分提交失败保留累计计数及 resumeAfter，execution 为 committed；只续做剩余部分，不整体重跑 $inc/$push。execution:unknown 表示失败页可能已生效，先核对。详细字段见 [错误处理](errors.md)。
 
-### 非原子批量中途失败
-
-`updateMany` / `deleteMany` 已经提交了一部分后失败时（`execution === 'committed'`），不要整体重做：`$inc`、`$push` 这类更新会把已提交的记录再改一次。把 `details.resumeAfter` 传回去，从失败处继续：
-
-```ts
-import { DataError, type Collection } from '@tier0/sdk-v2/data';
-
-export async function bumpAll(items: Collection<{ status: string; views: number }>) {
-  let resumeAfter: string | undefined;
-  for (let round = 0; round < 3; round += 1) {
-    try {
-      return await items.updateMany({ status: 'OPEN' }, { $inc: { views: 1 } }, { resumeAfter });
-    } catch (error) {
-      // 只续做已证明部分提交、且给了续做位置的失败；结局未知的那一页要先核对。
-      const next = error instanceof DataError && error.execution === 'committed' ? error.details.resumeAfter : undefined;
-      if (typeof next !== 'string') throw error;
-      resumeAfter = next;
-    }
-  }
-  throw new Error('updateMany kept failing');
-}
-```
-
-`execution === 'unknown'` 时失败的那一页可能已经部分生效，续做前先核对。
-
-## 过滤
-
-支持 `$eq $ne $gt $gte $lt $lte $in $nin $exists $all $size $elemMatch $not $and $or $nor` 和 `$contains`。`$contains` 是子串匹配（1–256 字节，无通配符和正则），只对 ASCII 字母忽略大小写；缺失、null、非字符串值不匹配；只能用于声明为字符串的字段，用在数组或数字字段上返回 `INVALID_REQUEST`。它不能使用索引，大集合上可能触发 10 秒执行超时（`QUERY_TIMEOUT`），要和有索引的条件一起用。`$in` 最多 200 个值，排序最多 4 个字段（`toSortPairs` 也导出给自定义查询转换使用）。
-
-## 校验
-
-写入前按声明严格校验：未知字段、类型错误、未声明的更新路径抛 `ZodError`（HTTP 400 语义）。读取不严格解析：记录可能含其他代码版本写入的字段、新的枚举值，或缺少后来新增的字段。枚举渲染要有兜底标签，后加的字段按可能缺失处理。
+写入前按本地 schema 严格验证；读取兼容其他代码版本新增的字段/枚举与缺失字段。版本编辑传 expectedRevision，冲突重新读取。
 
 ## 订阅变更
 
-`data.subscribe(...)` 返回已提交变更的异步迭代器（UNS `records:subscribe`，服务端推送）：断线、超时、服务端结束都自动续传（`Last-Event-ID`），刷新页面不需要轮询。事件只有标识，不带业务数据，收到后按需重新读取。
-
 ```ts
-import { z } from 'zod';
-import { createDataClient, defineCollection, type SubscriptionEvent } from '@tier0/sdk-v2/data';
+import { createDataClient, type SubscriptionEvent } from '@tier0/sdk-v2/data';
 
-const tickets = defineCollection({ alias: 'tickets', name: '问题工单', directoryPath: ['问题管理'], schema: z.object({ title: z.string(), status: z.enum(['OPEN', 'DONE']) }) });
-const data = createDataClient({ collections: [tickets] });
+const data = createDataClient({});
+const orders = { collectionId: 'orders-id' };
 
-/** 服务端自己消费变更（例如刷新缓存）。 */
-export async function pumpChanges(handle: (event: SubscriptionEvent) => void, signal: AbortSignal) {
-  for await (const event of data.subscribe({ collections: [tickets], signal })) {
-    // reset：续传位置失效或访问范围变化，重新读取当前数据。
-    handle(event);
-  }
+export async function subscribe(handle: (event: SubscriptionEvent) => void, signal: AbortSignal) {
+  for await (const event of data.subscribe({ collections: [orders], signal })) handle(event);
 }
 ```
 
-- 事件：`{ type: 'change', eventId, collection（alias）, collectionId, change: 'record' | 'delete', recordId, revision, occurredAt }` 或 `{ type: 'reset', reason, message? }`。心跳与重连在 SDK 内部处理；迭代抛出 `DataError` 表示不能再重试（如 403），正常结束只有 `signal` 中止或跳出循环。
-- 事件按写入事务的顺序到达，不是提交顺序，同一记录的 revision 可能乱序。SDK 已丢弃 revision 不大于该记录已投递 revision 的非 `delete` 变更；`delete` 一律投递（迟到的也投递），并清除该记录的 revision（同一 ID 再写入时可能从 1 开始）。收到事件后按 `recordId` 重新读取，不要用事件顺序推断记录的最终状态。
-- `reset`：`CURSOR_EXPIRED`（续传位置已被清理、游标无法解开或租户库已迁移）或 `SCOPE_CHANGED`（访问范围变化，例如集合不再可读）。重新读取当前数据；SDK 随后不带续传位置重新订阅。
-- 订阅以 App 身份运行，看得到 App 被授权集合的全部变更，没有按当前用户的过滤。转发给浏览器时由 App 按访问者角色决定每个浏览器能知道哪些变更（见下一节）。
-- 默认订阅全部已声明的集合（最多 64 个）；`recordIds`（最多 100 个）只能配一个集合。
-- 订阅不占数据请求的并发名额，但每个工作区的订阅数有上限（超出时 SDK 按 429 自动退避重连）：一个服务端进程只开一条订阅，在进程内扇出，不要每个浏览器连接开一条。App 刚导入还没就绪（`APP_NOT_READY`）时订阅会一直等待，不会结束。
-- 变更保留 24 小时；`lastEventId` 太旧时收到 `reset`。`lastEventId` 必须是收到过的事件 ID（可见 ASCII），否则调用时直接抛 `TypeError`。
+订阅自动处理心跳、重连和 Last-Event-ID。change 仅含 collection/collectionId/recordId/revision/change 等标识，收到后重读；不保证版本按序，SDK 去掉已见旧的非 delete，delete 始终投递并清除已见版本。reset（CURSOR_EXPIRED/SCOPE_CHANGED）后重读当前视图。明确不可重试错误会抛 DataError。
+
+默认订阅已声明集合（最多 64 个）；recordIds 最多 100 个且只能对应一个集合。已有 ID 引用的 collection 事件字段是该 ID。一个服务端进程共享一条订阅并扇出，避免每个浏览器建立一条平台连接。
 
 ## 把变更推给浏览器
 
-浏览器不直连 UNS 或 MQTT。`createChangeRelay(data)` 在服务端进程里开一条 `data.subscribe`，转成可以挂在 App 路由上的 SSE 响应，`filter` 由 App 按访问者角色决定每个浏览器收到哪些变更：
+createChangeRelay(data) 在 App 服务端共享上游，relay.stream 返回 App 路由 SSE。使用可信访问者身份按业务规则过滤实时和重放事件；recordId 本身也可能透露信息。记录的重读接口执行同样权限规则。
 
 ```ts
-import { z } from 'zod';
-import { createChangeRelay, createDataClient, defineCollection, type RecordChange } from '@tier0/sdk-v2/data';
-import { parseVisitorHeader, VISITOR_HEADER, type Visitor } from '@tier0/sdk-v2/server';
+import { createChangeRelay, createDataClient, type RecordChange } from '@tier0/sdk-v2/data';
 
-const tickets = defineCollection({ alias: 'tickets', name: '问题工单', directoryPath: ['问题管理'], schema: z.object({ title: z.string() }) });
-const data = createDataClient({ collections: [tickets] });
-const relay = createChangeRelay(data); // 每进程一个
+const data = createDataClient({});
+const relay = createChangeRelay(data, { collections: [{ collectionId: 'orders-id' }] });
 
-/** App 自己的规则：哪些角色能看哪个集合。 */
-function canSee(visitor: Visitor, change: RecordChange): boolean {
-  return change.collection !== 'tickets' || visitor.appRoles.includes('support');
-}
-
-/** GET /api/changes */
-export function changes(request: Request): Response {
-  const visitor = parseVisitorHeader(request.headers.get(VISITOR_HEADER));
-  return relay.stream({
-    filter: (change) => canSee(visitor, change),
-    lastEventId: request.headers.get('Last-Event-ID'),
-    signal: request.signal,
-  });
+export function streamChanges(request: Request, canSee: (change: RecordChange) => boolean): Response {
+  return relay.stream({ filter: canSee, lastEventId: request.headers.get('Last-Event-ID'), signal: request.signal });
 }
 ```
 
-- 帧：`event: change`（`{ eventId, collection, change, recordId, revision, occurredAt }`，不带记录数据）、`event: reset`（`{ reason }`）、`event: unavailable`（`{ reason }`，上游连不上、仍在重试），每 15 秒一个只带 `id` 的帧推进位置（还没有位置时是注释）。浏览器用 `@tier0/sdk-v2/event-stream` 的 `openEventStream` 读（页面隐藏时断开、可见时带 `Last-Event-ID` 续传，转发器补发或回 `reset`），收到 `change` 后经 App 自己的接口重新读取（那里同样按角色过滤），收到 `reset` 重新加载整个视图。转发器不发 `retry:`，重连节奏由 `openEventStream` 决定。
-- `id` 是转发器自己的位置（`<epoch>.<seq>`），不是 UNS 游标，浏览器拿不到上游位置；只在上游能送达其后所有变更时才给。冷启动时上游第一次连上之前不给位置，连上后先给 `reset`（`upstream-started`）再给位置。上游失败或空闲关闭（最后一个浏览器离开 30 秒）后从最后的 UNS 位置重开，epoch 不变，不漏、不 reset；只有 UNS 回 `reset` 才换 epoch，上游重新连上后给浏览器发 `reset`。重连带 `Last-Event-ID`：在当前 epoch 最近 1000 条里找得到就补发之后的（同样经过 `filter`），找不到就只给这个浏览器一个 `reset`。
-- 上游连不上（超过订阅上限的 429、`APP_NOT_READY` 等）时 `relay.status` 是 `unavailable`，`onStatus(status, error)` 回调，`logger.warn` 记一次，浏览器收到 `event: unavailable`；上游恢复后状态回到 `ready`。
-- `filter` 同步调用，对实时和补发的变更都生效；抛错的变更不发。事件只有标识，但 `recordId` 本身也可能透露信息：规则按记录的，过滤时就把这个浏览器无权知道的记录去掉。
-- 每个浏览器连接 10 分钟（±10%）后结束，浏览器重连时路由重新认证。选项：`collections`、`bufferSize`、`idleCloseMs`、`restartIntervalMs`、`maxRestartIntervalMs`、`heartbeatMs`、`maxStreamMs`、`onStatus`、`logger`。
+浏览器使用 SDK event-stream 的 openEventStream，页面隐藏断开、恢复时续传。收到 change 重读对应数据，reset 重载视图，unavailable 显示暂不可用。浏览器游标属于转发器，不是 UNS 游标；换进程、缓冲区过期或上游 reset 均可能要求重载，不依赖无限保留。

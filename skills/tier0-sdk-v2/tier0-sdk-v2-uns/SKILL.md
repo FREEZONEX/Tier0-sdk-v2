@@ -1,61 +1,35 @@
 ---
 name: tier0-sdk-v2-uns
-description: 使用 @tier0/sdk-v2 的 client.uns 完成新架构集合、Schema、目录、Topic、Record 增删改查、归档恢复、采样历史与事务，区分 App 和 Workspace 数据权限。
+description: 使用 @tier0/sdk-v2 的 client.uns 管理 Collection、目录、Topic 和 App 集合授权，直接读写 Record/Sample，处理分页、版本冲突、回收与未知写入结果。
 ---
 
-# UNS 数据操作
+# UNS 原始接口
 
-UNS 管数据命名空间、集合、Record 和 Sample；外部连接与脚本分别用 [Source](../tier0-sdk-v2-source/SKILL.md)、[Stream](../tier0-sdk-v2-stream/SKILL.md)。服务端 `createClient()` 读 TIER0_API_HOST / TIER0_API_KEY（平台里由平台注入 App 的 Key），或显式传 apiHost/apiKey。管理操作中 App 运行时凭证只能调用本 App 集合的 appCollectionsEnsure / SchemaReplace / Archive / Restore，不能管理数据授权。appDataPolicyGet/Update 使用当前管理主体的有效权限：持有 uns.write 的登录会话，持有 uns.write 且 full_access、不属于 App 运行时的 personal / agent / service-system Key，或治理会话。内置 Builder 以自身系统身份主动为同一工作区的 App 关联已有集合，当前绑定 App 不限制授权目标，不查询对话用户的角色、不要求其确认；外部 Key 按自身权限执行。新增、扩大、收窄和移除授权走同一管理校验，受工作区、目标 App、当前资源权限和提交前凭据复验约束，没有 Agent 身份禁令或平台导入特例。
+`client.uns` 提供类型化的公开 API，返回 `{code,msg,requestId,data}`。Collection 是持久化记录及结构，Source/Stream 管理使用各自指南。App 的常规业务代码优先用 [数据层](../tier0-sdk-v2-data/SKILL.md)，已有集合可直接按 ID 引用。
 
-先按[命名空间指导](references/namespace.md)区分凭证：`namespace()` 走 OpenAPI，但当前不对 App Key 开放；App 查询可用集合走 `dataAppContext`，不能改用同样受限的 `appCollectionsList`。Agent / Personal Key 也须满足当前工作空间权限；不要从“使用 SDK / MCP”推定权限。
+## 先选身份与目标
 
-工业场景中，有管理权限的调用方创建目录或集合前，先查询并复用已有 ISA-95 目录，只创建业务需要且缺失的层级，用现有 `parentId` 挂接；App Key 根据上下文和已知业务范围声明集合的 `directoryPath`。不要要求 App Key 先调用管理查询，也不要按 App 重建一套工厂目录。
+- 已知 collectionId：直接调用 recordFind 等记录接口，无需先查询元数据或 ensure。
+- App 运行时发现可用集合：dataAppContext，返回集合、有效权限、Schema、revision、indexStatus、ttl 和 limits。App 不能调用通用 metadata/namespace、异步写入或 jobs，也不能自行管理集合授权。
+- Builder 和工作区管理身份：按当前有效权限使用 metadata、目录及授权接口。Builder 以系统身份为同一工作区的目标 App 配置已有集合授权，不依赖对话用户角色；当前绑定 App 是构建上下文。
+- App 自有集合声明：appCollectionsEnsure；显式生命周期使用 appCollectionsSchemaReplace/Archive/Restore。通用元数据创建不能替代这些 App 专用语义。
 
-## 按任务加载参考
+名称与 alias 不是 collectionId。原始 Record 是 `{id,data,revision,...}`，查询/更新的业务路径是 name、customer.name，系统路径是 _id、_meta.revision。SDK 数据层才返回扁平 `_id` 文档。
 
-| 用户任务 | 参考 | 方法 |
-| --- | --- | --- |
-| 创建集合、定义 Schema、新增记录 | [创建](references/create.md) | metadataInsertOne/Many、recordInsertOne |
-| 查询集合、筛选/排序记录 | [查询](references/read.md) | dataAppContext、metadataFind/FindOne（非 App 凭证）、collectionDescribe、recordFind |
-| 把已有集合授权给 App | [修改](references/update.md#已有集合授权给-app) | appDataPolicyGet、appDataPolicyUpdate |
-| 改记录、集合名称、扩展 Schema | [修改](references/update.md) | recordUpdateOne、metadataUpdateOne/Many |
-| 删记录、软删除集合 | [删除](references/delete.md) | recordDeleteOne、metadataDeleteOne/Many |
-| 精确删除选中的历史样本 | [删除](references/delete.md#精确删除历史样本) | sampleFind、sampleDeleteExact（非 App 凭证） |
-| 永久删除回收站集合 | [删除](references/delete.md) | metadataPurge、jobs |
-| 恢复集合或记录 | [恢复](references/restore.md) | metadataRestore、recordRestore |
-| 分页、历史采样、事务、写入结果 | [数据工作流](references/data-workflows.md) | sampleFind、recordTransactionExecute |
-| 目录、Topic 元数据及组合事务 | [命名空间](references/namespace.md) | metadata*、metadataBulkWrite、metadataTransact |
+| 任务 | 参考 |
+| --- | --- |
+| 新建集合/记录、返回创建快照 | [创建](references/create.md) |
+| 查集合/记录、回收历史 | [读取](references/read.md) |
+| 更新记录/Schema、给 App 授权已有集合 | [修改](references/update.md) |
+| 删除记录、回收集合、清理样本和永久删除 | [删除](references/delete.md) |
+| 恢复集合或记录 | [恢复](references/restore.md) |
+| 完整分页、采样、事务和写入恢复 | [数据工作流](references/data-workflows.md) |
+| 业务目录、Topic、元数据事务 | [命名空间](references/namespace.md) |
 
-## 找到正确数据上下文
+## 写入结果
 
-托管 App 从配置或 dataAppContext 取得实际 collectionId；alias 是可选的查找便利。dataAppContext 同时给出授权、revision、索引就绪状态（indexStatus）、TTL 和平台限额（limits）。已有或共享集合直接用 collectionId 调用记录接口，无需先 ensure 或配置服务端 alias；App Key 必须已有该集合及操作的授权，不以 Workspace 权限替代 App 授权。App 凭证不能调用 metadataFind/FindOne、async 模式与 jobs 查询；Workspace 集成（会话、personal / agent Key）用 dataDiscover/metadataFind，不强制 App 上下文。通用元数据管理写入不向 App 凭证开放。App 业务数据可用 [App 数据层](../tier0-sdk-v2-data/SKILL.md)（`@tier0/sdk-v2/data`，已有集合用 `data.collection({ collectionId })`），变更订阅只在那里提供（`data.subscribe`）。
+单条编辑用最近读取或回执的 revision 作为 expectedRevision。成功检查 committed 与操作计数；批量检查逐项结果，accepted/jobId 只表示受理，dryRun 只校验。需要写后快照用 returnDocument，不固定另发读取。
 
-```ts
-import { createClient } from '@tier0/sdk-v2';
+`client.uns` 不自动重试。`UnsV2Error` 的 code/reason/path、requestId、execution/retry 定位错误；`UnsV2OutcomeUnknownError` 表示可能已执行，先核对原意图，retry.safe 时才用原请求和原幂等键重试。取消请求不撤销写入。
 
-export async function readAppRecords(collectionId: string) {
-  const client = createClient();
-  return client.uns.recordFind({ collectionId, limit: 20 });
-}
-```
-
-不要把 alias/名称当 collectionId，不猜第一个集合是业务目标。
-
-平台签发的 App Key 声明本 App 自有集合使用 appCollectionsEnsure，修改结构、停用及恢复分别使用 appCollectionsSchemaReplace/Archive/Restore；这些保留专用 App 归属和授权语义，不能改成 metadataInsertOne 或普通元数据写入。会话或个人 Key 查询自有集合使用 appCollectionsList。Builder 创建普通授权集合可在 metadataInsertOne 中提供 appId/alias，具体凭证与权限由服务端复验。
-
-## 核心约束
-
-1. 记录行是 id/data/revision；filter 与 update 的业务路径用 name、customer.name，不加 data.；系统路径用 _id、_meta.revision。
-2. 改/删使用最近写回执或读取取得的 revision 作为 expectedRevision；创建时可用 returnDocument:'after' 取得快照。历史重放不是当前最新版本，冲突时显式处理；不同操作使用独立意图键，长度上限以当前操作契约为准。
-3. metadataUpdateOne 的 $set.recordSchema 替换完整 Schema，不迁移已有记录；未更新的 sampleSchema/indexes 保留。先预检兼容性。
-4. metadataDeleteOne/Many 软删除保留数据与索引，历史按既有授权只读；目录原子回收有效子树，恢复只覆盖同次批次，详见[回收规则](references/delete.md#回收规则)。metadataPurge 永久清理明确 ID 的回收站集合，accepted 只表示任务已受理，须用 jobs 查询逐项结果。Record 删除会物理删除关联 Sample，恢复 Record 不会恢复这些 Sample。
-5. recordFind 使用 pageInfo.hasMore/nextCursor，limit 1–200；sort 为 [['field',1]]。单页不是全量，跨页不是稳定快照。
-6. Sample 的时间是 Unix 毫秒，查询范围 [from,to)。Record 代表业务实体，不用覆盖它来保存历史。
-
-7. 新建 recordSchema/sampleSchema 数值字段必须明确格式：int 用 `{ type: 'integer', format: 'int32' }`，float/double 用 `{ type: 'number', format: 'float'/'double' }`；普通小数默认选 double。递归覆盖嵌套对象和数组元素，不创建无 format 的 legacy number/integer；不把 type 写成 int/float/double。已有字段迁移先 dryRun 校验。
-
-## 结果与异常
-
-响应为 code/msg/requestId/data。元数据 find 返回 items/pageInfo；单条 updateOne/replaceOne/deleteOne 请求 returnDocument 时附带 value；普通写入默认返回对应计数和 ID。metadataTransact 的 results 按 opId 对应。检查 committed、每项错误和实际计数；dryRun 只校验。metadataBulkWrite 默认原子，显式非原子时必须逐项检查 results/errors；跨 kind 的依赖写入使用 metadataTransact。recordBulkWrite 不保证跨集合事务。
-
-大整数与 JSON 精确数字可能为 bigint/UnsV2RawNumber；保留读取到的 revision 类型，不用 Number 或普通 JSON.stringify 做无损往返。错误带 execution（notStarted / rolledBack / committed / unknown）与 retry（safe、afterMs）。UnsV2OutcomeUnknownError（execution 为 unknown）先读回核对内容；retry.safe 时可以用同一请求、同一幂等键原样重发。取消请求不撤销写入；client.uns 不自动重试。
+大整数可能为 bigint/UnsV2RawNumber；保留读取到的 revision 类型，不能用 Number 或普通 JSON.stringify 做无损往返。Schema 不兼容不会因为 JSONB 存储而自动转换；回收和删除记录的保留范围也不同，按相应参考处理。

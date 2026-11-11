@@ -1,118 +1,67 @@
-# 创建 Source
+# 创建 Source 与导入凭据
 
-方法：`source.documents.create`；POST `/openapi/v2/uns/sources/documents/create`。需要 Source manage 权限。
-
-| 字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| dryRun | boolean | 否 | 默认 false 提交；true 仅预检 |
-| document.name | string | 是 | 1–63 个 Unicode 字符 |
-| document.protocol | string | 是 | 原生协议，如 http-api、oauth2、mqtt、modbus-tcp、edge-sql |
-| document.role | client / server | HTTP API 显式指定 | client 主动请求；server 接收入站请求 |
-| document.endpoint | string | 是 | 无凭据的协议地址 |
-| document.http/sql/mqtt/modbus | object | 按协议 | 见[协议配置](protocols.md) |
-| document.description | string | 否 | 最多 512 字符 |
-| credentials | object | 否 | HTTP Client 或 SQL 的只写新凭据；与已有 credentialRef 引用互斥 |
-| idempotencyKey | string | 否 | 建议提供，最多 128 字符，同一业务意图保持不变 |
-
-## 完整示例：HTTP Client 数据源
-
-传入实际端点、名称和意图键。此函数创建 `http-api` + `role: client` 配置，创建后即可供 Stream 使用。client 从服务端环境读取 API Host/Key，也可显式注入。
-
-```ts
-import { createClient, type Tier0Client, type SourceDefinition } from '@tier0/sdk-v2';
-
-export async function createHttpSource(
-  endpoint: string, name: string, intentKey: string, client: Tier0Client = createClient(),
-) {
-  const document: SourceDefinition = {
-    name, protocol: 'http-api', description: '订单系统 HTTP 接入',
-    role: 'client', endpoint, http: { anonymous: true },
-  };
-  const saved = await client.source.documents.create({
-    dryRun: false, document, idempotencyKey: intentKey,
-  });
-  if (!('id' in saved.data)) throw new Error('未返回已保存的 Source');
-  return { receipt: saved, current: saved.data };
-}
-```
-
-一次提交即可返回完整 data：id、revision、document、runtimeState、health、createdAt、updatedAt，无需另行 get。需要单独预检时可先传 `dryRun: true`，返回 `{ validated: true, sideEffects: false }`，没有 ID。预检不保留提交条件；实际保存仍会校验。ID 原样保留十进制字符串。
-
-HTTP Server 同样使用 `protocol: http-api`，角色为 `role: server`；其配置以 `source.protocols.list({})` 返回的正式合同为准，不能复用下方 Client 的主动请求示例。入站业务统一绑定 HTTPServer Source，路由和响应时机在 Stream 定义；202 状态不能据此报告 Stream 执行完成。
-
-## HTTP Client Bearer 凭据
-
-Source 保存 API 基址和认证；实际请求的 method/path/query 由 Stream 设置。例如 endpoint 使用 `https://inventory.example.com/api/v1`，再由 [Stream 示例](../../tier0-sdk-v2-stream/references/create.md)请求 `GET inventory`。token 从服务端密钥提供者取得，不写入脚本、文档、日志或仓库。
-
-凭据使用 `{kind:"bearer",secret:token}`；不再使用 material 或 method。认证类型在 document.http.authentication 声明，实际 HTTP method/path/query 仍在 Stream 中设置。
-
-```ts
-import { createClient, type Tier0Client } from '@tier0/sdk-v2';
-
-export async function createAuthenticatedHttpSource(
-  endpoint: string, name: string, token: string, intentKey: string,
-  client: Tier0Client = createClient(),
-) {
-  const saved = await client.source.documents.create({
-    dryRun: false, idempotencyKey: intentKey,
-    document: { name, protocol: 'http-api', role: 'client', endpoint, http: { authentication: 'bearer' } },
-    credentials: { kind: 'bearer', secret: token },
-  });
-  if (!('id' in saved.data)) throw new Error('未返回 Source ID');
-  return { receipt: saved, current: saved.data };
-}
-```
-
-配置保存不代表连接健康；见[查询](read.md)。Source 无需额外启用。结果未知时保留原请求、requestId、意图键，先核对列表/历史，不自动重复创建。
-
-## HTTP Server：管理配置
-
-正式协议目录规定 Server 的 `endpoint` 为 `http://managed`，不携带 Client 认证 或创建专用 `credentials`。该函数只保存 Source，不创建 Stream，也不发起入站请求。
-
-```ts
-import { createClient, type Tier0Client, type SourceDefinition } from '@tier0/sdk-v2';
-
-export async function createHttpServerSource(
-  name: string, intentKey: string, client: Tier0Client = createClient(),
-) {
-  const document: SourceDefinition = {
-    name, protocol: 'http-api',
-    role: 'server', endpoint: 'http://managed',
-  };
-  const saved = await client.source.documents.create({
-    dryRun: false, document, idempotencyKey: intentKey,
-  });
-  if (!('id' in saved.data)) throw new Error('未返回已保存的 Source');
-  return { receipt: saved, current: saved.data };
-}
-```
-
-Server 的固定前缀 `/ingest/v1/{workspaceId}/{sourceId}` 和 Bearer 要求由协议目录的 `x-tier0-http-in` 描述。Source 不接受业务路径配置；在 [Stream HTTPServer 示例](../../tier0-sdk-v2-stream/references/http-server.md)中注册 `onRequest` 的 method/path。响应时机属于 Stream。
-
-## 原生只写凭据
-
-Cloud 与 Enterprise 使用相同 SourceDefinition / SourceCredentials。HTTP Basic 为 `{kind:'basic',username,secret}`，Bearer 为 `{kind:'bearer',secret}`，OAuth 为 `{kind:'oauth2',secret}`；OAuth 的 tokenUrl/clientId/grantType/clientAuthentication 留在 document.http.oauth，Source protocol 使用 oauth2。custom 使用 values 字符串映射，键名按目标协议目录声明，不凭空推测。创建凭据需要 idempotencyKey 与凭据管理权限，不能把秘密写入 endpoint、脚本或日志。
+`client.source.documents.create` 一次原子提交 `document` 和可选 `credentials`。使用当前目标的 SourceDefinition/SourceCredentials schema；秘密从服务端密钥提供者导入只写 credentials，不放连接 URL、普通 headers、脚本、日志或返回值。
 
 ```ts
 import { createClient, type Tier0Client, type SourceCredentials, type SourceDefinition } from '@tier0/sdk-v2';
 
-export async function createHttpSourceWithCredentials(
-  document: SourceDefinition, credentials: SourceCredentials, intentKey: string,
-  client: Tier0Client = createClient(),
+export async function createSource(
+  document: SourceDefinition, credentials: SourceCredentials | undefined,
+  intentKey: string, client: Tier0Client = createClient(),
 ) {
-  const saved = await client.source.documents.create({
+  const receipt = await client.source.documents.create({
+    document, ...(credentials === undefined ? {} : { credentials }),
     dryRun: false, idempotencyKey: intentKey,
-    document, credentials,
   });
-  if (!('id' in saved.data)) throw new Error('未返回已保存的 Source');
-  return { receipt: saved, current: saved.data };
+  if (!('id' in receipt.data)) throw new Error('Expected a saved Source');
+  return receipt;
 }
 ```
 
-## SQL 用户名和密码
+提交回执 data 包含 Source ID、revision、配置和观测，可直接复用。`dryRun:true` 只预检，不产生 Source ID。带凭据创建需要幂等键；结果未知先查状态与回执，不能重复新建。
 
-SQL 使用 protocol=edge-sql、顶层 endpoint 和 sql（固定命名查询）。凭据为 `{kind:'basic',username,secret}`，不传 method/material。查询和 TLS 选项以目标协议目录为准，不允许脚本传任意 SQL。
+凭据写入由服务端校验当前有效的 `uns.source.credentials`；使用已有获授权身份，不因使用 SDK 另行切换 Key。
 
-已有 Source 换证使用 `source.documents.credentials.update({id,expectedRevision,credentials,dryRun:false,idempotencyKey})`，路由 `/openapi/v2/uns/sources/documents/credentials/update`，不再调用独立 credentials.create。远端 Edge 秘密须在目标 Edge 本地预配；云绑定只使用已批准的 target，不经云转发 Edge 秘密。
+## 凭据格式
 
-dryRun 省略时直接提交。创建或换证成功不等于采集成功；仍须检查 Stream 运行与 Collection 数据。
+| kind | 导入字段 |
+|---|---|
+| basic | username、secret |
+| bearer | secret |
+| oauth2 | secret 及该授权类型要求的材料；公开参数位于 document.http.oauth |
+| custom | values；遵循下面的 HTTP 合同或对应协议 schema |
+| certificate / http | 仅目标明确支持的组合，不能因枚举存在就推断已实现 |
+
+新建时导入 credentials，换密使用 [documents.credentials.update](update.md#轮换凭据)。保留用户提供的秘密来源，不在示例中硬编码值。MCP 的 credentialFile/credentialImport 是工具的导入功能，不是 SDK 请求字段。
+
+## 自定义 HTTP 认证头
+
+Cloud 普通 HTTP 不填写 sourceType，声明 `http.authentication:'custom'`。credentials.values **恰好一项，键名就是实际认证头名**：
+
+```ts
+import { createClient, type Tier0Client } from '@tier0/sdk-v2';
+
+export async function createCustomHeaderSource(
+  endpoint: string, name: string, apiKey: string, intentKey: string,
+  client: Tier0Client = createClient(),
+) {
+  return client.source.documents.create({
+    document: { name, protocol: 'http-api', role: 'client', endpoint,
+      http: { authentication: 'custom' } },
+    credentials: { kind: 'custom', values: { 'X-Plex-Connect-Api-Key': apiKey } },
+    dryRun: false, idempotencyKey: intentKey,
+  });
+}
+```
+
+apiKey 参数由服务端密钥提供者传入。不能写成 `values:{apiKey:...}` 并期望自动翻译头名，也不能写成 `values:{headerName:...,value:...}`。Authorization、Cookie、Host 等协议保留头不接受这种认证配置。公开租户或客户头可按上游合同放 http.headers。
+
+Plex 模板使用 `sourceType:'plex-mes'`，其 `credentials:{kind:'custom',values:{apiKey}}` 则是厂商语义合同；宿主注入认证头和 http.parameters.tenantId/pcn。**当前 Cloud 该模板的厂商凭据不能用于普通 source.request**，只能按已发布原生操作调用；改进诊断不代表已接通。需要根下自定义业务路由时采用匹配其认证的普通 HTTP 配置，不直接改 sourceType 后沿用旧厂商凭据引用。Enterprise 以目标发现为准。
+
+## 其他连接
+
+普通 HTTP Bearer 使用 `http.authentication:'bearer'` 和 `{kind:'bearer',secret}`；SQL 使用 edge-sql 与 `{kind:'basic',username,secret}`。参数与 TLS 见[协议配置](protocols.md)。
+
+HTTP Server 的 endpoint 按目标目录使用托管地址（Cloud 为 `http://managed`），不套用 Client 凭据。路由和响应时机在 [Stream](../../tier0-sdk-v2-stream/references/http-server.md) 中声明。
+
+Source 状态按回执与目标能力处理，不能固定追加启用调用。最后按任务验证实际业务读取与 Stream/Collection 结果，连接健康不能替代业务验收。
