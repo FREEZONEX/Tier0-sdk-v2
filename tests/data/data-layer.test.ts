@@ -215,6 +215,8 @@ describe('transport', () => {
     const deleteNotGranted = await run(NOT_GRANTED, data => data.collection(orders).deleteOne({ _id: 'o-1' }));
     expect(deleteNotGranted.reason).toBe('COLLECTION_NOT_GRANTED');
     expect(deleteNotGranted.message).not.toMatch(/uns\.delete/);
+    expect(deleteNotGranted.message).toMatch(/appDataPolicyUpdate/);
+    expect(deleteNotGranted.message).not.toMatch(/workspace admin/);
 
     const notReady = await run(failure(503, 'APP_NOT_READY', null, 'hosted App is not ready', true, 'notStarted'), insert);
     expect(notReady).toMatchObject({ status: 503, upstreamStatus: 503, execution: 'notStarted', retry: { safe: true }, attempts: 3 });

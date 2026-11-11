@@ -197,7 +197,10 @@ export function toDataError(error: UnsV2Error, attempts = 1, idempotencyKey?: st
           'Model removal as a status change such as `archived`, or ask a workspace admin to grant uns.delete.'
         : `The App key lacks ${typeof data.missingPermission === 'string' ? data.missingPermission : 'a permission'} for this operation (${code}); ask a workspace admin.`;
   } else if (reason === ACCESS_REASONS.notGranted) {
-    message = `${message} This App's grant does not cover the collection or operation; ask a workspace admin to restore the grant.`;
+    message =
+      `${message} This App's grant does not cover the collection or operation (see collectionId/permission). ` +
+      'Grant this App the access it needs: the built-in Builder can add it with appDataPolicyGet/appDataPolicyUpdate, ' +
+      'or someone with App data management access can add it in App settings → Data.';
   } else if (reason === ACCESS_REASONS.notFound) {
     message = `${message} The collection was archived or deleted; the data layer ensures the declared collections again.`;
   } else if (httpStatus === 401) {
