@@ -246,7 +246,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     await expect(onTimer.mock.calls[0][1]()).resolves.toBeUndefined();
     expect(output).toHaveBeenCalledWith({ collectionId: 'inventory', access: 'write' });
     expect(write).toHaveBeenCalledExactlyOnceWith({ recordId: 'fixture-sku', record: { sku: 'fixture-sku', quantity: 12 } });
-    expect(request).toHaveBeenCalledWith({ method: 'GET', path: 'inventory', query: { limit: '40' } });
+    expect(request).toHaveBeenCalledWith({ method: 'GET', path: 'inventory?limit=40' });
     expect(calls).toHaveLength(2);
     finished();
   });

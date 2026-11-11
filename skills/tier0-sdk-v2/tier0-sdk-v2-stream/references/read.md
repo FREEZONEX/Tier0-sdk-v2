@@ -33,6 +33,8 @@ export async function readPublishedRuns(
 
 读取 error 的 code/stage/reason/path/repair（以当前响应提供的字段为准），保留 requestId 和运行标识。校验组合不兼容应修正配置；权限错误按真实原因处理，不凭 403 直接要求扩权。
 
+平台对 HTTP URL/查询参数格式错误返回 400，真实权限或 Source 范围拒绝返回 403，依赖不可用返回 503；上游 HTTP 响应的 status 另行判断，不混为平台授权失败。
+
 `SOURCE_TARGET_SCOPE_MISMATCH` 指请求超出 Source 绑定范围。`sourceRequest:notDispatched` 只证明该次请求未发送，不能推断整个 Stream 没有先前副作用。`SOURCE_HTTP_401` 等表示宿主观察到上游响应，仍可能与最终 unknown 同时出现；`RESULT_UNKNOWN` 不允许自动重试。
 
 `completed` 可能零输出。采集落库要按稳定键读回目标 Record/Sample；读回失败作为独立证据缺口，不覆盖已确认的运行结局。业务提交后消息发布失败也不撤销已提交记录。旧记录未给具体 error 时保留未知，不拼造原因。

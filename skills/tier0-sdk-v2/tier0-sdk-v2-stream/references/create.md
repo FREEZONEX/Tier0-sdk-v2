@@ -6,6 +6,10 @@
 
 Source 为通用 HTTP client，保存基址和认证。按上游合同调整 path、分页、周期和数据映射；本例只处理最多 40 条的单批，不表示全量采集。
 
+`source.request` 的 path 接受带查询串的相对路径，也接受与 Source 协议、主机、端口相同且位于其基路径内的完整 URL。不显式传 query/queryValues 时，URL 查询串和不透明游标原样保留；业务代码决定如何分页和重试，凭据仍由 Source 提供。
+
+query 的单值或 queryValues 的数组覆盖 URL 中同名参数；例如 `queryValues:{tag:['a','b']}` 保留两个 tag 值。不能在 query 和 queryValues 中同时提供同一个键。
+
 ```ts
 import { createClient, type Tier0Client, type CloudSourceDocumentView } from '@tier0/sdk-v2';
 
@@ -19,7 +23,7 @@ export async function createHttpStream(
     const upstream = api.sources.use({id:${JSON.stringify(source.id)},resources:[]});
     const output = api.uns.use({collectionId:${JSON.stringify(collectionId)},access:'write'});
     api.stream.onTimer({id:'inventory',intervalMs:60000}, async () => {
-      const response = await upstream.request({method:'GET',path:'inventory',query:{limit:'40'}});
+      const response = await upstream.request({method:'GET',path:'inventory?limit=40'});
       if (response.status !== 200 || !Array.isArray(response.data) || response.data.length > 40) throw Error('Invalid inventory response');
       const seen = new Set();
       const records = response.data.map(row => {
