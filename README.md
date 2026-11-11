@@ -356,7 +356,7 @@ Source 创建/更新与 Stream 创建/更新/部署的 dryRun 默认 false。凭
 
 ## App Stream 交互与旧包迁移
 
-`client.streams` 只在服务端用带 Key 的客户端（`createClient()`，读 `TIER0_API_HOST` / `TIER0_API_KEY`，或显式传 `apiHost` / `apiKey`）：`client.streams.requests.use({code}).invoke(input, {idempotencyKey})`、`client.streams.messages.use({topic}).subscribe(handler)`。浏览器不直接调平台，经 App 自己的服务端接口。Tier0 App 的 Key 可以用：Stream 请求和消息是 App 的固定能力，仍受工作区套餐约束；请求还要 Stream 请求授权给这个 App 授过对应的 request code；消息主题以已发布 Stream 的 manifest 为准（App 能订阅 Stream 声明发布的主题，能发布到有 Stream 订阅的主题），没有按 App 的主题配置（见 [Stream 交互](skills/tier0-sdk-v2/tier0-sdk-v2-streams/SKILL.md)）。订阅不再使用时 dispose，客户端退出时 `await client.dispose()`；请求与消息不会自动重放业务写入。
+`client.streams` 只在服务端用带 Key 的客户端（`createClient()`，读 `TIER0_API_HOST` / `TIER0_API_KEY`，或显式传 `apiHost` / `apiKey`）：`client.streams.requests.use({code}).invoke(input)`、`client.streams.messages.use({topic}).subscribe(handler)`。支持简化请求合同的后端可用 `api.stream.onRequest({id}, handler)` 注册普通请求，无需声明业务 sideEffect、idempotency、schema 或版本。平台默认一次执行，不自动重跑；可选 `{idempotencyKey}` 只用于同次请求的传输去重，业务幂等、重试与补偿由代码处理，历史发布保留原合同。浏览器不直接调平台，经 App 自己的服务端接口。Tier0 App 的 Key 可以用：Stream 请求和消息是 App 的固定能力，仍受工作区套餐约束；请求还要 Stream 请求授权给这个 App 授过对应的 request code；消息主题以已发布 Stream 的 manifest 为准（App 能订阅 Stream 声明发布的主题，能发布到有 Stream 订阅的主题），没有按 App 的主题配置（见 [Stream 交互](skills/tier0-sdk-v2/tier0-sdk-v2-streams/SKILL.md)）。订阅不再使用时 dispose，客户端退出时 `await client.dispose()`；请求与消息不会自动重放业务写入。
 
 旧 `/cloud` 改用根入口，`/cloud/server` 改用 `/server`，`/openapi/react` 和 `/openapi/vue` 改用 `/react` 和 `/vue`。`/streams` 的现役能力已原生迁入本包；浏览器受信宿主（`/runtime`、`installAppRuntime`、`Symbol.for('tier0.sdk.app-runtime.v1')`）已删除，没有替代。Source/Stream 管理、文件、MQTT、通知、成员和集合继续使用本包现有入口；旧文件单例函数改为 `client.files` 对应方法。旧 `getCurrentProjectId`、Flow、Control 及项目接口已退役，不迁回。
 

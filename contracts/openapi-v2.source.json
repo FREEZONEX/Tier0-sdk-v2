@@ -6826,7 +6826,7 @@
         "tags": [
           "App 与授权"
         ],
-        "description": "使用 changes 按集合原子新增、修改或移除授权；省略字段保留原值，不需回传其他集合。collections 仍用于显式完整替换，两种模式互斥。permissionLevel 的 read/readwrite/manage 对应业务记录只读、读写、管理（含删除），与底层 permissions 互斥。内置 Builder 使用系统 Key 自身的当前权限完成授权，不依赖对话人的角色或确认；已绑定 Builder 目标时，只能修改该 App。新增权限不能超出当前管理者能力；新增、加宽、重新启用、收窄和移除复用当前管理主体、工作区、App 生命周期与提交前凭据校验，不另设平台导入特例。保存后下一个请求即生效，不改变集合归属；App 运行凭据不能管理授权。必须提供 expectedRevision 和 idempotencyKey。同键原样重试重放结果，不重新扩大授权。",
+        "description": "使用 changes 按集合原子新增、修改或移除授权；省略字段保留原值，不需回传其他集合。collections 仍用于显式完整替换，两种模式互斥。permissionLevel 的 read/readwrite/manage 对应业务记录只读、读写、管理（含删除），与底层 permissions 互斥。内置 Builder 使用系统 Key 自身的当前权限完成授权，不依赖对话人的角色或确认；可修改同一工作区内的 App，当前绑定 App 不限制授权范围。新增权限不能超出当前管理者能力；新增、加宽、重新启用、收窄和移除复用当前管理主体、工作区、App 生命周期与提交前凭据校验，不另设平台导入特例。保存后下一个请求即生效，不改变集合归属；App 运行凭据不能管理授权。必须提供 expectedRevision 和 idempotencyKey。同键原样重试重放结果，不重新扩大授权。",
         "x-tier0-audience": "governance",
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
@@ -6850,7 +6850,13 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": false,
-                "properties": {}
+                "properties": {
+                  "appId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "可选目标 App。工作区 Builder 可指定本工作区内的 App；内部 Builder 会话省略时由 MCP 补入当前 App。App Key 只能指定自身，省略时使用自身 App。旧 App Builder Key 省略时兼容其原目标。"
+                  }
+                }
               },
               "example": {}
             }
@@ -6897,7 +6903,7 @@
         "tags": [
           "App 与授权"
         ],
-        "description": "仅当前受管理 App 凭证可用；返回真实 App 名称和当前授权集合与 Key 权限的交集。新 App 尚无数据策略时正常返回 dataState=uninitialized、revision=0 和空集合，不创建策略或授予数据权限；按实际集合声明调用 appCollectionsEnsure 后为 ready。已有策略被管理员停用时返回 403，reason=APP_DATA_POLICY_DISABLED，不自动恢复。collections[] 含集合定义版本 revision、recordSchema、indexes、indexStatus（索引就绪状态）与 ttl；自有与授权来的集合都给出 ownerAppId（工作区集合省略）、name、description 与 directoryPath（自工作区根开始的目录名，与 appCollectionsEnsure 同形）；App 读取集合结构只用此接口。limits 给出 count、总数、queryBatch、get、订阅、TTL、并发名额与幂等窗口等边界，供客户端自适应。platformPermissions 是 App 固定的 11 项平台能力与当前 Key 存储权限、Key 模式和套餐的交集，不由 App 配置。身份只取自服务端认证，不接受 App ID 或发行人用户参数，不返回凭据。",
+        "description": "受管理 App 凭证或工作区 Builder 可用；Builder 通过 appId 选择本工作区内的 App，内部会话省略时由 MCP 补入当前 App；返回真实 App 名称和当前授权集合与 Key 权限的交集。新 App 尚无数据策略时正常返回 dataState=uninitialized、revision=0 和空集合，不创建策略或授予数据权限；按实际集合声明调用 appCollectionsEnsure 后为 ready。已有策略被管理员停用时返回 403，reason=APP_DATA_POLICY_DISABLED，不自动恢复。collections[] 含集合定义版本 revision、recordSchema、indexes、indexStatus（索引就绪状态）与 ttl；自有与授权来的集合都给出 ownerAppId（工作区集合省略）、name、description 与 directoryPath（自工作区根开始的目录名，与 appCollectionsEnsure 同形）；App 读取集合结构只用此接口。limits 给出 count、总数、queryBatch、get、订阅、TTL、并发名额与幂等窗口等边界，供客户端自适应。platformPermissions 是 App 固定的 11 项平台能力与当前 Key 存储权限、Key 模式和套餐的交集，不由 App 配置。身份只取自服务端认证；App Key 不能用 appId 切换到其他 App，不接受发行人用户参数，不返回凭据。",
         "x-tier0-audience": "app",
         "x-tier0-starter": true,
         "x-tier0-readonly": true,
@@ -6934,6 +6940,11 @@
                     "type": "boolean",
                     "default": false,
                     "description": "true 仅校验；false 执行写入。"
+                  },
+                  "appId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "可选目标 App。工作区 Builder 可指定本工作区内的 App；内部 Builder 会话省略时由 MCP 补入当前 App。App Key 只能指定自身，省略时使用自身 App。旧 App Builder Key 省略时兼容其原目标。"
                   }
                 },
                 "required": [
@@ -7041,7 +7052,7 @@
         "tags": [
           "App 与授权"
         ],
-        "description": "仅平台签发的 App Key（app/internal/full_access，非 MCP）可用。批量声明本 App 的集合：不存在则在 App 专属目录下创建并同事务授予 record:read/write（Key 有 uns.delete 时加 record:delete）；已存在时按 join 只加宽、永不收窄，索引取并集；不写注解（title/description/unit 与集合说明只在创建时写入，之后用 schema:replace 修改）。指向本 App 已归档 / 已硬删集合的失效授权在同一事务内替换。整批一个事务，任一类型冲突、或 join 结果不能加宽当前结构时整批不改并返回 409 SCHEMA_CONFLICT（data.conflicts）。管理员撤销授权后返回 403 APP_GRANT_REVOKED，不自动补回。超出每 App 配额（集合 64、索引 64）返回 409 APP_QUOTA_EXCEEDED，超出工作空间索引配额（按物理存在、未退休的索引计）返回 409 INDEX_QUOTA_EXCEEDED。平台正在回收（App 删除）或清空（预览重置）本 App 的集合时，新建、加宽或清理失效授权返回可重试的 503 TEMPORARILY_UNAVAILABLE（data.reason=COLLECTION_TEARDOWN_IN_PROGRESS，data.operation=reclaim/purge），全部 unchanged 时仍正常返回。本 App 没有该 alias 的自有集合、但恰好一条授权的 alias 相同且指向未归档的非自有集合时按借用解析：声明被已存储的结构与索引覆盖时返回该 collectionId 与 status=unchanged；需要加宽结构、新增索引或加大 TTL 时返回 409 SCHEMA_CONFLICT（reason=SHARED_SCHEMA_READONLY），类型冲突仍报 TYPE_CONFLICT，缩短 TTL 报 TTL_REQUIRES_REPLACE。借用的集合不加宽、不建索引，也不计入本 App 配额。所属 App 在回收站期间集合只读，回收前未归档的仍可借用：不比较声明，固定返回 status=unchanged，并在 ignored 带 reason=OWNER_APP_TRASHED。dataAppContext 不展示该集合时（当前凭证对它没有有效权限），结果不透出字段：indexStatus 为空，带字段路径的说明不返回，带路径的冲突统一报 SHARED_SCHEMA_READONLY 且不带路径与类型。dryRun=true 只计算。",
+        "description": "平台签发的 App Key（app/internal/full_access，非 MCP）或工作区 Builder 可用；Builder 可通过 appId 选择本工作区内的 App。批量声明本 App 的集合：不存在则在 App 专属目录下创建并同事务授予 record:read/write（Key 有 uns.delete 时加 record:delete）；已存在时按 join 只加宽、永不收窄，索引取并集；不写注解（title/description/unit 与集合说明只在创建时写入，之后用 schema:replace 修改）。指向本 App 已归档 / 已硬删集合的失效授权在同一事务内替换。整批一个事务，任一类型冲突、或 join 结果不能加宽当前结构时整批不改并返回 409 SCHEMA_CONFLICT（data.conflicts）。管理员撤销授权后返回 403 APP_GRANT_REVOKED，不自动补回。超出每 App 配额（集合 64、索引 64）返回 409 APP_QUOTA_EXCEEDED，超出工作空间索引配额（按物理存在、未退休的索引计）返回 409 INDEX_QUOTA_EXCEEDED。平台正在回收（App 删除）或清空（预览重置）本 App 的集合时，新建、加宽或清理失效授权返回可重试的 503 TEMPORARILY_UNAVAILABLE（data.reason=COLLECTION_TEARDOWN_IN_PROGRESS，data.operation=reclaim/purge），全部 unchanged 时仍正常返回。本 App 没有该 alias 的自有集合、但恰好一条授权的 alias 相同且指向未归档的非自有集合时按借用解析：声明被已存储的结构与索引覆盖时返回该 collectionId 与 status=unchanged；需要加宽结构、新增索引或加大 TTL 时返回 409 SCHEMA_CONFLICT（reason=SHARED_SCHEMA_READONLY），类型冲突仍报 TYPE_CONFLICT，缩短 TTL 报 TTL_REQUIRES_REPLACE。借用的集合不加宽、不建索引，也不计入本 App 配额。所属 App 在回收站期间集合只读，回收前未归档的仍可借用：不比较声明，固定返回 status=unchanged，并在 ignored 带 reason=OWNER_APP_TRASHED。dataAppContext 不展示该集合时（当前凭证对它没有有效权限），结果不透出字段：indexStatus 为空，带字段路径的说明不返回，带路径的冲突统一报 SHARED_SCHEMA_READONLY 且不带路径与类型。dryRun=true 只计算。",
         "x-tier0-audience": "app",
         "x-tier0-starter": true,
         "x-tier0-readonly": false,
@@ -7094,6 +7105,11 @@
                     "type": "boolean",
                     "default": false,
                     "description": "true 仅校验；false 执行写入。"
+                  },
+                  "appId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "可选目标 App。工作区 Builder 可指定本工作区内的 App；内部 Builder 会话省略时由 MCP 补入当前 App。App Key 只能指定自身，省略时使用自身 App。旧 App Builder Key 省略时兼容其原目标。"
                   }
                 },
                 "required": [
@@ -7166,7 +7182,7 @@
         "tags": [
           "App 与授权"
         ],
-        "description": "仅平台签发的 App Key 可用，供 worker 显式收窄（删字段、删枚举值、改必填、删索引）；运行时代码不得调用。必须提供 expectedRevision。收窄时逐条校验未删除记录（≤10,000 条且 ≤16MB，否则 409 SCHEMA_MIGRATION_TOO_LARGE），最多返回 20 条违规（409 SCHEMA_DATA_VIOLATION，data.violations 只含 recordId/path）。被 Topic 字段或 App 数据规则引用时返回 409 REFERENCED。删掉的路径和枚举值记入 retired，之后 ensure 不会加回。索引按请求精确替换，同样受每 App 索引配额（64）与工作空间索引配额约束。只改注解或说明时 status=widened。拿不到锁返回可重试的 503 TEMPORARILY_UNAVAILABLE。平台正在回收（App 删除）或清空（预览重置）本 App 的集合时，实际替换返回可重试的 503 TEMPORARILY_UNAVAILABLE（data.reason=COLLECTION_TEARDOWN_IN_PROGRESS，data.operation=reclaim/purge）。dryRun=true 在只读快照上校验，不持锁。",
+        "description": "平台签发的 App Key 或工作区 Builder（可指定 appId）可用，供 worker 显式收窄（删字段、删枚举值、改必填、删索引）；运行时代码不得调用。必须提供 expectedRevision。收窄时逐条校验未删除记录（≤10,000 条且 ≤16MB，否则 409 SCHEMA_MIGRATION_TOO_LARGE），最多返回 20 条违规（409 SCHEMA_DATA_VIOLATION，data.violations 只含 recordId/path）。被 Topic 字段或 App 数据规则引用时返回 409 REFERENCED。删掉的路径和枚举值记入 retired，之后 ensure 不会加回。索引按请求精确替换，同样受每 App 索引配额（64）与工作空间索引配额约束。只改注解或说明时 status=widened。拿不到锁返回可重试的 503 TEMPORARILY_UNAVAILABLE。平台正在回收（App 删除）或清空（预览重置）本 App 的集合时，实际替换返回可重试的 503 TEMPORARILY_UNAVAILABLE（data.reason=COLLECTION_TEARDOWN_IN_PROGRESS，data.operation=reclaim/purge）。dryRun=true 在只读快照上校验，不持锁。",
         "x-tier0-audience": "platform",
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
@@ -7195,6 +7211,11 @@
                     "type": "string",
                     "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,62}$",
                     "description": "App 内集合别名，不区分大小写唯一；与 src/data/collections.ts 的 alias 一致。"
+                  },
+                  "appId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "可选目标 App。工作区 Builder 可指定本工作区内的 App；内部 Builder 会话省略时由 MCP 补入当前 App。App Key 只能指定自身，省略时使用自身 App。旧 App Builder Key 省略时兼容其原目标。"
                   }
                 },
                 "required": [
@@ -7248,7 +7269,7 @@
         "tags": [
           "App 与授权"
         ],
-        "description": "仅平台签发的 App Key 可用，只作用于本 App 自有（ownerAppId）的集合：同事务归档集合并删除调用 App 的集合授权，保留 Record/Sample 与查询索引，不逐条打墓碑。新归档不受记录数上限限制；每 App 最多保留 64 个已归档集合，超过返回 409 APP_QUOTA_EXCEEDED。Topic、Source / Stream 等引用不阻止归档，引用方配置保留；未撤销的既有授权可读历史，写入拒绝。平台正在回收（App 删除）或清空（预览重置）本 App 的集合时返回可重试的 503 TEMPORARILY_UNAVAILABLE（data.reason=COLLECTION_TEARDOWN_IN_PROGRESS，data.operation=reclaim/purge）。restore 恢复集合状态；此前独立删除的记录保持原状态。",
+        "description": "平台签发的 App Key 或工作区 Builder（可指定 appId）可用，只作用于本 App 自有（ownerAppId）的集合：同事务归档集合并删除调用 App 的集合授权，保留 Record/Sample 与查询索引，不逐条打墓碑。新归档不受记录数上限限制；每 App 最多保留 64 个已归档集合，超过返回 409 APP_QUOTA_EXCEEDED。Topic、Source / Stream 等引用不阻止归档，引用方配置保留；未撤销的既有授权可读历史，写入拒绝。平台正在回收（App 删除）或清空（预览重置）本 App 的集合时返回可重试的 503 TEMPORARILY_UNAVAILABLE（data.reason=COLLECTION_TEARDOWN_IN_PROGRESS，data.operation=reclaim/purge）。restore 恢复集合状态；此前独立删除的记录保持原状态。",
         "x-tier0-audience": "platform",
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
@@ -7277,6 +7298,11 @@
                     "type": "string",
                     "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,62}$",
                     "description": "App 内集合别名，不区分大小写唯一；与 src/data/collections.ts 的 alias 一致。"
+                  },
+                  "appId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "可选目标 App。工作区 Builder 可指定本工作区内的 App；内部 Builder 会话省略时由 MCP 补入当前 App。App Key 只能指定自身，省略时使用自身 App。旧 App Builder Key 省略时兼容其原目标。"
                   }
                 },
                 "required": [
@@ -7330,7 +7356,7 @@
         "tags": [
           "App 与授权"
         ],
-        "description": "仅平台签发的 App Key 可用：恢复该 alias 最近归档的本 App 集合，重新授权（复用仍指向它的授权）并复用保留的索引，不重写记录。仅旧 recordsArchivedAt 墓碑按原批次恢复记录（最多 2000 条，超过 409 COLLECTION_TOO_LARGE）；唯一约束冲突时整体回滚返回 409 DUPLICATE_KEY。同名集合已被 ensure 重建时返回 409 DUPLICATE（data.activeCollectionId），需先归档当前集合。平台正在回收（App 删除）或清空（预览重置）本 App 的集合时返回可重试的 503 TEMPORARILY_UNAVAILABLE（data.reason=COLLECTION_TEARDOWN_IN_PROGRESS，data.operation=reclaim/purge）。",
+        "description": "平台签发的 App Key 或工作区 Builder（可指定 appId）可用：恢复该 alias 最近归档的本 App 集合，重新授权（复用仍指向它的授权）并复用保留的索引，不重写记录。仅旧 recordsArchivedAt 墓碑按原批次恢复记录（最多 2000 条，超过 409 COLLECTION_TOO_LARGE）；唯一约束冲突时整体回滚返回 409 DUPLICATE_KEY。同名集合已被 ensure 重建时返回 409 DUPLICATE（data.activeCollectionId），需先归档当前集合。平台正在回收（App 删除）或清空（预览重置）本 App 的集合时返回可重试的 503 TEMPORARILY_UNAVAILABLE（data.reason=COLLECTION_TEARDOWN_IN_PROGRESS，data.operation=reclaim/purge）。",
         "x-tier0-audience": "platform",
         "x-tier0-starter": false,
         "x-tier0-readonly": false,
@@ -7510,10 +7536,9 @@
         "tags": [
           "处理流"
         ],
-        "description": "按 code 和接收方（仅 app/user）读取授权、当前发布绑定和权限上限，返回用于并发校验的 snapshotToken。当前管理会话或 full_access 个人/Agent Key 可用，需 stream.requests.manage（授权配置）和 uns.source.manage；App 与服务 Key 不可配置授权。不返回 Source 配置或凭据。",
+        "description": "按 code 和接收方（仅 app/user）读取授权、当前发布绑定和权限上限，返回用于并发校验的 snapshotToken。当前管理会话或具有当前管理权限的 full_access 个人、Agent、service Key 可用，需 stream.requests.manage（授权配置）。平台系统 Key 使用自身权限，不查询对话人角色；Builder 可管理同一工作区内的 App，当前绑定 App 只表示构建上下文。授予动作不能超出当前 Key 权限，App 运行 Key 与受限 OAuth Key 不可配置授权。不返回 Source 配置或凭据。",
         "x-tier0-audience": "governance",
         "x-tier0-starter": false,
-        "x-tier0-mcp": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -7695,7 +7720,6 @@
         "description": "使用 get 返回的 expectedSnapshotToken 原子修改授权，无需回传全部目标版本。active=1 新增或更新，actions 仅允许 stream.requests.read、stream.requests.invoke、stream.requests.write，write 需要 invoke。资源“管理”包含查看、调用和写操作；stream.requests.manage 是调用方的授权配置能力。active=2 撤销全部历史目标，actions 必须为空，不依赖接收方或当前发布在线。保留旧版本字段兼容，两种校验方式互斥。版本冲突或响应丢失后先重新读取、核对当前状态，再确认是否修改，不能盲目覆盖。",
         "x-tier0-audience": "governance",
         "x-tier0-starter": false,
-        "x-tier0-mcp": false,
         "x-tier0-readonly": false,
         "x-tier0-destructive": false
       }
@@ -7806,7 +7830,6 @@
         "description": "服务端汇总已配置入口、Stream 名称、授权动作及当前受阻原因。默认仅返回尚未撤销的授权，includeInactive=1 包含撤销项。结果是当前授权状态快照，执行仍会复核；不会因此扩大 App 的全局权限上限。",
         "x-tier0-audience": "governance",
         "x-tier0-starter": false,
-        "x-tier0-mcp": false,
         "x-tier0-readonly": true,
         "x-tier0-destructive": false
       }
@@ -15968,7 +15991,7 @@
     },
     "/stream-requests/{requestCode}/invoke": {
       "post": {
-        "description": "按公开合同调用Stream 请求；原始 body 为有效 UTF-8，最多 1MiB 字节；可选 idempotencyKey 解码后最多 128 UTF-8 字节，是否必填由冻结合同决定。返回 code、contractVersion、result、runID、status、replayed(boolean)，不返回内部运行绑定。结果未知返回 HTTP 504，errorCode=STREAM_REQUEST_RESULT_UNKNOWN；未知内部错误返回 HTTP 500，errorCode=STREAM_REQUEST_INTERNAL_ERROR，message 不泄漏内部异常",
+        "description": "调用已发布 Stream 入口。新入口默认执行一次，不自动重跑；业务校验、幂等、重试和补偿由代码处理。可选 idempotencyKey 仅用于同一次调用的传输去重，重试须复用原键；旧显式合同保留原约束。原始 body 为有效 UTF-8，最多 1MiB 字节，idempotencyKey 解码后最多 128 UTF-8 字节。返回 code、contractVersion、result、runID、status、replayed(boolean)，不返回内部运行绑定。结果未知返回 HTTP 504，errorCode=STREAM_REQUEST_RESULT_UNKNOWN；未知内部错误返回 HTTP 500，errorCode=STREAM_REQUEST_INTERNAL_ERROR，message 不泄漏内部异常",
         "operationId": "PlatformV2StreamRequestInvoke",
         "parameters": [
           {
@@ -17704,7 +17727,7 @@
       },
       "SourceDefinition": {
         "additionalProperties": false,
-        "description": "Unified Source connection. Choose the matching protocol object; edge-sql uses one of sql.query (preset) or sql.queries (named). Query the target protocol catalog for installed execution, TLS and state capabilities.",
+        "description": "Unified Source connection. Choose the matching protocol object. Query the target protocol catalog for installed execution, TLS and state capabilities.",
         "properties": {
           "credentialRef": {
             "description": "Opaque existing credential reference returned for authorized editing and accepted on input. It contains no secret. Provision secrets only through create.credentials or credentials/update; secret material is never returned in the document.",
@@ -24889,28 +24912,13 @@
           }
         },
         "type": "object",
-        "oneOf": [
-          {
-            "required": [
-              "query"
-            ],
-            "not": {
-              "required": [
-                "queries"
-              ]
-            }
-          },
-          {
-            "required": [
-              "queries"
-            ],
-            "not": {
-              "required": [
-                "query"
-              ]
-            }
-          }
-        ]
+        "not": {
+          "required": [
+            "query",
+            "queries"
+          ]
+        },
+        "description": "Cloud database connection. Omit query and queries to create a connection without SQL resources. Declare either a preset or named queries before reading data."
       },
       "WMSMapping": {
         "additionalProperties": false,
@@ -25400,7 +25408,7 @@
       },
       "SourceDefinitionPatch": {
         "additionalProperties": false,
-        "description": "Unified Source connection. Choose the matching protocol object; edge-sql uses one of sql.query (preset) or sql.queries (named). Query the target protocol catalog for installed execution, TLS and state capabilities.",
+        "description": "Unified Source connection. Choose the matching protocol object. Query the target protocol catalog for installed execution, TLS and state capabilities.",
         "properties": {
           "credentialRef": {
             "description": "Opaque existing credential reference returned for authorized editing and accepted on input. It contains no secret. Provision secrets only through create.credentials or credentials/update; secret material is never returned in the document.",
@@ -30416,13 +30424,44 @@
               },
               "securityMode": {
                 "type": "string",
-                "const": "SignAndEncrypt"
+                "enum": [
+                  "SignAndEncrypt",
+                  "None"
+                ]
               },
               "securityPolicy": {
                 "type": "string",
-                "const": "Basic256Sha256"
+                "enum": [
+                  "Basic256Sha256",
+                  "None"
+                ]
               }
-            }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "securityMode": {
+                      "const": "None"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "securityPolicy": {
+                      "const": "None"
+                    }
+                  }
+                },
+                "else": {
+                  "properties": {
+                    "securityPolicy": {
+                      "const": "Basic256Sha256"
+                    }
+                  }
+                }
+              }
+            ]
           }
         }
       },
@@ -35571,7 +35610,13 @@
             "type": "string"
           },
           "idempotency": {
-            "type": "string"
+            "description": "仅旧显式执行合同返回",
+            "type": "string",
+            "enum": [
+              "none",
+              "optional",
+              "required"
+            ]
           },
           "inputSchema": {
             "additionalProperties": {},
@@ -35585,7 +35630,12 @@
             "type": "object"
           },
           "sideEffect": {
-            "type": "string"
+            "description": "仅旧显式执行合同返回",
+            "type": "string",
+            "enum": [
+              "read",
+              "write"
+            ]
           },
           "status": {
             "type": "string"
@@ -35601,12 +35651,34 @@
           "contractVersion",
           "inputSchema",
           "outputSchema",
-          "sideEffect",
-          "idempotency",
           "timeoutMs",
           "status"
         ],
-        "type": "object"
+        "type": "object",
+        "oneOf": [
+          {
+            "required": [
+              "sideEffect",
+              "idempotency"
+            ]
+          },
+          {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "sideEffect"
+                  ]
+                },
+                {
+                  "required": [
+                    "idempotency"
+                  ]
+                }
+              ]
+            }
+          }
+        ]
       },
       "PlatformSendNotificationReq": {
         "properties": {
@@ -35820,7 +35892,7 @@
       "PlatformStreamRequestInvokeReq": {
         "properties": {
           "idempotencyKey": {
-            "description": "解码后的 UTF-8 字节数最多 128；是否必填由冻结合同决定",
+            "description": "可选传输去重键，最多 128 UTF-8 字节；同一次调用重试复用原键，旧显式合同保留原约束",
             "type": "string"
           },
           "input": {}

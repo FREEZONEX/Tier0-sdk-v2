@@ -8,6 +8,12 @@ const upcastUnknownError: StreamRequestError = unknownRequestError;
 void [baseUnknownFlag, unknownFlag, upcastUnknownError.outcomeUnknown];
 
 const request = client.streams.requests.use<{ value: number }, { accepted: boolean }>({ code: 'pump.start' });
+void request.invoke({ value: 1 });
+void request.describe().then(metadata => {
+  const effect: 'read' | 'write' | undefined = metadata.sideEffect;
+  const policy: 'none' | 'optional' | 'required' | undefined = metadata.idempotency;
+  void [effect, policy];
+});
 void request.invoke({ value: 1 }, { idempotencyKey: 'one-intent' }).then(result => {
   const status: 'completed' = result.status;
   void status;

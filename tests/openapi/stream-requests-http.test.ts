@@ -114,6 +114,20 @@ describe('StreamRequest real HTTP fixture (no external credentials)', () => {
     expect(received[start].path).toBe('/openapi/v2/stream-requests/pump.start/invoke');
   });
 
+  it('discovers ordinary and legacy requests, describes and invokes without injecting a deduplication key', async () => {
+    const { sideEffect: _effect, idempotency: _policy, ...ordinary } = definition;
+    const start = received.length;
+    respond = (req, res) => {
+      if (req.url?.endsWith('/discover')) send(res, { total: 2, list: [ordinary, definition] });
+      else if (req.url?.endsWith('/describe')) send(res, ordinary);
+      else send(res, result);
+    };
+    expect(await client.streams.requests.discover()).toEqual({ total: 2, list: [ordinary, definition] });
+    expect(await control().describe()).toEqual(ordinary);
+    expect(await control().invoke({ value: 1 })).toEqual(result);
+    expect(received.slice(start).map(request => request.body)).toEqual([{}, {}, { input: { value: 1 } }]);
+  });
+
   it.each(['unknown', 'failed', 'succeeded', 'running'])
   ('rejects actual HTTP 200 with non-success status %s, retaining receipts and one POST', async status => {
     const start = received.length;

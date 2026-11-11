@@ -54,6 +54,31 @@ describe('Cloud StreamRequest single-attempt transport', () => {
     expect(fetch.mock.calls[0][1].body).toEqual(fetch.mock.calls[1][1].body);
   });
 
+  it('accepts ordinary request metadata without legacy policy and preserves mixed discovery results', async () => {
+    const { sideEffect: _effect, idempotency: _policy, ...ordinary } = contract;
+    const fetch = vi.fn().mockResolvedValueOnce(reply(ordinary))
+      .mockResolvedValueOnce(reply({ total: 2, list: [ordinary, contract] }));
+    vi.stubGlobal('fetch', fetch);
+    expect(await handle().describe()).toEqual(ordinary);
+    expect(await client().streams.requests.discover()).toEqual({ total: 2, list: [ordinary, contract] });
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    { sideEffect: undefined }, { idempotency: undefined },
+    { sideEffect: '', idempotency: '' }, { sideEffect: 'other' }, { idempotency: 'other' },
+    { sideEffect: null, idempotency: null }, { sideEffect: undefined, idempotency: undefined, contractVersion: '' },
+    { sideEffect: undefined, idempotency: undefined, timeoutMs: 0 },
+  ])('rejects malformed request metadata without weakening other response checks: %j', async changes => {
+    const invalid = { ...contract, ...changes };
+    const fetch = vi.fn().mockResolvedValueOnce(reply(invalid))
+      .mockResolvedValueOnce(reply({ total: 1, list: [invalid] }));
+    vi.stubGlobal('fetch', fetch);
+    await expect(handle().describe()).rejects.toMatchObject({ errorCode: 'STREAM_REQUEST_PROTOCOL_ERROR' });
+    await expect(client().streams.requests.discover()).rejects.toMatchObject({ errorCode: 'STREAM_REQUEST_PROTOCOL_ERROR' });
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
   it('never invents an idempotency key or fetches a contract before invocation', async () => {
     const fetch = vi.fn().mockResolvedValue(reply(result));
     vi.stubGlobal('fetch', fetch);

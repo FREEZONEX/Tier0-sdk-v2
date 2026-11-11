@@ -23,15 +23,17 @@ description: 使用 @tier0/sdk-v2 的 client.stream 创建和编辑 Stream、绑
 
 ## 程序与数据边界
 
-- 周期采集用 `api.stream.onTimer`（`every` 同义）；Source 事件用 `onMessage`；UNS Topic 变化用 `onEvent`；按需调用用带 request 合同的 `onRequest`。实时业务消息使用 `api.stream.messages`。
+- 周期采集用 `api.stream.onTimer`（`every` 同义）；Source 事件用 `onMessage`；UNS Topic 变化用 `onEvent`；按需调用用 `onRequest`。实时业务消息使用 `api.stream.messages`。
 - 创建/修改接受互斥的 `program` 简写或原生 `document`，两者 script 都是 `{code,timeoutMs}`。program 使用 sourceBindings；原生 document 使用 sources 的 alias/resources。完整脚本为 `module.exports = api => { ... }`，Cloud timeoutMs 上限 30000。
 - `resources:[]` 不代表任意协议资源授权；当前 Cloud HTTP client 会按通用 HTTP request 合同处理。原生操作应绑定目录中的精确资源。
 - `return` 只返回处理结果。落库须显式 Collection `write`，使用符合 schema 的对象和稳定 recordId；缓冲写意图不等于已提交。
 - 保存草稿、发布成功、真实执行和业务提交分别确认。sampleTest 的 writePreview 不写线上数据。
 
-## 当前 Cloud 调用限制
+## 按需请求与 HTTP
 
-交互式 `onRequest` 使用通用 HTTP `source.request` 时，即使方法为 GET，仍需 `sideEffect:"write"`、`idempotency:"required"`。厂商认证 Source 的通用 request 尚未贯通，使用该 Source 目录支持的原生操作；自定义路径不能仅改成 vendor 资源名。配置不兼容按 reason/path/repair 修正，不通过扩大 Builder 权限处理，也不把按需任务一律改成定时采集。
+支持简化请求合同的后端用 `api.stream.onRequest({id}, handler)` 注册普通请求，超时沿用 script.timeoutMs，无需声明业务 sideEffect、idempotency、schema 或版本。平台默认执行一次，不自动重跑 handler；业务校验、普通调用异常的 catch、重试、幂等与补偿由代码处理。可选调用键只用于同次请求的传输去重，历史发布保留原合同。最小示例见 [Stream 交互](../tier0-sdk-v2-streams/SKILL.md#stream-端对应入口)。
+
+HTTP 读写权限按实际操作检查，GET/HEAD 不因使用 onRequest 而要求写声明；权限、凭据、资源边界和执行限额仍生效。当前 Cloud 的厂商认证 Source 不支持通用 source.request，应使用其目录中的原生操作，或能表达真实认证的普通 HTTP Source。自定义路径不能仅改成 vendor 资源名；不兼容按 reason/path/repair 修正。
 
 ## 修订与执行结局
 
