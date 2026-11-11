@@ -19,10 +19,10 @@ Source 保存连接与认证，Stream 执行采集或业务逻辑，Collection �
 安装正式版：
 
 ```sh
-npm install @tier0/sdk-v2@0.11.0
+npm install @tier0/sdk-v2@0.12.0
 ```
 
-维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `tier0-sdk-v2-0.11.0.tgz`。
+维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `tier0-sdk-v2-0.12.0.tgz`。
 
 个人 Key 可直接读取已有集合，无需创建平台 App；网关配置、运行示例与排错见[本地连接指南](skills/tier0-sdk-v2/references/local-connection.md)。
 
