@@ -13,12 +13,6 @@
       "minPermission": 3
     },
     {
-      "name": "appStreamAccessList",
-      "permission": "stream.requests.manage",
-      "scope": "stream.requests:manage",
-      "minPermission": 3
-    },
-    {
       "name": "sourceDevicesList",
       "permission": "uns.source.view",
       "scope": "source:read",
@@ -230,6 +224,12 @@
     },
     {
       "name": "streamRequestGrantSet",
+      "permission": "stream.requests.manage",
+      "scope": "stream.requests:manage",
+      "minPermission": 3
+    },
+    {
+      "name": "appStreamAccessList",
       "permission": "stream.requests.manage",
       "scope": "stream.requests:manage",
       "minPermission": 3

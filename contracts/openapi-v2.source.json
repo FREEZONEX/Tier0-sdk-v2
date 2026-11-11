@@ -21784,6 +21784,11 @@
                 "stream_inactive",
                 "binding_unavailable",
                 "deployer_unavailable",
+                "execution_identity_denied",
+                "execution_identity_unavailable",
+                "execution_identity_mismatch",
+                "runtime_unavailable",
+                "source_binding_unavailable",
                 "state_changed",
                 "grant_insufficient",
                 "app_stream_ceiling",
@@ -21792,7 +21797,7 @@
               ]
             },
             "uniqueItems": true,
-            "description": "当前不可用的原因；app_stream_ceiling 表示工作区套餐不含该动作（App 本身固定拥有 Stream 请求能力，没有按 App 的上限配置）。"
+            "description": "当前不可用的原因。execution_identity_denied 表示 SYS 拒绝执行身份；execution_identity_unavailable 表示身份服务不可用；execution_identity_mismatch 表示身份响应不匹配；runtime_unavailable 表示运行时不可用；source_binding_unavailable 表示 Source 状态、访问权限或凭据绑定不可用。deployer_unavailable 仅兼容旧服务。app_stream_ceiling 表示工作区套餐不含该动作。"
           },
           "revision": {
             "type": "integer",

@@ -38,3 +38,15 @@ export async function readPublishedRuns(
 `SOURCE_TARGET_SCOPE_MISMATCH` 指请求超出 Source 绑定范围。`sourceRequest:notDispatched` 只证明该次请求未发送，不能推断整个 Stream 没有先前副作用。`SOURCE_HTTP_401` 等表示宿主观察到上游响应，仍可能与最终 unknown 同时出现；`RESULT_UNKNOWN` 不允许自动重试。
 
 `completed` 可能零输出。采集落库要按稳定键读回目标 Record/Sample；读回失败作为独立证据缺口，不覆盖已确认的运行结局。业务提交后消息发布失败也不撤销已提交记录。旧记录未给具体 error 时保留未知，不拼造原因。
+
+App Stream 授权列表的 `blockedReasons` 区分下列原因；`configuredActive:1` 只说明配置授权有效，不保证当前能执行。
+
+| 原因 | 含义 |
+| --- | --- |
+| `execution_identity_denied` | SYS 拒绝当前执行身份 |
+| `execution_identity_unavailable` | 身份服务不可用 |
+| `execution_identity_mismatch` | 身份响应与请求不匹配 |
+| `runtime_unavailable` | 执行运行时不可用 |
+| `source_binding_unavailable` | Source 状态、访问权限或凭据绑定不可用 |
+
+旧服务的 `deployer_unavailable` 没有这些区分，不能据此断定 Builder 权限不足。保留原始原因与 requestId，恢复依赖或修正实际配置后再验证。
