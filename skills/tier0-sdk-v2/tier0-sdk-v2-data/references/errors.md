@@ -53,7 +53,8 @@ updateMany/deleteMany 部分失败的 details 是累计结果（matchedCount、m
 | REQUIRED_NOT_ENFORCED | 存储仍可选，回填后才能收紧 |
 | INDEX_BUILD_FAILED | 检查违反唯一约束的现存记录 |
 | APP_DATA_POLICY_DISABLED / APP_GRANT_REVOKED | 明确停用/撤权，不能自动恢复 |
-| COLLECTION_NOT_GRANTED / APP_PERMISSION_MISSING | 核对 App 的具体集合及操作权限 |
+| COLLECTION_NOT_GRANTED | 授权不覆盖该集合或操作（见 collectionId/permission）；按任务所需补授权，不必找管理员：Builder 用 appDataPolicyGet/appDataPolicyUpdate [添加](../../tier0-sdk-v2-uns/references/update.md#已有集合授权给-app)，或由有 App 数据管理权限的人在 App 设置 → 数据中添加 |
+| APP_PERMISSION_MISSING | 核对 App 的具体操作权限（data.missingPermission） |
 | OWNER_APP_TRASHED / DIRECTORY_IN_TRASH | 从原 App/目录恢复回收批次 |
 | APP_NOT_READY / DEPENDENCY_UNAVAILABLE / CREDENTIAL_CHANGED | 当前依赖暂不可用，遵循 execution/retry |
 | QUERY_TIMEOUT | 缩小查询范围或增加适用索引，不能盲重试 |

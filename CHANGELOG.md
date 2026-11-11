@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- COLLECTION_NOT_GRANTED guidance no longer says only a workspace admin can add grants; the built-in Builder grants task-required access with appDataPolicyUpdate (uns-swe#965).
+
 ## 0.12.0 (2026-11-11)
 
 - Support minimal Stream request contracts that omit both `sideEffect` and `idempotency`; legacy explicit contracts retain both fields and their existing constraints. The corresponding public TypeScript properties are now optional.
