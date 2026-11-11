@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.0 (2026-11-11)
+
+- Breaking: `Visitor.subType` is only `employee`. `parseVisitorHeader()` refuses every other identity, including old machine headers with or without a grant. Employee grants remain mandatory (1–128 bytes); canonical encoding, field validation and App binding are unchanged. No machine alias or compatibility API is provided.
+- Built on 0.10.1: keeps its committed Backend contract `07ef8cd30a5465a98c8e6ee0892d02360aee8761` and the unified Builder grant guidance, without editing generated contracts. App Key authentication (`TIER0_API_KEY` → one `X-API-Key`), employee roles, data cancellation, data and Stream APIs are unchanged.
+- Existing deployed Apps retain their bundled parser. Retiring machine entry points and stripping untrusted identity headers at the platform front door invalidates old call tokens without republishing those Apps; updating this package alone does not secure an alternate ingress.
+
 ## 0.10.1-aenv.13 (local remove-apps-in-use integration)
 
 - Rebase the employee-only visitor cutover onto 0.10.1, retaining its committed Backend contract `07ef8cd30a5465a98c8e6ee0892d02360aee8761` and unified Builder grant guidance without editing generated contracts.
