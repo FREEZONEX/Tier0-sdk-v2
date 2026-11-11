@@ -10,8 +10,9 @@ export interface PublicStreamRequest extends Omit<components['schemas']['PublicS
   contractVersion: string;
   inputSchema: Record<string, StreamJSON>;
   outputSchema: Record<string, StreamJSON>;
-  sideEffect: 'read' | 'write';
-  idempotency: 'none' | 'optional' | 'required';
+  /** Legacy explicit contract metadata; omitted together for ordinary requests. */
+  sideEffect?: 'read' | 'write';
+  idempotency?: 'none' | 'optional' | 'required';
   timeoutMs: number;
   status: string;
 }
@@ -34,7 +35,7 @@ export interface StreamRequestTransportConfig extends StreamTransportConfig {}
 export const DEFAULT_STREAM_REQUEST_TRANSPORT_TIMEOUT_MS = DEFAULT_STREAM_TRANSPORT_TIMEOUT_MS;
 
 export interface StreamRequestInvokeOptions {
-  /** Stable caller-owned key for one business intent, at most 128 UTF-8 bytes. Never generated or retried by the SDK. */
+  /** Optional transport deduplication key for the same invocation, at most 128 UTF-8 bytes. Legacy contracts may require it. Never generated or retried by the SDK. */
   idempotencyKey?: string;
 }
 
@@ -122,10 +123,12 @@ function json(value: unknown, seen = new Set<unknown>()): boolean {
 
 function definition(value: unknown): value is PublicStreamRequest {
   if (!record(value)) return false;
+  const legacyPolicy = value.sideEffect === undefined && value.idempotency === undefined ||
+    ['read', 'write'].includes(value.sideEffect as string) &&
+    ['none', 'optional', 'required'].includes(value.idempotency as string);
   return ['code', 'name', 'description', 'contractVersion', 'status'].every(key => typeof value[key] === 'string') &&
     value.code !== '' && value.contractVersion !== '' && record(value.inputSchema) && record(value.outputSchema) &&
-    ['read', 'write'].includes(value.sideEffect as string) &&
-    ['none', 'optional', 'required'].includes(value.idempotency as string) &&
+    legacyPolicy &&
     typeof value.timeoutMs === 'number' && Number.isSafeInteger(value.timeoutMs) && value.timeoutMs > 0;
 }
 

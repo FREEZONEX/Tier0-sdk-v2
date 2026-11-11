@@ -28,6 +28,8 @@ description: 使用 @tier0/sdk-v2 的 client.stream 创建、查询、修改和�
 
 程序必须是完整 `module.exports = api => { ... }`，执行器 API 是 api.sources/api.uns/api.stream，与 npm 包的 client.source 不同。Runtime sourceBindings 为 sourceId/configRevision/acquisition；原生 sources 还使用 alias/resources。连接凭据不进脚本或 acquisition，秘密材料由 Source 执行宿主管理，不通过脚本读取、记录或返回。定时入口使用 api.stream.every，不传播旧注册别名；App 请求与消息交互由本包 @tier0/sdk-v2 的 client.streams.requests/messages 提供，不作为 Goja 注册参数。
 
+支持简化请求合同的后端用 `api.stream.onRequest({id}, handler)` 注册普通按需请求，超时沿用 script.timeoutMs，无需声明业务 sideEffect、idempotency、schema 或版本。平台默认执行一次，不自动重跑 handler；业务校验、普通调用异常的 catch、重试、幂等与补偿由代码处理。可选调用去重键只处理同次请求的传输重放，历史发布保留原合同。最小示例与调用方式见 [Stream 交互](../tier0-sdk-v2-streams/SKILL.md)。
+
 ## 核心约束
 
 1. documents.get({id,view:"summary"}) 返回安全摘要，不含可回写脚本；完整编辑使用 documents.get 或上次 documents.create/update 返回的完整文档。保留未修改的 sources/entries/script 字段。

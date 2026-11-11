@@ -55,7 +55,7 @@ export interface paths {
         put?: never;
         /**
          * Invoke Stream request
-         * @description 按公开合同调用Stream 请求；原始 body 为有效 UTF-8，最多 1MiB 字节；可选 idempotencyKey 解码后最多 128 UTF-8 字节，是否必填由冻结合同决定。返回 code、contractVersion、result、runID、status、replayed(boolean)，不返回内部运行绑定。结果未知返回 HTTP 504，errorCode=STREAM_REQUEST_RESULT_UNKNOWN；未知内部错误返回 HTTP 500，errorCode=STREAM_REQUEST_INTERNAL_ERROR，message 不泄漏内部异常
+         * @description 调用已发布 Stream 入口。新入口默认执行一次，不自动重跑；业务校验、幂等、重试和补偿由代码处理。可选 idempotencyKey 仅用于同一次调用的传输去重，重试须复用原键；旧显式合同保留原约束。原始 body 为有效 UTF-8，最多 1MiB 字节，idempotencyKey 解码后最多 128 UTF-8 字节。返回 code、contractVersion、result、runID、status、replayed(boolean)，不返回内部运行绑定。结果未知返回 HTTP 504，errorCode=STREAM_REQUEST_RESULT_UNKNOWN；未知内部错误返回 HTTP 500，errorCode=STREAM_REQUEST_INTERNAL_ERROR，message 不泄漏内部异常
          */
         post: operations["PlatformV2StreamRequestInvoke"];
         delete?: never;
@@ -120,7 +120,11 @@ export interface components {
             code: string;
             contractVersion: string;
             description: string;
-            idempotency: string;
+            /**
+             * @description 仅旧显式执行合同返回
+             * @enum {string}
+             */
+            idempotency?: "none" | "optional" | "required";
             inputSchema: {
                 [key: string]: unknown;
             };
@@ -128,16 +132,20 @@ export interface components {
             outputSchema: {
                 [key: string]: unknown;
             };
-            sideEffect: string;
+            /**
+             * @description 仅旧显式执行合同返回
+             * @enum {string}
+             */
+            sideEffect?: "read" | "write";
             status: string;
             timeoutMs: number;
-        };
+        } & (unknown | unknown);
         NotificationError: {
             errorCode: string;
             message: string;
         };
         StreamRequestInvokeReq: {
-            /** @description 解码后的 UTF-8 字节数最多 128；是否必填由冻结合同决定 */
+            /** @description 可选传输去重键，最多 128 UTF-8 字节；同一次调用重试复用原键，旧显式合同保留原约束 */
             idempotencyKey?: string;
             input: unknown;
         };

@@ -42,7 +42,7 @@ export async function openOrders(
   const request = sdk.streams.requests.use<{ orderId: string }, { accepted: boolean }>({ code: 'orders.approve' });
   return {
     describe: () => request.describe(),
-    approve: (orderId: string, savedIntentId: string) => request.invoke({ orderId }, { idempotencyKey: savedIntentId }),
+    approve: (orderId: string) => request.invoke({ orderId }),
     async dispose() {
       await subscription.dispose();
       removeErrorHandler();
@@ -52,7 +52,7 @@ export async function openOrders(
 }
 ```
 
-Persist one caller-owned idempotency key per business intent. A deliberate reconciliation/replay reuses that key. The SDK never generates a request idempotency key, selects deployment versions or retries a write. An unknown result means execution may have happened; reconcile the returned run metadata before any further business action.
+Use a known published request code; discover it if unknown rather than guessing it from the handler ID. Ordinary requests on a Backend with the simplified request contract need only `invoke(input)`. Each call is independent and the platform starts the handler once, without automatic business retries. Optional `idempotencyKey` deduplicates an intentional retransmission of the same invocation: reuse both its key and input. Business idempotency, retries and compensation belong in business code. Existing releases keep their original contracts, including a required key when declared. The SDK never invents a key, selects deployment versions or retries a request. An unknown result means execution may have happened; use the returned run metadata when deciding recovery.
 
 ## Live message lifecycle
 
@@ -64,6 +64,18 @@ Register `messages.onError` (or subscription `onError`) to handle asynchronous b
 
 ## Stream-side code
 
-Current Cloud Source/Stream documents omit `sdkVersion` and `configVersion` selectors. When the coordinated request/message runtime is deployed, request registration uses `api.stream.onRequest({ id, request }, handler)`; business-message consumers use `api.stream.messages.subscribe({ id, topic, inputSchema }, handler)`. Declare each outgoing logical topic with `api.stream.messages.use({ topic, access: 'publish' })` before calling `api.stream.messages.publish({ topic, payload })`. The current `api.stream.onMessage` remains a Source-event handler, not a business-message subscription.
+Current Cloud Source/Stream documents omit `sdkVersion` and `configVersion` selectors. On a Backend with the simplified request contract, ordinary request registration needs only an ID and handler; timeout comes from the program's `script.timeoutMs`. No business side-effect classification, idempotency policy, input/output schema or contract version is required:
+
+```js
+module.exports = api => {
+  api.stream.onRequest({ id: 'echo' }, async ctx => {
+    return ctx.input;
+  });
+};
+```
+
+Validate business input, catch ordinary call failures, retry or compensate in the handler as needed. Platform authorization, credential and resource boundaries, execution limits and run receipts still apply. A program returning upstream data does not persist it; write explicitly to a declared Collection when persistence is required.
+
+Timers add `intervalMs`; Source-event `onMessage` adds `source` / `resourceRefs` and protocol acquisition options; HTTP inbound `onRequest` adds `source` / `method` / `path`. Business-message consumers use `api.stream.messages.subscribe({ id, topic, inputSchema }, handler)`. Declare each outgoing logical topic with `api.stream.messages.use({ topic, access: 'publish' })` before calling `api.stream.messages.publish({ topic, payload })`. `api.stream.onMessage` is a Source-event handler, not a business-message subscription.
 
 Use the [Stream management Skill](../tier0-sdk-v2-stream/SKILL.md) for creating and deploying a program. Historical documents may be displayed as immutable history; do not submit them as current write/validation fixtures or infer that current deployments provide the new message runtime.
