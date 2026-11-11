@@ -1,8 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.12.1 (2026-11-11)
 
 - COLLECTION_NOT_GRANTED guidance no longer says only a workspace admin can add grants; the built-in Builder grants task-required access with appDataPolicyUpdate (uns-swe#965).
+- Clarify HTTP Source URL and query forwarding, repeated query values, and how to distinguish platform errors from upstream HTTP responses.
 
 ## 0.12.0 (2026-11-11)
 
