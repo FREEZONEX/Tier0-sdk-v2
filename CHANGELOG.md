@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.0 (2026-11-11)
+
+- Support minimal Stream request contracts that omit both `sideEffect` and `idempotency`; legacy explicit contracts retain both fields and their existing constraints. The corresponding public TypeScript properties are now optional.
+- Describe optional transport deduplication keys and single-attempt invocation semantics; the SDK does not generate keys or automatically retry invocations.
+- Synchronize the Stream interaction contract to Backend `df1bd75bd98d1c619c990c1cdeb63a4c4334851d`, preserve SQL query field exclusions in generated types, and simplify bundled Source, Stream and Collection guidance.
+
 ## 0.11.0 (2026-11-11)
 
 - Breaking: `Visitor.subType` is only `employee`. `parseVisitorHeader()` refuses every other identity, including old machine headers with or without a grant. Employee grants remain mandatory (1–128 bytes); canonical encoding, field validation and App binding are unchanged. No machine alias or compatibility API is provided.
