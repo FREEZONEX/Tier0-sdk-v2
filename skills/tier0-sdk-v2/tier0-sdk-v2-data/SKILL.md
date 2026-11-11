@@ -1,77 +1,34 @@
 ---
 name: tier0-sdk-v2-data
-description: 使用 @tier0/sdk-v2/data 在 App 服务端声明并读写本 App 的 UNS 集合：Zod 建模、种子与 TTL、Mongo 风格读写、带总数分页与分组计数、原子批量与事务、变更订阅与转发给浏览器、Schema 演进和错误码处理。
+description: 使用 @tier0/sdk-v2/data 在 App 服务端声明或引用 Collection，读写业务记录，处理分页、索引、事务、订阅、Schema 演进和失败恢复。
 ---
 
-# App 数据层
+# App Collection 数据层
 
-创建 App 集合必须在 `defineCollection` 中声明 `directoryPath`：从 Workspace 根开始的实际业务目录名称数组，例如已确认的 `['苏州工厂', '装配一线', 'MES']`（代码写法见下方）。工业场景先按[工业命名空间指导](../tier0-sdk-v2-uns/references/namespace.md)查询并复用已有 ISA-95 目录，只声明业务需要且已知的层级；不同集合按实际范围放置，共享数据放到共同祖先。ensure 按路径逐级复用或创建目录，不再把所有集合放入缺少业务范围的根级 App 目录；允许在已知工厂、产线等业务范围下声明 App 或业务模块目录，例如“工厂 / 产线 / MES / 工单”中的 MES。不强行补满五层，不编造企业、工厂或设备。非工业场景使用真实业务目录。
+Collection 持久化业务记录。App 服务端使用 `@tier0/sdk-v2/data`；需要外部采集时另用 Source 和 Stream。预览和部署共享同一批数据。
 
-`@tier0/sdk-v2/data` 是 App 业务数据的服务端入口：用 `defineCollection` 声明集合，`createDataClient` 在首次访问时一次性 ensure 全部声明，然后用 Mongo 驱动风格的集合句柄读写 UNS 记录。没有 SQL、ORM、连接串或迁移步骤；Preview 与部署后的 App 共用同一批集合和记录。
+## 选择集合入口
 
-所有数据调用都是 App 自身：平台不按当前用户收窄。按用户角色决定谁能看、能改哪些记录由 App 在服务端自己做，当前用户和角色从访问者头读（`@tier0/sdk-v2/server` 的 `parseVisitorHeader`，见[身份与框架集成](../references/integration.md)）。
+- 新建 App 自有集合：`defineCollection({alias,name,directoryPath,schema,...})`，把声明放入 `createDataClient({collections})`。首次访问自动 ensure 全部声明，创建缺失集合、合并兼容扩展；无需手工初始化标记。
+- 使用已有集合：`createDataClient({}).collection({collectionId})`，可带本地 schema。它不 ensure、不写种子、不改变所属关系，也不授予权限。Builder 关联目标 App 的授权，见 [已有集合授权](../tier0-sdk-v2-uns/references/update.md#已有集合授权给-app)。
+- 管理工作区目录、Schema 或一次性数据修复：使用 [原始 UNS 接口](../tier0-sdk-v2-uns/SKILL.md)。
 
-这里创建的集合以 `ownerAppId` 标识唯一所属 App。使用已有或其他 App 共享的集合时，用 `data.collection({ collectionId })` 获取句柄；可选 `schema` 仅做本地写入校验，不创建或修改集合。已有 ID 引用同样用于 `queryBatch`、`transact` 和 `subscribe`，不放入 `createDataClient` 的 `collections` 声明数组，不执行 ensure 或写种子。无需服务端 alias，仍须当前 App 已有相应集合授权；SDK 不授予权限，复用不改变所属关系。底层 [UNS](../tier0-sdk-v2-uns/SKILL.md) 的记录接口仍可直接按 ID 使用。
+已知 ID 时直接读写；需要发现集合和有效权限时调用 `client.uns.dataAppContext({})`。`dataState:"uninitialized"` 是新 App 正常空态，不必等到 ready 才开发。明确停用策略或撤权不能当初始化失败自动恢复。
 
-数据读写只在服务端代码（业务 service）里用 `@tier0/sdk-v2/data`：该入口依赖 Node 内置模块，浏览器打包会直接失败。组件和 route 的客户端代码只能从 `@tier0/sdk-v2/data/define` 取集合声明和类型（`defineCollection`、`Doc`、`NewDoc` 等），它不加载数据运行时，可以进浏览器包。需要 `zod` 4。底层调用 SDK 生成的 UNS 操作（`appCollectionsEnsure`、`recordFind`、`recordTransactionExecute` 等），Tier0 预览和部署里读平台注入的 TIER0_API_HOST 和 App 的 Key TIER0_API_KEY（种子在 ensure 时以 App 身份写入）；本地开发自己设这两个。
+## 运行方式
 
-Data 客户端创建时固定 Host 和 Key（含环境值），不支持 `getApiKey` 或 `apiKeyProvider`；切换身份、Host 或环境凭证时须新建客户端，不能让 bootstrap、重试或订阅状态跨身份复用。
+平台注入 `TIER0_API_HOST/TIER0_API_KEY`，SDK 以 App 身份调用。浏览器访问 App 自己的业务接口，服务端按可信访问者角色处理记录权限，见 [身份集成](../references/integration.md)。Builder 的管理身份与运行时 App 身份不同。
 
-服务端已从可信身份链取得某主体的有效 Key 时，可用 `createDataClient({ apiHost, apiKey })` 为该主体创建独立实例，通过 `collection({ collectionId })` 访问其已获授权的现有集合；不要跨主体共享该实例。Key 轮换后创建新实例。声明集合的 ensure/seed 仍由服务端判断凭证是否有权限，不因创建客户端而获得授权。
+数据运行时依赖 Node，只在服务端导入 `/data`。声明和类型可从 `/data/define` 导入浏览器；需要 Zod 4。每个进程、每组固定 Host/Key 使用一个 client；切换主体或轮换 Key 后新建实例。
 
-集合声明必须分别填写业务名称 `name` 与稳定程序标识 `alias`，例如 `name: '生产工单'`、`alias: 'production_orders'`。name 是唯一界面名称，没有 displayName 或 alias 回退；ensure 通过 alias 找回原集合，不覆盖用户改名。
+SDK 返回扁平文档 `{_id,...业务字段,_meta}`，原始 UNS 返回 `{id,data,revision,...}`。两者查询路径都直接使用业务字段，不加 data.。
 
-## 按任务加载参考
-
-| 用户任务 | 参考 |
+| 任务 | 参考 |
 | --- | --- |
-| 声明集合、选字段类型、索引、种子数据、文档建模 | [建模](references/modeling.md) |
-| 查询、按 ID 读取、一页一次请求（queryBatch）、分页、聚合、写入、批量与原子性、订阅变更并转发给浏览器 | [读写](references/read-write.md) |
-| 状态流转、并发编辑、跨文档不变量、计数器、请求中止与后台任务 | [一致性与请求上下文](references/consistency.md) |
-| 加字段、改类型、改描述、收窄 Schema | [Schema 演进](references/schema-evolution.md) |
-| DataError 字段、UNS 错误码与处理 | [错误码](references/errors.md) |
+| 声明/引用集合、Schema、业务目录、索引、TTL、种子 | [建模](references/modeling.md) |
+| 查询与写入、批量、分页、订阅和浏览器转发 | [读写](references/read-write.md) |
+| 状态流转、revision、跨集合事务、取消与初始化 | [一致性](references/consistency.md) |
+| 加字段、改类型、收窄结构 | [Schema 演进](references/schema-evolution.md) |
+| 错误与未知写入结果 | [错误处理](references/errors.md) |
 
-## 最小用法
-
-新 App 没有集合时是正常空态：`uns.dataAppContext({})` 返回 `dataState: "uninitialized"` 和空集合，不创建任何数据。无需先调用 context 或手工激活数据策略；声明真实业务集合后，第一次数据访问会自动初始化。`dataState: "ready"` 也不代表可访问整个工作空间，仍以返回的集合授权为准。引用已有 WMS 等集合时，由 Builder 以自身系统身份按 [已有集合授权流程](../tier0-sdk-v2-uns/references/update.md#已有集合授权给-app) 关联当前 App；不依赖对话用户的角色或确认。App 运行时凭证不能自行扩大授权，也不能创建同名空集合代替；授权删掉后下一个请求起被拒绝。管理员停用返回 `FORBIDDEN`、reason `APP_DATA_POLICY_DISABLED`，不得自动恢复。
-
-```ts
-import { z } from 'zod';
-import { createDataClient } from '@tier0/sdk-v2/data';
-import { defineCollection, type Doc } from '@tier0/sdk-v2/data/define';
-
-export const workOrders = defineCollection({
-  alias: 'work_orders',
-  name: '生产工单',
-  directoryPath: ['苏州工厂', '装配一线', 'MES'],
-  description: 'Production work orders',
-  schema: z.object({
-    code: z.string(),
-    status: z.enum(['DRAFT', 'RELEASED', 'DONE', 'CANCELLED']),
-    targetQty: z.number().int().min(1).meta({ format: 'int32' }),
-    dueAt: z.string(),
-  }),
-  indexes: [{ path: 'code', unique: true }, { path: 'status' }],
-});
-export type WorkOrder = Doc<typeof workOrders>;
-
-// 每个服务端进程一个 client：ensure 结果按 client 缓存。
-export const data = createDataClient({ collections: [workOrders] });
-
-export async function releasedOrders(): Promise<WorkOrder[]> {
-  return data.collection(workOrders).find({ status: 'RELEASED' }, { sort: { '_meta.createdAt': -1 }, limit: 50 }).toArray();
-}
-```
-
-示例假设“苏州工厂 / 装配一线 / MES”已由业务确认；替换为实际目录，不照抄示例工厂。每段为独立业务名称，不使用斜杠拼接。新建缺少路径会报 `INVALID_REQUEST`；已有 alias 可兼容省略路径，后续声明的路径变化不会自动搬迁集合，返回 `DIRECTORY_PATH_NOT_APPLIED` 提示。
-
-## 核心约束
-
-1. 声明文件只从 `@tier0/sdk-v2/data/define` 导入，客户端代码可以安全引用它；由 ensure 管理的自有集合放在一个 `collections` 列表里（每个 App 最多 64 个），只建一个进程级 client；不要手动 ensure、不要在 import 时访问数据、不要自建“已初始化”标记。
-2. 集合 Schema 是存储 Schema：只能用可存储的 Zod 子集，输入规则（格式、长度、默认值、transform）放在 API 入参 Schema。
-   新建数值字段明确选择 int（integer + int32）、float 或 double（number + 对应 format）；普通小数选 double，嵌套对象和数组元素同样处理。SDK 会为未标注的 integer/number 补齐 int32/double；直接 MCP 请求必须自行提供 format。
-3. 写入前按声明严格校验，未知字段、类型错误、未声明的更新路径直接抛 `ZodError`；读取不做严格解析，旧版本写入的字段、新枚举值或缺字段都可能出现。
-4. `insertMany` / `bulkWrite` / `transact` 每次最多 200 项且原子；`updateMany` / `deleteMany` 逐条提交、非原子。
-5. 按 `DataError.code` 与 `reason`（`data.reason`）分支，不匹配 message 文本；`status` 是 App 应回给自己调用方的 HTTP 状态。
-6. `schema:replace`、`archive`、`restore` 是 worker 通过 tier0 MCP 的显式操作，不在运行时代码里调用。
-7. 调用策略由数据层负责：每次调用从开始算最多 25 秒（排队、重试都算在内），每进程最多 6 个并发数据请求（其余排队，超时或业务请求中止时不再发出），UNS 标记 `retry.safe` 的失败（过载 429、暂时不可用 503、已回滚的写入冲突等）按 `retry.afterMs` 自动重试最多 2 次。每次写入调用自动带一个新的幂等键并在重试中复用，不需要手写；只有“同一业务意图跨多次调用只生效一次”（如按订单号预留库存）才显式传 `idempotencyKey`。不要在外面再包一层重试循环。
+普通写入由数据层生成幂等键并执行有依据的安全重试；同一业务意图需跨调用恢复时显式传稳定 idempotencyKey。不再外套无条件重试循环。

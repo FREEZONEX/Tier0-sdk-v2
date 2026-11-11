@@ -1,90 +1,52 @@
 # 创建 Stream
 
-方法：`stream.documents.create({program})`；POST `/openapi/v2/uns/streams/documents/create`。服务端编译并校验程序，回执包含完整草稿和修订，可直接用于下一步发布。
+`client.stream.documents.create` 保存草稿，不自动发布。传互斥的 `program` 或 `document`；dryRun 默认为 false，true 仅预检。已有 Source 回执和目标 Collection 时直接复用，不增加固定 probe/validate 步骤。
 
-| 字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| dryRun | boolean | 否 | 默认 false 提交；true 仅预检 |
-| program.name | string | 是 | 1–63 字符 |
-| program.script | object | 是 | code 为完整 module.exports 程序，timeoutMs 为超时 |
-| program.script.timeoutMs | integer | 是 | 当前云端上限 30000 ms |
-| program.sourceBindings | array | 否 | sourceId、configRevision、acquisition |
-| idempotencyKey | string | 否 | 最多 128 字符，本次创建的固定意图键 |
+## 周期 HTTP 采集示例
 
-## HTTP Client Source 绑定示例
-
-先按[Source 查询](../../tier0-sdk-v2-source/references/read.md)选定真实 HTTP Client Source。脚本的 api.sources 属于平台执行器，与应用中的 client.source 不同。sourceId 保持字符串，configRevision 使用 Source 创建、更新回执或完整查询得到的修订。已有回执时直接传入 source；没有快照时再调用 source.documents.get({id,view:"full"}) 并检查 data.document。省略 `role` 时按正式协议目录默认为 client；Server 走入站语义，不能创建为主动请求程序。
-
-Source 负责基址和认证，Stream 负责请求的 method/path/query。以下示例与 [Source Bearer 创建](../../tier0-sdk-v2-source/references/create.md#http-client-bearer-凭据)配合：Source endpoint 为 `https://inventory.example.com/api/v1`，凭据使用默认基址绑定；实际请求是 `GET https://inventory.example.com/api/v1/inventory?limit=5000`。已有 Source 的凭据若只绑定精确 URL `/api/v1` 的 GET，不能用于此子路径；不要通过改写请求为 REQUEST 或自动扩大凭据授权来绕过拒绝。
+Source 为通用 HTTP client，保存基址和认证。按上游合同调整 path、分页、周期和数据映射；本例只处理最多 40 条的单批，不表示全量采集。
 
 ```ts
-import { createClient, type Tier0Client, type RuntimeStreamDefinition, type CloudSourceDocumentView } from '@tier0/sdk-v2';
+import { createClient, type Tier0Client, type CloudSourceDocumentView } from '@tier0/sdk-v2';
 
 export async function createHttpStream(
-  source: CloudSourceDocumentView, collectionId: string, name: string, intentKey: string, client: Tier0Client = createClient(),
+  source: CloudSourceDocumentView, collectionId: string, name: string, intentKey: string,
+  client: Tier0Client = createClient(),
 ) {
-  if (!collectionId.trim()) throw new Error('需要实际 Collection ID');
-  const sourceId = source.id;
-  if (!/^[1-9][0-9]*$/.test(sourceId)) throw new Error('Source ID 必须是正十进制字符串');
   if (source.document.protocol !== 'http-api' || 'sourceType' in source.document ||
-      (source.document.role ?? 'client') !== 'client') {
-    throw new Error('此主动请求示例需要 HTTP API Client Source');
-  }
-  const document: RuntimeStreamDefinition = {
-    name,
-    sourceBindings: [{ sourceId, configRevision: source.revision, acquisition: {} }],
-    script: { timeoutMs: 5000, code: [
-      'module.exports = api => {',
-      '  const upstream = api.sources.use({ id: ' + JSON.stringify(sourceId) + ', resources: [] });',
-      '  const output = api.uns.use({ collectionId: ' + JSON.stringify(collectionId) + ', access: "write" });',
-      '  api.stream.every({ id: "tick", intervalMs: 60000 }, async () => {',
-      '    const response = await upstream.request({ method: "GET", path: "inventory", query: { limit: "5000" } });',
-      '    if (response.status !== 200) throw new Error("Upstream inventory HTTP request failed");',
-      '    if (!Array.isArray(response.data)) throw new Error("Unexpected upstream inventory response format");',
-      '    const records = response.data.map(row => {',
-      '      if (!row || typeof row.sku !== "string" || !row.sku.trim() || typeof row.quantity !== "number" || !Number.isFinite(row.quantity)) throw new Error("Invalid inventory row");',
-      '      return { recordId: row.sku, record: { sku: row.sku, quantity: row.quantity } };',
-      '    });',
-      '    for (const record of records) await output.write(record);',
-      '    return { acceptedRows: records.length };',
-      '  });',
-      '};',
-    ].join('\n') },
-  };
-  const saved = await client.stream.documents.create({
-    dryRun: false, program: document, idempotencyKey: intentKey,
+      (source.document.role ?? 'client') !== 'client') throw new Error('Generic HTTP client Source required');
+  const code = `module.exports = api => {
+    const upstream = api.sources.use({id:${JSON.stringify(source.id)},resources:[]});
+    const output = api.uns.use({collectionId:${JSON.stringify(collectionId)},access:'write'});
+    api.stream.onTimer({id:'inventory',intervalMs:60000}, async () => {
+      const response = await upstream.request({method:'GET',path:'inventory',query:{limit:'40'}});
+      if (response.status !== 200 || !Array.isArray(response.data) || response.data.length > 40) throw Error('Invalid inventory response');
+      const seen = new Set();
+      const records = response.data.map(row => {
+        if (!row || typeof row.sku !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(row.sku) ||
+            seen.has(row.sku) || typeof row.quantity !== 'number' || !Number.isFinite(row.quantity)) throw Error('Invalid inventory row');
+        seen.add(row.sku);
+        return {recordId:row.sku,record:{sku:row.sku,quantity:row.quantity}};
+      });
+      for (const record of records) await output.write(record);
+    });
+  };`;
+  return client.stream.documents.create({
+    dryRun:false, idempotencyKey:intentKey,
+    program:{name,script:{code,timeoutMs:10000},sourceBindings:[{sourceId:source.id,configRevision:source.configRevision ?? source.revision,acquisition:{}}]},
   });
-  if (!('id' in saved.data)) throw new Error('创建未返回已保存的草稿');
-  return { receipt: saved, current: saved.data };
 }
 ```
 
-先创建或复用真实 Collection，再传入 collectionId；此库存示例的 recordSchema 必须包含 sku（string）与 quantity（number），以业务 SKU 作为稳定 recordId。按真实上游合同修改字段映射、path="inventory"、query 和 60 秒周期；不能只返回 response.data 就声称已经落库。resources=[] 是空冻结资源集，不是通配授权。源地址和凭据留在 Source，不能拷进 acquisition 或脚本。
+目标 Collection schema 包含 sku 和 quantity，稳定键应按实际业务粒度确定；含仓库/批次的库存不能只用 SKU 覆盖。`source.request` 非 2xx 不自动抛错，先检查状态与整批格式，再缓冲输出。不要将响应正文、URL 或认证头写入异常。
 
-此函数保存草稿。完整采集使用 Source 创建回执中的 revision 绑定并部署 Stream，无需额外启用或读取；核对本次发布的运行成功，再通过 records:find 读回目标 Collection 的业务记录。acceptedRows 只表示处理器已接受写入，隔离 sampleTest 的 writePreview 不会落库；未完成真实运行和读回前，不得报告采集完成。
+脚本入口 ID 和 alias 为小写稳定标识：`^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$`，最长 64 字符。recordId 规则不同，见 [Collection](../../tier0-sdk-v2-uns/SKILL.md)。脚本最大 30000 ms；大批次按来源分页并将 checkpoint 与业务输出一并提交，不在单次运行里无限循环。
 
-`upstream.request` 收到完整的 401/403/429/5xx 响应时仍返回 `{status,headers,data}`，不会仅因非 2xx 自动抛错；必须先检查状态，再校验业务数据，最后才缓冲 UNS 写入。此库存示例约定 200 和数组；其他接口按其合同调整，不能把错误响应当业务数据。脚本异常只使用固定文案，不拼接响应正文、认证头或 URL。
+## 绑定与后续步骤
 
-运行记录与 SDK 管理请求异常是两层：创建/发布成功不代表上游成功。支持 HTTP 响应诊断的后端可在失败或未知运行中返回 `SOURCE_HTTP_401`、`stage:source_response`；401 应核对或更新上游拒绝的凭据，403 核对上游授权，429 核对采集频率。不要自动刷新凭据、扩大权限或立即重试。旧后端可能仍只返回 `RESULT_UNKNOWN`；仅修改 throw 文案不能让它保留 HTTP 状态。详见[运行诊断](read.md)。
+- program 推荐用 sourceBindings 的 sourceId/configRevision/acquisition，也可用带 alias/resources 的 sources，二者互斥；原生 document 使用 sources。取 Source 返回的 configRevision；旧 Cloud 本地文档缺少该字段时才沿用其 revision，不用本地文档修订推算远端配置修订。script 始终为 `{code,timeoutMs}`，不是字符串。
+- 远端绑定可用 `target:{fleetNodeId,sourceId,configRevision}` 替代本地 sourceId/configRevision。使用发现得到的节点身份；target 只选址，不放凭据，不手工拼 edge:// 引用。
+- 检查返回 data 是含 id/revision/document 的已保存草稿，再交给 [发布](deploy.md)。dryRun 结果不产生可发布的新草稿。
+- 静态校验和 isolated-sample 不执行所有动态请求。发布后按实际入口查看运行并读回业务记录，见 [验收](lifecycle.md)。
 
-创建 data 为 CloudStreamDocumentView 或预检结果，实际保存返回 id、revision 和完整 document；预检不生成 ID。需要展示预检时单独调用 documents.validate({program})；普通保存无需先校验再保存。当前后端创建/校验需要注册 Worker 可用。TEMPORARILY_UNAVAILABLE 不代表脚本一定错误。
-
-validate 检查配置、程序和可确定的绑定问题，不执行任意业务分支，也不证明上游可达。尤其是运行时拼接的 path/query，仍需在授权范围内执行代表性采集，并检查本次发布的 runs 与业务结果；一次成功也只覆盖实际执行的请求。Source 连接探测和 isolated-sample 都不能替代真实采集验证。
-
-创建结局未知时先按已知 ID 或业务标识核对状态；允许重试时保留原请求与幂等键。
-
-原生编辑器形态 `documents.create({dryRun, document})` 的 document 为 name/model/script对象/sources/entries，script 为 `{code,timeoutMs}`，sources 用 alias/sourceId/configRevision/resources/acquisition。两种入口均使用 script 对象；不接受 script 字符串。
-
-远端 Edge 绑定使用 `target: {fleetNodeId, sourceId, configRevision}` 替代同一绑定上的 sourceId/configRevision。fleetNodeId 是发现返回的复合节点字符串，sourceId 是该节点上的原生十进制 ID。服务端验证并创建引用，调用方不拼装 edge:// 引用，也不创建另一种 Source 文档。
-
-```ts
-import type { RuntimeStreamDefinition, StreamSourceTarget } from '@tier0/sdk-v2';
-
-export function bindApprovedEdgeSource(
-  program: RuntimeStreamDefinition, target: StreamSourceTarget,
-): RuntimeStreamDefinition {
-  return { ...program, sourceBindings: [{ target, acquisition: {} }] };
-}
-```
-
-该函数只构造绑定；脚本仍须使用声明资源并通过目标目录授权。厂商凭据在 Edge 本地预配，target 不携带秘密。配置成功不证明端到端采集完成。
+Source 创建和凭据格式见 [Source 创建](../../tier0-sdk-v2-source/references/create.md)。

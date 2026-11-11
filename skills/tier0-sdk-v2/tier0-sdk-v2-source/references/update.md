@@ -1,19 +1,6 @@
 # 修改 Source
 
-方法：`source.documents.update`；POST `/openapi/v2/uns/sources/documents/update`。
-
-| 字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| id | string | 是 | 已知的 Source ID |
-| patch / document | object / SourceDefinition | 二选一 | patch 保留未提供的字段；document 完整替换 |
-| expectedRevision | integer | 是 | 已读取或上次提交返回的 revision，原样传回 |
-| confirmedImpactRevision | string | 有引用的连接变更时 | 相同修改意图和修订的 impact 回执；仅改名称、描述无需提供 |
-| dryRun | boolean | 否 | 默认 false 提交；true 仅预检 |
-| idempotencyKey | string | 否 | 最多 128 字符 |
-
-## 示例：一次请求修改名称
-
-已有 ID 和 revision 时直接提交 patch。仅改名称、描述无需 impact；连接配置变更在没有任何草稿、活动或历史 Stream 引用时也无需 impact。服务端在同一事务和依赖锁下检查并修改。patch 中未提供的字段保留原值，协议子对象如果提供则整体替换；完整 document 更新需先取得完整文档并保留未改配置和认证引用。
+`client.source.documents.update` 使用 id、expectedRevision、patch 或完整 document；两种更新形式二选一。已有修订可直接提交 patch，完整替换需要 full 文档。协议子对象的替换粒度按当前 schema。
 
 ```ts
 import { createClient, type Tier0Client, type UnsV2Request } from '@tier0/sdk-v2';
@@ -22,59 +9,37 @@ export async function renameSource(
   id: string, expectedRevision: UnsV2Request<'sourceImpact'>['expectedRevision'],
   name: string, intentKey: string, client: Tier0Client = createClient(),
 ) {
-  const saved = await client.source.documents.update({
+  return client.source.documents.update({
     id, expectedRevision, patch: { name }, dryRun: false, idempotencyKey: intentKey,
   });
-  if (!('id' in saved.data)) throw new Error('未收到更新提交结果');
-  return { receipt: saved, current: saved.data };
 }
 ```
 
-提交直接返回完整 Source view 和新的 revision，无需额外 get。版本冲突时不会覆盖其他人的修改。返回 `SOURCE_IMPACT_CONFIRMATION_REQUIRED` 表示存在引用且未提交，进入下面的显式评估流程；不要自动获取并同意影响。
-
-## 有引用的连接变更：评估后确认相同意图
-
-prepare 收集全部影响分页。在已有授权范围内评估 counts、restrictedCount 和引用后，再调用 commit。不可见引用也要求确认。影响字段说明见[影响分析](changes.md)。
+回执返回新的 Source view。无依赖时可直接变更；服务端要求 `SOURCE_IMPACT_CONFIRMATION_REQUIRED` 时，保持精确意图，按[影响分析](changes.md)取得完整结果。授权覆盖影响后使用真实 confirmedImpactRevision 提交，不增加例行人工确认。
 
 ```ts
-import { createClient, type Tier0Client, type UnsV2Request, type SourceDefinitionPatch } from '@tier0/sdk-v2';
+import { createClient, type Tier0Client, type SourceDefinitionPatch, type UnsV2Request } from '@tier0/sdk-v2';
 
-export async function prepareSourceConfigUpdate(
+export async function updateSourceWithImpact(
   id: string, expectedRevision: UnsV2Request<'sourceImpact'>['expectedRevision'],
-  patch: SourceDefinitionPatch, client: Tier0Client = createClient(),
-) {
-  const intent: UnsV2Request<'sourceImpact'> = {
-    id, expectedRevision, action: 'update', patch,
-  };
-  const impact = await client.source.impact({ ...intent, offset: 0, size: 200 });
-  const references = [...impact.data.references];
-  let offset = impact.data.nextOffset;
-  const seen = new Set<string>();
-  while (String(offset) !== '0') {
-    if (seen.has(String(offset))) throw new Error('影响分页未前进');
-    seen.add(String(offset));
-    const next = await client.source.impact({
-      ...intent, offset, size: 200, impactRevision: impact.data.impactRevision,
-    });
-    if (next.data.impactRevision !== impact.data.impactRevision) throw new Error('影响确认值发生变化');
-    references.push(...next.data.references);
-    offset = next.data.nextOffset;
-  }
-  return { intent, impact: { ...impact.data, references, nextOffset: offset } };
-}
-export async function commitSourceConfigUpdate(
-  plan: { intent: UnsV2Request<'sourceImpact'>; impact: { impactRevision: string } },
+  patch: SourceDefinitionPatch, confirmedImpactRevision: string,
   intentKey: string, client: Tier0Client = createClient(),
 ) {
-  const { id, expectedRevision, patch, action } = plan.intent;
-  if (action !== 'update' || !patch) throw new Error('需要修改意图');
-  const saved = await client.source.documents.update({
-    id, expectedRevision, patch, confirmedImpactRevision: plan.impact.impactRevision,
+  return client.source.documents.update({
+    id, expectedRevision, patch, confirmedImpactRevision,
     dryRun: false, idempotencyKey: intentKey,
   });
-  if (!('id' in saved.data)) throw new Error('未收到更新提交结果');
-  return { receipt: saved, current: saved.data };
 }
 ```
 
-影响评估后的 plan 保持不变；已提供的确认回执始终严格校验，即使之后已无引用。修订冲突、确认过期或不匹配时重新读取并评估，不静默刷新回执重放。修改请求内容或补充确认回执属于新请求，应使用新幂等键；传输结果未知时保留原路由、请求和键，SDK 不自动重试。
+该函数只接收已核对的确认值，不自行评估并同意影响。更新不替换已发布 Stream 的 configRevision；需要切换时按任务更新绑定和发布。
+
+## 轮换凭据
+
+调用 `source.documents.credentials.update({id,expectedRevision,credentials,dryRun:false,idempotencyKey,...})`。新材料仍来自[只写导入](create.md)。存在依赖时以 `action:'credentials'` 评估影响，impact 不包含秘密，提交时携带对应 confirmedImpactRevision。
+
+## 冲突与状态
+
+版本冲突、确认过期或意图变化后重新读取并评估。修改请求或补充确认值属于新请求；原请求结局未知时先对账，不换键重做。
+
+独立启停仅在 `stateManagementSupported` 与目标接口支持时使用 `documents.state.update`，携带当前修订和必要影响确认。停止某个消费者使用 Stream disable，不必停用共享 Source。

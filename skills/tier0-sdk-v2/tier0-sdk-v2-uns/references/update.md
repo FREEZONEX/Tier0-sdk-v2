@@ -1,73 +1,52 @@
-# 修改记录、元数据和 Schema
+# 更新记录、Schema 与 App 授权
 
-元数据单条使用 metadataUpdateOne；returnDocument 默认 none，需要原子返回 value 时显式传 before/after。批量相同更新使用 metadataUpdateMany；不同更新使用 metadataBulkWrite。完整替换使用 metadataReplaceOne，replacement 是完整可写配置。
-
-update 首版支持 $set/$unset/$setOnInsert。字段使用裸配置路径；_id/_meta 为只读。写前读取 revision，编辑页面携带 expectedRevision，冲突后重新比较。单条 upsert 需明确 _id 等值条件，新增内容满足完整创建约束；同 ID 的软删除对象必须显式恢复。
+Record 的业务内容用 recordUpdateOne/Many，Collection 的名称、结构用 metadataUpdateOne/Many。不要混淆业务 data 与元数据 data。
 
 ```ts
-import { createClient, type Tier0Client } from '@tier0/sdk-v2';
+import { createClient, type Tier0Client, type UnsV2Integer } from '@tier0/sdk-v2';
 
-export async function renameCollection(
-  id: string, name: string, intentKey: string, client: Tier0Client = createClient(),
-) {
-  const current = (await client.uns.metadataFind({ kind: 'collection', filter: { _id: id }, limit: 1 })).data.items[0];
-  if (!current) throw new Error('集合不存在或不可见');
-  return client.uns.metadataUpdateOne({
-    kind: 'collection', filter: { _id: id }, expectedRevision: current.revision,
-    update: { $set: { name } }, returnDocument: 'after', upsert: false, idempotencyKey: intentKey,
+export async function renameRecord(collectionId: string, id: string, revision: UnsV2Integer, name: string, intentKey: string, client: Tier0Client = createClient()) {
+  return client.uns.recordUpdateOne({
+    collectionId, filter: { _id: id }, expectedRevision: revision,
+    update: { $set: { name } }, returnDocument: 'after', idempotencyKey: intentKey,
   });
 }
 ```
 
-修改 Schema 时先构造完整 recordSchema，再用 $set 更新该字段。它不迁移已有记录，必须兼容保留数据与引用。没有修改的 sampleSchema/indexes 保持原值。先 dryRun，再用独立正式意图键提交。
+使用最近读到或写回执的 revision，冲突重读比较；不必固定再读一次。matchedCount 与 modifiedCount 不同，值没变化时 modifiedCount 可为 0。业务路径不加 data.。
 
-```ts
-import { createClient, type Tier0Client, type Schema } from '@tier0/sdk-v2';
+## 元数据和 Schema
 
-export async function replaceRecordSchema(
-  id: string, recordSchema: Schema, intentKey: string, client: Tier0Client = createClient(),
-) {
-  const current = (await client.uns.metadataFind({ kind: 'collection', filter: { _id: id }, limit: 1 })).data.items[0];
-  if (!current) throw new Error('集合不存在或不可见');
-  const request = { kind: 'collection' as const, filter: { _id: id },
-    expectedRevision: current.revision, update: { $set: { recordSchema } } };
-  const preview = await client.uns.metadataUpdateOne({ ...request, dryRun: true });
-  if (preview.data.status !== 'validated') throw new Error('Schema 预检未通过');
-  return client.uns.metadataUpdateOne({ ...request, dryRun: false, idempotencyKey: intentKey });
-}
-```
+metadataUpdateOne 的 update 使用 $set/$unset/$setOnInsert，metadataReplaceOne 完整替换可写配置；单条可用 returnDocument:before/after 返回原子快照。元数据 upsert 要求 _id 等值和完整合法配置。
 
-业务记录仍使用 recordUpdateOne：传 collectionId/filter/update，按需携带 expectedRevision。metadataUpdateOne 不能更新 Record 的业务内容。matchedCount 和 modifiedCount 不等价；值未变化时 modifiedCount 可为 0。
-
-```ts
-import { createClient, type Tier0Client } from '@tier0/sdk-v2';
-
-export async function renameDevice(
-  collectionId: string, id: string, name: string, intentKey: string,
-  client: Tier0Client = createClient(),
-) {
-  const current = (await client.uns.recordFind({ collectionId, filter: { _id: id }, limit: 1 })).data.items[0];
-  if (!current) throw new Error('记录不存在或不可见');
-  const receipt = await client.uns.recordUpdateOne({
-    collectionId, filter: { _id: id }, expectedRevision: current.revision,
-    update: { $set: { name } }, upsert: false, dryRun: false, idempotencyKey: intentKey,
-  });
-  if (receipt.data.status !== 'committed' || String(receipt.data.matchedCount) !== '1') {
-    return { state: 'unconfirmed' as const, receipt };
-  }
-  const after = await client.uns.recordFind({ collectionId, filter: { _id: id }, limit: 1 });
-  if (after.data.items[0]?.data.name !== name) throw new Error('读回名称与目标不一致');
-  return { state: 'committed' as const, receipt, current: after.data.items[0] };
-}
-```
+`$set.recordSchema` 替换完整 Schema，不转换记录；未更新的 sampleSchema/indexes 保留。有记录时普通更新仅接受兼容放宽，不兼容返回 SCHEMA_INCOMPATIBLE。App 专用 schema:replace 会扫描现存记录，满足目标结构才允许收窄；可选 dryRun 查看影响，见 [Schema 演进](../../tier0-sdk-v2-data/references/schema-evolution.md)。
 
 ## 已有集合授权给 App
 
-这是 Builder 的管理操作，使用内置 MCP 注入的系统身份；不从 App 运行时取得管理 Key，也不需要对话用户具有 Owner/Admin 角色或再次确认。外部 personal / agent Key 按自身当前权限调用同一接口。Builder 可为同一工作区内的 App 管理授权，当前绑定 App 仅是构建上下文。服务端校验工作区、目标 App 状态和所授资源权限，App 运行时凭证不能管理授权。
+Builder 用平台注入的系统身份主动完成同一工作区内的目标 App 授权，当前绑定 App 是构建上下文；不从对话用户角色取得权限。外部个人/Agent Key 按自身当前管理权限调用同一入口。App 运行 Key 不能管理授权。
 
-- 先发现并确认真实的 `collectionId`、结构和当前目标 `appId`；保留已有集合所属 App、目录和数据，不创建同名空集合代替。
-- 调用 `appDataPolicyGet({ appId })` 读取当前策略及 `revision`。使用 `appDataPolicyUpdate` 的 `changes` 增量提交，以 `action: 'upsert'`、实际 `collectionId` 和业务所需 `permissions` 关联集合；`alias` 可省略，不能同时传 `collections`。`upsert` 指定该集合的完整目标权限，其他集合授权保留。
-- 传入读到的 `expectedRevision`、现有 `status` 和本次操作的独立 `idempotencyKey`，执行时 `dryRun: false`。策略已 `disabled` 时，关联不应顺便重新启用；恢复策略是另一个明确管理动作。
-- 检查写入回执 `data.status === 'committed'`，再读取策略核对集合与权限已生效。随后使用 App 运行时的 `dataAppContext` 确认有效授权，并用真实 App 凭证读取已有记录；需要写入时按实际业务验证写入结果。管理身份能查到数据不代表 App 已获授权。
+1. 确定真实 appId/collectionId 及业务所需 record:read/write/delete、sample:read/write。
+2. appDataPolicyGet 读取当前 status/revision。
+3. appDataPolicyUpdate 提交 changes 增量；upsert 指定该集合完整目标权限，alias 可选，其他授权保留。
 
-`expectedRevision` 冲突时重读策略并重新计算改动；403 保留原错误，不换凭证或复制集合绕过。结果为 `unknown` 时先读回核对，未确认结果前不自动重试。对话确认不是后端权限凭据，也不需要新增确认字段。
+```ts
+import { createClient, type Tier0Client } from '@tier0/sdk-v2';
+
+export async function grantRead(appId: string, collectionId: string, intentKey: string, client: Tier0Client = createClient()) {
+  const current = await client.uns.appDataPolicyGet({ appId });
+  const revision = current.data.revision;
+  const isNewPolicy = String(revision) === '0';
+  if (!isNewPolicy && current.data.status === 'disabled') {
+    throw new Error('App 数据策略已停用，关联集合不会自动启用策略');
+  }
+  return client.uns.appDataPolicyUpdate({
+    appId, expectedRevision: isNewPolicy ? 0 : revision, status: isNewPolicy ? 'active' : current.data.status,
+    changes: [{ action: 'upsert', collectionId, permissions: ['record:read'] }],
+    idempotencyKey: intentKey, dryRun: false,
+  });
+}
+```
+
+该示例将目标集合权限设为只读；扩展授权时按目标保留所需已有权限。changes 与全量 collections 二选一，不能把增量当全量覆盖。revision 为 0（包括 bigint 的 0n）表示尚未创建策略，即使 get 返回 disabled，也以 active 初始化；已有 disabled 策略停止关联，不顺便启用。已有 active 策略继续使用当前状态。版本冲突重读重算，unknown 先核对。
+
+检查 committed，再用真实 App context 与运行时请求确认所需数据可用。管理身份能读到不代表 App 能读；授权下个请求生效，不需重新发布。复用原集合，不复制数据或改变 ownerAppId。

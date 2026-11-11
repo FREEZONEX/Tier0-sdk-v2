@@ -5,9 +5,9 @@ description: 使用 @tier0/sdk-v2 开发或迁移 Tier0 云端 TypeScript/JavaSc
 
 # Tier0 SDK v2 应用集成
 
-面向应用代码编写；运行时为 Node.js 20.19+。独立包 `@tier0/sdk-v2` 的版本以 package.json 为准（UNS v2 契约 5.0.0），是否可从 npm 安装须检查实际发布状态；未发布时安装仓库构建的 tarball。新参数还需要目标环境部署对应后端，不能只凭 SDK 方法存在判断可用。
+面向使用 `@tier0/sdk-v2` 的 TypeScript / JavaScript 应用。Node.js 20.19+；Stream 消息需要 Node.js 22+。包版本与生成契约见 package.json、contracts/upstream.json；目标环境是否支持某项操作，以部署契约与实际响应为准。
 
-## 选择业务入口
+## 选择任务入口
 
 | 用户要做什么 | SDK 入口 | 深入说明 |
 | --- | --- | --- |
@@ -25,54 +25,37 @@ description: 使用 @tier0/sdk-v2 开发或迁移 Tier0 云端 TypeScript/JavaSc
 
 每个领域 Skill 可单独使用，无需先加载本文件。Source → Stream → UNS 是接入、处理与数据存储三个领域；不是要求每个数据读取场景都创建一套流水线。通知和系统能力独立于这条链路。
 
-## 初始化与身份
-
-个人 Key 可直接读取已有集合，无需创建平台 App；网关配置、运行示例与排错见[本地连接指南](references/local-connection.md)。
+## 初始化
 
 ```ts
 import { createClient } from '@tier0/sdk-v2';
 
-// 平台注入 TIER0_API_HOST 和 App 的 Key TIER0_API_KEY；本地开发自己设这两个。
+// 服务端读取 TIER0_API_HOST / TIER0_API_KEY；Tier0 App 运行时由平台注入。
 export const client = createClient({ transportTimeoutMs: 30_000 });
 export async function inspectConnection() {
   return client.system.info();
 }
 ```
 
-也可传 `apiHost`、`apiKey` 或 `getApiHost` / `getApiKey` 回调。API Key 留在服务端；不要生成 `VITE_*KEY` 或让页面携带 App Key。浏览器通过自己的服务端接口访问平台；App Stream 交互（`client.streams`）也只在服务端用带 Key 的客户端。消息要求 Node.js 22+（WebSocket）。
+本地使用已有个人 Key 不要求先创建 App，见[本地连接](references/local-connection.md)。Key 留在服务端，浏览器调用自己的 App 服务端。显式凭证与逐请求身份配置见 [SDK 初始化](../../README.md#安装与初始化)；不同主体使用独立客户端。
 
-凭证来源按属性存在性选择，优先顺序为 `apiKeyProvider`、`apiKey`、`getApiKey`；只有都未提供才读取 `TIER0_API_KEY`。显式 `undefined` 或 getter 返回 `undefined` 不会回退到环境 Key。每个用户请求使用独立客户端，不要把全局 `configureClient` 当作请求身份。
+## 身份边界
 
-**Tier0 预览和部署里，App 的 Key 在运行进程的环境里**：平台注入 `TIER0_API_KEY`（这个 App 的 Key，秘密；预览是 preview Key，部署是 deployed Key）和 `TIER0_API_HOST`，`createClient()` 直接用它们，只发一个 `X-API-Key`。App 代码不要自己读、复制、打印或下发这个 Key，也不要生成或硬编码 Key；直接调平台时也通过 SDK。身份读平台设置的 `TIER0_WORKSPACE_ID`、`TIER0_APP_ID`。
+- Builder 使用自身系统身份管理工作区资源，包括为同一工作区的 App 关联已有集合；不继承对话用户的角色。具体规则见 [Collection 授权](tier0-sdk-v2-uns/references/update.md)。
+- App 运行时使用 App Key，只能访问获授的集合与操作，不能管理 Source、Stream 或扩大自身数据授权。已知集合 ID 可直接读写；发现可用集合用 `client.uns.dataAppContext({})`。
+- App 内谁能查看、修改哪些业务数据，由 App 服务端根据访问者角色判断；平台调用仍是 App 自身身份。访问者与 React/Vue 接入见[身份与框架集成](references/integration.md)。
 
-App 的 Key 只能调 `/openapi/v2/uns/**`、`assets/files/**`（`client.files`；`assets/upload` 不在内）、`notifications/send`、`platform/getMembers`（`members.listWorkspace()`）、`apps/access-members/list`（`members.listApp()`）、`stream-requests/discover` 和 `stream-requests/<code>/describe|invoke`、`stream-messages/connect`（`client.streams`）、`capabilities/discover`、`info`；其他接口（`system.whoami()`、`notifications.get`、`mqttAuth`、`agent`）回 403 `hosted_app_key_route_forbidden`；Source / Stream 管理接口 App 的 Key 无权调用，Backend 回 403。App 的平台能力固定 11 项（`openapi.base`、`platform.users.read`、`notifications.send`、文件上传 / 下载 / 删除、`stream.requests.read` / `invoke` / `write`、`stream.messages.publish` / `subscribe`），每个 App 都有、不在 App 设置里配置，生效的是它们和 Key 权限、Key 模式、工作区套餐的交集。已有集合可由内置 Builder 以自身系统身份主动关联同一工作区的目标 App，不查询对话用户的角色或要求其确认；当前绑定 App 只表示构建上下文。服务端复验系统 Key 自身权限、工作区及目标 App 状态。App 运行时只能访问已授予的集合及操作，不能管理授权；授权删掉后下一个请求起生效。MQTT 主题只能用 App 自己的命名空间 `apps/<TIER0_APP_ID>/<TIER0_RUNTIME>/…`，用 `appTopic()` 拼，见 [MQTT](tier0-sdk-v2-mq/SKILL.md)。没有 `TIER0_API_KEY` 而 `TIER0_RUNTIME` 为 `deployed` / `preview` 时 SDK 进入平台代理模式（不发凭据、带 `X-Tier0-SDK: 1`），当前平台不会出现这种运行时，见 [错误码](tier0-sdk-v2-data/references/errors.md#平台代理模式的错误)。
-
-不同身份使用独立实例。App 调平台只有一种身份：App 自身。当前用户和角色从前门注入的 `X-Tier0-Visitor` 读（`parseVisitorHeader`），按角色决定谁能看、能改什么由 App 在服务端自己做，见 [身份与框架集成](references/integration.md)。
-
-## 返回值与错误
+## 响应与恢复
 
 | 入口 | 成功值 | 失败类型 |
 | --- | --- | --- |
-| Source、Stream、UNS | 完整 `{ code, msg, requestId, data }` | `UnsV2Error` / `UnsV2OutcomeUnknownError` |
-| 平台 v2，如 system、members、agent、mqttAuth | 解包后的 `data` | `ApiError` / `TransportError` |
-| notifications | 直接对象，如 `messageId`、`status` | `ApiError` |
+| Source、Stream、UNS | 完整 `{code,msg,requestId,data}` | `UnsV2Error` / `UnsV2OutcomeUnknownError` |
+| 平台 v2，如 system、members、agent | 解包后的 `data` | `ApiError` / `TransportError` |
+| notifications | 直接对象 | `ApiError` |
 | capabilities | 专属响应对象 | `CapabilityError` |
 
-方法存在不等于目标环境已部署或当前 Key 有权限。整数可能为 `bigint`；UNS 任意 JSON 中还可能含 `UnsV2RawNumber`。不要将标识符强制转为 Number；给浏览器返回数据时显式定义精确数字的序列化格式。
+ID 与版本保持原始精度；整数可能为 bigint，UNS JSON 还可能含 `UnsV2RawNumber`。返回浏览器前显式序列化，不强转 Number。
 
-`createClient()` 的 HTTP 不自动重试，唯一例外是平台代理模式下代理自己产生的 `503` / `429`（带 `X-Tier0-Proxy: not-forwarded`，请求没有到达平台），SDK 按 `retry_after_ms` 最多重试 3 次；平台返回的 5xx 不重试。UNS 错误的 `execution` 说明执行到哪一步、`retry.safe` 说明能否用同一请求重发；带 `outcomeUnknown` 的失败应先对账，保留原意图键；取消请求不代表服务端撤销。App 数据层（`@tier0/sdk-v2/data`）会按 `retry.safe` 自动重试，见 App 数据 Skill。Source/Stream 仍使用底层 UNS v2 契约，所以错误类名保留 UNS，不代表它们仍属于数据入口。
+底层 HTTP 不自动重试已转发请求。UNS 的 `execution` 表示执行状态，`retry.safe` 表示能否保留同一路径、载荷和幂等键重发。结果未知先读回对账，取消等待不代表撤销服务端操作。App 数据层另有自动重试策略，见 [App 数据](tier0-sdk-v2-data/SKILL.md)。
 
-## 从首版入口迁移
-
-- `client.uns.sourceList(body)` → `client.source.documents.list(body)`。
-- `client.uns.sourceDocumentGet(body)` → `client.source.documents.get(body)`。
-- `client.uns.streamProgramDeploy(body)` → `client.stream.programs.deploy(body)`。
-- `client.uns.streamDocumentValidate(body)` → `client.stream.documents.validate(body)`。
-- `client.uns.recordFind(body)` 保持不变。
-- 低层 `createUnsV2Client` 保留完整生成契约，供契约工具使用；业务主入口不再把 Source/Stream 管理混入 `client.uns`。
-
-访问者身份与 React/Vue 示例见 [集成参考](references/integration.md)。完成接入时验证目标入口、真实身份、响应解包和错误分支；SDK 本地测试通过不代表环境联调完成。
-
-Stream 请求与消息交互统一使用本包 `client.streams.requests` / `client.streams.messages`；[交互说明](tier0-sdk-v2-streams/SKILL.md)。Scaffold 只依赖本包；`client.stream` 管理接口与运行时交互用途不同。
-
-本包公开 HTTP 入口统一为 `/openapi/v2`。旧的重复操作已退役，不生成兼容调用或回退。Source 配置用 documents.*，Stream 草稿用 documents.*、发布用 programs.deploy；App 数据层仍提供 insertMany/findOneAnd*/distinct 等便捷方法。历史旧写结果未知时先核对业务状态，不能转换路由后盲目重放。
+当前公开 HTTP 入口统一为 `/openapi/v2`。Source 配置用 `source.documents.*`，Stream 草稿用 `stream.documents.*`、发布用 `stream.programs.deploy`；`streams` 是运行时业务交互。旧入口升级说明见 [CHANGELOG](../../CHANGELOG.md)，不要为失败请求拼旧路由或更换身份重试。

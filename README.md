@@ -1,46 +1,18 @@
 # @tier0/sdk-v2
 
-Tier0 云端统一 TypeScript / JavaScript SDK，数据管理与 App Stream 交互均使用 `@tier0/sdk-v2`。旧 SDK 不再作为依赖。
+Tier0 TypeScript / JavaScript SDK，提供资源管理、业务数据与 App Stream 交互。Node.js 20.19+；Stream 消息需要 Node.js 22+。
 
-**`0.11.0` 是破坏性变更**：访问者只认员工，`Visitor.subType` 仅为 `employee`，`parseVisitorHeader()` 拒绝旧机器头（无论是否带 grant），不提供兼容别名。基于 `0.10.1`，沿用其 Backend 契约 `07ef8cd30a5465a98c8e6ee0892d02360aee8761` 与统一授权说明，不手改生成物；App Key、员工角色、数据与 Stream 接口不变。存量部署仍含旧解析器，靠前门关闭机器入口并剥离外来身份头使旧调用令牌失效，不强制重新发布 App。
+Source 保存连接与认证，Stream 执行采集或业务逻辑，Collection 保存业务记录。按任务选择入口，不要求读取数据前先创建整条流水线：
 
-`0.10.1` 补齐 Builder 为同一工作区内的 App 主动关联已有集合的指引，并同步接口类型与 Backend 契约 `07ef8cd30a5465a98c8e6ee0892d02360aee8761`。需搭配已部署统一集合授权规则的 Backend；本次 npm 包包含更新后的 Skills，平台托管 Skill 的版本由平台单独管理。
+| 任务 | 入口 | 文档 |
+| --- | --- | --- |
+| 接入外部系统、配置认证与检查连接 | `client.source` | [Source](skills/tier0-sdk-v2/tier0-sdk-v2-source/SKILL.md) |
+| 保存、发布和诊断处理程序 | `client.stream` | [Stream](skills/tier0-sdk-v2/tier0-sdk-v2-stream/SKILL.md) |
+| 调用请求、订阅或发布业务消息 | `client.streams` | [Stream 交互](skills/tier0-sdk-v2/tier0-sdk-v2-streams/SKILL.md) |
+| 集合结构、记录、历史采样与授权 | `client.uns` | [Collection / UNS](skills/tier0-sdk-v2/tier0-sdk-v2-uns/SKILL.md) |
+| App 集合声明与 Mongo 风格数据访问 | `@tier0/sdk-v2/data` | [App 数据](skills/tier0-sdk-v2/tier0-sdk-v2-data/SKILL.md) |
 
-`0.10.0` 是新架构重构分支的正式版本，包含此前 aenv-next 预发布的全部变更、MQTT 修复、逐请求异步凭据和 Sample 精确删除接口。合同同步至 Backend `91b5f3dc4024f44df32ee7aafcd83a8d470b655d`；升级前需确认目标环境已部署相应合同及运行环境，详见下方「aenv-next 运行环境」和 CHANGELOG。
-
-**`0.10.0` 包含破坏性变更**：App 的平台能力固定为 11 项（含 Stream 请求和消息），没有按 App 的平台策略了：`client.uns.appStreamPolicyGet` / `appStreamPolicyUpdate` 和 `CloudAppStreamPolicy*`、`CloudStreamMessageTopicPermission` 类型随 Backend 契约删除，没有替代。托管 App Key 的 MQTT 主题只能在 App 自己的命名空间 `apps/<TIER0_APP_ID>/<preview|deployed>/…` 里，新增 `appTopic()`（`@tier0/sdk-v2/mq`）拼主题，见「MQTT」。发布时不再确认集合授权。
-
-**`0.10.0-aenv.10` 是破坏性变更**：平台现在把 App 的 Key（`TIER0_API_KEY`）放在运行进程的环境里，SDK 直接用它（下文「aenv-next 运行环境」）；早期预发布说明里的节点代理模式只在没有 Key 的运行时生效。App 调平台只有一种身份，App 自身（App Key）；按用户角色收窄数据由 App 自己做，服务端用 `parseVisitorHeader()` 读前门注入的明文 `X-Tier0-Visitor` 拿到当前用户和角色。浏览器不再直连 MQTT，实时数据由 App 服务端订阅后转发（`createChangeRelay`）；请求中止信号改由 `runWithAbortSignal` 传入。删除的接口见 CHANGELOG。用旧 SDK 打包的 App 在前门改为明文访问者头后无法识别访问者，必须升级重新发布。
-
-**`0.10.0-aenv.2` 起是破坏性变更**：`TIER0_CREDENTIALS_FILE` 不再读取，SDK 在平台里不持有、不发送任何凭据，由节点代理注入 App 的长期 Key；必须和新的 AgentENV（`sbx-api-proxy`）一起上线，在旧 VM 上请求会被拒绝。`0.10.0-aenv.3` 起 `TIER0_RUNTIME` 只接受 `deployed` / `preview`，其他非空值（且没有 Key）直接报配置错误。`0.10.0-aenv.4` 起 MQTT 改用 `<ws>&open` / `<ws>&h.<app>.<随机>`，预览和正式同一行为（`appCredentialRuntime()` 已删除）。`0.10.0-aenv.5` 合入 base 的 `0.9.7`、`0.9.8`。`0.10.0-aenv.6` 起 `members.listApp` 经节点代理可用（托管 Key 按 `platform.users.read`，响应不带邮箱）。`0.10.0-aenv.7` 合入 base 的 `0.9.9`、`0.9.10`（个人 Key 本地接入指南、非 JSON 网关错误提示、Namespace 回收说明），节点代理凭据模型不变。`0.10.0-aenv.9` 合入 base 2026-11-05 的 MQTT 修复（按连接代次丢弃过期回调、逐个 topic 校验订阅确认、连接设置预检回滚），重连期间新订阅和发布仍等待重连。
-
-`0.10.0-aenv.10` 合入了 base 的 `0.9.11` 待发布候选：隔离显式凭据来源、支持逐请求异步凭据（`apiKeyProvider`），并按 Gateway 合同只发送 `X-API-Key`；Data 客户端在创建时绑定静态主体；Source / Stream 公开合同同步到 Backend 的原生文档模型。平台代理模式（见「aenv-next 运行环境」）不变。
-
-`0.9.10` 补齐个人 Key 本地接入指南与非 JSON 网关错误提示，并同步 Namespace 回收、删除和恢复说明；保留现有权限、请求地址和重试规则。
-
-`0.9.9` 新增 `client.uns.metadataPurge`，通过明确的已归档 Collection ID 提交永久删除，返回 `accepted` / `jobId` 并通过现有 `jobs` 查询逐项完成结果；`dryRun` 可选。集合删除保留 Record/Sample，支持恢复或继续永久清理。
-
-本版同时补齐 Agent / App 凭证的查询说明及 App 读取示例：`namespace()` 仍走 OpenAPI，App Key 使用 `dataAppContext` 和集合数据接口，服务端授权规则保持不变。
-
-保留 `0.9.8` 的 App 集合业务目录声明 `directoryPath`，按已知业务范围创建或复用目录，已有集合保持位置。Source 默认 enabled；原生状态入口为 `client.source.documents.state.update`，删除前必须先禁用 Source 本身，并按新 revision 评估删除影响。名称和描述修改无需影响确认，连接配置变更、禁用或删除存在引用时仍须显式确认。
-
-`0.9.3` 同步集合授权合同：授予既有集合访问权限时无需提供别名，并更新生成类型与使用说明。集合声明的 `name` / `alias` 要求保持不变。
-
-`0.9.2` 包含接口合同变更，升级时需核对下方使用方式并确认目标后端已部署对应合同。平台接口统一使用 OpenAPI v2，能力发现使用 `state + reasonCode + operations`。Stream 请求与消息交互统一到本包的 `client.streams`；`client.stream` 保留 Stream 管理。文件上传支持并发分片与断点续传。
-
-Collection 声明必须同时提供业务名称 `name`（例如「生产工单」）和稳定程序标识 `alias`（例如 `production_orders`），高层声明与底层请求类型一致。`name` 是唯一展示名称，不支持 `displayName`；ensure 仅在创建时写入名称，重复 ensure 保留用户改名，同目录重名明确报错。使用前需确认后端已包含 `business-name/1` 契约。
-
-`0.7.x` 已移除旧 Controls 入口、生成操作、DTO 和错误类，不保留别名。能力发现不再以可选交互合同阻断 Namespace，未知核心合同仍严格拒绝。V2 的 `execution` / `retry` 和结果未知语义保持不变。
-
-Source / Stream 管理已统一为 Enterprise 参数：SourceDefinition 使用顶层 role、endpoint、http/sql 等；Stream 的 document 与 program 均使用 script: {code,timeoutMs}。旧 config/options/material、script 字符串和旧删除/凭据创建路由不再受支持。
-
-`0.4.0` 版本变更：相对 0.3.x 移除已退役的 Stream 就绪探针且不保留别名，改用服务端现有统一权限，不再配置逐 Key Control scopes/codes。0.3.0 起统一使用 OpenAPI v2 并退役重复及旧接口；与 0.2.x 存在不兼容变更，迁移方式见下方“本次接口退役”。对应 UNS v2 契约 5.0.0，与 0.1.0 不兼容（新错误模型 `execution` / `retry`、封顶计数、删除 `recordChangesPoll` 等）。Collection 支持 int、float、double 和 datetime 声明；格式注解不新增数值范围或日期格式校验，Sample 外层 time 保持不变。使用时需确认目标环境已部署对应后端。要求 Node.js 20.19+。浏览器 HTTP、MQTT、React、Vue 和服务端分别提供独立入口。
-
-合同快照的准确 Backend 提交和输入摘要见 contracts/upstream.json；使用前需确认目标环境已部署相应合同。请求统一权限、旧探针退役门禁、Source discovery 的副作用分类及不自动重试语义保持不变。
-
-本分支新增 `client.uns.sampleDeleteExact`（Backend `sample-delete-exact/1`）：管理调用方按 `{recordId,id,time}` 清理最多 200 条明确样本，支持预览和幂等回执。App Key 不支持此操作，App 数据层不增加删除样本方法；用法见[精确删除历史样本](skills/tier0-sdk-v2/tier0-sdk-v2-uns/references/delete.md#精确删除历史样本)。
-
-既有接口收敛：平台接口统一迁移到 `/openapi/v2`；移除 21 个重复 UNS 入口和旧 Agent nodes/relations 方法。完善 Source 操作、Stream 发布回执及 UNS 创建快照的使用说明，保留精确发布编号和完整文档访问规则。
+其余入口见[能力与入口](#能力与入口)，Agent 按 [Skill 总入口](skills/tier0-sdk-v2/SKILL.md) 选择对应参考。版本变更与升级记录见 [CHANGELOG](CHANGELOG.md)；生成契约来源见 [contracts/upstream.json](contracts/upstream.json)。方法存在不代表目标环境已部署或当前凭证可调用。
 
 ## 安装与初始化
 
@@ -57,7 +29,7 @@ npm install @tier0/sdk-v2@0.11.0
 ```ts
 import { createClient } from '@tier0/sdk-v2';
 
-// 平台里只需 TIER0_API_HOST（平台已设置）；本地开发另设 TIER0_API_KEY。
+// 服务端读取 TIER0_API_HOST / TIER0_API_KEY；平台 App 运行时由平台注入。
 const tier0 = createClient();
 ```
 
@@ -211,52 +183,28 @@ HTTP 调用统一使用 `/openapi/v2`。21 个重复 UNS 公共入口及生成�
 
 ## Source、Stream 与 UNS 分域
 
-Source 负责连接外部系统，Stream 负责处理与运行，UNS 负责命名空间与业务数据。公开操作由固定的上游契约生成，业务入口按领域组织。Stream 请求与消息交互使用本包 `client.streams.requests` / `client.streams.messages`，App 只安装一个 SDK。目录、Topic、集合基础 CRUD 统一使用 `metadata*`，查询、批量操作、软删除及恢复见 UNS Skill。
+Source 认证配置与安全注入见 [Source 创建](skills/tier0-sdk-v2/tier0-sdk-v2-source/references/create.md)。通用 HTTP custom 的字段名是实际请求头名；Plex 模板的 `apiKey` 是厂商语义字段，两者不能直接互换。凭据通过专用凭据入口提交，不放入普通 headers 或脚本。
 
-```ts
-const sources = await tier0.source.documents.list({ page: 1, size: 20 });
-const programs = await tier0.stream.programs.list({ page: 1, size: 20 });
-```
+Stream 草稿保存、发布与运行是三个结果，分别核对。修订守卫、发布编号与未知结果恢复见 [Stream 发布](skills/tier0-sdk-v2/tier0-sdk-v2-stream/references/deploy.md)。运行时交互使用 `client.streams`。
 
-HTTP Source 使用 protocol: 'http-api'、顶层 role: 'client' | 'server'；OAuth 使用 protocol: 'oauth2'。配置字段与 Enterprise 相同，http 保存认证模式、OAuth 非秘密配置及命名参数。Server 不能主动请求，托管 endpoint 为 http://managed；路由和响应时机由 Stream 定义。普通 handler 在提交后回复，ctx.reply 可提前回复但不保证崩溃重放。通过 source.protocols.list({}) 核对目标能力；npm 管理 SDK 与执行器脚本 API 分开使用。见 [Source Skill](skills/tier0-sdk-v2/tier0-sdk-v2-source/SKILL.md) 和 [HTTPServer Stream](skills/tier0-sdk-v2/tier0-sdk-v2-stream/references/http-server.md)。
-
-Source/Stream 仍保留 `{ code, msg, requestId, data }` 响应以及 `UnsV2Error` 错误类型。Source 配置统一使用 `source.documents`；Stream 草稿统一通过 `stream.documents` 创建、读取、校验和修改，输入 `program` 与 `document` 二选一。发布和回滚仍走 `stream.programs`。保存、部署、运行成功分别判断。
-
-- 已知 Source ID/revision 且没有 Stream 引用时，可 [直接 patch 或变更状态](skills/tier0-sdk-v2/tier0-sdk-v2-source/references/update.md)；有引用时仍按精确意图确认影响。
-- Stream 发布和回滚可携带并发守卫 `expectedActiveVersion`，取已读取回执的权威版本 ID 字符串，`'0'` 表示无生效发布。Cloud 的 `expectedReleaseState: 'inactive'` 是另一种互斥守卫。[发布回执](skills/tier0-sdk-v2/tier0-sdk-v2-stream/references/deploy.md) 的 activeRelease 是 Cloud 扩展的发布序号，只用于关联运行，不作为 activeVersion 使用。
-- 单条 Record 新增可用 [returnDocument:'after'](skills/tier0-sdk-v2/tier0-sdk-v2-uns/references/create.md) 同次取得创建快照；[App 数据层](skills/tier0-sdk-v2/tier0-sdk-v2-data/references/read-write.md) 支持相同选择及投影类型。
-
-从最初提交迁移：`uns.sourceList` → `source.documents.list`；`uns.sourceDocumentGet` → `source.documents.get`；`uns.streamProgramDeploy` → `stream.programs.deploy`；`uns.streamDocumentValidate` → `stream.documents.validate`。这些管理方法已移出主入口的 `uns`。底层 `createUnsV2Client()` 仍提供完整生成契约供契约工具使用；数据专用客户端可用 `createUnsDataClient()`。
-
-随包提供 Skill：总入口 [tier0-sdk-v2](skills/tier0-sdk-v2/SKILL.md) 下嵌套 11 个领域子 Skill（`skills/tier0-sdk-v2/tier0-sdk-v2-<领域>/`），每个仍可独立发现，包含完整流程、参数边界、错误处理与可类型检查的示例：[Source](skills/tier0-sdk-v2/tier0-sdk-v2-source/SKILL.md)、[Stream](skills/tier0-sdk-v2/tier0-sdk-v2-stream/SKILL.md)、[UNS](skills/tier0-sdk-v2/tier0-sdk-v2-uns/SKILL.md)、[通知](skills/tier0-sdk-v2/tier0-sdk-v2-notifications/SKILL.md)、[系统](skills/tier0-sdk-v2/tier0-sdk-v2-system/SKILL.md)、[文件](skills/tier0-sdk-v2/tier0-sdk-v2-files/SKILL.md)、[MQTT](skills/tier0-sdk-v2/tier0-sdk-v2-mq/SKILL.md)、[成员](skills/tier0-sdk-v2/tier0-sdk-v2-members/SKILL.md)、[Agent](skills/tier0-sdk-v2/tier0-sdk-v2-agent/SKILL.md)、[App 数据](skills/tier0-sdk-v2/tier0-sdk-v2-data/SKILL.md)、[App Stream 交互](skills/tier0-sdk-v2/tier0-sdk-v2-streams/SKILL.md)。复杂流程的参考文档随 Skill 一起打包。在 Tier0 Console 上传时，把整个 `skills/tier0-sdk-v2/` 目录打成一个 zip。
+随包的领域 Skills 可以独立使用，详细参数和示例放在各自 references 中。Tier0 Console 上传 Skill 时，将整个 `skills/tier0-sdk-v2/` 目录打包，保留相对链接。
 
 ## UNS 数据访问
 
-创建本 App 集合使用 `defineCollection` / `appCollectionsEnsure`，新建必须声明 `directoryPath`（从 Workspace 根开始的实际业务名称数组）。工业数据按业务已知的 ISA-95 层级逐级复用或创建目录，不强行补满五层、不统一放入缺少业务范围的根级 App 目录；允许在已知工厂、产线下声明 MES 等 App 或业务模块目录，例如“工厂 / 产线 / MES / 工单”。共享数据放在适合其范围的共同祖先。已有 alias 的位置不会因声明变化自动移动。`ownerAppId` 表示唯一所属 App。使用已有或其他 App 共享的集合，可用 `data.collection({ collectionId })` 获取数据层句柄，也可向 `tier0.uns.recordFind`、`recordInsertOne` 等接口传入实际 `collectionId`；无需新增声明或配置服务端 alias，也不改变集合归属。引用已有集合跳过 ensure、schema 修改和种子写入；可选的 `schema` 仅用于本地写入校验。App Key 仍须已有覆盖该集合及操作的授权，知道 ID 不代表获得权限。
+App 自有集合用 `defineCollection` 声明业务 name、稳定 alias、实际 directoryPath 和 Schema，由数据层首次访问 ensure。已有集合用 `data.collection({collectionId})` 或 `client.uns.recordFind`，不 ensure、不写种子、不改变 ownerAppId；Builder 用自身系统身份完成目标 App 的授权，运行时 App Key 不能自行扩大授权。详见 [App 数据层](skills/tier0-sdk-v2/tier0-sdk-v2-data/SKILL.md) 与 [授权流程](skills/tier0-sdk-v2/tier0-sdk-v2-uns/references/update.md#已有集合授权给-app)。
 
-新建 Schema 的数值字段使用明确格式：整数为 `type: 'integer', format: 'int32'`，小数为 `type: 'number', format: 'double'`，明确需要单精度时指定 `format: 'float'`。App 数据层编译 Zod 声明时，会递归为未指定格式的 integer/number 补齐 int32/double，并保留显式格式；直接调用 UNS/MCP 时由调用方提供 format。这些是类型注解，不新增数值范围或舍入规则；ensure 不改写已有字段注解，已有 legacy 字段需通过 schema:replace 单独迁移。
+已知集合 ID 直接读取，需要发现可用集合/Schema/有效权限时用 `dataAppContext`。原始 Record 返回 `{id,data,revision,...}`，数据层返回 `{_id,...业务字段,_meta}`，查询路径都直接写业务字段，不加 `data.`。
 
 ```ts
-const context = await tier0.uns.dataAppContext({});
 const page = await tier0.uns.recordFind({ collectionId: 'orders', limit: 20 });
-const records = page.data;
-
-const controller = new AbortController();
-await tier0.uns.recordFind(
-  { collectionId: 'orders', limit: 20 },
-  { signal: controller.signal },
-);
+const records = page.data.items;
 ```
 
-`client.capabilities` 只校验 Namespace/Source/Stream 管理合同，不要求全局交互标签；同包 `client.streams.capabilities` 独立校验 App 请求合同，不阻断 Namespace。各自消费的核心合同未知仍拒绝，不将方法存在当作授权或运行就绪。
+Collection 存储仍受 Schema、索引和引用校验，JSONB 不等于自动转换。新数值字段使用 integer/int32 或 number/float|double；格式仅注解。ensure 只放宽，App 显式 schema:replace 先验证现存记录才允许收窄。回收集合保留数据与索引、既有授权可读历史；Record 删除会物理删除关联 Sample。
 
-实际集合 ID 和有效权限从平台配置/数据上下文取得。管理操作中，App 凭证只能调用本 App 集合的 `appCollectionsEnsure` / `appCollectionsSchemaReplace` / `appCollectionsArchive` / `appCollectionsRestore`；SDK 中存在 `metadataInsertOne` 等其他管理方法，不表示 App 凭证有对应权限。App 数据授权 `appDataPolicyGet` / `appDataPolicyUpdate` 使用当前管理主体的有效权限：持有 `uns.write` 的登录会话，持有 `uns.write` 且 full_access、不属于 App 运行时的 personal / agent / service-system Key，或治理会话。内置 Builder 用自身系统身份关联已有集合；新增、扩大、收窄和移除授权都复用工作区、目标 App、当前资源权限和提交前凭据校验，没有按 Agent 身份额外拒绝或平台导入特例。App 运行时凭证不能管理授权，撤销下一个请求起生效。已有集合关联流程见 [修改与授权](skills/tier0-sdk-v2/tier0-sdk-v2-uns/references/update.md#已有集合授权给-app)。Core-only 后台接口不导出到公开 SDK。
+UNS 保留 `{code,msg,requestId,data}` 响应；单条写入按需用 returnDocument 取得原子快照。`int64` 超出安全范围返回 bigint，精确 JSON 数字用 UnsV2RawNumber；保留其类型，不经 Number/普通 JSON.stringify 做无损往返。
 
-UNS 保留 `{ code, msg, requestId, data }` 完整响应。平台 v2 包装接口返回已解包的 `data`，通知/能力发现返回直接对象。业务错误即使 HTTP 为 200 也会抛出 `ApiError`。
-
-`int64` 和平台整数字段使用 `number | bigint`：安全范围内返回 number，超出范围返回 bigint。UNS 任意 JSON 中无法无损表示的数字用 `UnsV2RawNumber`；传回 SDK 可保持原值。对外输出 JSON 时自行确定 bigint/精确数字的表示，不要直接 `JSON.stringify` 包含这些值的对象。
-
-`createClient()` 的 HTTP 操作不自动重试。UNS v2 错误带 `execution`（`notStarted` / `rolledBack` / `committed` / `unknown`）与 `retry: { safe, afterMs? }`：`safe` 表示可以用同一请求（同一幂等键）重发。`execution` 为 `unknown` 时抛出 `UnsV2OutcomeUnknownError`；它与 `ApiError.outcomeUnknown` 一样表示写操作可能已执行，先读回对账，按业务意图保留原幂等键，不自动生成新键重放。查询与写入均可受配置超时约束。App 数据层 `@tier0/sdk-v2/data` 另有自己的策略：每次调用从开始算最多 25 秒（含排队与重试）、每进程最多 6 个并发请求、写入自动生成幂等键、按 `retry.safe` 最多自动重试 2 次；请求入口用 `runWithAbortSignal(request.signal, …)` 传入请求的中止信号时，请求中止后排队中的调用不再发出，进行中的被取消。
+`client.uns` 不自动重试。错误的 execution/retry 区分未提交、部分提交与 unknown，unknown 先核对原意图，安全重试保留原请求和幂等键。数据层另有自动幂等键、并发控制及有限安全重试；取消请求不等于撤销写入。操作选择、分页、事务与回收见 [UNS 指南](skills/tier0-sdk-v2/tier0-sdk-v2-uns/SKILL.md)。
 
 ## 通知
 

@@ -1,81 +1,81 @@
 ---
 name: tier0-sdk-v2-streams
-description: "Tier0 App/Stream requests and live business messages: client.streams.requests describe/invoke/discover, client.streams.messages publish/subscribe on a server client with its own key, and disposable subscriptions. Use for Stream v3 interactions; UNS history, device MQTT and persisted notifications have their own Skills."
+description: 在 Tier0 App 服务端使用 client.streams 调用已发布的 Stream 请求，发布或订阅实时业务消息。Stream 草稿与发布管理使用 tier0-sdk-v2-stream；历史业务数据使用 Collection。
 ---
 
-# App / Stream Interactions
+# App 调用 Stream
 
-Read the [root Skill](../SKILL.md) first.
+`client.streams` 用于已发布请求和实时业务消息；单数 `client.stream` 用于[管理程序与发布](../tier0-sdk-v2-stream/SKILL.md)。两者都来自 `@tier0/sdk-v2`。
 
-**In a Tier0 App's server code** the App's key (`TIER0_API_KEY`) can use both. Stream requests and messages are fixed capabilities of every App (`stream.requests.read` / `invoke` / `write`, `stream.messages.publish` / `subscribe`), not configured per App and not approved by an admin. They are still bounded by the workspace plan (a plan without Stream refuses them) and, for requests, by the Stream request grants: the request code must be granted to this App. Message topics come from published Stream manifests: the App may subscribe to a topic a published Stream declares with `api.stream.messages.use({ topic, access: 'publish' })`, and publish to a topic an active Stream subscribes to. There is no per-App topic list. These APIs require an artifact built from the unified SDK implementation: pin its commit and SHA-256 until the corresponding version is published.
+在 App 服务端使用持有 Key 的客户端，浏览器调用 App 自己的服务端路由，不把平台 Key 放进前端。创建客户端与环境配置见 [根 Skill](../SKILL.md)。
 
-Builder configures request grants using the management operations exposed by the current MCP contract: `/openapi/v2/uns/stream-requests/grants/get` and `/openapi/v2/uns/stream-requests/grants/set`, and `/openapi/v2/uns/app-stream-access/list`. Use the injected system key's current `stream.requests.manage` permission; its bound App is build context, so it may manage target Apps in the same workspace. Granted actions cannot exceed the manager's current permissions. Read the grant snapshot before updating or revoking, and reconcile state after conflicts or unknown outcomes. App runtime keys cannot manage grants. These management operations are separate from `client.streams` execution; do not invent a `client.uns` grant method.
+## 选择请求或消息
 
-## Select the interaction
+| 需要 | SDK |
+| --- | --- |
+| 发现公开请求合同 | `streams.requests.discover()` |
+| 查看已知请求的公开合同 | `streams.requests.use({code}).describe()` |
+| 一次业务调用并取得结果 | 同一 handle 的 `invoke(input, options)` |
+| 发送/订阅实时逻辑主题 | `streams.messages.use({topic}).publish/subscribe` |
+| 保存或读取历史业务数据 | [Collection](../tier0-sdk-v2-uns/SKILL.md) |
 
-- A public request code with an input/output contract: `client.streams.requests.use({ code })`. Use `describe()` to inspect it; use `client.streams.requests.discover()` to find visible contracts.
-- App request capability discovery: `client.streams.capabilities.discover()`. It validates request/invoke contracts independently of `client.capabilities.discover()`, which covers Namespace/Source/Stream management. Neither grants access or requires a mandatory preflight before every call.
-- A live logical business topic: `client.streams.messages.use({ topic })`. Use `publish(payload)` or `subscribe(handler)` and dispose the returned subscription.
-- Persisted business data belongs to UNS, device-topic MQTT belongs to the MQ Skill, and user-facing notification records belong to the Notifications Skill. Live Stream messages have no retention or replay.
+已知当前合同即可调用，不需要每次 describe 或能力探针。`streams.capabilities.discover()` 描述交互能力，`client.capabilities.discover()` 描述管理能力；两者不授予权限。
 
-Import `client` or `createClient` from `@tier0/sdk-v2`. The same client exposes `uns`, `source`, `stream`, `capabilities`, `files` and `notifications`. The singular `stream` manages documents, programs and runs; plural `streams` performs App requests and live messaging. MQTT stays in the separate `/mq` entry.
+App 运行 Key 可调用授权给该 App 的请求；简化合同的授权绑定当前发布入口版本，新发布不自动继承旧版本授权。Builder 在同一工作区使用当前 MCP 管理接口配置 grant；App 运行 Key 不管理 grant。现有接口为 stream-requests/grants/get、grants/set 和 app-stream-access/list，均在 `/openapi/v2/uns/` 下；不虚构 `client.uns` 的授权方法。更新 grant 使用其当前快照，冲突或结果未知先核对状态。
 
-## Server only
+消息方向来自已发布 Stream 清单：App 可订阅 Stream 声明发布的主题，向活跃 Stream 声明订阅的主题发布；没有另一个逐 App topic 清单。请求、消息仍受工作区可用能力和当前凭据约束。
 
-Use `client.streams` from server code with a client that holds a key: `createClient()` reads `TIER0_API_HOST` / `TIER0_API_KEY`, or pass `apiHost` / `apiKey`. Never put that key in a browser bundle. Browser code does not call the platform directly; it calls the App's own server routes, which use `client.streams`. There is no browser host bridge.
+## 请求示例
 
-Callers know only public request codes, logical topics and business payloads. Do not add broker URLs, physical subjects, JWTs, nkey seeds, workspace/principal headers or message identity claims to configuration; the SDK obtains a short-lived broker ticket per connection.
+```ts
+import { createClient } from '@tier0/sdk-v2';
 
-## Public caller
+export async function approveOrder(orderId: string) {
+  const client = createClient();
+  const request = client.streams.requests.use<{orderId:string},{accepted:boolean}>({code:'orders.approve'});
+  return request.invoke({orderId});
+}
+```
+
+调用方使用真实已发布的 code，不从 handler ID 猜测，也不选择发布版本或宿主超时。已知合同即可调用，按其 inputSchema/outputSchema 构造业务 JSON；TypeScript 泛型不替代服务端验证。简化合同省略 sideEffect/idempotency，其他公开元数据仍由平台返回。成功回执含 result、runID、status:'completed'、replayed。
+
+普通请求可直接 `invoke(input)`，每次调用独立，平台不自动重跑 handler。可选 `{idempotencyKey}` 仅对同次请求做传输去重，明确重传时保持键和输入不变；业务幂等、重试和补偿由业务代码处理。历史发布仍按原合同执行，包括原先要求的键。SDK 不生成调用键、不自动重试。`StreamRequestResultUnknownError` 表示执行可能发生，先核对 runID/runStatus 等证据；不能换键假定业务未执行。`execution:'notStarted'` 只在明确未派发时提供。
+
+## 实时消息示例
 
 ```ts
 import { createClient, type StreamMessageError } from '@tier0/sdk-v2';
 
-export async function openOrders(
-  reportError: (error: StreamMessageError) => void,
-  onOrderUpdate: (order: { orderId: string }) => void,
+export async function watchOrders(
+  receive: (payload:{orderId:string}) => void,
+  reportError: (error:StreamMessageError) => void,
 ) {
-  const sdk = createClient(); // server: TIER0_API_HOST / TIER0_API_KEY
-  const removeErrorHandler = sdk.streams.messages.onError(reportError);
-  const subscription = await sdk.streams.messages.use<{ orderId: string }>({ topic: 'orders/accepted' })
-    .subscribe(message => onOrderUpdate(message.payload));
-  const request = sdk.streams.requests.use<{ orderId: string }, { accepted: boolean }>({ code: 'orders.approve' });
-  return {
-    describe: () => request.describe(),
-    approve: (orderId: string) => request.invoke({ orderId }),
-    async dispose() {
-      await subscription.dispose();
-      removeErrorHandler();
-      await sdk.dispose();
-    },
+  const client = createClient();
+  const removeErrorHandler = client.streams.messages.onError(reportError);
+  const subscription = await client.streams.messages.use<{orderId:string}>({topic:'orders/accepted'})
+    .subscribe(message => receive(message.payload));
+  return async () => {
+    await subscription.dispose();
+    removeErrorHandler();
+    await client.dispose();
   };
 }
 ```
 
-Use a known published request code; discover it if unknown rather than guessing it from the handler ID. Ordinary requests on a Backend with the simplified request contract need only `invoke(input)`. Each call is independent and the platform starts the handler once, without automatic business retries. Optional `idempotencyKey` deduplicates an intentional retransmission of the same invocation: reuse both its key and input. Business idempotency, retries and compensation belong in business code. Existing releases keep their original contracts, including a required key when declared. The SDK never invents a key, selects deployment versions or retries a request. An unknown result means execution may have happened; use the returned run metadata when deciding recovery.
+实时消息没有历史保留、离线队列或重放。publish 成功仅表示 broker flush，不代表接收方业务提交；断线后发布失败，重连恢复订阅但不重发消息。为异步连接、解码和 handler 失败注册 onError，服务退出时释放订阅及自有客户端。
 
-## Live message lifecycle
+消息封装为 `{version,messageId,correlationId?,payload}`；payload 内自报身份只是业务数据。SDK 管理连接票据和 broker 身份，应用只配置逻辑 topic 与 payload。消息功能需要 Node.js 22+，仅 HTTP 功能支持 Node.js 20.19+。
 
-Messages use a versioned `{ version, messageId, correlationId?, payload }` envelope. Caller-supplied identity in a payload is business data, not authenticated publisher metadata; authorized broker subjects establish identity internally.
+## Stream 端对应入口
 
-The SDK uses native Core NATS over WSS, loaded only when messaging starts. Messages require Node.js 22+ (WebSocket); HTTP-only clients remain usable on Node.js 20.19+. Each initial connection, reconnect and renewal gets a new in-memory user key and a public-key-bound JWT. The old socket closes and its private key is wiped before replacement. No private key leaves the SDK. A successful publish means broker flush, not receiver acknowledgement.
-
-Register `messages.onError` (or subscription `onError`) to handle asynchronous broker, decoding and handler failures. After an established session disconnects, publish fails immediately: no offline buffering, write retry or message replay. Credential refresh and reconnection restore subscriptions only. Dispose subscriptions and the owned client when the service stops.
-
-## Stream-side code
-
-Current Cloud Source/Stream documents omit `sdkVersion` and `configVersion` selectors. On a Backend with the simplified request contract, ordinary request registration needs only an ID and handler; timeout comes from the program's `script.timeoutMs`. No business side-effect classification, idempotency policy, input/output schema or contract version is required:
+支持简化请求合同的后端只需 ID 与 handler，超时沿用程序的 script.timeoutMs，无需业务 sideEffect、idempotency、schema 或版本声明：
 
 ```js
 module.exports = api => {
-  api.stream.onRequest({ id: 'echo' }, async ctx => {
-    return ctx.input;
-  });
+  api.stream.onRequest({id:"echo"}, async ctx => ctx.input);
 };
 ```
 
-Validate business input, catch ordinary call failures, retry or compensate in the handler as needed. Platform authorization, credential and resource boundaries, execution limits and run receipts still apply. A program returning upstream data does not persist it; write explicitly to a declared Collection when persistence is required.
+业务输入校验、普通调用错误的 catch、重试和补偿写在 handler；权限、凭据、资源与执行限额拒绝仍由平台终止。onTimer 另需 intervalMs，Source onMessage 另需 source/resourceRefs 及采集参数，HTTP 入站 onRequest 另需 source/method/path。业务消息订阅为 `api.stream.messages.subscribe({id,topic,inputSchema},handler)`；发布先声明 `api.stream.messages.use({topic,access:'publish'})`，再调用 `api.stream.messages.publish({topic,payload})`。`api.stream.onMessage` 接收 Source 事件，不是业务消息订阅。
 
-Timers add `intervalMs`; Source-event `onMessage` adds `source` / `resourceRefs` and protocol acquisition options; HTTP inbound `onRequest` adds `source` / `method` / `path`. Business-message consumers use `api.stream.messages.subscribe({ id, topic, inputSchema }, handler)`. Declare each outgoing logical topic with `api.stream.messages.use({ topic, access: 'publish' })` before calling `api.stream.messages.publish({ topic, payload })`. `api.stream.onMessage` is a Source-event handler, not a business-message subscription.
-
-Use the [Stream management Skill](../tier0-sdk-v2-stream/SKILL.md) for creating and deploying a program. Historical documents may be displayed as immutable history; do not submit them as current write/validation fixtures or infer that current deployments provide the new message runtime.
+Stream 返回结果不会自动写 Collection。发布与执行能力以目标当前合同为准，HTTP 请求和厂商认证边界见 [Stream 管理](../tier0-sdk-v2-stream/SKILL.md#按需请求与-http)。

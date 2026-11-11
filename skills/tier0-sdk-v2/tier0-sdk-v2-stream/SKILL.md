@@ -1,48 +1,42 @@
 ---
 name: tier0-sdk-v2-stream
-description: 使用 @tier0/sdk-v2 的 client.stream 创建、查询、修改和删除 Stream，绑定 Source，校验脚本，发布、停用、回滚及检查运行结果。
+description: 使用 @tier0/sdk-v2 的 client.stream 创建和编辑 Stream、绑定 Source、发布或停用版本、检查运行与数据提交。App 调用已发布请求和实时消息使用 tier0-sdk-v2-streams。
 ---
 
-# Stream 处理与运行
+# Stream 管理
 
-应用代码使用 client.stream；外部连接用 [Source](../tier0-sdk-v2-source/SKILL.md)，集合和记录用 [UNS](../tier0-sdk-v2-uns/SKILL.md)。服务端 `createClient()` 读 TIER0_API_HOST / TIER0_API_KEY（平台里由平台注入 App 的 Key），也可显式传 apiHost/apiKey。Tier0 App 的 Key 无权调 Stream 管理接口（Backend 回 403）。
+`client.stream` 管理草稿、发布版本和运行；脚本中的 `api.sources/api.uns/api.stream` 属于平台执行器。连接和认证由 [Source](../tier0-sdk-v2-source/SKILL.md) 管理，业务存储由 [Collection](../tier0-sdk-v2-uns/SKILL.md) 管理，App 按需请求与消息见 [streams](../tier0-sdk-v2-streams/SKILL.md)。
 
-## 按任务加载参考
+使用持有当前管理权限的服务端客户端。Builder 的管理身份与 App 运行 Key 不同；App 能调用已授予的请求，不因此取得 Stream 管理权。按实际错误定位权限或配置，不因 403 自动换 Key。
 
-| 用户任务 | 参考 | 方法 |
-| --- | --- | --- |
-| 新建并绑定 HTTP Client Source | [创建](references/create.md) | documents.create({program}) |
-| HTTPServer 固定前缀与业务路由 | [HTTPServer](references/http-server.md) | documents.create({document})、api.stream.onRequest、ctx.reply |
-| 列表、完整文档、运行记录 | [查询](references/read.md) | programs.list、documents.get、observations.get、runs.list |
-| 修改草稿、脚本和绑定 | [修改](references/update.md) | documents.update（需要预览时 validate） |
-| 发布、停用、版本回滚 | [部署](references/deploy.md) | programs.deploy/rollback、documents.disable |
-| 删除 | [删除](references/delete.md) | programs.delete |
-| 隔离样例测试、流程衔接 | [生命周期](references/lifecycle.md) | sampleTest |
+## 按任务读取
 
-## 两种文档形态
+| 任务 | 参考 |
+| --- | --- |
+| 新建、选触发器与 Source 绑定 | [create](references/create.md) |
+| 编辑草稿 | [update](references/update.md) |
+| 发布、停用、回滚 | [deploy](references/deploy.md) |
+| 列表、完整文档、运行诊断 | [read](references/read.md) |
+| HTTPServer 路由和提前回复 | [http-server](references/http-server.md) |
+| 隔离样例与业务验收 | [lifecycle](references/lifecycle.md) |
+| 删除 | [delete](references/delete.md) |
 
-| 形态 | 完整输入 | 适用入口 |
-| --- | --- | --- |
-| Runtime program | name、script {code,timeoutMs}、sourceBindings | documents.create/update/validate({program}) |
-| 云端原生文档 | name、model、script 对象、sources、entries | documents.create/get/update/validate |
+## 程序与数据边界
 
-程序必须是完整 `module.exports = api => { ... }`，执行器 API 是 api.sources/api.uns/api.stream，与 npm 包的 client.source 不同。Runtime sourceBindings 为 sourceId/configRevision/acquisition；原生 sources 还使用 alias/resources。连接凭据不进脚本或 acquisition，秘密材料由 Source 执行宿主管理，不通过脚本读取、记录或返回。定时入口使用 api.stream.every，不传播旧注册别名；App 请求与消息交互由本包 @tier0/sdk-v2 的 client.streams.requests/messages 提供，不作为 Goja 注册参数。
+- 周期采集用 `api.stream.onTimer`（`every` 同义）；Source 事件用 `onMessage`；UNS Topic 变化用 `onEvent`；按需调用用 `onRequest`。实时业务消息使用 `api.stream.messages`。
+- 创建/修改接受互斥的 `program` 简写或原生 `document`，两者 script 都是 `{code,timeoutMs}`。program 使用 sourceBindings；原生 document 使用 sources 的 alias/resources。完整脚本为 `module.exports = api => { ... }`，Cloud timeoutMs 上限 30000。
+- `resources:[]` 不代表任意协议资源授权；当前 Cloud HTTP client 会按通用 HTTP request 合同处理。原生操作应绑定目录中的精确资源。
+- `return` 只返回处理结果。落库须显式 Collection `write`，使用符合 schema 的对象和稳定 recordId；缓冲写意图不等于已提交。
+- 保存草稿、发布成功、真实执行和业务提交分别确认。sampleTest 的 writePreview 不写线上数据。
 
-支持简化请求合同的后端用 `api.stream.onRequest({id}, handler)` 注册普通按需请求，超时沿用 script.timeoutMs，无需声明业务 sideEffect、idempotency、schema 或版本。平台默认执行一次，不自动重跑 handler；业务校验、普通调用异常的 catch、重试、幂等与补偿由代码处理。可选调用去重键只处理同次请求的传输重放，历史发布保留原合同。最小示例与调用方式见 [Stream 交互](../tier0-sdk-v2-streams/SKILL.md)。
+## 按需请求与 HTTP
 
-## 核心约束
+支持简化请求合同的后端用 `api.stream.onRequest({id}, handler)` 注册普通请求，超时沿用 script.timeoutMs，无需声明业务 sideEffect、idempotency、schema 或版本。平台默认执行一次，不自动重跑 handler；业务校验、普通调用异常的 catch、重试、幂等与补偿由代码处理。可选调用键只用于同次请求的传输去重，历史发布保留原合同。最小示例见 [Stream 交互](../tier0-sdk-v2-streams/SKILL.md#stream-端对应入口)。
 
-1. documents.get({id,view:"summary"}) 返回安全摘要，不含可回写脚本；完整编辑使用 documents.get 或上次 documents.create/update 返回的完整文档。保留未修改的 sources/entries/script 字段。
-2. create/update 保存草稿，不自动发布；documents 没有 deploy，云端 program 发布使用 programs.deploy。不能将已保存报告为已运行。
-3. 所有更新/部署/删除携带当前 expectedRevision。发布/停用/回滚使用权威 activeVersion 字符串作为 expectedActiveVersion，避免停掉他人刚发布的版本。
-4. versionId 使用已知发布回执的 activeVersion，或从 versions.list 选定，不把 release 序号当 ID。expectedSourceRevision 仅用于恰好一个依赖源，不代表多个源的修订。
-5. resources=[] 是空冻结资源集，不是通配符。写入本身由服务端校验，需要预览时单独 validate；当前云端程序 timeoutMs 上限 30000。
-6. HTTPServer 响应时机在 Stream：普通返回等处理/提交完成；HTTP onRequest 内 await ctx.reply 可先回复一次再继续，仍受超时/并发/权限约束，断线不取消但 shutdown 可取消，不保证崩溃重放。
-7. 仅执行用户要求的生命周期步骤；修改脚本不自动授予发布、停用或删除权限。
-8. 用户要求采集落库时，先创建或复用 Collection 并确定字段映射与稳定 recordId，再绑定 Source 的当前修订；脚本显式 api.uns.use(...).write。部署后核对实际运行并读回记录，返回上游结果、保存草稿或样例预演均不代表已落库。
+HTTP 读写权限按实际操作检查，GET/HEAD 不因使用 onRequest 而要求写声明；权限、凭据、资源边界和执行限额仍生效。当前 Cloud 的厂商认证 Source 不支持通用 source.request，应使用其目录中的原生操作，或能表达真实认证的普通 HTTP Source。自定义路径不能仅改成 vendor 资源名；不兼容按 reason/path/repair 修正。
 
-## 成功与异常
+## 修订与执行结局
 
-响应保留 code/msg/requestId/data。创建/更新回执的 revision 可直接用于发布；programs 发布回执的 activeRelease 是同次事务保存的正整数发布序号，无需前后 get。programs 回执和查询结果无活跃发布时省略 activeRelease，activeVersion 为字符串 0。校验要检查 valid，样例要检查 completed/failed，删除要检查 deleted；发布后按回执的 activeRelease 筛选 runs.list 才能确认该版本运行。样例 writePreview 不代表线上数据写入。
+复用创建/更新回执中的完整文档与 revision。summary 不能用于回写；发生冲突或缺少快照时再 get。发布、停用、回滚使用 activeVersion 字符串作为 expectedActiveVersion；activeRelease 是关联运行的发布序号，不能互换。
 
-UnsV2OutcomeUnknownError、发布超时或取消后保留原路由、载荷和幂等键；允许恢复时原样重发取得原回执，不用新键重复发布。回执缺少 activeRelease 时不得用当前 head 替代。版本冲突先比较当前草稿，不能忽略 expectedRevision。不同写入意图使用不同键；本地 SDK 测试不能代替目标环境联调。
+写操作各自使用稳定意图键。结果未知保留原路径、请求体和键，先核对状态；恢复同一操作不换键。创建成功、发布失败时继续处理已有草稿。更改程序后的新业务意图另用新键，不自动重跑旧 unknown 任务。
