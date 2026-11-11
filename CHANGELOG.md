@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.12.2 (2026-11-11)
+
+- Synchronize Source/Stream contract diagnostics with Backend `0edf6335c76dfd442a071ee706be3a523c8ecbfb`, including App Stream execution identity, runtime and Source binding availability reasons.
+- Document unified Stream execution identity and HTTP Source reuse of vendor authentication where supported by the target Backend; SDK updates do not deploy the Backend.
+
 ## 0.12.1 (2026-11-11)
 
 - COLLECTION_NOT_GRANTED guidance no longer says only a workspace admin can add grants; the built-in Builder grants task-required access with appDataPolicyUpdate (uns-swe#965).
