@@ -6,6 +6,14 @@ import { fileURLToPath } from 'node:url';
 // Reuse the behavioral assertions, but load code and Skills only from the tarball.
 const root = fileURLToPath(new URL('../', import.meta.url));
 const consumer = resolve(process.argv[2]);
+// Optional exact test paths keep focused package checks focused; no arguments
+// retain the full installed suite used for release verification.
+const selected = process.argv.slice(3).map(path => path.replaceAll('\\', '/'));
+for (const path of selected) {
+  if (!/^tests\/[\w./-]+\.test\.ts$/.test(path) || path.split('/').includes('..') || !existsSync(resolve(root, path))) {
+    throw new Error(`Invalid installed test path: ${path}`);
+  }
+}
 const installed = resolve(consumer, 'node_modules/@tier0/sdk-v2');
 if (!existsSync(resolve(installed, 'dist/esm/index.js'))) throw new Error('Install the tarball before testing');
 cpSync(resolve(root, 'tests'), resolve(consumer, 'tests'), { recursive: true });
@@ -20,7 +28,8 @@ function rewrite(directory) {
     const file = resolve(directory, entry.name);
     if (entry.isDirectory()) { rewrite(file); continue; }
     if (!entry.name.endsWith('.test.ts')) continue;
-    if (!excludes.includes(relative(consumer, file).replaceAll('\\', '/'))) testFiles++;
+    const path = relative(consumer, file).replaceAll('\\', '/');
+    if (!excludes.includes(path) && (!selected.length || selected.includes(path))) testFiles++;
     let imports = 0;
     const source = readFileSync(file, 'utf8').replace(/(['"])((?:\.\.\/)+)src\/([^'"\n]+)\1/g, (_, quote, _parents, subpath) => {
       const target = resolve(installed, 'dist/esm', subpath);
@@ -36,7 +45,7 @@ rewrite(resolve(consumer, 'tests'));
 const config = {
   root: consumer,
   test: {
-    include: ['tests/**/*.test.ts'],
+    include: selected.length ? selected : ['tests/**/*.test.ts'],
     exclude: excludes,
     server: { deps: { inline: ['@tier0/sdk-v2'] } },
     reporters: ['default', 'json'],

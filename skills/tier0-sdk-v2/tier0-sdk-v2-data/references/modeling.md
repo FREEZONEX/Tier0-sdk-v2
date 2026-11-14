@@ -59,7 +59,13 @@ ensure 同事务复用或创建目录、集合和授权，不需要先 metadataI
 
 使用 `{path}` 或最多 3 字段的 `{paths}`；业务唯一键加 unique:true；数组/对象可用单字段 kind:'gin'，不能 unique。路径沿对象属性，不直接索引数组元素里的属性；每集合最多 16 个索引，实际配额以服务端为准。过滤和排序常用字段应考虑索引。
 
+索引声明仅支持 path/paths、unique（布尔值）、kind、expireAfterSeconds。未支持的选项必须报错，不能忽略后继续创建索引；例如 where/partialFilterExpression 不表示已支持部分唯一索引。迁移依赖此类约束时，先确认 SDK 与平台的等价能力，不能删除条件来通过编译。
+
 唯一索引异步创建，ready 后才可依赖唯一约束或 upsert。upsert 要求 _id 等值或一个 ready 唯一索引全部字段等值。软删除记录释放唯一键，恢复可能与活动记录冲突。
+
+`await data.assertIndexesReady([orders])` 先 ensure，再用 App Key 的当前 context 核对所选声明的全部索引（不传参数则检查全部声明）。检查字段顺序、unique、kind、target、TTL 和集合 ID；未就绪抛 `INDEX_NOT_READY`，失败抛 `INDEX_BUILD_FAILED`，不得继续依赖约束写入。每次读取新状态，不缓存 ready、不轮询、不修复、不改用个人 Key。它只证明检查时的状态，不锁定索引、不改变 seed 时机，也不自动保护后续写入或 SDK 自愈后重建的集合；业务切换还必须验证这些生命周期路径。
+
+事务可用 `data.transact(steps, { requireIndexesReady: true })`：发送前检查步骤涉及的声明及实际集合 ID，Preview 重置导致集合自愈后重新检查再提交；索引未就绪时不会向重建集合重发业务事务。只接受本客户端声明，不接受已有 ID 引用。它仍是发送前检查，不锁元数据、不更改 bootstrap/seed，也不重新检查底层 HTTP 安全重试之间的状态；索引存续和约束执行由服务端保证。
 
 ### 过期自动删除（TTL）
 

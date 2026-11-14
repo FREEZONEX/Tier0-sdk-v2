@@ -18,8 +18,8 @@ import { toSortPairs, type Filter, type Sort, type SortPairs } from './sort.js';
 export const MAX_PAGE_SIZE = 200;
 
 /**
- * UNS commits at most 200 items in one synchronous atomic batch
- * (insertMany, bulkWrite, data.transact).
+ * Collection bulk operations commit at most 200 items in one atomic batch
+ * (insertMany and bulkWrite). Explicit data.transact negotiates its own limit.
  */
 export const MAX_ATOMIC_ITEMS = 200;
 
@@ -81,6 +81,8 @@ export interface CollectionRuntime {
   recover<R>(fn: () => Promise<R>, options: { collections: readonly CollectionTarget[]; retry?: boolean }): Promise<R>;
   /** Abort signal of the request being served. */
   signal(): AbortSignal | undefined;
+  /** Fresh declared-index state for the exact collection ID about to be written. */
+  assertIndexesReady(target: CollectionTarget, collectionId: string): Promise<void>;
 }
 
 /** Rejects batches UNS would refuse, before anything is sent. */
@@ -256,6 +258,24 @@ export interface UpdateOptions {
   sort?: Sort;
   arrayFilters?: Record<string, unknown>[];
   idempotencyKey?: string;
+}
+
+export interface UpdateManyAtomicOptions {
+  arrayFilters?: Record<string, unknown>[];
+  idempotencyKey?: string;
+  /** Validate the complete range in one transaction, then roll it back. */
+  dryRun?: boolean;
+  /** Fresh index preflight before submission and after collection recovery. Declared collections only. */
+  requireIndexesReady?: boolean;
+}
+
+export interface UpdateManyAtomicResult {
+  matchedCount: number;
+  modifiedCount: number;
+  /** Database transaction start time, in Unix milliseconds; retained on receipt replay. */
+  transactionTime: number;
+  replayed: boolean;
+  dryRun: boolean;
 }
 
 export interface FindOneAndOptions extends UpdateOptions {
@@ -663,8 +683,8 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
    * A failure after some documents committed keeps its code but is
    * `execution: "committed"`, with the cumulative counts and
    * `details.resumeAfter`; pass that back as `resumeAfter` to continue
-   * instead of repeating the call. For all-or-nothing multi-document changes
-   * use `data.transact` (≤200 items).
+   * instead of repeating the call. Use `updateManyAtomic` for one atomic
+   * matching range, or `data.transact` for distinct steps within its negotiated capacity.
    */
   async updateMany(
     filter: Filter,
@@ -680,6 +700,28 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
       return { matchedCount, modifiedCount };
     });
     return { matchedCount, modifiedCount };
+  }
+
+  /**
+   * Selects and updates every match in one server transaction. No client-side
+   * enumeration, batch splitting or fallback to partial updateMany. Server
+   * resource limits still apply; failures leave the whole range unchanged
+   * unless the outcome is unknown, which is surfaced without automatic replay.
+   * `$currentDate` uses the same database transaction clock for every match.
+   */
+  async updateManyAtomic(filter: Filter, update: Update, options: UpdateManyAtomicOptions = {}): Promise<UpdateManyAtomicResult> {
+    const validated = validateUpdate(this.definition, update);
+    if (options.requireIndexesReady && 'collectionId' in this.definition) {
+      throw new TypeError('Atomic range index readiness requires a declared collection, not an existing-ID reference.');
+    }
+    return this.runtime.recover(async () => {
+      const collectionId = await this.runtime.resolve(this.definition);
+      if (options.requireIndexesReady) await this.runtime.assertIndexesReady(this.definition, collectionId);
+      return this.runtime.call<UpdateManyAtomicResult>('recordUpdateManyAtomic', compact({
+        collectionId, filter, update: validated, arrayFilters: options.arrayFilters,
+        idempotencyKey: options.idempotencyKey, dryRun: options.dryRun,
+      }), { signal: this.runtime.signal(), retryUnknown: false });
+    }, { collections: [this.definition] });
   }
 
   /** Runs a non-atomic many-write page by page; see updateMany for failures. */

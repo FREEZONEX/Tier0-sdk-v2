@@ -33,6 +33,8 @@ export class DataError extends Error {
   /** HTTP status UNS answered with; 0 when no response arrived. */
   readonly upstreamStatus: number;
   readonly requestId?: string;
+  /** Server-identified failing transaction step; absent when the failure is not attributed to a step. */
+  readonly opId?: string;
   /**
    * How far the failed request got: `notStarted` / `rolledBack` changed
    * nothing, `committed` took effect, `unknown` (writes only) may have.
@@ -61,6 +63,7 @@ export class DataError extends Error {
     reason?: string;
     upstreamStatus?: number;
     requestId?: string;
+    opId?: string;
     execution?: UnsV2Execution;
     retry?: UnsV2Retry;
     attempts?: number;
@@ -75,6 +78,7 @@ export class DataError extends Error {
     this.reason = init.reason;
     this.upstreamStatus = init.upstreamStatus ?? 0;
     this.requestId = init.requestId;
+    this.opId = init.opId;
     this.execution = init.execution ?? 'notStarted';
     this.retry = init.retry ?? { safe: false };
     this.outcomeUnknown = this.execution === 'unknown';
@@ -158,6 +162,7 @@ export function toDataError(error: UnsV2Error, attempts = 1, idempotencyKey?: st
   const common = {
     upstreamStatus: error.status,
     requestId: error.requestId,
+    opId: error.opId,
     execution: error.execution,
     retry: error.retry,
     attempts,

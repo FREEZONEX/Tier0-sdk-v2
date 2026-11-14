@@ -46,6 +46,8 @@ const BACKOFF_BASE_MS = 250;
 export interface CallOptions {
   /** Abort of the current business request: a queued call leaves the queue, an in-flight one is cancelled. */
   signal?: AbortSignal;
+  /** False surfaces an unknown write outcome even when its receipt makes a retry safe. */
+  retryUnknown?: boolean;
 }
 
 /** Sends one operation and resolves with the envelope's `data`. */
@@ -93,6 +95,9 @@ class Gate {
       });
     }
     try {
+      // An already-aborted caller can take a free slot, or be aborted just
+      // after a queued slot is granted. Neither may enter the transport.
+      if (signal.aborted) throw new Abandoned();
       return await fn();
     } finally {
       // Hand the slot straight to the next waiter, so the count never dips below the queue.
@@ -195,7 +200,7 @@ export function createDataTransport(config: ClientConfig): { call: DataCall; ope
         } catch (error) {
           if (error instanceof Abandoned) throw notSent(attempt - 1);
           if (!(error instanceof UnsV2Error)) throw error;
-          const delay = retryDelay(error, attempt);
+          const delay = options.retryUnknown === false && error.outcomeUnknown ? undefined : retryDelay(error, attempt);
           if (delay === undefined || Date.now() + delay >= deadline || !(await pause(delay, stop.signal))) {
             throw toDataError(error, attempt, key);
           }

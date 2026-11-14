@@ -4,7 +4,8 @@
 
 - 条件未匹配与 VERSION_CONFLICT 不同于成功更新；重读后重新决定。
 - upsert 要求 _id 等值或 ready 唯一索引的全部字段等值；新唯一索引异步构建。
-- 跨文档不变量用一次 data.transact，最多 200 步，不拆成独立 HTTP 请求。
+- 跨文档不变量用一次 data.transact，不拆成独立 HTTP 请求。超过 200 步时 SDK 读取当前 App 的 limits.transaction 并校验容量，客户端最高 10,000 步；旧服务端没有该能力字段时仍为 200。data.getTransactionLimits() 可用于业务预检，实际发送前仍重新核对大事务容量；SDK 更新本身不会部署后端能力。
+- 对同一集合的完整匹配范围应用同一个更新，用 `collection.updateManyAtomic(filter, update, options)`。这是独立后端能力：一次请求、同一数据库事务，失败整批回滚，SDK 不枚举或分批。`$currentDate` 使用该数据库事务时间；返回 matchedCount、modifiedCount、transactionTime、replayed、dryRun。可选 arrayFilters、idempotencyKey、dryRun、requireIndexesReady；最后一项要求声明集合并检查当前索引。仍受服务端超时和资源预算约束；结果未知时直接抛错，不自动重发。旧 updateMany 的部分提交语义不变，目标后端须先部署该能力。
 
 ```ts
 import { createDataClient } from '@tier0/sdk-v2/data';
@@ -23,6 +24,28 @@ export async function reserve(sku: string, qty: number, orderId: string) {
 ```
 
 transact 是声明式原子步骤，不是能在中间执行应用代码的数据库会话。步骤 data 不含 _id，在步骤上用 id；dependsOn/bindings 表达依赖，record.query 可用 expectCount。失败抛 TRANSACTION_FAILED 并附 details.results；dryRun 仅验证。
+
+支持该能力的后端在成功的 record.check/read 结果中提供可选 transactionTime（数据库事务开始时间，Unix 毫秒）。后续步骤可用 `{ path: 'data.createdAt', ref: 'clock', resultPath: 'transactionTime' }` 绑定同事务时间，默认写入 number；字符串日期字段可增加 `format: 'iso8601'`，由后端把同一个数据库时间格式化为固定三位毫秒的 UTC ISO 字符串。format 只适用于 transactionTime，不改变结果里的数字值。旧后端可以省略该字段，原来不带 format 的绑定保持兼容，SDK 不以应用时钟补值；需要服务器时间或 ISO 格式的业务必须确认目标后端支持后再启用。契约来源已固定到合并后的后端提交 baee1fa79，SDK 更新不等于目标环境已部署。
+
+对于 `record.update`，用 `update/$set/updatedAt` 或 `update/$setOnInsert/createdAt` 绑定已有标量占位值。占位值可为 `null`，SDK 仍校验字段声明和其他字面值，由后端在替换后校验最终文档。`$setOnInsert` 只设置首次插入时间，后续更新保留它；字段名里的 `~` 和 `/` 分别编码为 `~0` 和 `~1`。例如：
+
+```ts
+import { createDataClient } from '@tier0/sdk-v2/data';
+
+const data = createDataClient({});
+const records = { collectionId: 'records-id' };
+
+export async function upsertWithCreationTime(id: string, value: number, idempotencyKey: string) {
+  return data.transact([
+    { opId: 'clock', action: 'record.check', collection: records, id: 'clock-anchor', exists: true },
+    { opId: 'write', action: 'record.update', collection: records, filter: { _id: id }, upsert: true,
+      update: { $set: { value }, $setOnInsert: { createdAt: null } }, dependsOn: ['clock'],
+      bindings: [{ path: 'update/$setOnInsert/createdAt', ref: 'clock', resultPath: 'transactionTime' }] },
+  ], { idempotencyKey });
+}
+```
+
+`clock-anchor` 是调用方已持有的检查记录；检查失败时整个事务失败，不会插入业务记录。
 
 ## 调用身份与请求上下文
 
