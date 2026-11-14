@@ -19,7 +19,7 @@ export const MAX_PAGE_SIZE = 200;
 
 /**
  * Collection bulk operations commit at most 200 items in one atomic batch
- * (insertMany, bulkWrite, data.transact).
+ * (insertMany and bulkWrite). Explicit data.transact negotiates its own limit.
  */
 export const MAX_ATOMIC_ITEMS = 200;
 

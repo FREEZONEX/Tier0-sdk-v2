@@ -70,6 +70,46 @@ describe('database transaction time results', () => {
     expect(result.results[0].transactionTime).toBe(timestamp);
   });
 
+  it('keeps server-bound upsert placeholders while validating literal update fields', async () => {
+    const f = fixture(true);
+    const target = { ...collection, schema: z.object({
+      value: z.number().int(), createdAt: z.number().int().min(1), updatedAt: z.string(),
+    }) };
+    const update = { $set: { value: 1, updatedAt: null }, $setOnInsert: { createdAt: 0 } };
+    const bindings = [
+      { path: 'update/$setOnInsert/createdAt', ref: 'clock', resultPath: 'transactionTime' },
+      { path: 'update/$set/updatedAt', ref: 'clock', resultPath: 'transactionTime', format: 'iso8601' as const },
+    ];
+    const steps: TransactStep[] = [
+      { opId: 'clock', action: 'record.check', collection, id: 'guard' },
+      { opId: 'upsert', action: 'record.update', collection: target, filter: { _id: 'row' },
+        update, upsert: true, dependsOn: ['clock'], bindings },
+    ];
+    await f.data.transact(steps);
+    expect(f.calls).toHaveLength(1);
+    expect(f.calls[0].body.items[1]).toMatchObject({ action: 'record.update', upsert: true, update, bindings });
+    expect(update.$set.updatedAt).toBeNull();
+    expect(update.$setOnInsert.createdAt).toBe(0);
+    await expect(f.data.transact([steps[0], { ...steps[1],
+      update: { ...update, $set: { ...update.$set, value: 'invalid' } },
+    }])).rejects.toBeInstanceOf(z.ZodError);
+    expect(f.calls).toHaveLength(1);
+  });
+
+  it.each([
+    { update: { $set: { value: null } }, path: 'update/$set/value/child' },
+    { update: { $set: { value: null } }, path: 'update/$setOnInsert/value' },
+    { update: { $set: { undeclared: null } }, path: 'update/$set/undeclared' },
+    { update: { $inc: { value: null } }, path: 'update/$inc/value' },
+  ])('does not relax literal or declared-path validation for $path', async ({ update, path }) => {
+    const f = fixture(true);
+    await expect(f.data.transact([{ opId: 'write', action: 'record.update', id: 'row',
+      collection: { ...collection, schema: z.object({ value: z.number() }) }, update,
+      bindings: [{ path, ref: 'clock', resultPath: 'transactionTime' }],
+    }])).rejects.toBeInstanceOf(z.ZodError);
+    expect(f.calls).toHaveLength(0);
+  });
+
   it.each([
     { resultPath: 'revision', format: 'iso8601' },
     { resultPath: 'data.createdAt', format: 'iso8601' },

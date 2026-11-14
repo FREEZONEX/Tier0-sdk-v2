@@ -679,7 +679,7 @@ const ELEMENT_OPERATORS = new Set(['$push', '$addToSet']);
 const NUMERIC_OPERATORS = new Set(['$inc', '$mul']);
 
 /** Validates update-operator documents against the declaration (paths and values). */
-export function validateUpdate(definition: CollectionTarget, update: Record<string, unknown>): Record<string, unknown> {
+export function validateUpdate(definition: CollectionTarget, update: Record<string, unknown>, boundPaths: readonly string[] = []): Record<string, unknown> {
   if (!isPlainObject(update) || Object.keys(update).length === 0) {
     throw validationError([], 'An update needs at least one operator such as `$set`.', update);
   }
@@ -709,6 +709,13 @@ export function validateUpdate(definition: CollectionTarget, update: Record<stri
       }
 
       if (VALUE_OPERATORS.has(operator)) {
+        // Only exact scalar placeholders are replaced by the server. Paths
+        // remain declaration-checked; all unbound literals still validate here.
+        const bindingPath = `update/${operator}/${path.replaceAll('~', '~0').replaceAll('/', '~1')}`;
+        if (boundPaths.includes(bindingPath) && (value === null || ['string', 'number', 'boolean'].includes(typeof value))) {
+          next[path] = value;
+          continue;
+        }
         if (value === undefined) continue;
         next[path] = strictParse(zodTarget, target, value, issuePath);
       } else if (ELEMENT_OPERATORS.has(operator)) {

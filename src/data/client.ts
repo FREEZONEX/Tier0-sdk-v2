@@ -42,6 +42,7 @@ export interface TransactStep {
   expectedRevision?: number;
   dependsOn?: string[];
   bindings?: {
+    /** Update scalars use update/$set/<field> or update/$setOnInsert/<field>; JSON Pointer-escape the field token. */
     path: string;
     ref: string;
     resultPath: string;
@@ -286,7 +287,7 @@ export function createDataClient(config: DataClientConfig): DataClient {
           const bound = (step.bindings ?? []).flatMap((binding) => (binding.path.startsWith('data.') ? [binding.path.slice(5).split('.')[0]] : []));
           item.data = validateStepData(definition, step.data, bound);
         }
-        if (step.update) item.update = validateUpdate(definition, step.update);
+        if (step.update) item.update = validateUpdate(definition, step.update, (step.bindings ?? []).map(binding => binding.path));
         return item;
       }),
     );

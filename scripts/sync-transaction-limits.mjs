@@ -19,8 +19,10 @@ const digest = value => createHash('sha256').update(value).digest('hex');
 const json = value => Buffer.from(JSON.stringify(value, null, 2) + '\n');
 const lock = JSON.parse(local('contracts/upstream.json'));
 const provenance = JSON.parse(local('contracts/uns-v2/provenance.json'));
+assert.deepEqual(provenance.schemaUpdates || [], lock.schemaUpdates || [], 'Incremental schema provenance differs');
 const scope = 'app-transaction-limits';
 const previous = provenance.schemaUpdates?.find(item => item.scope === scope);
+assert.ok(!previous || provenance.schemaUpdates.at(-1) === previous, 'Resync later overlays before replacing a nonterminal overlay');
 const update = { scope, repository: 'FREEZONEX/Tier0-Backend', revision,
   sourceKind: preview ? 'working-tree-preview' : 'committed', inputs: {}, schemas: ['CloudAppDataLimits.transaction'] };
 const sourcePaths = {
