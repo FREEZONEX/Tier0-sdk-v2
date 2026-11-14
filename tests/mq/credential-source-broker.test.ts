@@ -15,7 +15,9 @@ async function broker() {
   if (!address || typeof address === 'string') throw new Error('missing broker address');
   const seen: { password: string; username: string; clientId: string }[] = [];
   const sockets = new Set<{ terminate(): void }>();
+  let accepting = true;
   server.on('connection', (socket: any) => {
+    if (!accepting) { socket.terminate(); return; }
     sockets.add(socket);
     socket.once('close', () => sockets.delete(socket));
     const parser = packet.parser();
@@ -30,6 +32,7 @@ async function broker() {
   });
   return {
     url: `ws://127.0.0.1:${address.port}/mqtt`, seen,
+    acceptConnections: (value: boolean) => { accepting = value; },
     breakConnections: () => { for (const socket of sockets) socket.terminate(); },
     close: () => new Promise<void>(resolve => { for (const socket of sockets) socket.terminate(); server.close(() => resolve()); }),
   };
@@ -137,10 +140,14 @@ describe.each([['mqtt.js current', mqttCurrent], ['mqtt.js 5.3.0', mqtt530]])('M
     await client.connect();
     await expect(client.connect({ password: undefined })).rejects.toThrow(/password/i);
     expect(b.seen).toHaveLength(1);
+    // Keep the disconnected state observable even when reconnect jitter is
+    // shorter than the polling interval. Resume only after changing the env.
+    b.acceptConnections(false);
     b.breakConnections();
     await vi.waitFor(() => expect(client.isConnected).toBe(false), { timeout: 1000, interval: 10 });
     await expect(client.connect({ password: undefined })).rejects.toThrow(/password/i);
     vi.stubEnv('TIER0_API_KEY', 'sk-per-ws2_user-b');
+    b.acceptConnections(true);
     await vi.waitFor(() => expect(b.seen.length).toBeGreaterThanOrEqual(2), { timeout: 2500, interval: 20 });
     expect(b.seen.map(entry => [entry.password, entry.username])).toEqual([
       ['sk-app-ws1_env-a', '1&open'], ['sk-app-ws1_env-a', '1&open'],
