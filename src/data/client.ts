@@ -86,6 +86,8 @@ export interface TransactOptions {
   idempotencyKey?: string;
   /** Index preflight before submission and after collection recovery. Declared collections only; not a metadata lock. */
   requireIndexesReady?: boolean;
+  /** False surfaces an unknown commit even when the server advertises safe receipt replay. */
+  retryUnknown?: boolean;
 }
 
 /** Named reads for `data.queryBatch`: 1–20 entries, names matching `[A-Za-z0-9_.-]{1,64}`. */
@@ -315,7 +317,7 @@ export function createDataClient(config: DataClientConfig): DataClient {
         ...(options.dryRun ? { dryRun: true } : {}),
         ...(options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : {}),
       },
-      { signal: currentSignal() },
+      { signal: currentSignal(), retryUnknown: options.retryUnknown },
     );
   }
 

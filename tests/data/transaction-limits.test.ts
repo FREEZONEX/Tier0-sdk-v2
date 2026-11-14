@@ -45,6 +45,27 @@ function fixture(declared = true) {
 }
 
 describe('negotiated synchronous transaction capacity', () => {
+  it.each([false, true, undefined])('honors the explicit unknown-commit replay policy: %s', async retryUnknown => {
+    let calls = 0;
+    const data = createDataClient({ collections: [], apiHost: 'https://isolated.invalid', apiKey: 'fixture-only',
+      fetch: async () => {
+        calls++;
+        if (calls === 1) return Response.json({ code: 503, msg: 'Unknown', requestId: 'fixture', data: null,
+          error: { code: 'OUTCOME_UNKNOWN', execution: 'unknown', retry: { safe: true, afterMs: 0 }, details: [] },
+        }, { status: 503 });
+        return Response.json({ code: 200, msg: 'ok', requestId: 'fixture', data: { status: 'committed', results: [] } });
+      } });
+    const request = data.transact([{ opId: 'guard', action: 'record.check', collection: { collectionId: 'records' }, id: 'row' }],
+      { idempotencyKey: 'same-intent', retryUnknown });
+    if (retryUnknown === false) {
+      await expect(request).rejects.toMatchObject({ execution: 'unknown', outcomeUnknown: true, attempts: 1 });
+      expect(calls).toBe(1);
+    } else {
+      await expect(request).resolves.toMatchObject({ status: 'committed' });
+      expect(calls).toBe(2);
+    }
+  });
+
   it('sends 250 steps together with explicit sync mode and the caller idempotency key', async () => {
     const f = fixture();
     const result = await f.data.transact(largeSteps(), { idempotencyKey: 'one-atomic-operation' });

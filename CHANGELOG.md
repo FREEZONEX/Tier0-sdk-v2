@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add optional `data.transact(..., { retryUnknown: false })` for workflows that must surface an unknown commit without receipt replay. The default retry policy remains unchanged; confirmed rolled-back retries still follow the server's retry contract.
+
 - Add `collection.updateManyAtomic(filter, update, options)` for one server transaction over the complete matching range. It preserves update validation, array filters, idempotency, optional fresh declared-index checks, and database `$currentDate`; results expose counts, database transaction time, replay and dry-run status. The SDK never enumerates records, chunks the range, falls back to partial writes, or automatically resends an unknown outcome. Existing partial `updateMany` remains unchanged. Contracts are pinned to merged Backend `baee1fa79a3396fb57c8a23230b9c378e2d037cf`; the target environment must deploy this capability separately.
 
 - Preserve optional `transactionTime` on successful `record.check`/`record.read` results and expose its numeric type in `TransactResultItem`. Result bindings may use `resultPath: 'transactionTime'` for database transaction start time in Unix milliseconds, or add `format: 'iso8601'` for a UTC string with three fractional digits. Formatting is only valid for the transaction clock and is performed by the server. Older results and bindings without a format remain compatible; the SDK never substitutes application time. `record.update` bindings to `$set`/`$setOnInsert` retain scalar placeholders for server resolution while still validating declared paths and unbound literals.
