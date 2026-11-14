@@ -60,6 +60,22 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
   expect(appContext.properties.dataState.description).toContain('APP_DATA_POLICY_DISABLED');
   expect(appContext.required.filter(name => name === 'dataState')).toHaveLength(1);
   const baselineSchemas = structuredClone(schemas);
+  const limits = baselineSchemas.CloudAppDataLimits as { properties: Record<string, unknown>; required: string[] };
+  expect(limits.required).not.toContain('transaction');
+  expect(limits.properties.transaction).toMatchObject({
+    type: 'object', additionalProperties: false, required: ['maxItems', 'maxBodyBytes', 'timeoutMs'],
+    properties: { maxItems: { type: 'integer', minimum: 1 }, maxBodyBytes: { type: 'integer', minimum: 1 }, timeoutMs: { type: 'integer', minimum: 1 } },
+  });
+  // Only the reviewed optional capability is excluded from the pinned baseline.
+  delete limits.properties.transaction;
+  const result = baselineSchemas.Result as { properties: Record<string, unknown>; required: string[] };
+  expect(result.required).not.toContain('transactionTime');
+  expect(result.properties.transactionTime).toMatchObject({ type: 'integer' });
+  delete result.properties.transactionTime;
+  const resultBinding = baselineSchemas.UnsV2ResultBinding as { properties: Record<string, unknown>; required: string[] };
+  expect(resultBinding.required).not.toContain('format');
+  expect(resultBinding.properties.format).toMatchObject({ type: 'string', enum: ['iso8601'] });
+  delete resultBinding.properties.format;
   const baselineAppContext = baselineSchemas.AppContext as typeof appContext;
   delete baselineAppContext.properties.dataState;
   baselineAppContext.required = baselineAppContext.required.filter(name => name !== 'dataState');

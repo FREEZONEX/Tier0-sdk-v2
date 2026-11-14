@@ -7,6 +7,7 @@
 | status / upstreamStatus | App 应返回的 HTTP 状态 / 上游实际状态 |
 | code / reason / details | 稳定错误码、原因和定位信息 |
 | requestId | 查询平台日志 |
+| opId | 服务端明确定位的失败事务步骤；可能缺失，不从 message 或 details 推测，仍须结合 execution 判断结果 |
 | execution | notStarted、rolledBack、committed、unknown |
 | retry | 是否可安全原样重试及 afterMs；数据层已处理有限重试 |
 | outcomeUnknown | 写入可能已执行，需核对 |
@@ -52,6 +53,7 @@ updateMany/deleteMany 部分失败的 details 是累计结果（matchedCount、m
 | ANNOTATION_NOT_APPLIED | ensure 保留描述；显式结构替换才应用 |
 | REQUIRED_NOT_ENFORCED | 存储仍可选，回填后才能收紧 |
 | INDEX_BUILD_FAILED | 检查违反唯一约束的现存记录 |
+| INDEX_NOT_READY | 声明的索引状态缺失或尚未 ready；停止依赖约束的写入，待平台完成后重新检查 |
 | APP_DATA_POLICY_DISABLED / APP_GRANT_REVOKED | 明确停用/撤权，不能自动恢复 |
 | COLLECTION_NOT_GRANTED | 授权不覆盖该集合或操作（见 collectionId/permission）；按任务所需补授权，不必找管理员：Builder 用 appDataPolicyGet/appDataPolicyUpdate [添加](../../tier0-sdk-v2-uns/references/update.md#已有集合授权给-app)，或由有 App 数据管理权限的人在 App 设置 → 数据中添加 |
 | APP_PERMISSION_MISSING | 核对 App 的具体操作权限（data.missingPermission） |

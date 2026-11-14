@@ -1,0 +1,62 @@
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// Add only the negotiated transaction capability, retaining newer unrelated
+// Source/Stream overlays instead of replacing them with an older backend base.
+const root = fileURLToPath(new URL('../', import.meta.url));
+const [backend, ref] = process.argv.slice(2);
+assert.ok(backend && ref, 'Usage: sync-transaction-limits.mjs <backend> <commit|--worktree>');
+const git = (...args) => execFileSync('git', ['-C', backend, ...args], { maxBuffer: 64 << 20 });
+const preview = ref === '--worktree';
+const revision = git('rev-parse', `${preview ? 'HEAD' : ref}^{commit}`).toString().trim();
+const upstream = path => preview ? readFileSync(resolve(backend, path)) : git('show', `${revision}:${path}`);
+const local = path => readFileSync(resolve(root, path));
+const digest = value => createHash('sha256').update(value).digest('hex');
+const json = value => Buffer.from(JSON.stringify(value, null, 2) + '\n');
+const lock = JSON.parse(local('contracts/upstream.json'));
+const provenance = JSON.parse(local('contracts/uns-v2/provenance.json'));
+const scope = 'app-transaction-limits';
+const previous = provenance.schemaUpdates?.find(item => item.scope === scope);
+const update = { scope, repository: 'FREEZONEX/Tier0-Backend', revision,
+  sourceKind: preview ? 'working-tree-preview' : 'committed', inputs: {}, schemas: ['CloudAppDataLimits.transaction'] };
+const sourcePaths = {
+  'contracts/uns-v2/contract.json': 'service/unssvr/internal/domain/unsv2/contract_generated.go',
+  'contracts/uns-v2/manifest.json': 'share/unscontract/manifest.json',
+  'contracts/openapi-v2.source.json': 'service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json',
+};
+const outputs = new Map();
+let expected;
+for (const [path, sourcePath] of Object.entries(sourcePaths)) {
+  const before = local(path);
+  assert.equal(digest(before), lock.inputs[path].sha256, `Unsynced input ${path}`);
+  const raw = upstream(sourcePath);
+  const incoming = path.endsWith('/contract.json')
+    ? JSON.parse(JSON.parse(raw.toString().match(/^const ContractJSON = ("(?:\\[\s\S]|[^"\\])*")\r?$/m)[1]))
+    : JSON.parse(raw);
+  const current = JSON.parse(before);
+  const source = (incoming.schemas ?? incoming.components.schemas).CloudAppDataLimits;
+  const target = (current.schemas ?? current.components.schemas).CloudAppDataLimits;
+  assert.ok(source.properties.transaction && !source.required.includes('transaction'), 'Capability must be optional for older servers');
+  if (expected) assert.deepEqual(source.properties.transaction, expected, 'Backend transaction schemas disagree');
+  expected = source.properties.transaction;
+  assert.deepEqual(Object.keys(expected.properties).sort(), ['maxBodyBytes', 'maxItems', 'timeoutMs']);
+  target.properties.transaction = structuredClone(expected);
+  const after = path.endsWith('/contract.json') ? Buffer.from(JSON.stringify(current) + '\n') : json(current);
+  outputs.set(path, after);
+  update.inputs[path] = { path: sourcePath, sourceSHA256: digest(raw),
+    baseSHA256: previous?.inputs[path]?.baseSHA256 ?? digest(before), resultSHA256: digest(after) };
+  lock.inputs[path] = { ...lock.inputs[path], sha256: digest(after) };
+}
+const updates = (provenance.schemaUpdates || []).filter(item => item.scope !== scope);
+updates.push(update);
+provenance.schemaUpdates = updates;
+lock.schemaUpdates = updates;
+provenance.sourceDerivedContractSHA256 = digest(outputs.get('contracts/uns-v2/contract.json'));
+outputs.set('contracts/upstream.json', json(lock));
+outputs.set('contracts/uns-v2/provenance.json', json(provenance));
+for (const [path, data] of outputs) writeFileSync(resolve(root, path), data);
+console.log(`Synced optional App transaction limits at ${revision} (${update.sourceKind}).`);

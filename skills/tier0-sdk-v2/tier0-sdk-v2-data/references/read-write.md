@@ -2,6 +2,8 @@
 
 `data.collection(declaration)` 或 `data.collection({collectionId})` 返回集合句柄。SDK 文档为 `{_id,...业务字段,_meta}`；过滤、排序、投影直接写 status/customer.id/_meta.revision，不加 data.。
 
+完整匹配范围必须一起修改时，使用 `updateManyAtomic(filter, update, { arrayFilters?, idempotencyKey?, dryRun?, requireIndexesReady? })`，返回计数、数据库 transactionTime 和 replayed/dryRun。此预览方法要求相应后端能力；它只发一次范围更新，不续页或降级为 updateMany，结果未知时不自动重发。旧 updateMany 继续允许部分提交。详见[一致性](consistency.md)。
+
 ```ts
 import { createDataClient } from '@tier0/sdk-v2/data';
 
@@ -73,7 +75,7 @@ insertOne 默认返回 insertedId；指定 returnDocument:'after' 同时返回�
 
 ## 批量与原子性
 
-insertMany、bulkWrite、transact 每次最多 200 项，全部成功或回滚。超过时按块执行，每块独立原子；需要跨调用恢复的块使用稳定 ID 或显式意图键。
+insertMany、bulkWrite 每次最多 200 项，全部成功或回滚。只有业务允许各块独立提交时才分块。跨文档不变量必须保留在一次 transact：旧服务端最多 200 步，支持 limits.transaction 的服务端由 SDK 实时协商，客户端上限 10,000；超限拒绝，不自动拆批。大事务仍受服务端请求体、响应体和执行时间限制。
 
 updateMany/deleteMany 分页处理全部匹配，整体非原子。部分提交失败保留累计计数及 resumeAfter，execution 为 committed；只续做剩余部分，不整体重跑 $inc/$push。execution:unknown 表示失败页可能已生效，先核对。详细字段见 [错误处理](errors.md)。
 

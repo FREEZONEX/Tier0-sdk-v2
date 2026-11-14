@@ -33,9 +33,9 @@ describe('Backend App UNS access contract without generic record audit', () => {
         createHash('sha256').update(read(file)).digest('hex')
       );
     }
-    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(91);
+    expect(UNS_V2_CONTRACT_PROVENANCE.publicOperationCount).toBe(92);
     expect(UNS_V2_CONTRACT_PROVENANCE.streamOperationCount).toBe(1);
-    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(99);
+    expect(UNS_V2_CONTRACT_PROVENANCE.manifestOperationCount).toBe(100);
     // Error envelopes are decoded by every operation, although success DTOs do not reference them.
     expect(Object.hasOwn(UNS_V2_CODEC_SCHEMAS, 'UnsV2ErrorResponse')).toBe(true);
     expect(Object.hasOwn(manifest.schemas, 'UnsV2ErrorResponse')).toBe(true);
@@ -59,10 +59,14 @@ describe('Backend App UNS access contract without generic record audit', () => {
     expect(acquisition.revision).toMatch(/^[a-f0-9]{40}$/);
     expect(capability.sourceKind).toBe(upstream.sourceKind ?? 'committed');
     for (const [path, input] of Object.entries(acquisition.inputs) as [string, { baseSHA256: string; resultSHA256: string }][]) {
-      const diagnostics = upstream.schemaUpdates.find((update: { scope: string }) => update.scope === 'stream-diagnostics');
-      const overlay = diagnostics?.inputs[path];
-      if (overlay) expect(overlay.baseSHA256).toBe(input.resultSHA256);
-      expect(overlay?.resultSHA256 ?? input.resultSHA256).toBe(upstream.inputs[path].sha256);
+      let result = input.resultSHA256;
+      for (const update of upstream.schemaUpdates.slice(upstream.schemaUpdates.indexOf(acquisition) + 1)) {
+        const overlay = update.inputs[path];
+        if (!overlay) continue;
+        expect(overlay.baseSHA256).toBe(result);
+        result = overlay.resultSHA256;
+      }
+      expect(result).toBe(upstream.inputs[path].sha256);
     }
   });
 

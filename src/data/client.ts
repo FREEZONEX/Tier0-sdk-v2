@@ -8,7 +8,8 @@ import { snapshotClientConfig, type ClientConfig } from '../openapi/client.js';
 import { getEnvVar } from '../runtime-env.js';
 import { createBootstrap, type DataEnvironment, type EnsureState, type Logger } from './bootstrap.js';
 import { createDataTransport } from './call.js';
-import { assertAtomicBatch, Collection, toDoc, type BatchQuery, type UnsRecord, type WithMeta } from './collection.js';
+import { MAX_ATOMIC_ITEMS, Collection, toDoc, type BatchQuery, type UnsRecord, type WithMeta } from './collection.js';
+import { MAX_TRANSACTION_ITEMS, assertTransactionCapacity, readTransactionLimits, type TransactionLimits } from './transaction-limits.js';
 import { currentSignal } from './context.js';
 import { MAX_COLLECTIONS, type CollectionDefinition, type CollectionReference, type CollectionSchema, type CollectionTarget } from './define.js';
 import { createSubscribe, type SubscribeOptions, type SubscriptionEvent } from './subscribe.js';
@@ -16,6 +17,7 @@ import { parseUnsV2Fault, UnsV2Error } from '../uns-v2/client.js';
 import { DataError, toDataError } from './error.js';
 import { validateStepData, validateUpdate } from './schema.js';
 import { toSortPairs, type Filter, type Sort } from './sort.js';
+import { assertIndexesReady } from './index-readiness.js';
 
 export type TransactAction =
   | 'record.create'
@@ -39,7 +41,13 @@ export interface TransactStep {
   upsert?: boolean;
   expectedRevision?: number;
   dependsOn?: string[];
-  bindings?: { path: string; ref: string; resultPath: string }[];
+  bindings?: {
+    path: string;
+    ref: string;
+    resultPath: string;
+    /** Only transactionTime: bind the database timestamp as a UTC ISO string with millisecond precision. */
+    format?: 'iso8601';
+  }[];
   selection?: 'exactOne' | 'first';
   sort?: Sort;
   returnDocument?: 'before' | 'after';
@@ -58,6 +66,8 @@ export interface TransactResultItem {
   status: string;
   collectionId?: string;
   revision?: number;
+  /** Successful record.check/read: database transaction start time in Unix milliseconds. */
+  transactionTime?: number;
   /** Before/after snapshot when requested, as a flat document. */
   document?: WithMeta<Record<string, unknown>>;
   data?: unknown;
@@ -68,6 +78,13 @@ export interface TransactResultItem {
 export interface TransactResult {
   status: string;
   results: TransactResultItem[];
+}
+
+export interface TransactOptions {
+  dryRun?: boolean;
+  idempotencyKey?: string;
+  /** Index preflight before submission and after collection recovery. Declared collections only; not a metadata lock. */
+  requireIndexesReady?: boolean;
 }
 
 /** Named reads for `data.queryBatch`: 1–20 entries, names matching `[A-Za-z0-9_.-]{1,64}`. */
@@ -102,11 +119,14 @@ export interface DataClient {
   collection<T extends object = Record<string, unknown>>(alias: string): Collection<T>;
   /**
    * Atomic multi-record, multi-collection write (`recordTransactionExecute`, sync),
-   * at most 200 steps. Steps can depend on each other (`dependsOn`) and bind
+   * up to the negotiated server limit (legacy servers: 200 steps; client ceiling:
+   * 10,000). Steps can depend on each other (`dependsOn`) and bind
    * earlier results (`bindings`). This is not a Mongo session: everything is
    * sent at once.
    */
-  transact(steps: readonly TransactStep[], options?: { dryRun?: boolean; idempotencyKey?: string }): Promise<TransactResult>;
+  transact(steps: readonly TransactStep[], options?: TransactOptions): Promise<TransactResult>;
+  /** Fresh effective synchronous transaction limits; older servers fall back to 200 steps. */
+  getTransactionLimits(): Promise<TransactionLimits>;
   /**
    * Committed record changes of declared collections (all by default), as
    * one async iterable that reconnects and resumes by itself; see
@@ -129,6 +149,13 @@ export interface DataClient {
   queryBatch<Q extends BatchQueries>(queries: Q, options: { settle: true }): Promise<SettledBatchResults<Q>>;
   /** Ensures every declaration now (normally lazy on first access). */
   ensure(): Promise<EnsureState>;
+  /**
+   * Checks fresh App-context states for every declared index (or selected
+   * declarations), rejecting missing/building/failed constraints. ensure alone
+   * does not imply readiness. This is a point-in-time check, not a transaction
+   * lock or an automatic write gate; it does not change seed/bootstrap behavior.
+   */
+  assertIndexesReady(collections?: readonly CollectionDefinition[]): Promise<void>;
 }
 
 export function createDataClient(config: DataClientConfig): DataClient {
@@ -169,6 +196,11 @@ export function createDataClient(config: DataClientConfig): DataClient {
     recover: <R>(fn: () => Promise<R>, options: { collections: readonly CollectionTarget[]; retry?: boolean }) =>
       options.collections.every(target => 'collectionId' in target) ? fn() : bootstrap.recover(fn, options),
     signal: currentSignal,
+    assertIndexesReady: (target: CollectionTarget, collectionId: string) => {
+      const definition = lookup(target);
+      if ('collectionId' in definition) throw new TypeError('Index readiness requires a declared collection.');
+      return assertIndexesReady(call, bootstrap.ensure, [definition], currentSignal(), new Map([[definition.alias.toLowerCase(), collectionId]]));
+    },
   };
   const handles = new WeakMap<CollectionTarget, Collection<object>>();
 
@@ -202,9 +234,19 @@ export function createDataClient(config: DataClientConfig): DataClient {
 
   async function transact(
     steps: readonly TransactStep[],
-    options: { dryRun?: boolean; idempotencyKey?: string } = {},
+    options: TransactOptions = {},
   ): Promise<TransactResult> {
-    assertAtomicBatch('data.transact', steps.length);
+    assertTransactionCapacity(steps.length, MAX_TRANSACTION_ITEMS);
+    for (const step of steps) {
+      for (const binding of step.bindings ?? []) {
+        if (binding.format !== undefined && (binding.format !== 'iso8601' || binding.resultPath !== 'transactionTime')) {
+          throw new TypeError('Binding format iso8601 requires resultPath transactionTime.');
+        }
+      }
+    }
+    if (options.requireIndexesReady && steps.some(step => 'collectionId' in lookup(step.collection))) {
+      throw new TypeError('Transaction index readiness requires declared collections, not existing-ID references.');
+    }
     // Steps resolve their collection IDs inside the recovered call, so a retry uses fresh IDs.
     const result = await runtime.recover(() => sendTransaction(steps, options), { collections: steps.map(step => lookup(step.collection)) });
     const results = (result.results ?? []).map(({ document, ...item }) => ({
@@ -228,7 +270,11 @@ export function createDataClient(config: DataClientConfig): DataClient {
     return { status: result.status, results };
   }
 
-  async function sendTransaction(steps: readonly TransactStep[], options: { dryRun?: boolean; idempotencyKey?: string }) {
+  async function sendTransaction(steps: readonly TransactStep[], options: TransactOptions) {
+    if (steps.length > MAX_ATOMIC_ITEMS) {
+      const limits = await readTransactionLimits(call, bootstrap.ensure, currentSignal());
+      assertTransactionCapacity(steps.length, limits.maxItems);
+    }
     const items = await Promise.all(
       steps.map(async ({ collection: target, sort, query, ...step }) => {
         const definition = lookup(target);
@@ -244,6 +290,22 @@ export function createDataClient(config: DataClientConfig): DataClient {
         return item;
       }),
     );
+    if (options.requireIndexesReady) {
+      const definitions = [...new Set(steps.map(step => lookup(step.collection) as CollectionDefinition))];
+      // Bind the check to the exact IDs about to be sent, even if another call
+      // rebuilt the client's bootstrap while these items were being resolved.
+      const expectedIds = new Map<string, string>();
+      for (const [index, step] of steps.entries()) {
+        const alias = (lookup(step.collection) as CollectionDefinition).alias.toLowerCase();
+        const id = String(items[index].collectionId);
+        if (expectedIds.has(alias) && expectedIds.get(alias) !== id) throw new DataError({
+          code: 'COLLECTION_UNAVAILABLE', status: 503, execution: 'notStarted',
+          message: 'A collection changed while preparing the transaction; no transaction was sent.',
+        });
+        expectedIds.set(alias, id);
+      }
+      await assertIndexesReady(call, bootstrap.ensure, definitions, currentSignal(), expectedIds);
+    }
     return call<{ status: string; results?: (Omit<TransactResultItem, 'document'> & { document?: UnsRecord })[] }>(
       'recordTransactionExecute',
       {
@@ -304,6 +366,13 @@ export function createDataClient(config: DataClientConfig): DataClient {
     queryBatch: queryBatch as DataClient['queryBatch'],
     subscribe,
     ensure: bootstrap.ensure,
+    getTransactionLimits: () => readTransactionLimits(call, bootstrap.ensure, currentSignal()),
+    assertIndexesReady: (definitions = declared) => {
+      for (const definition of definitions) {
+        if (!declared.includes(definition)) throw new TypeError('Index readiness requires declarations from this data client.');
+      }
+      return assertIndexesReady(call, bootstrap.ensure, definitions, currentSignal());
+    },
   };
 }
 

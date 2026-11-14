@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Add `collection.updateManyAtomic(filter, update, options)` for one server transaction over the complete matching range. It preserves update validation, array filters, idempotency, optional fresh declared-index checks, and database `$currentDate`; results expose counts, database transaction time, replay and dry-run status. The SDK never enumerates records, chunks the range, falls back to partial writes, or automatically resends an unknown outcome. Existing partial `updateMany` remains unchanged. Requires the matching Backend preview; not an npm release.
+
+- Preserve optional `transactionTime` on successful `record.check`/`record.read` results and expose its numeric type in `TransactResultItem`. Result bindings may use `resultPath: 'transactionTime'` for database transaction start time in Unix milliseconds, or add `format: 'iso8601'` for a UTC string with three fractional digits. Formatting is only valid for the transaction clock and is performed by the server. Older results and bindings without a format remain compatible; the SDK never substitutes application time. The additive contract is a local Backend preview and is not an npm release.
+
+- Negotiate `data.transact` capacity from optional `AppContext.limits.transaction` for requests above 200 steps, up to a client ceiling of 10,000. `data.getTransactionLimits()` exposes fresh effective limits. Older servers and clients without an ensured App context retain 200; malformed capabilities or denied context reads fail closed. Collection `insertMany`/`bulkWrite` retain their 200-item ceiling. Larger business transactions remain one synchronous request, never split; the matching Backend patch must be deployed separately.
+- Add `data.assertIndexesReady()` for a fresh App-key index-state check, including selected declarations, constraint identity, TTL settings and collection identity. `data.transact(steps, { requireIndexesReady: true })` checks the exact collection IDs before submission and rechecks after collection recovery. Missing/building/failed indexes reject instead of relying on cached ensure results; these are opt-in preflights, not metadata locks or a replacement for server-side constraints.
+- Report requests aborted before transport as `DataError(DATA_ABORTED, notStarted)` consistently, including requests taking a free concurrency slot. Shared ensure/seed work remains independent of request cancellation.
+- Reject unsupported collection index options (including partial predicates) and non-boolean `unique` values before platform I/O. JavaScript/JSON declarations can no longer silently lose constraints during schema compilation. This does not add platform support for partial indexes.
+
 ## 0.12.2 (2026-11-11)
 
 - Synchronize Source/Stream contract diagnostics with Backend `0edf6335c76dfd442a071ee706be3a523c8ecbfb`, including App Stream execution identity, runtime and Source binding availability reasons.

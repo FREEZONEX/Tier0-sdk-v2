@@ -4090,6 +4090,56 @@
       "responseSchema": {
         "$ref": "#/components/schemas/UnsV2SourceNativeOAuthCompleteResponse"
       }
+    },
+    {
+      "name": "recordUpdateManyAtomic",
+      "handler": "UnsV2RecordUpdateManyAtomic",
+      "request": "UnsV2RecordUpdateManyAtomicReq",
+      "response": "UnsV2RecordUpdateManyAtomicResponse",
+      "suffix": "/uns/records:updateManyAtomic",
+      "pathParams": [],
+      "resource": "record",
+      "novaAction": "updateManyAtomic",
+      "resourceId": 214,
+      "permission": "uns.write",
+      "mutation": "record.update",
+      "destructive": false,
+      "summary": "原子更新完整匹配范围",
+      "example": {
+        "collectionId": "devices",
+        "filter": {
+          "state": "Running"
+        },
+        "update": {
+          "$set": {
+            "state": "Retrying"
+          },
+          "$currentDate": {
+            "updatedAt": true
+          }
+        },
+        "idempotencyKey": "recover-expired-group"
+      },
+      "appAllowed": true,
+      "audience": "app",
+      "starter": false,
+      "method": "POST",
+      "permissionAnyOf": [],
+      "minPermission": 2,
+      "scope": "uns:write",
+      "readOnly": false,
+      "tags": [
+        "业务数据"
+      ],
+      "operation": "recordUpdateManyAtomic",
+      "path": "/uns/records:updateManyAtomic",
+      "supported": true,
+      "requestSchema": {
+        "$ref": "#/components/schemas/UnsV2RecordUpdateManyAtomicReq"
+      },
+      "responseSchema": {
+        "$ref": "#/components/schemas/UnsV2RecordUpdateManyAtomicResponse"
+      }
     }
   ],
   "schemas": {
@@ -4233,6 +4283,13 @@
         "resultPath": {
           "type": "string",
           "description": "id/revision/collectionId/data.field; queries additionally expose query.total and query.records.N.id/revision/collectionId/data.field. Missing rows or fields fail the transaction."
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "iso8601"
+          ],
+          "description": "仅 resultPath=transactionTime 可指定 iso8601，将成功 record.check/read 的数据库事务时间写成 UTC 毫秒精度字符串；省略时保留整数毫秒。"
         }
       },
       "required": [
@@ -5778,6 +5835,10 @@
         "status": {
           "description": "Partial arrays use committed/validated/failed/notExecuted/unknown; atomic writes retain their action-specific status. Match opId=item-N to input order and inspect error for failures.",
           "type": "string"
+        },
+        "transactionTime": {
+          "type": "integer",
+          "description": "成功的 record.check/read 返回数据库事务开始时间（Unix 毫秒），可通过 resultPath=transactionTime 绑定到同事务后续写入。"
         }
       },
       "required": [
@@ -22703,6 +22764,32 @@
           "type": "integer",
           "minimum": 1,
           "description": "写入幂等键的保留窗口毫秒；窗口外复用同一键视为新请求。"
+        },
+        "transaction": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maxItems": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "显式同步 records:transact 的最大步骤数；不改变 bulkWrite 与 auto 的阈值。"
+            },
+            "maxBodyBytes": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "事务请求体最大字节数。"
+            },
+            "timeoutMs": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "同步事务执行预算毫秒；超时不代表提交成功。"
+            }
+          },
+          "required": [
+            "maxItems",
+            "maxBodyBytes",
+            "timeoutMs"
+          ]
         }
       },
       "required": [
@@ -25609,6 +25696,103 @@
           "minimum": 0
         }
       }
+    },
+    "UnsV2RecordUpdateManyAtomicResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "integer"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "data": {
+          "$ref": "#/components/schemas/CloudRecordUpdateManyAtomicResult"
+        }
+      },
+      "required": [
+        "code",
+        "msg",
+        "requestId",
+        "data"
+      ]
+    },
+    "CloudRecordUpdateManyAtomicResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "matchedCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "modifiedCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "transactionTime": {
+          "type": "integer",
+          "description": "Unix 毫秒。"
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "dryRun": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "matchedCount",
+        "modifiedCount",
+        "transactionTime",
+        "replayed",
+        "dryRun"
+      ]
+    },
+    "UnsV2RecordUpdateManyAtomicReq": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "collectionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "filter": {
+          "$ref": "#/components/schemas/UnsV2DataFilter"
+        },
+        "update": {
+          "type": "object",
+          "minProperties": 1,
+          "description": "update operators: $set/$unset/$inc/$mul/$min/$max/$rename/$currentDate/$setOnInsert/$push/$addToSet/$pop/$pull/$pullAll. Business paths omit data.; _id and _meta are read-only."
+        },
+        "arrayFilters": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "minItems": 0,
+          "maxItems": 8
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "dryRun": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "collectionId",
+        "filter",
+        "update"
+      ],
+      "description": "在一个可串行化事务中更新完整匹配集合，不截断、不分批提交、不转异步。filter 即使为空也须显式提供；租约和主写入校验保持有效。$currentDate 使用同一数据库事务时间（Unix 毫秒）。dryRun 校验全部记录并回滚；幂等回放保留原计数和时间，不重新选取记录。超出执行预算整组回滚，提交结果未知不得自动重试。"
     }
   }
 }

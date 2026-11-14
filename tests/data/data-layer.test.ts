@@ -1077,8 +1077,8 @@ describe('collection operations', () => {
     expect(await failed(client(mock).collection(orders).updateMany({}, { $set: { status: 'DONE' } }))).toMatchObject({ code: 'QUERY_TIMEOUT', execution: 'rolledBack' });
   });
 
-  it('rejects atomic batches over 200 items before sending', async () => {
-    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED });
+  it('keeps bulk limits and rejects large transactions on a legacy server before sending writes', async () => {
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, '/uns/app/context': ok({ appId: 'app-1' }) });
     const data = client(mock);
     const docs = Array.from({ length: 201 }, (_, n) => ({ code: `C-${n}`, status: 'OPEN' as const }));
     const tooLarge = async (promise: Promise<unknown>) => {
@@ -1088,8 +1088,8 @@ describe('collection operations', () => {
     };
     await tooLarge(data.collection(orders).insertMany(docs));
     await tooLarge(data.collection(orders).bulkWrite(docs.map(document => ({ insertOne: { document } }))));
-    await tooLarge(data.transact(docs.map((document, n) => ({ opId: `c${n}`, action: 'record.create' as const, collection: orders, data: document }))));
-    expect(mock.sent.filter(entry => entry.path !== ENSURE)).toHaveLength(0);
+    expect(await failed(data.transact(docs.map((document, n) => ({ opId: `c${n}`, action: 'record.create' as const, collection: orders, data: document }))))).toMatchObject({ code: 'BATCH_LIMIT_EXCEEDED', execution: 'notStarted' });
+    expect(mock.sent.filter(entry => entry.path !== ENSURE && entry.path !== '/uns/app/context')).toHaveLength(0);
   });
 
   it('maps Mongo bulkWrite operations', async () => {
@@ -1341,7 +1341,7 @@ describe('request abort signal', () => {
     const mock = mockUns(routes());
     const data = client(mock);
     await data.ensure();
-    await expect(runWithAbortSignal(aborted(), () => data.collection(orders).countDocuments())).rejects.toMatchObject({ name: 'AbortError' });
+    await expect(runWithAbortSignal(aborted(), () => data.collection(orders).countDocuments())).rejects.toMatchObject({ code: 'DATA_ABORTED', execution: 'notStarted', attempts: 0 });
     expect(mock.calls(COUNT_PATH)).toHaveLength(0);
   });
 
@@ -1374,7 +1374,7 @@ describe('request abort signal', () => {
     const controller = new AbortController();
     const first = runWithAbortSignal(controller.signal, () => data.collection(orders).countDocuments());
     controller.abort();
-    await expect(first).rejects.toMatchObject({ name: 'AbortError' });
+    await expect(first).rejects.toMatchObject({ code: 'DATA_ABORTED', execution: 'notStarted', attempts: 0 });
     expect(await data.collection(orders).countDocuments()).toMatchObject({ count: 1 });
     expect(mock.calls(ENSURE)).toHaveLength(1);
   });

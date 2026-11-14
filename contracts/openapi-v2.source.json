@@ -16285,6 +16285,142 @@
         "x-tier0-permission": "",
         "x-tier0-min-permission": 1
       }
+    },
+    "/uns/records:updateManyAtomic": {
+      "post": {
+        "operationId": "UnsV2RecordUpdateManyAtomic",
+        "summary": "原子更新完整匹配范围",
+        "deprecated": false,
+        "security": [
+          {
+            "ApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "collectionId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "filter": {
+                    "$ref": "#/components/schemas/UnsV2DataFilter"
+                  },
+                  "update": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "description": "update operators: $set/$unset/$inc/$mul/$min/$max/$rename/$currentDate/$setOnInsert/$push/$addToSet/$pop/$pull/$pullAll. Business paths omit data.; _id and _meta are read-only."
+                  },
+                  "arrayFilters": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    },
+                    "minItems": 0,
+                    "maxItems": 8
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "description": "可选幂等键；重试同一请求时复用，相同键不得用于不同请求。"
+                  },
+                  "dryRun": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "true 仅校验；false 执行写入。"
+                  }
+                },
+                "required": [
+                  "collectionId",
+                  "filter",
+                  "update"
+                ],
+                "description": "在一个可串行化事务中更新完整匹配集合，不截断、不分批提交、不转异步。filter 即使为空也须显式提供；租约和主写入校验保持有效。$currentDate 使用同一数据库事务时间（Unix 毫秒）。dryRun 校验全部记录并回滚；幂等回放保留原计数和时间，不重新选取记录。超出执行预算整组回滚，提交结果未知不得自动重试。"
+              },
+              "example": {
+                "collectionId": "devices",
+                "filter": {
+                  "state": "Running"
+                },
+                "update": {
+                  "$set": {
+                    "state": "Retrying"
+                  },
+                  "$currentDate": {
+                    "updatedAt": true
+                  }
+                },
+                "idempotencyKey": "recover-expired-group"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "操作结果。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocUnsV2RecordUpdateManyAtomicResponse"
+                },
+                "example": {
+                  "code": 200,
+                  "msg": "success",
+                  "requestId": "request-id",
+                  "data": {
+                    "matchedCount": 2,
+                    "modifiedCount": 2,
+                    "transactionTime": 1792454400000,
+                    "replayed": false,
+                    "dryRun": false
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "失败响应；状态码和通用错误字段见文档顶部“公共错误”。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocCommonError"
+                },
+                "example": {
+                  "code": 422,
+                  "msg": "请求参数不合法",
+                  "requestId": "request-id",
+                  "data": null,
+                  "error": {
+                    "code": "INVALID_REQUEST",
+                    "reason": "filter.status must be a string",
+                    "details": [],
+                    "execution": "notStarted",
+                    "retry": {
+                      "safe": false
+                    },
+                    "path": "filter.status"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "业务数据"
+        ],
+        "description": "在一个可串行化事务中更新完整匹配集合，不截断、不分批提交、不转异步。filter 即使为空也须显式提供；租约和主写入校验保持有效。$currentDate 使用同一数据库事务时间（Unix 毫秒）。dryRun 校验全部记录并回滚；幂等回放保留原计数和时间，不重新选取记录。超出执行预算整组回滚，提交结果未知不得自动重试。",
+        "x-tier0-audience": "app",
+        "x-tier0-starter": false,
+        "x-tier0-readonly": false,
+        "x-tier0-destructive": false
+      }
     }
   },
   "components": {
@@ -16432,6 +16568,13 @@
           "resultPath": {
             "type": "string",
             "description": "id/revision/collectionId/data.field; queries additionally expose query.total and query.records.N.id/revision/collectionId/data.field. Missing rows or fields fail the transaction."
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "iso8601"
+            ],
+            "description": "仅 resultPath=transactionTime 可指定 iso8601，将成功 record.check/read 的数据库事务时间写成 UTC 毫秒精度字符串；省略时保留整数毫秒。"
           }
         },
         "required": [
@@ -23660,6 +23803,32 @@
             "type": "integer",
             "minimum": 1,
             "description": "写入幂等键的保留窗口毫秒；窗口外复用同一键视为新请求。"
+          },
+          "transaction": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "maxItems": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "显式同步 records:transact 的最大步骤数；不改变 bulkWrite 与 auto 的阈值。"
+              },
+              "maxBodyBytes": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "事务请求体最大字节数。"
+              },
+              "timeoutMs": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "同步事务执行预算毫秒；超时不代表提交成功。"
+              }
+            },
+            "required": [
+              "maxItems",
+              "maxBodyBytes",
+              "timeoutMs"
+            ]
           }
         },
         "required": [
@@ -26833,6 +27002,10 @@
           },
           "error": {
             "$ref": "#/components/schemas/DocItemFault"
+          },
+          "transactionTime": {
+            "type": "integer",
+            "description": "成功的 record.check/read 返回数据库事务开始时间（Unix 毫秒），可通过 resultPath=transactionTime 绑定到同事务后续写入。"
           }
         },
         "required": [
@@ -36734,6 +36907,61 @@
             "type": "string"
           }
         }
+      },
+      "DocUnsV2RecordUpdateManyAtomicResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/CloudRecordUpdateManyAtomicResult"
+          }
+        },
+        "required": [
+          "code",
+          "msg",
+          "requestId",
+          "data"
+        ]
+      },
+      "CloudRecordUpdateManyAtomicResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "matchedCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "modifiedCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "transactionTime": {
+            "type": "integer",
+            "description": "Unix 毫秒。"
+          },
+          "replayed": {
+            "type": "boolean"
+          },
+          "dryRun": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "matchedCount",
+          "modifiedCount",
+          "transactionTime",
+          "replayed",
+          "dryRun"
+        ]
       }
     }
   },
