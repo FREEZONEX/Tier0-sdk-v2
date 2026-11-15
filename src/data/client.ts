@@ -3,19 +3,20 @@
  * the shared bootstrap. An App builds one client per process from its
  * collection declarations; tests build their own with a mock `fetch`.
  */
+import { randomUUID } from 'node:crypto';
 import type { z } from 'zod';
 import { snapshotClientConfig, type ClientConfig } from '../openapi/client.js';
 import { getEnvVar } from '../runtime-env.js';
 import { createBootstrap, type DataEnvironment, type EnsureState, type Logger } from './bootstrap.js';
 import { createDataTransport } from './call.js';
 import { MAX_ATOMIC_ITEMS, Collection, toDoc, type BatchQuery, type UnsRecord, type WithMeta } from './collection.js';
-import { MAX_TRANSACTION_ITEMS, assertTransactionCapacity, readTransactionLimits, type TransactionLimits } from './transaction-limits.js';
+import { MAX_TRANSACTION_ITEMS, MAX_RESULT_BINDINGS, assertTransactionCapacity, readTransactionLimits, type TransactionLimits } from './transaction-limits.js';
 import { currentSignal } from './context.js';
 import { MAX_COLLECTIONS, type CollectionDefinition, type CollectionReference, type CollectionSchema, type CollectionTarget } from './define.js';
 import { createSubscribe, type SubscribeOptions, type SubscriptionEvent } from './subscribe.js';
 import { parseUnsV2Fault, UnsV2Error } from '../uns-v2/client.js';
 import { DataError, toDataError } from './error.js';
-import { validateStepData, validateUpdate } from './schema.js';
+import { createStepDataValidator, validateUpdate } from './schema.js';
 import { toSortPairs, type Filter, type Sort } from './sort.js';
 import { assertIndexesReady } from './index-readiness.js';
 
@@ -48,6 +49,8 @@ export interface TransactStep {
     resultPath: string;
     /** Only transactionTime: bind the database timestamp as a UTC ISO string with millisecond precision. */
     format?: 'iso8601';
+    /** For create/replace/sample.append data string fields: JSON Pointer to an existing scalar placeholder inside the encoded JSON object. */
+    jsonPath?: string;
   }[];
   selection?: 'exactOne' | 'first';
   sort?: Sort;
@@ -123,7 +126,7 @@ export interface DataClient {
   /**
    * Atomic multi-record, multi-collection write (`recordTransactionExecute`, sync),
    * up to the negotiated server limit (legacy servers: 200 steps; client ceiling:
-   * 10,000). Steps can depend on each other (`dependsOn`) and bind
+   * 50,000). Steps can depend on each other (`dependsOn`) and bind
    * earlier results (`bindings`). This is not a Mongo session: everything is
    * sent at once.
    */
@@ -241,7 +244,15 @@ export function createDataClient(config: DataClientConfig): DataClient {
   ): Promise<TransactResult> {
     assertTransactionCapacity(steps.length, MAX_TRANSACTION_ITEMS);
     for (const step of steps) {
+      if ((step.bindings?.length ?? 0) > MAX_RESULT_BINDINGS) throw new DataError({ code: 'BATCH_LIMIT_EXCEEDED', status: 400,
+        execution: 'notStarted', opId: step.opId,
+        message: `Transaction step ${step.opId} exceeds ${MAX_RESULT_BINDINGS} result bindings. No transaction was sent.`,
+        details: { requestedBindings: step.bindings!.length, maxBindings: MAX_RESULT_BINDINGS } });
       for (const binding of step.bindings ?? []) {
+        if (binding.jsonPath !== undefined && (typeof binding.jsonPath !== 'string' || !binding.jsonPath.startsWith('/') ||
+          !binding.path.startsWith('data.') || !['record.create', 'record.replace', 'sample.append'].includes(step.action))) {
+          throw new TypeError('JSON string bindings require a data field and a JSON Pointer on create/replace/sample.append.');
+        }
         if (binding.format !== undefined && (binding.format !== 'iso8601' || binding.resultPath !== 'transactionTime')) {
           throw new TypeError('Binding format iso8601 requires resultPath transactionTime.');
         }
@@ -274,25 +285,32 @@ export function createDataClient(config: DataClientConfig): DataClient {
   }
 
   async function sendTransaction(steps: readonly TransactStep[], options: TransactOptions) {
+    let maxBodyBytes: number | undefined;
     if (steps.length > MAX_ATOMIC_ITEMS) {
       const limits = await readTransactionLimits(call, bootstrap.ensure, currentSignal());
       assertTransactionCapacity(steps.length, limits.maxItems);
+      maxBodyBytes = limits.maxBodyBytes;
     }
-    const items = await Promise.all(
-      steps.map(async ({ collection: target, sort, query, ...step }) => {
-        const definition = lookup(target);
-        const item: Record<string, unknown> = { ...step, collectionId: await runtime.resolve(definition) };
-        if (sort) item.sort = toSortPairs(sort);
-        if (query) item.query = { ...query, ...(query.sort ? { sort: toSortPairs(query.sort) } : {}) };
-        if (step.data) {
-          // Fields bound to earlier results are filled by UNS at commit; everything literal validates now.
-          const bound = (step.bindings ?? []).flatMap((binding) => (binding.path.startsWith('data.') ? [binding.path.slice(5).split('.')[0]] : []));
-          item.data = validateStepData(definition, step.data, bound);
-        }
-        if (step.update) item.update = validateUpdate(definition, step.update, (step.bindings ?? []).map(binding => binding.path));
-        return item;
-      }),
-    );
+    // Resolve each target once per attempt. Recovery rebuilds this map so no
+    // collection identity survives a reset; all resolutions start together.
+    const definitions = steps.map(step => lookup(step.collection));
+    const collectionIds = new Map(await Promise.all([...new Set(definitions)].map(async definition =>
+      [definition, await runtime.resolve(definition)] as const)));
+    const validateData = createStepDataValidator();
+    const items = steps.map(({ collection: target, sort, query, ...step }, index) => {
+      void target;
+      const definition = definitions[index];
+      const item: Record<string, unknown> = { ...step, collectionId: collectionIds.get(definition)! };
+      if (sort) item.sort = toSortPairs(sort);
+      if (query) item.query = { ...query, ...(query.sort ? { sort: toSortPairs(query.sort) } : {}) };
+      if (step.data) {
+        // Fields bound to earlier results are filled by UNS at commit; everything literal validates now.
+        const bound = (step.bindings ?? []).flatMap((binding) => (binding.path.startsWith('data.') ? [binding.path.slice(5).split('.')[0]] : []));
+        item.data = validateData(definition, step.data, bound);
+      }
+      if (step.update) item.update = validateUpdate(definition, step.update, (step.bindings ?? []).map(binding => binding.path));
+      return item;
+    });
     if (options.requireIndexesReady) {
       const definitions = [...new Set(steps.map(step => lookup(step.collection) as CollectionDefinition))];
       // Bind the check to the exact IDs about to be sent, even if another call
@@ -309,15 +327,15 @@ export function createDataClient(config: DataClientConfig): DataClient {
       }
       await assertIndexesReady(call, bootstrap.ensure, definitions, currentSignal(), expectedIds);
     }
+    const body = {
+      items,
+      mode: 'sync',
+      ...(options.dryRun ? { dryRun: true } : {}),
+      idempotencyKey: options.idempotencyKey || randomUUID(),
+    };
     return call<{ status: string; results?: (Omit<TransactResultItem, 'document'> & { document?: UnsRecord })[] }>(
-      'recordTransactionExecute',
-      {
-        items,
-        mode: 'sync',
-        ...(options.dryRun ? { dryRun: true } : {}),
-        ...(options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : {}),
-      },
-      { signal: currentSignal(), retryUnknown: options.retryUnknown },
+      'recordTransactionExecute', body,
+      { signal: currentSignal(), retryUnknown: options.retryUnknown, maxBodyBytes },
     );
   }
 

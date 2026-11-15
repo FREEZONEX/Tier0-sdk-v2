@@ -79,4 +79,31 @@ describe('UNS v2 lossless numeric boundary', () => {
     const decoded = decodeUnsV2JSON('{"code":200,"data":{"value":9007199254740993.0}}', 'UnsV2Envelope') as { data: { value: unknown } };
     expect(decoded.data.value).toEqual(new UnsV2RawNumber('9007199254740993.0'));
   });
+
+  it('keeps schema-specific numeric semantics across repeated mixed calls', () => {
+    const text = '{"page":9007199254740993}';
+    for (let round = 0; round < 3; round++) {
+      expect(decodeUnsV2JSON(text, 'Platform_PlatformGetMembersReq')).toEqual({ page: 9007199254740993n });
+      expect(decodeUnsV2JSON(text, 'UnsV2Envelope')).toEqual({ page: new UnsV2RawNumber('9007199254740993') });
+      expect(encodeUnsV2JSON({ page: 9007199254740993n }, 'Platform_PlatformGetMembersReq')).toBe(text);
+      expect(() => encodeUnsV2JSON({ page: 9007199254740993n }, 'UnsV2Envelope')).toThrow('bigint');
+      expect(() => encodeUnsV2JSON({ page: 1.5 }, 'Platform_PlatformGetMembersReq')).toThrow('safe integer');
+      expect(() => decodeUnsV2JSON('{"page":9223372036854775808}', 'Platform_PlatformGetMembersReq')).toThrow('signed 64-bit');
+    }
+  });
+
+  it('validates every new value after warming protocol metadata', () => {
+    const body = { data: { shared: { count: 1 } } };
+    expect(encodeUnsV2JSON(body, 'UnsV2Envelope')).toBe('{"data":{"shared":{"count":1}}}');
+    body.data.shared.count = 2;
+    expect(encodeUnsV2JSON(body, 'UnsV2Envelope')).toBe('{"data":{"shared":{"count":2}}}');
+    body.data.shared.count = Number.NaN;
+    expect(() => encodeUnsV2JSON(body, 'UnsV2Envelope')).toThrow('non-finite');
+    const cycle: Record<string, unknown> = {};
+    cycle.self = cycle;
+    expect(() => encodeUnsV2JSON({ data: cycle }, 'UnsV2Envelope')).toThrow('acyclic');
+    expect(() => encodeUnsV2JSON({ data: [undefined] }, 'UnsV2Envelope')).toThrow('undefined');
+    const shared = { value: 3 };
+    expect(encodeUnsV2JSON({ data: [shared, shared] }, 'UnsV2Envelope')).toBe('{"data":[{"value":3},{"value":3}]}');
+  });
 });

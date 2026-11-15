@@ -1,5 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { z } from 'zod';
+import { readFileSync } from 'node:fs';
+import { MAX_RESULT_BINDINGS } from '../../src/data/transaction-limits.js';
 import { createDataClient, type TransactResultItem, type TransactStep } from '../../src/data/index.js';
 
 const collection = { collectionId: 'clock-records' };
@@ -22,6 +24,59 @@ function fixture(withClock: boolean) {
 }
 
 describe('database transaction time results', () => {
+  it('keeps the local binding ceiling consistent with the synced record contract', () => {
+    const manifest = JSON.parse(readFileSync(new URL('../../contracts/uns-v2/manifest.json', import.meta.url), 'utf8'));
+    expect(MAX_RESULT_BINDINGS).toBe(manifest.schemas.UnsV2RecordChange.properties.bindings.maxItems);
+  });
+  it.each([400, 512])('forwards %i snapshot scalar bindings in one transaction', async count => {
+    const f = fixture(true), snapshot = JSON.stringify({ values: Array.from({ length: count }, () => null) });
+    const bindings = Array.from({ length: count }, (_, index) => ({ path: 'data.snapshot', jsonPath: `/values/${index}`,
+      ref: 'clock', resultPath: 'transactionTime', format: 'iso8601' as const }));
+    await f.data.transact([
+      { opId: 'clock', action: 'record.check', collection, id: 'guard' },
+      { opId: 'audit', action: 'record.create', collection: { ...collection, schema: z.object({ snapshot: z.string() }) },
+        id: 'audit', data: { snapshot }, dependsOn: ['clock'], bindings },
+    ], { retryUnknown: false });
+    expect(f.calls).toHaveLength(1);
+    expect(f.calls[0].body.items[1].bindings).toEqual(bindings);
+    expect(f.calls[0].body.items[1].data.snapshot).toBe(snapshot);
+  });
+
+  it('rejects 513 result bindings before sending any request', async () => {
+    const f = fixture(true), bindings = Array.from({ length: 513 }, (_, index) => ({ path: 'data.snapshot', jsonPath: `/values/${index}`,
+      ref: 'clock', resultPath: 'transactionTime', format: 'iso8601' as const }));
+    await expect(f.data.transact([
+      { opId: 'clock', action: 'record.check', collection, id: 'guard' },
+      { opId: 'audit', action: 'record.create', collection, id: 'audit', data: { snapshot: '{}' }, dependsOn: ['clock'], bindings },
+    ])).rejects.toThrow();
+    expect(f.calls).toHaveLength(0);
+  });
+
+  it('forwards JSON-string scalar targets without parsing or changing snapshot numbers', async () => {
+    expectTypeOf<NonNullable<TransactStep['bindings']>[number]['jsonPath']>().toEqualTypeOf<string | undefined>();
+    const f = fixture(true), snapshot = '{"createdAt":null,"updatedAt":null,"large":9007199254740993}';
+    const bindings = ['/createdAt', '/updatedAt'].map(jsonPath => ({ path: 'data.snapshot', jsonPath, ref: 'clock', resultPath: 'transactionTime', format: 'iso8601' as const }));
+    await f.data.transact([
+      { opId: 'clock', action: 'record.check', collection, id: 'guard' },
+      { opId: 'audit', action: 'record.create', collection: { ...collection, schema: z.object({ snapshot: z.string() }) },
+        id: 'audit', data: { snapshot }, dependsOn: ['clock'], bindings },
+    ], { retryUnknown: false });
+    expect(f.calls).toHaveLength(1);
+    expect(f.calls[0].body.items[1]).toMatchObject({ data: { snapshot }, bindings });
+  });
+
+  it.each([
+    { jsonPath: '' }, { jsonPath: 'createdAt' }, { jsonPath: null },
+    { jsonPath: '/createdAt', path: 'filter/value' },
+    { jsonPath: '/createdAt', action: 'record.update' },
+  ])('rejects invalid JSON string binding targets before IO: %j', async (input) => {
+    const f = fixture(true), { action = 'record.create', ...binding } = input;
+    const step = { opId: 'audit', action, collection, id: 'audit', data: { snapshot: '{"createdAt":null}' },
+      bindings: [{ path: 'data.snapshot', ref: 'clock', resultPath: 'transactionTime', ...binding }] } as unknown as TransactStep;
+    await expect(f.data.transact([step])).rejects.toThrow('JSON string bindings require');
+    expect(f.calls).toHaveLength(0);
+  });
+
   it('exposes the optional timestamp as a number without changing existing result or document fields', async () => {
     expectTypeOf<TransactResultItem['transactionTime']>().toEqualTypeOf<number | undefined>();
     const f = fixture(true);

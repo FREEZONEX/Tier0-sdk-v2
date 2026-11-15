@@ -5,7 +5,9 @@ import { MAX_ATOMIC_ITEMS } from './collection.js';
 import { DataError } from './error.js';
 
 /** Tested client ceiling for the explicit synchronous record transaction API. */
-export const MAX_TRANSACTION_ITEMS = 10_000;
+export const MAX_TRANSACTION_ITEMS = 50_000;
+/** Per-step bound from the synced UnsV2RecordChange contract. */
+export const MAX_RESULT_BINDINGS = 512;
 export interface TransactionLimits {
   maxItems: number;
   maxBodyBytes: number;

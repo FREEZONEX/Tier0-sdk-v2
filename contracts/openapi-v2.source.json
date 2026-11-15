@@ -1837,7 +1837,7 @@
                   "items": {
                     "type": "array",
                     "minItems": 1,
-                    "maxItems": 10000,
+                    "maxItems": 50000,
                     "items": {
                       "$ref": "#/components/schemas/UnsV2RecordChange"
                     }
@@ -16575,6 +16575,12 @@
               "iso8601"
             ],
             "description": "仅 resultPath=transactionTime 可指定 iso8601，将成功 record.check/read 的数据库事务时间写成 UTC 毫秒精度字符串；省略时保留整数毫秒。"
+          },
+          "jsonPath": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^/",
+            "description": "可选 JSON Pointer：仅在 create/replace/sample.append 的 data 字符串字段内替换已存在的 JSON 标量占位值。字符串必须编码 JSON 对象；不新增键、不替换对象或数组，不改变权限范围。可与 transactionTime 的 iso8601 格式组合。"
           }
         },
         "required": [
@@ -18512,7 +18518,7 @@
             "items": {
               "$ref": "#/components/schemas/UnsV2ResultBinding"
             },
-            "maxItems": 32,
+            "maxItems": 512,
             "description": "把先前操作结果绑定到本操作的指定字段；不执行字符串模板或任意代码。"
           },
           "query": {
@@ -19451,6 +19457,16 @@
             "minLength": 1,
             "maxLength": 256,
             "description": "子串匹配，仅对 ASCII 字母不区分大小写（其他字符按原样比较），仅 string 字段，数组等其他类型字段报错；不支持通配符或正则。无法使用索引，大集合可能触发查询超时。"
+          },
+          "$like": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "PostgreSQL LIKE 模式匹配，仅 string 字段；% 匹配任意长度，_ 匹配单个字符，反斜杠转义，空模式匹配空字符串。模式最多 4096 UTF-8 字节，不允许 NUL 或未配对的末尾转义。大小写和排序规则遵循数据库 collation；缺失/null 不匹配。不支持内存执行的 pull 条件。"
+          },
+          "$ilike": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "PostgreSQL ILIKE 模式匹配，仅 string 字段；% 匹配任意长度，_ 匹配单个字符，反斜杠转义，空模式匹配空字符串。模式最多 4096 UTF-8 字节，不允许 NUL 或未配对的末尾转义。大小写和排序规则遵循数据库 collation；缺失/null 不匹配。不支持内存执行的 pull 条件。"
           }
         },
         "required": [],
@@ -19519,6 +19535,16 @@
             "minLength": 1,
             "maxLength": 256,
             "description": "子串匹配，仅对 ASCII 字母不区分大小写（其他字符按原样比较），仅 string 字段，数组等其他类型字段报错；不支持通配符或正则。无法使用索引，大集合可能触发查询超时。"
+          },
+          "$like": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "PostgreSQL LIKE 模式匹配，仅 string 字段；% 匹配任意长度，_ 匹配单个字符，反斜杠转义，空模式匹配空字符串。模式最多 4096 UTF-8 字节，不允许 NUL 或未配对的末尾转义。大小写和排序规则遵循数据库 collation；缺失/null 不匹配。不支持内存执行的 pull 条件。"
+          },
+          "$ilike": {
+            "type": "string",
+            "maxLength": 4096,
+            "description": "PostgreSQL ILIKE 模式匹配，仅 string 字段；% 匹配任意长度，_ 匹配单个字符，反斜杠转义，空模式匹配空字符串。模式最多 4096 UTF-8 字节，不允许 NUL 或未配对的末尾转义。大小写和排序规则遵循数据库 collation；缺失/null 不匹配。不支持内存执行的 pull 条件。"
           }
         },
         "required": [],
@@ -20035,6 +20061,36 @@
             "required": [
               "$dateTrunc"
             ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "$jsonExtractText": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "input": {
+                    "$ref": "#/components/schemas/UnsV2PipelineExpression"
+                  },
+                  "path": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 32
+                  }
+                },
+                "required": [
+                  "input",
+                  "path"
+                ],
+                "description": "解析 JSON 字符串并按字面路径返回文本，语义同 PostgreSQL jsonb_extract_path_text。input 必须为字符串或 null，UTF-8 最多 1 MiB；path 最多 32 段，支持对象键和数组下标，空路径取根文本。缺失路径、结构不匹配或 JSON null 返回 null；空字符串保留，对象/数组返回 JSONB 文本，数字不经浮点转换。非法 JSON 明确报错，超出输入预算返回 EXPRESSION_BUDGET_EXCEEDED。"
+              }
+            },
+            "required": [
+              "$jsonExtractText"
+            ]
           }
         ],
         "description": "$field 路径引用或标量常量；$literal 强制常量。算术仅数值，$divide 分母为 0 返回 null；$ifNull 显式提供缺失/null 默认值。 $expr 必须产生布尔值；$cond 条件必须为布尔值且两分支类型兼容。转换失败报错，缺失/null 传播。$trim input/chars 均为字符串表达式，省略 chars 裁剪空白。$dateTrunc 输入与返回均为 Unix 毫秒，timezone 为 IANA 时区，startOfWeek 仅用于 week。表达式深度最多 8，节点最多 512；每个 $concat 中间结果的 UTF-8 字节上限为 1 MiB，超出返回 EXPRESSION_BUDGET_EXCEEDED；不支持任意函数。"
@@ -20101,8 +20157,21 @@
             "required": [
               "$count"
             ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "$first": {
+                "$ref": "#/components/schemas/UnsV2PipelineExpression"
+              }
+            },
+            "required": [
+              "$first"
+            ]
           }
-        ]
+        ],
+        "description": "$first 返回按前序管线顺序选定的每组首行表达式值；先用 $sort 定义业务顺序。缺失值返回 null，数组和对象保持完整；空输入不产生组。"
       },
       "UnsV2PipelineSort": {
         "type": "array",
@@ -20268,7 +20337,7 @@
                 "additionalProperties": {
                   "$ref": "#/components/schemas/UnsV2PipelineAccumulator"
                 },
-                "description": "_id 指定单值、null 或对象分组键；其余字段支持 $sum/$avg/$min/$max。计数用 {$sum:1}。"
+                "description": "_id 指定单值、null 或对象分组键；其余字段支持 $sum/$avg/$min/$max/$count/$first。$first 依赖前序排序，缺失值返回 null。"
               }
             },
             "required": [
@@ -20337,6 +20406,14 @@
                     "items": {
                       "$ref": "#/components/schemas/UnsV2PipelineStage"
                     }
+                  },
+                  "let": {
+                    "type": "object",
+                    "maxProperties": 16,
+                    "additionalProperties": {
+                      "$ref": "#/components/schemas/UnsV2PipelineExpression"
+                    },
+                    "description": "可选外层表达式变量，子 pipeline 使用 $$name 引用，可嵌套继承和遮蔽；同层绑定只读取父作用域。最多 16 个变量，名称以 ASCII 小写字母开头，后续为字母、数字或下划线，最长 64 字符；$$NOW 保持数据库事务时间语义。变量不改变集合授权、字段策略或关联预算。"
                   }
                 },
                 "required": [
@@ -20374,7 +20451,7 @@
                     }
                   }
                 ],
-                "description": "kind=samples 必须提供固定 recordId，关联范围限定在该 Record；records 禁止 recordId。foreignField 需要 ready 的首字段 B-tree 索引或适用的内置身份索引。主输入最多 1000 行，每条输入关联原始行最多 10000，阶段中间结果最多 8 MiB，最终每条关联数组最多 200 项。超限明确失败，不静默截断；子 pipeline 可过滤或聚合。"
+                "description": "kind=samples 必须提供固定 recordId，关联范围限定在该 Record；records 禁止 recordId。foreignField 需要 ready 的首字段 B-tree 索引或适用的内置身份索引。records 通过 _id 关联且 pipeline 为空时使用唯一 ID 关联：每条输入最多匹配一条记录，不设阶段外层行数上限，单条输入、匹配记录及开销合计须小于 8 MiB；查询期限、分页和响应大小限制仍有效。records 的子 pipeline 仅含 $match/$sort/$skip/$limit/$project/$set/$group/$count 且以 $limit:1 结束时，按外层记录逐条关联，不设阶段外层行数上限；每条仍最多 10000 原始匹配，外层文档及开销与原始匹配或最终结果分别共享 8 MiB 预算。其他关联主输入最多 1000 行，每条输入关联原始行最多 10000，阶段中间结果最多 8 MiB，最终每条关联数组最多 200 项。超限明确失败，不静默截断；子 pipeline 可过滤或聚合。"
               }
             },
             "required": [
@@ -20468,6 +20545,37 @@
             },
             "required": [
               "$exists"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "$unionWith": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "collectionId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "pipeline": {
+                    "type": "array",
+                    "maxItems": 32,
+                    "items": {
+                      "$ref": "#/components/schemas/UnsV2PipelineStage"
+                    }
+                  }
+                },
+                "required": [
+                  "collectionId"
+                ],
+                "description": "把目标集合的 records 子管线结果追加到当前结果，保留重复项，语义为 PostgreSQL UNION ALL。后续 $group 可去重，$sort/$skip/$limit/$count 作用于完整合并结果。每个目标集合独立校验既有读取权限，分支共用当前只读快照、每个分支 32 阶段、合计 64 阶段、4 层嵌套和查询/响应预算。同名字段须为兼容类型；可先投影转换。目标仅支持 records，不接受 kind/recordId，不提供 MongoDB 的完整兼容承诺。"
+              }
+            },
+            "required": [
+              "$unionWith"
             ]
           }
         ],

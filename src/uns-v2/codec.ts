@@ -110,15 +110,31 @@ class JSONParser {
   }
 }
 
-function variants(codec: Codec | undefined, seen = new Set<string>()): Codec[] {
+// Generated protocol schemas are static. Cache only complete root expansions;
+// a recursive branch's `seen` set must never poison another root's expansion.
+// No request values, field names or caller-supplied schemas enter this cache.
+const variantCache = new WeakMap<Codec, readonly Codec[]>();
+const noVariants: readonly Codec[] = [];
+
+function variants(codec: Codec | undefined): readonly Codec[] {
+  if (!codec) return noVariants;
+  let result = variantCache.get(codec);
+  if (!result) {
+    result = expandVariants(codec, new Set());
+    variantCache.set(codec, result);
+  }
+  return result;
+}
+
+function expandVariants(codec: Codec | undefined, seen: Set<string>): Codec[] {
   if (!codec) return [];
   if (codec.r) {
     if (seen.has(codec.r)) return [];
     const next = new Set(seen);
     next.add(codec.r);
-    return variants(schemas[codec.r], next);
+    return expandVariants(schemas[codec.r], next);
   }
-  if (codec.k === 'u') return (codec.a || []).flatMap(item => variants(item, seen));
+  if (codec.k === 'u') return (codec.a || []).flatMap(item => expandVariants(item, seen));
   return [codec];
 }
 

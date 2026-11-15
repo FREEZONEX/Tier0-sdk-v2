@@ -648,6 +648,25 @@ export function validateStepData(
   data: Record<string, unknown>,
   boundFields: readonly string[],
 ): Record<string, unknown> {
+  return validateStepDataWithSchemas(definition, data, boundFields);
+}
+
+type LiteralStepSchema = { zod: z.ZodType; record: RecordSchema };
+type StepSchemaCache = WeakMap<CollectionTarget, Map<string, LiteralStepSchema>>;
+
+/** Reuse Zod's derived schemas during one transaction preparation. Only schemas
+ * are cached; every record is parsed. Create a fresh validator for each attempt. */
+export function createStepDataValidator(): typeof validateStepData {
+  const schemas: StepSchemaCache = new WeakMap();
+  return (definition, data, boundFields) => validateStepDataWithSchemas(definition, data, boundFields, schemas);
+}
+
+function validateStepDataWithSchemas(
+  definition: CollectionTarget,
+  data: Record<string, unknown>,
+  boundFields: readonly string[],
+  schemas?: StepSchemaCache,
+): Record<string, unknown> {
   if (!isPlainObject(data)) throw validationError(['data'], 'Expected a document object.', data);
   if ('_id' in data || '_meta' in data) {
     throw validationError(['data', '_id' in data ? '_id' : '_meta'], 'A transaction step sets the record ID with `id`, not `data._id`; `_meta` is read-only.', data);
@@ -663,13 +682,25 @@ export function validateStepData(
   if (bound.size === 0) return strictParse(definition.schema, recordSchema, data, ['data']) as Record<string, unknown>;
 
   const literal = Object.fromEntries(Object.entries(data).filter(([key]) => !bound.has(key)));
-  const omit = Object.fromEntries([...bound].map((field) => [field, true as const]));
-  const literalSchema: RecordSchema = {
-    ...recordSchema,
-    properties: Object.fromEntries(Object.entries(properties).filter(([key]) => !bound.has(key))),
-    required: recordSchema.required?.filter((key) => !bound.has(key)),
-  };
-  const parsed = strictParse(definition.schema.omit(omit as never), literalSchema, literal, ['data']) as Record<string, unknown>;
+  const key = schemas ? JSON.stringify([...bound].sort()) : '';
+  let prepared = schemas?.get(definition)?.get(key);
+  if (!prepared) {
+    const omit = Object.fromEntries([...bound].map((field) => [field, true as const]));
+    prepared = {
+      zod: definition.schema.omit(omit as never),
+      record: {
+        ...recordSchema,
+        properties: Object.fromEntries(Object.entries(properties).filter(([field]) => !bound.has(field))),
+        required: recordSchema.required?.filter((field) => !bound.has(field)),
+      },
+    };
+    if (schemas) {
+      let variants = schemas.get(definition);
+      if (!variants) { variants = new Map(); schemas.set(definition, variants); }
+      variants.set(key, prepared);
+    }
+  }
+  const parsed = strictParse(prepared.zod, prepared.record, literal, ['data']) as Record<string, unknown>;
   const boundValues = Object.fromEntries(Object.entries(data).filter(([key]) => bound.has(key)));
   return { ...parsed, ...boundValues };
 }

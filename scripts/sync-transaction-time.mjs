@@ -5,13 +5,14 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// Add only the optional clock result or its ISO binding format. Preserve all
+// Add only the optional clock result, ISO format or JSON string target. Preserve all
 // earlier Source/Stream and transaction overlays and their provenance chain.
 const root = fileURLToPath(new URL('../', import.meta.url));
 const [backend, ref, mode] = process.argv.slice(2);
-assert.ok(backend && ref && (mode === undefined || mode === '--format'), 'Usage: sync-transaction-time.mjs <backend> <commit|--worktree> [--format]');
+assert.ok(backend && ref && [undefined, '--format', '--json-string'].includes(mode), 'Usage: sync-transaction-time.mjs <backend> <commit|--worktree> [--format|--json-string]');
 const format = mode === '--format';
-const property = format ? 'format' : 'transactionTime';
+const jsonString = mode === '--json-string', binding = format || jsonString;
+const property = jsonString ? 'jsonPath' : format ? 'format' : 'transactionTime';
 const git = (...args) => execFileSync('git', ['-C', backend, ...args], { maxBuffer: 64 << 20 });
 const preview = ref === '--worktree';
 const revision = git('rev-parse', `${preview ? 'HEAD' : ref}^{commit}`).toString().trim();
@@ -22,11 +23,11 @@ const json = value => Buffer.from(JSON.stringify(value, null, 2) + '\n');
 const lock = JSON.parse(local('contracts/upstream.json'));
 const provenance = JSON.parse(local('contracts/uns-v2/provenance.json'));
 assert.deepEqual(provenance.schemaUpdates || [], lock.schemaUpdates || [], 'Incremental schema provenance differs');
-const scope = format ? 'record-transaction-time-format' : 'record-transaction-time';
+const scope = jsonString ? 'record-transaction-json-string' : format ? 'record-transaction-time-format' : 'record-transaction-time';
 const previous = provenance.schemaUpdates?.find(item => item.scope === scope);
 assert.ok(!previous || provenance.schemaUpdates.at(-1) === previous, 'Resync later overlays before replacing a nonterminal overlay');
 const update = { scope, repository: 'FREEZONEX/Tier0-Backend', revision,
-  sourceKind: preview ? 'working-tree-preview' : 'committed', inputs: {}, schemas: [format ? 'UnsV2ResultBinding.format' : 'Result.transactionTime'] };
+  sourceKind: preview ? 'working-tree-preview' : 'committed', inputs: {}, schemas: [binding ? `UnsV2ResultBinding.${property}` : 'Result.transactionTime'] };
 const sourcePaths = {
   'contracts/uns-v2/contract.json': 'service/unssvr/internal/domain/unsv2/contract_generated.go',
   'contracts/uns-v2/manifest.json': 'share/unscontract/manifest.json',
@@ -42,14 +43,15 @@ for (const [path, sourcePath] of Object.entries(sourcePaths)) {
     ? JSON.parse(JSON.parse(raw.toString().match(/^const ContractJSON = ("(?:\\[\s\S]|[^"\\])*")\r?$/m)[1]))
     : JSON.parse(raw);
   const current = JSON.parse(before);
-  const schemaName = format ? 'UnsV2ResultBinding' : path.endsWith('openapi-v2.source.json') ? 'DocUnsV2RecordTransactionExecuteResult' : 'Result';
+  const schemaName = binding ? 'UnsV2ResultBinding' : path.endsWith('openapi-v2.source.json') ? 'DocUnsV2RecordTransactionExecuteResult' : 'Result';
   const source = (incoming.schemas ?? incoming.components.schemas)[schemaName];
   const target = (current.schemas ?? current.components.schemas)[schemaName];
   assert.ok(source.properties[property] && !source.required?.includes(property), 'Clock additions must be optional for older servers');
   if (expected) assert.deepEqual(source.properties[property], expected, 'Backend transaction-time schemas disagree');
   expected = source.properties[property];
-  assert.equal(expected.type, format ? 'string' : 'integer');
+  assert.equal(expected.type, binding ? 'string' : 'integer');
   if (format) assert.deepEqual(expected.enum, ['iso8601']);
+  if (jsonString) { assert.equal(expected.pattern, '^/'); assert.equal(expected.minLength, 1); }
   target.properties[property] = structuredClone(expected);
   const after = path.endsWith('/contract.json') ? Buffer.from(JSON.stringify(current) + '\n') : json(current);
   outputs.set(path, after);

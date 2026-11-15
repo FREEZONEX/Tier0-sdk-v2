@@ -32,9 +32,12 @@ import {
 } from '../uns-v2/client.js';
 import { UNS_V2_OPERATIONS, type UnsV2OperationName, type UnsV2Request } from '../uns-v2/generated.js';
 import { DataError, toDataError } from './error.js';
+import { UnsV2RequestSizeError } from '../uns-v2/request-size.js';
 
-/** Whole call, from its start. The gateway gives UNS at most 20 s, so a data call ends within 25 s. */
+/** Whole ordinary call, including queueing and retries. */
 export const DEFAULT_DATA_TIMEOUT_MS = 25_000;
+/** Record transactions have a 60 s gateway route; allow time to receive its result. */
+export const DEFAULT_TRANSACTION_TIMEOUT_MS = 65_000;
 /** Data requests in flight per process, across every data client. */
 export const MAX_CONCURRENT_CALLS = 6;
 /** Resends of one call after its first attempt. */
@@ -48,6 +51,8 @@ export interface CallOptions {
   signal?: AbortSignal;
   /** False surfaces an unknown write outcome even when its receipt makes a retry safe. */
   retryUnknown?: boolean;
+  /** Negotiated body ceiling, checked against the transport's actual encoding. */
+  maxBodyBytes?: number;
 }
 
 /** Sends one operation and resolves with the envelope's `data`. */
@@ -162,6 +167,8 @@ export function createDataTransport(config: ClientConfig): { call: DataCall; ope
 
   async function call<T>(operation: UnsV2OperationName, request: Record<string, unknown>, options: CallOptions = {}): Promise<T> {
     assertConfigured();
+    const timeoutMs = snapshot.transportTimeoutMs ?? (operation === 'recordTransactionExecute'
+      ? DEFAULT_TRANSACTION_TIMEOUT_MS : DEFAULT_DATA_TIMEOUT_MS);
     const key = UNS_V2_OPERATIONS[operation].idempotencyKey
       ? (typeof request.idempotencyKey === 'string' ? request.idempotencyKey : randomUUID())
       : undefined;
@@ -194,11 +201,17 @@ export function createDataTransport(config: ClientConfig): { call: DataCall; ope
             const remaining = Math.max(1, deadline - Date.now());
             const core = new UnsV2ClientCore(resolve, { transportTimeoutMs: remaining });
             // In flight, only the business request's abort cancels; the transport deadline covers the time.
-            return core.call(operation, body as UnsV2Request<typeof operation>, { signal: options.signal });
+            return core.call(operation, body as UnsV2Request<typeof operation>, { signal: options.signal, maxRequestBytes: options.maxBodyBytes });
           }, stop.signal);
           return response.data as T;
         } catch (error) {
           if (error instanceof Abandoned) throw notSent(attempt - 1);
+          if (error instanceof UnsV2RequestSizeError && options.maxBodyBytes !== undefined && error.requestedBytes > options.maxBodyBytes) {
+            throw new DataError({ code: 'REQUEST_TOO_LARGE', status: 413, execution: 'notStarted',
+              message: `data.transact needs ${error.requestedBytes} bytes; this server supports ${options.maxBodyBytes}. No transaction was sent.`,
+              attempts: attempt - 1,
+              details: { requestedBytes: error.requestedBytes, maxBodyBytes: options.maxBodyBytes } });
+          }
           if (!(error instanceof UnsV2Error)) throw error;
           const delay = options.retryUnknown === false && error.outcomeUnknown ? undefined : retryDelay(error, attempt);
           if (delay === undefined || Date.now() + delay >= deadline || !(await pause(delay, stop.signal))) {

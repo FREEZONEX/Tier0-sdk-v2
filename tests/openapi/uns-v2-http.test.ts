@@ -846,6 +846,22 @@ describe('UNS v2 localhost HTTP fixture', () => {
     expect(received.length).toBe(start);
   });
 
+  it('sends a transaction above 16 MiB in one HTTP request and rejects above 32 MiB locally', async () => {
+    const start = received.length;
+    respond = (_req, res) => send(res, { code: 200, msg: '', requestId: 'large-transaction', data: { status: 'committed', results: [] } });
+    const request = { mode: 'sync' as const, idempotencyKey: 'capacity', items: [{
+      opId: 'create', action: 'record.create', collectionId: 'records', id: 'one', data: { payload: 'x'.repeat(17 << 20) },
+    }] };
+    const result = await client(10_000).uns.recordTransactionExecute(request);
+    expect(result.data.status).toBe('committed');
+    expect(received.length).toBe(start + 1);
+    expect(received.at(-1)?.path).toBe('/openapi/v2/uns/records:transact');
+    expect(Buffer.byteLength(received.at(-1)!.body)).toBeGreaterThan(16 << 20);
+    request.items[0].data.payload = 'x'.repeat(32 << 20);
+    await expect(client().uns.recordTransactionExecute(request)).rejects.toThrow('33554432-byte contract limit');
+    expect(received.length).toBe(start + 1);
+  });
+
   it('bounds one large response chunk by bytes without trusting framing metadata', async () => {
     let closed = false;
     respond = (_req, res) => {

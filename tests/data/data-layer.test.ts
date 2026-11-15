@@ -943,6 +943,31 @@ describe('collection operations', () => {
     await expect(handle.aggregate([{ $lookup: { from: 'ghost', localField: 'a', foreignField: 'b', as: 'c' } }]).toArray()).rejects.toThrow(/not declared/);
   });
 
+  it('resolves union branches and nested lookup sources without mutating the pipeline', async () => {
+    const mock = mockUns({
+      [ENSURE]: BOTH_UNCHANGED,
+      '/uns/collections/c-orders/records:aggregate': ok({ items: [], pageInfo: { hasMore: false } }),
+    });
+    const handle = client(mock).collection(orders);
+    const pipeline = [{ $unionWith: { from: lines, pipeline: [
+      { $lookup: { from: orders, localField: 'orderId', foreignField: '_id', as: 'order' } },
+      { $sort: { sku: 1 } },
+      { $unionWith: { from: 'orders', pipeline: [{ $sort: { code: -1 } }] } },
+    ] } }];
+    await handle.aggregate(pipeline).toArray();
+    expect(mock.calls('/uns/collections/c-orders/records:aggregate')[0].body.pipeline).toEqual([
+      { $unionWith: { collectionId: 'c-lines', pipeline: [
+        { $lookup: { collectionId: 'c-orders', localField: 'orderId', foreignField: '_id', as: 'order' } },
+        { $sort: [['sku', 1]] },
+        { $unionWith: { collectionId: 'c-orders', pipeline: [{ $sort: [['code', -1]] }] } },
+      ] } },
+    ]);
+    expect(pipeline[0].$unionWith.from).toBe(lines);
+    expect(pipeline[0].$unionWith.pipeline[1]).toEqual({ $sort: { sku: 1 } });
+    await expect(handle.aggregate([{ $unionWith: { from: 'ghost' } }]).toArray()).rejects.toThrow(/not declared/);
+    expect(mock.calls('/uns/collections/c-orders/records:aggregate')).toHaveLength(1);
+  });
+
   it('validates before writing and sends UNS write bodies', async () => {
     const mock = mockUns({
       [ENSURE]: BOTH_UNCHANGED,

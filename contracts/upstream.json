@@ -4,15 +4,15 @@
   "inputs": {
     "contracts/openapi-v2.source.json": {
       "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
-      "sha256": "4db996ae05c886711eb887bf96e684f3f832bce5b61d78520ff96746c15bbcf4"
+      "sha256": "1a11bf3559c6dc76a6982103eecd16b6186a1cc3ee2166dd150b711e382b22df"
     },
     "contracts/uns-v2/contract.json": {
       "path": "service/unssvr/internal/domain/unsv2/contract_generated.go#ContractJSON",
-      "sha256": "62281c4ef593244b0dba5507d3d751919d946246e586c28f229236bae4ea784b"
+      "sha256": "1f0f568c4ef36c18a000e3cda2bef3c2af61c66eb98b92c842b1fd1cb7b8904e"
     },
     "contracts/uns-v2/manifest.json": {
       "path": "share/unscontract/manifest.json",
-      "sha256": "fb13dabe59f006ccdd017a5d95a588303d9348405be6e7988b6e5b7addd2e575"
+      "sha256": "3c5462f67cb01dde598189654f1c30a42726ba485c6fdb2443852762ea9d4901"
     },
     "contracts/uns-v2/cloud-support.json": {
       "path": "share/unscontract/cloud-support.json",
@@ -341,6 +341,300 @@
         "/uns/records:updateManyAtomic"
       ],
       "sourceContractRevision": "cloud-source-impact/2+source-vendor/2+data/3+record-reads/1+stream-receipt/1+stream-run-error/1+stream-run-diagnostics/1+stream-run-delivery/1+stream-deploy-guard/1+stream-diagnostics/1+collection-namespace/1+business-name/1+http-acquisition/2+http-source-role/1+http-source-request/1+sql-inline-credentials/1+app-collection/2+collection-ownership/1+metadata/1+collection-purge/1+namespace-purge/1+app-context/5+collection-ttl/1+error-model/1+crud-consolidation/1+record-insert-return/1+lifecycle-consolidation/1+mutation-defaults/1+api-surface/2+source-stream-single-model+source-lifecycle/2+edge-discovery/1+edge-binding-status/1+edge-resource-discovery/1+unified-source-stream/1+sql-source-connection/1+source-health/2+app-data/3+hosted-control/1+source-bindings/1+record-notifications/1+record-delete-samples/1+stream-history/1+app-collections/2+http-in/1+app-resource-access/2+stream-control-probe-retirement/1+http-push-retirement/1+app-data-rule-retirement/1+app-key-model/1+sample-delete-exact/1"
+    },
+    {
+      "scope": "record-transaction-json-string",
+      "repository": "FREEZONEX/Tier0-Backend",
+      "revision": "5d81cd29e1399c9b943211324f59d484acc73afa",
+      "sourceKind": "working-tree-preview",
+      "inputs": {
+        "contracts/uns-v2/contract.json": {
+          "path": "service/unssvr/internal/domain/unsv2/contract_generated.go",
+          "sourceSHA256": "a45dde802a51efbf78d91bfc5a519cbd7c44541013eb80bbe922f09ba796303d",
+          "baseSHA256": "62281c4ef593244b0dba5507d3d751919d946246e586c28f229236bae4ea784b",
+          "resultSHA256": "6e9757bd3a29365bda311a2d433ff40a220b5906becd10de8ebce61e7f47c915"
+        },
+        "contracts/uns-v2/manifest.json": {
+          "path": "share/unscontract/manifest.json",
+          "sourceSHA256": "fd98be59121c5e60fbfb9903b69113f7d6c665ff6531d07a50195e8db39aa30d",
+          "baseSHA256": "fb13dabe59f006ccdd017a5d95a588303d9348405be6e7988b6e5b7addd2e575",
+          "resultSHA256": "ac0e76f0282a2b8fd4109fc5bfe46c44cd1ed2d9cfc9015ee5326671a0bec72e"
+        },
+        "contracts/openapi-v2.source.json": {
+          "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
+          "sourceSHA256": "2714f486f891478cb5b1a182d3020009a91ead1ae0398f6db62d1625c735019e",
+          "baseSHA256": "4db996ae05c886711eb887bf96e684f3f832bce5b61d78520ff96746c15bbcf4",
+          "resultSHA256": "4208ee28c9f122eb7553f65b05440e67a4831dffbda16314147bf1ec22ed5dc0"
+        }
+      },
+      "schemas": [
+        "UnsV2ResultBinding.jsonPath"
+      ]
+    },
+    {
+      "scope": "record-transaction-capacity",
+      "repository": "FREEZONEX/Tier0-Backend",
+      "revision": "5d81cd29e1399c9b943211324f59d484acc73afa",
+      "sourceKind": "working-tree-preview",
+      "inputs": {
+        "contracts/uns-v2/contract.json": {
+          "path": "service/unssvr/internal/domain/unsv2/contract_generated.go",
+          "sourceSHA256": "b41fc7b259faa3e2c06a2fbb9360c1edce3b3bbf60679617d638a9f55f9f8378",
+          "baseSHA256": "6e9757bd3a29365bda311a2d433ff40a220b5906becd10de8ebce61e7f47c915",
+          "resultSHA256": "34dbe391e570a9f0d65b30c329dd9117bb07d28e098e27803d48f73869e1e20d"
+        },
+        "contracts/uns-v2/manifest.json": {
+          "path": "share/unscontract/manifest.json",
+          "sourceSHA256": "6ae8c3e55379fe4867ee481231df5956286350dfa2d938f5834c4e36b19dbc3e",
+          "baseSHA256": "ac0e76f0282a2b8fd4109fc5bfe46c44cd1ed2d9cfc9015ee5326671a0bec72e",
+          "resultSHA256": "6581bec3134c6c3c1057948fc435fc3f2c6a1ab60f2908603e9c6499006f74c8"
+        },
+        "contracts/openapi-v2.source.json": {
+          "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
+          "sourceSHA256": "3451d3e0a1d1988583c54f762bf289e4db3b8dd3344550ff7f38f6f3202b4149",
+          "baseSHA256": "4208ee28c9f122eb7553f65b05440e67a4831dffbda16314147bf1ec22ed5dc0",
+          "resultSHA256": "830678907a3e7d514ca960ce3c7df9495911ad96256fc6fb42cfd72ac27d8ca4"
+        }
+      },
+      "schemas": [
+        "UnsV2RecordTransactionReq.items.maxItems"
+      ]
+    },
+    {
+      "scope": "string-pattern-predicates",
+      "repository": "FREEZONEX/Tier0-Backend",
+      "revision": "5d81cd29e1399c9b943211324f59d484acc73afa",
+      "sourceKind": "working-tree-preview",
+      "inputs": {
+        "contracts/uns-v2/contract.json": {
+          "path": "service/unssvr/internal/domain/unsv2/contract_generated.go",
+          "sourceSHA256": "1a54970ea3b21e32e1606f607b6f055d81423fd09586aebc9e600bc72498adf6",
+          "baseSHA256": "34dbe391e570a9f0d65b30c329dd9117bb07d28e098e27803d48f73869e1e20d",
+          "resultSHA256": "988e1969f017fd1de8a96e8f7fd4bf1e61ffe6d979af37c9e84ab2510b65984b"
+        },
+        "contracts/uns-v2/manifest.json": {
+          "path": "share/unscontract/manifest.json",
+          "sourceSHA256": "57ade7aacc287b9042a42c1e73d7fba78a062bcc83a5b0c3fe85b9063a452c86",
+          "baseSHA256": "6581bec3134c6c3c1057948fc435fc3f2c6a1ab60f2908603e9c6499006f74c8",
+          "resultSHA256": "815f597372d389b2a99da97f9c78087ca64640b10ce0f98e75b0ae4253a3f203"
+        },
+        "contracts/openapi-v2.source.json": {
+          "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
+          "sourceSHA256": "5dac20e95860b7dfbd5302a38c7a8b0792da5975d96c73a1a71f94bf296ea25d",
+          "baseSHA256": "830678907a3e7d514ca960ce3c7df9495911ad96256fc6fb42cfd72ac27d8ca4",
+          "resultSHA256": "2d904f8f66a7692ab735f26c04ef9559b2cba08a9f8fda54a82a55c90f0058be"
+        }
+      },
+      "schemas": [
+        "UnsV2FieldPredicate.$like/$ilike",
+        "UnsV2FieldComparisons.$like/$ilike"
+      ]
+    },
+    {
+      "scope": "ordered-first-accumulator",
+      "repository": "FREEZONEX/Tier0-Backend",
+      "revision": "5d81cd29e1399c9b943211324f59d484acc73afa",
+      "sourceKind": "working-tree-preview",
+      "inputs": {
+        "contracts/uns-v2/contract.json": {
+          "path": "service/unssvr/internal/domain/unsv2/contract_generated.go",
+          "sourceSHA256": "2e8e3ed37cb7de2431ab6756aab9acbfb41b4d7a05b5985879e015d05ff8fea7",
+          "baseSHA256": "988e1969f017fd1de8a96e8f7fd4bf1e61ffe6d979af37c9e84ab2510b65984b",
+          "resultSHA256": "626656b836de986f3f34c39d6fe46270160e87b005bfd90027c4a91ea0096753"
+        },
+        "contracts/uns-v2/manifest.json": {
+          "path": "share/unscontract/manifest.json",
+          "sourceSHA256": "6bfbd2f8cc17cdd68c743a6f9328b017ab9a45d195533e0edfb3ae83a5f09150",
+          "baseSHA256": "815f597372d389b2a99da97f9c78087ca64640b10ce0f98e75b0ae4253a3f203",
+          "resultSHA256": "a7599e68954b8cbd5c94b3d8b785af00c4e8624dad3602d95cd7719e48f80098"
+        },
+        "contracts/openapi-v2.source.json": {
+          "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
+          "sourceSHA256": "a0bbea9abf741b9e6921473428f8310a8fe2d370aa6dcb2d5a2b9246631f59ad",
+          "baseSHA256": "2d904f8f66a7692ab735f26c04ef9559b2cba08a9f8fda54a82a55c90f0058be",
+          "resultSHA256": "6fd496ce3ec82085ca193d6d3f5372a7121a9c3eef9d9197c53298fc6695010b"
+        }
+      },
+      "schemas": [
+        "UnsV2PipelineAccumulator.$first",
+        "UnsV2PipelineStage.$group.description"
+      ]
+    },
+    {
+      "scope": "identity-lookup-execution",
+      "repository": "FREEZONEX/Tier0-Backend",
+      "revision": "5d81cd29e1399c9b943211324f59d484acc73afa",
+      "sourceKind": "working-tree-preview",
+      "inputs": {
+        "contracts/uns-v2/contract.json": {
+          "path": "service/unssvr/internal/domain/unsv2/contract_generated.go",
+          "sourceSHA256": "878b474425e0dc2405a0ec19035dfbb853b5264e4ba61a11dec7ed075853f873",
+          "baseSHA256": "626656b836de986f3f34c39d6fe46270160e87b005bfd90027c4a91ea0096753",
+          "resultSHA256": "bc28fbf0007e2803f81b27d08990a569ceebc7776d53650e646ae4b82ed313dd"
+        },
+        "contracts/uns-v2/manifest.json": {
+          "path": "share/unscontract/manifest.json",
+          "sourceSHA256": "fae115072f13b8a7fabe84286002eba089bfb05928355cdc2028a3b6c0d04cae",
+          "baseSHA256": "a7599e68954b8cbd5c94b3d8b785af00c4e8624dad3602d95cd7719e48f80098",
+          "resultSHA256": "784c1287de4c497a7dfa06dfd5b2b48bd6e6b1ee874d318849df70081eeb1420"
+        },
+        "contracts/openapi-v2.source.json": {
+          "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
+          "sourceSHA256": "6b5abf2c8c37ef158022d42d558d32ebb29624c42e62acd4675bc14d2385a85b",
+          "baseSHA256": "6fd496ce3ec82085ca193d6d3f5372a7121a9c3eef9d9197c53298fc6695010b",
+          "resultSHA256": "c55132172e3ab18b5bec6dd1612c8cec2a8148e955f1f318020254a4875499e4"
+        }
+      },
+      "schemas": [
+        "UnsV2PipelineStage.$lookup.description"
+      ]
+    },
+    {
+      "scope": "json-text-expression",
+      "repository": "FREEZONEX/Tier0-Backend",
+      "revision": "5d81cd29e1399c9b943211324f59d484acc73afa",
+      "sourceKind": "working-tree-preview",
+      "inputs": {
+        "contracts/uns-v2/contract.json": {
+          "path": "service/unssvr/internal/domain/unsv2/contract_generated.go",
+          "sourceSHA256": "87bf21daa07b20acf71092e2cf8c5136a5c2e8c13fa0209fa54e3cc9134f1e97",
+          "baseSHA256": "bc28fbf0007e2803f81b27d08990a569ceebc7776d53650e646ae4b82ed313dd",
+          "resultSHA256": "628d450767cc3bf28f643c00944c6002e5f547c33ea3b70f4c35c0c89c279c69"
+        },
+        "contracts/uns-v2/manifest.json": {
+          "path": "share/unscontract/manifest.json",
+          "sourceSHA256": "43d355c799a2d68fc39016edf534c3e3af35f23ff88277cd536abdd7f82e186e",
+          "baseSHA256": "784c1287de4c497a7dfa06dfd5b2b48bd6e6b1ee874d318849df70081eeb1420",
+          "resultSHA256": "52d7357232d5f984f7f4678de7047e06930a660095744f56a1c66c4f4a6a4798"
+        },
+        "contracts/openapi-v2.source.json": {
+          "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
+          "sourceSHA256": "bcbdccd3969893cc62c38ee9c57125e6a2e4fda3e853a6a145821127502f65c4",
+          "baseSHA256": "c55132172e3ab18b5bec6dd1612c8cec2a8148e955f1f318020254a4875499e4",
+          "resultSHA256": "97a79396e4b29b95988e6adf7fad0ee03164228f59b25b1812f0f3949933035a"
+        }
+      },
+      "schemas": [
+        "UnsV2PipelineExpression.$jsonExtractText"
+      ]
+    },
+    {
+      "scope": "lookup-let-variables",
+      "repository": "FREEZONEX/Tier0-Backend",
+      "revision": "5d81cd29e1399c9b943211324f59d484acc73afa",
+      "sourceKind": "working-tree-preview",
+      "inputs": {
+        "contracts/uns-v2/contract.json": {
+          "path": "service/unssvr/internal/domain/unsv2/contract_generated.go",
+          "sourceSHA256": "2cb0ae6b2a4d72bdaf666e2aeeb3bc64f3459127eee64ef8afc495fafa18d12c",
+          "baseSHA256": "628d450767cc3bf28f643c00944c6002e5f547c33ea3b70f4c35c0c89c279c69",
+          "resultSHA256": "077aa776b6de2d5b23a012ebc1660a4f0b3fd4f86edf160a6e02c910024ee687"
+        },
+        "contracts/uns-v2/manifest.json": {
+          "path": "share/unscontract/manifest.json",
+          "sourceSHA256": "31bdc4b3b02d291c6cff08416b83bc350d060f650d1815fb04da16272d8da0a3",
+          "baseSHA256": "52d7357232d5f984f7f4678de7047e06930a660095744f56a1c66c4f4a6a4798",
+          "resultSHA256": "ee8571e85bf067603d32f8bc48178700f017efa8ee4c5a64350ba82c166cf59c"
+        },
+        "contracts/openapi-v2.source.json": {
+          "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
+          "sourceSHA256": "1820f197fb4161afd44a6b0b49f49a55c7bda97a47aefa72ce0c89c428f9911f",
+          "baseSHA256": "97a79396e4b29b95988e6adf7fad0ee03164228f59b25b1812f0f3949933035a",
+          "resultSHA256": "9f562a1b82a0ce64755094192921544b20274d5b269975b05947c027335729e7"
+        }
+      },
+      "schemas": [
+        "UnsV2PipelineStage.$lookup.let"
+      ]
+    },
+    {
+      "scope": "bounded-lookup-execution",
+      "repository": "FREEZONEX/Tier0-Backend",
+      "revision": "5d81cd29e1399c9b943211324f59d484acc73afa",
+      "sourceKind": "working-tree-preview",
+      "inputs": {
+        "contracts/uns-v2/contract.json": {
+          "path": "service/unssvr/internal/domain/unsv2/contract_generated.go",
+          "sourceSHA256": "d82103e1c395e537390d3941ff27e25eae4fe1821381eeaefedd3a677e29fcd0",
+          "baseSHA256": "077aa776b6de2d5b23a012ebc1660a4f0b3fd4f86edf160a6e02c910024ee687",
+          "resultSHA256": "de2b4ce8359f91a53d2c84380950bc0c58ee24f3f9a5406e7297049dc50a2841"
+        },
+        "contracts/uns-v2/manifest.json": {
+          "path": "share/unscontract/manifest.json",
+          "sourceSHA256": "3c8b218c74a02e15a532ed1c7df73d05ccda3e0b7da841edcfd5f2cd441d8b38",
+          "baseSHA256": "ee8571e85bf067603d32f8bc48178700f017efa8ee4c5a64350ba82c166cf59c",
+          "resultSHA256": "56f333f89531056084c20f26af27bd3491924dca8655cf27985f2ac4aaf07ecc"
+        },
+        "contracts/openapi-v2.source.json": {
+          "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
+          "sourceSHA256": "572fbacaca53ae83a552084ea7212e77ddade3fff1d1dd6c953f00cc2945b978",
+          "baseSHA256": "9f562a1b82a0ce64755094192921544b20274d5b269975b05947c027335729e7",
+          "resultSHA256": "f21756812972df7058b34771c17ae13a7758a91ba7228abfc1d4a1dfd36c2c7a"
+        }
+      },
+      "schemas": [
+        "UnsV2PipelineStage.$lookup.description"
+      ]
+    },
+    {
+      "scope": "union-with-records",
+      "repository": "FREEZONEX/Tier0-Backend",
+      "revision": "5d81cd29e1399c9b943211324f59d484acc73afa",
+      "sourceKind": "working-tree-preview",
+      "inputs": {
+        "contracts/uns-v2/contract.json": {
+          "path": "service/unssvr/internal/domain/unsv2/contract_generated.go",
+          "sourceSHA256": "21cf8e6111f8f0e9a334c1212009567f7fa6d711b208763596411ba391e98028",
+          "baseSHA256": "de2b4ce8359f91a53d2c84380950bc0c58ee24f3f9a5406e7297049dc50a2841",
+          "resultSHA256": "9ed34adf9daae4475ae8e33cb5dea72ee8b7c66ea76731ef9b73d42b138af36c"
+        },
+        "contracts/uns-v2/manifest.json": {
+          "path": "share/unscontract/manifest.json",
+          "sourceSHA256": "e4178c5dfc43ed3f1e911e3a2f1ea0dbf65377a1a7ac7c6a6e28d5c11f037835",
+          "baseSHA256": "56f333f89531056084c20f26af27bd3491924dca8655cf27985f2ac4aaf07ecc",
+          "resultSHA256": "451e37c9ee1b929c197fdf89333a80fe2d874ecd0b76b6a691e79e70fd7d4d77"
+        },
+        "contracts/openapi-v2.source.json": {
+          "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
+          "sourceSHA256": "acb132c92923122b9ee952cb09067445936bc9a1a5b09eb98b6d14ece9958277",
+          "baseSHA256": "f21756812972df7058b34771c17ae13a7758a91ba7228abfc1d4a1dfd36c2c7a",
+          "resultSHA256": "4d03b143d8571fd62afc34743e90a4e0ba621b3a7e4f27b7e870b27e7cf65b66"
+        }
+      },
+      "schemas": [
+        "UnsV2PipelineStage.$unionWith"
+      ]
+    },
+    {
+      "scope": "result-binding-capacity",
+      "repository": "FREEZONEX/Tier0-Backend",
+      "revision": "5d81cd29e1399c9b943211324f59d484acc73afa",
+      "sourceKind": "working-tree-preview",
+      "inputs": {
+        "contracts/uns-v2/contract.json": {
+          "path": "service/unssvr/internal/domain/unsv2/contract_generated.go",
+          "sourceSHA256": "919e005cdb1578fdd5e7a12ebd6bba5bd9183e06efd2f1ebab6a10ef5dbecf59",
+          "baseSHA256": "9ed34adf9daae4475ae8e33cb5dea72ee8b7c66ea76731ef9b73d42b138af36c",
+          "resultSHA256": "1f0f568c4ef36c18a000e3cda2bef3c2af61c66eb98b92c842b1fd1cb7b8904e"
+        },
+        "contracts/uns-v2/manifest.json": {
+          "path": "share/unscontract/manifest.json",
+          "sourceSHA256": "ef10a570d17f131f120c3026e9420df231cc49c722d2d3cddfee92286248594a",
+          "baseSHA256": "451e37c9ee1b929c197fdf89333a80fe2d874ecd0b76b6a691e79e70fd7d4d77",
+          "resultSHA256": "3c5462f67cb01dde598189654f1c30a42726ba485c6fdb2443852762ea9d4901"
+        },
+        "contracts/openapi-v2.source.json": {
+          "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
+          "sourceSHA256": "e8abd2980daab1122fb62fcbf6634ad57653aaf68636c643fe5aef207f2b3225",
+          "baseSHA256": "4d03b143d8571fd62afc34743e90a4e0ba621b3a7e4f27b7e870b27e7cf65b66",
+          "resultSHA256": "1a11bf3559c6dc76a6982103eecd16b6186a1cc3ee2166dd150b711e382b22df"
+        }
+      },
+      "schemas": [
+        "UnsV2Change.bindings.maxItems",
+        "UnsV2RecordChange.bindings.maxItems",
+        "UnsV2MetaChange.bindings.maxItems"
+      ]
     }
   ],
   "platformSource": {

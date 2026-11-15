@@ -562,10 +562,13 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
 
   /**
    * Runs a pipeline (`$match`, `$sort`, `$group`, `$project`, `$set`,
-   * `$lookup`, `$unwind`, `$skip`, `$limit`, `$count`). `$sort` accepts
-   * `{ field: 1 | -1 }`; `$lookup` takes `from` (a declared collection or
+   * `$lookup`, `$unionWith`, `$unwind`, `$skip`, `$limit`, `$count`). `$sort` accepts
+   * `{ field: 1 | -1 }`; `$lookup` and `$unionWith` take `from` (a declared collection or
    * alias of this App) instead of a collection ID. Rows are whatever the
    * pipeline outputs, not wrapped records.
+   * `$unionWith` appends records from its optional nested pipeline, retaining
+   * duplicates. Group to deduplicate and sort before global pagination. It
+   * requires the matching backend; source permissions and query budgets apply.
    *
    * Pipelines of only `$match` / `$sort` page by cursor; any other stage pages
    * by offset (UNS rejects cursors for transformed results). The `$exists`,
@@ -573,7 +576,7 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
    * executed by the record pipeline; use `countDocuments`, `distinct` or `$group`.
    */
   aggregate<R = Record<string, unknown>>(pipeline: Record<string, unknown>[]): Cursor<R> {
-    // Recovery wraps stage preparation too, so a retry re-resolves `$lookup` IDs.
+    // Recovery also re-resolves declared lookup/union targets before a retry.
     return new Cursor<R>(({ token, size }) => this.runtime.recover(() => this.aggregatePage<R>(pipeline, token, size), { collections: [this.definition], retry: typeof token !== 'string' }));
   }
 
@@ -607,19 +610,20 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
     };
   }
 
-  /** Converts Mongo-style `$sort` objects and resolves `$lookup.from`, recursively. */
+  /** Converts `$sort` objects and resolves declared lookup/union sources recursively. */
   private async prepareStages(pipeline: readonly Record<string, unknown>[]): Promise<Record<string, unknown>[]> {
     return Promise.all(
       pipeline.map(async (stage) => {
         if ('$sort' in stage && !Array.isArray(stage.$sort)) {
           return { ...stage, $sort: toSortPairs(stage.$sort as Sort) };
         }
-        if ('$lookup' in stage && stage.$lookup && typeof stage.$lookup === 'object') {
-          const { from, pipeline: inner, ...lookup } = stage.$lookup as Record<string, unknown>;
-          const resolved: Record<string, unknown> = { ...lookup };
+        for (const operator of ['$lookup', '$unionWith']) {
+          if (!stage[operator] || typeof stage[operator] !== 'object') continue;
+          const { from, pipeline: inner, ...configuration } = stage[operator] as Record<string, unknown>;
+          const resolved: Record<string, unknown> = { ...configuration };
           if (from !== undefined) resolved.collectionId = await this.runtime.resolve(from as CollectionTarget | string);
           if (Array.isArray(inner)) resolved.pipeline = await this.prepareStages(inner as Record<string, unknown>[]);
-          return { ...stage, $lookup: resolved };
+          return { ...stage, [operator]: resolved };
         }
         return stage;
       }),

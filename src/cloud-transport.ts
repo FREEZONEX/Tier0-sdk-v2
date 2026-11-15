@@ -10,6 +10,7 @@ export interface CloudTransportConfig {
 
 export const DEFAULT_CLOUD_TRANSPORT_TIMEOUT_MS = 60_000;
 export const UNS_V2_MAX_REQUEST_BYTES = 16 << 20;
+export const UNS_V2_TRANSACTION_MAX_REQUEST_BYTES = 32 << 20;
 export const UNS_V2_MAX_RESPONSE_BYTES = 20 << 20;
 
 type Failure = 'TRANSPORT_ERROR' | 'PROTOCOL_ERROR' | 'TRANSPORT_TIMEOUT' | 'TRANSPORT_ABORTED';

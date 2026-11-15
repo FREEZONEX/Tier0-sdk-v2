@@ -2,11 +2,13 @@ import {
   CloudTransport,
   CloudTransportError,
   UNS_V2_MAX_REQUEST_BYTES,
+  UNS_V2_TRANSACTION_MAX_REQUEST_BYTES,
   type CloudTransportConfig,
 } from '../cloud-transport.js';
 import { getClient, type HttpClient, type RequestOptions } from '../openapi/client.js';
 import { invalidResponseHint } from '../connection-diagnostics.js';
 import { decodeUnsV2JSON, encodeUnsV2JSON } from './codec.js';
+import { UnsV2RequestSizeError } from './request-size.js';
 import { parseServerSentEvents, ServerSentEventsError } from './sse.js';
 import {
   UNS_V2_OPERATIONS,
@@ -279,8 +281,11 @@ export class UnsV2ClientCore {
     this.transport = new CloudTransport(resolveClient, config);
   }
 
-  async call<Name extends UnsV2OperationName>(name: Name, request: UnsV2Request<Name>, options: RequestOptions = {}): Promise<UnsV2Response<Name>> {
+  async call<Name extends UnsV2OperationName>(name: Name, request: UnsV2Request<Name>, options: RequestOptions & { maxRequestBytes?: number } = {}): Promise<UnsV2Response<Name>> {
     options.signal?.throwIfAborted();
+    if (options.maxRequestBytes !== undefined && (!Number.isSafeInteger(options.maxRequestBytes) || options.maxRequestBytes <= 0)) {
+      throw new TypeError('Tier0 SDK: maxRequestBytes must be a positive safe integer.');
+    }
     if (typeof name !== 'string' || !Object.prototype.hasOwnProperty.call(UNS_V2_OPERATIONS, name)) {
       throw new TypeError('Tier0 SDK: unknown UNS v2 operation.');
     }
@@ -288,8 +293,13 @@ export class UnsV2ClientCore {
     const mutation = operation.mutation;
     const path = resourcePath(operation, request);
     const body = encodeUnsV2JSON(request, operation.request);
-    if (new TextEncoder().encode(body).byteLength > UNS_V2_MAX_REQUEST_BYTES) {
-      throw new TypeError('Tier0 SDK: UNS v2 request body exceeds the 16777216-byte contract limit.');
+    const maxRequestBytes = name === 'recordTransactionExecute' ? UNS_V2_TRANSACTION_MAX_REQUEST_BYTES : UNS_V2_MAX_REQUEST_BYTES;
+    // Measure the exact encoded body that is sent. A negotiated server limit
+    // may lower, but never raise, the SDK's contract ceiling.
+    const requestedBytes = new TextEncoder().encode(body).byteLength;
+    const effectiveLimit = Math.min(maxRequestBytes, options.maxRequestBytes ?? maxRequestBytes);
+    if (requestedBytes > effectiveLimit) {
+      throw new UnsV2RequestSizeError(requestedBytes, effectiveLimit);
     }
     let response: Awaited<ReturnType<CloudTransport['postText']>>;
     try {

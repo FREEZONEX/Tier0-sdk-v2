@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { createDataClient, defineCollection, MAX_TRANSACTION_ITEMS, runWithAbortSignal } from '../../src/data/index.js';
+import { UnsV2RawNumber } from '../../src/uns-v2/codec.js';
 
 const records = defineCollection({ alias: 'records', name: 'Records', schema: z.object({ value: z.number().int() }) });
 const largeSteps = (count = 250) => Array.from({ length: count }, (_, i) => ({
@@ -9,7 +10,7 @@ const largeSteps = (count = 250) => Array.from({ length: count }, (_, i) => ({
 const capability = (maxItems = 10_000) => ({ maxItems, maxBodyBytes: 16 << 20, timeoutMs: 10_000 });
 
 function fixture(declared = true) {
-  const calls: { path: string; body: any }[] = [];
+  const calls: { path: string; body: any; raw: string }[] = [];
   let transaction: unknown = capability();
   let appId = 'test-app';
   let denied = false;
@@ -23,8 +24,8 @@ function fixture(declared = true) {
   const data = createDataClient({ collections: declared ? [records] : [], apiHost: 'https://isolated.invalid', apiKey: 'test-only',
     environment: 'deployed', logger: { info() {}, warn() {}, error() {} }, fetch: async (url, init) => {
       const path = new URL(String(url)).pathname;
-      const body = JSON.parse(String(init?.body));
-      calls.push({ path, body });
+      const raw = String(init?.body), body = JSON.parse(raw);
+      calls.push({ path, body, raw });
       if (path.endsWith('/ensure')) return ok({ appId: 'test-app', results: [{ alias: records.alias, collectionId, status: 'unchanged', revision: 1 }] });
       if (path.endsWith('/context')) return denied ? failure('FORBIDDEN') : ok({ appId, limits: transaction === undefined ? {} : { transaction } });
       if (path.endsWith('/records:transact')) {
@@ -110,7 +111,7 @@ describe('negotiated synchronous transaction capacity', () => {
   });
 
   it('caps effective capacity at the tested client ceiling and rejects excess before any IO', async () => {
-    const f = fixture(); f.limits(capability(20_000));
+    const f = fixture(); f.limits(capability(MAX_TRANSACTION_ITEMS + 1));
     expect((await f.data.getTransactionLimits()).maxItems).toBe(MAX_TRANSACTION_ITEMS);
     const fresh = fixture();
     await expect(fresh.data.transact(largeSteps(MAX_TRANSACTION_ITEMS + 1))).rejects.toMatchObject({ code: 'BATCH_LIMIT_EXCEEDED', execution: 'notStarted' });
@@ -122,6 +123,65 @@ describe('negotiated synchronous transaction capacity', () => {
     expect((await f.data.getTransactionLimits()).maxItems).toBe(200);
     await expect(f.data.transact(largeSteps().map(step => ({ ...step, collection: { collectionId: 'existing' } })))).rejects.toMatchObject({ code: 'BATCH_LIMIT_EXCEEDED' });
     expect(f.calls).toHaveLength(0);
+  });
+
+  it('sends a large import as one negotiated transaction and refuses it on an older server', async () => {
+    const steps = largeSteps(36_311);
+    const old = fixture();
+    await expect(old.data.transact(steps)).rejects.toMatchObject({ code: 'BATCH_LIMIT_EXCEEDED', execution: 'notStarted' });
+    expect(old.writes()).toHaveLength(0);
+    const current = fixture(); current.limits({ maxItems: 50_000, maxBodyBytes: 32 << 20, timeoutMs: 18_000 });
+    await expect(current.data.transact(steps, { idempotencyKey: 'whole-import', retryUnknown: false })).resolves.toMatchObject({ status: 'committed' });
+    expect(current.writes()).toHaveLength(1);
+    expect(current.writes()[0].body.items).toHaveLength(steps.length);
+  });
+
+  it('rejects an oversized negotiated request before submitting any part', async () => {
+    const f = fixture(); f.limits({ ...capability(), maxBodyBytes: 1000 });
+    await expect(f.data.transact(largeSteps())).rejects.toMatchObject({ code: 'REQUEST_TOO_LARGE', execution: 'notStarted', details: { maxBodyBytes: 1000 } });
+    expect(f.writes()).toHaveLength(0);
+  });
+
+  it('measures the actual UTF-8 body with exact numbers and the generated idempotency key', async () => {
+    const steps = largeSteps().map(step => ({ ...step, collection: { collectionId: 'c-records' },
+      data: { value: new UnsV2RawNumber('9007199254740993'), label: '设备🙂' },
+    }));
+    const baseline = fixture();
+    await baseline.data.transact(steps);
+    const sent = baseline.writes()[0];
+    expect(sent.raw).toContain('"value":9007199254740993');
+    expect(sent.raw).toContain('设备🙂');
+    expect(sent.body.idempotencyKey).toMatch(/^[0-9a-f-]{36}$/);
+    const requestedBytes = Buffer.byteLength(sent.raw, 'utf8');
+    expect(requestedBytes).toBeGreaterThan(sent.raw.length);
+
+    const exact = fixture(); exact.limits({ ...capability(), maxBodyBytes: requestedBytes });
+    await expect(exact.data.transact(steps)).resolves.toMatchObject({ status: 'committed' });
+    expect(Buffer.byteLength(exact.writes()[0].raw, 'utf8')).toBe(requestedBytes);
+
+    const smaller = fixture(); smaller.limits({ ...capability(), maxBodyBytes: requestedBytes - 1 });
+    await expect(smaller.data.transact(steps)).rejects.toMatchObject({ code: 'REQUEST_TOO_LARGE', execution: 'notStarted',
+      details: { requestedBytes, maxBodyBytes: requestedBytes - 1 } });
+    expect(smaller.writes()).toHaveLength(0);
+  });
+
+  it('retains wire-codec validation for bigint in arbitrary JSON before submission', async () => {
+    const f = fixture();
+    const steps = largeSteps().map(step => ({ ...step, collection: { collectionId: 'c-records' }, data: { value: 1n } }));
+    await expect(f.data.transact(steps)).rejects.toThrow('bigint is only valid for signed int64 contract fields');
+    expect(f.writes()).toHaveLength(0);
+  });
+
+  it('encodes each large-transaction value once for both the size check and the sent body', async () => {
+    const f = fixture();
+    let reads = 0;
+    const steps = largeSteps().map(step => ({ ...step, collection: { collectionId: 'c-records' },
+      data: { get value() { return ++reads; }, label: '设备🙂' },
+    }));
+    await f.data.transact(steps, { idempotencyKey: 'single-encoding' });
+    expect(reads).toBe(steps.length);
+    expect(f.writes()).toHaveLength(1);
+    expect(f.writes()[0].body.items.map((item: any) => item.data.value)).toEqual(steps.map((_, index) => index + 1));
   });
 
   it('does not add capability IO to transactions within the legacy ceiling', async () => {
