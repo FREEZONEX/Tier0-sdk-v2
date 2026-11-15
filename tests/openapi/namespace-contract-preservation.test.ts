@@ -139,5 +139,9 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
   // fixed 11 (stream.messages.publish / subscribe added, new description), appDataPolicyUpdate describes the Owner/Admin-only
   // grant additions, and CloudAppStreamAccessItem.blockedReasons gains a description (app_stream_ceiling = the workspace plan).
   // 本次只更新 App 授权描述及两个管理操作的现有治理权限备选，结构不变。
-  expect(digest).toBe('ebf8d452a7e5af63f94289289a5d28a3efe4b39ab3c2d7764d1026b4081e8b3a');
+  // Re-pinned for reviewed SDK 134a265 preview overlays: no operation changed.
+  // Eight existing schemas add JSON-string bindings, transaction capacity,
+  // string patterns, ordered first, JSON text, lookup variables/budgets and union.
+  // Their entire reachable graph remains pinned; future changes still fail.
+  expect(digest).toBe('ca4e401d7ea4d8b09c8ca968596780dc44f08d6397dd1d35956f25da894474de');
 });

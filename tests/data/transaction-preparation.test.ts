@@ -7,7 +7,7 @@ const lines = defineCollection({ alias: 'lines', name: 'Lines', schema: z.object
 const declarations = [resources, lines];
 
 describe('transaction preparation', () => {
-  it('rebuilds every target after recovery while retaining order and checking current indexes', async () => {
+  it.each([40, 250])('rebuilds %s steps after recovery with one context per attempt and fresh IDs/indexes', async count => {
     let generation = 1, ensured = 0;
     const writes: { items: { opId: string; collectionId: string; data: unknown }[] }[] = [];
     const contexts: number[] = [];
@@ -21,7 +21,8 @@ describe('transaction preparation', () => {
         }
         if (path.endsWith('/context')) {
           contexts.push(generation);
-          return response({ appId: 'fixture', collections: declarations.map(d => ({ alias: d.alias, collectionId: `${d.alias}-${generation}`,
+          return response({ appId: 'fixture', limits: { transaction: { maxItems: 50000, maxBodyBytes: 32 << 20, timeoutMs: 60000 } },
+            collections: declarations.map(d => ({ alias: d.alias, collectionId: `${d.alias}-${generation}`,
             indexStatus: d.indexes!.map(spec => ({ spec, state: 'ready', name: 'fixture' })) })) });
         }
         if (path.endsWith('/records:transact')) {
@@ -35,7 +36,7 @@ describe('transaction preparation', () => {
         }
         throw new Error('Unexpected fixture request');
       } });
-    const steps = Array.from({ length: 40 }, (_, index) => index % 2 === 0
+    const steps = Array.from({ length: count }, (_, index) => index % 2 === 0
       ? { opId: `op-${index}`, action: 'record.create' as const, collection: resources, id: `r-${index}`, data: { code: `R${index}` } }
       : { opId: `op-${index}`, action: 'record.create' as const, collection: 'lines', id: `l-${index}`, data: { number: index } });
     await data.transact(steps, { requireIndexesReady: true });
@@ -47,5 +48,7 @@ describe('transaction preparation', () => {
       expect(body.items.map(item => item.collectionId)).toEqual(steps.map((_, index) => `${index % 2 === 0 ? 'resources' : 'lines'}-${attempt + 1}`));
       expect(body.items.map(item => item.data)).toEqual(steps.map(step => step.data));
     }
+    await data.transact(steps, { requireIndexesReady: true });
+    expect(contexts).toEqual([1, 2, 2]);
   });
 });

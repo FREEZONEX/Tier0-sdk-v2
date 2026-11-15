@@ -118,6 +118,36 @@ describe('negotiated synchronous transaction capacity', () => {
     expect(fresh.calls).toHaveLength(0);
   });
 
+  it.each([8, 32, 64])('reports the effective byte ceiling for a server advertising %s MiB', async mib => {
+    const f = fixture(); f.limits({ ...capability(), maxBodyBytes: mib << 20 });
+    expect((await f.data.getTransactionLimits()).maxBodyBytes).toBe(Math.min(mib, 32) << 20);
+  });
+
+  it.each([1, 250])('refuses a %s-step oversized transaction with the same local error contract', async count => {
+    const f = fixture(); f.limits({ ...capability(), maxBodyBytes: 64 << 20 });
+    const steps = largeSteps(count).map((step, index) => ({ ...step, collection: { collectionId: 'c-records' },
+      data: { value: index === 0 ? 'x'.repeat(32 << 20) : 'short' } }));
+    await expect(f.data.transact(steps)).rejects.toMatchObject({ code: 'REQUEST_TOO_LARGE', execution: 'notStarted',
+      attempts: 0, outcomeUnknown: false, details: { maxBodyBytes: 32 << 20 } });
+    expect(f.writes()).toHaveLength(0);
+    expect(f.calls.filter(c => c.path.endsWith('/context'))).toHaveLength(count > 200 ? 1 : 0);
+  });
+
+  it('retains a generated idempotency key across safe transport retries', async () => {
+    const bodies: { idempotencyKey: string }[] = [];
+    const data = createDataClient({ collections: [], apiHost: 'https://isolated.invalid', apiKey: 'fixture-only',
+      fetch: async (_, init) => {
+        bodies.push(JSON.parse(String(init?.body)));
+        if (bodies.length === 1) return Response.json({ code: 503, msg: 'Retry', requestId: 'fixture', data: null,
+          error: { code: 'UNAVAILABLE', execution: 'rolledBack', retry: { safe: true, afterMs: 0 }, details: [] } }, { status: 503 });
+        return Response.json({ code: 200, msg: 'ok', requestId: 'fixture', data: { status: 'committed', results: [] } });
+      } });
+    await data.transact([{ opId: 'guard', action: 'record.check', collection: { collectionId: 'records' }, id: 'row' }]);
+    expect(bodies).toHaveLength(2);
+    expect(bodies[0].idempotencyKey).toMatch(/^[0-9a-f-]{36}$/);
+    expect(bodies[1]).toEqual(bodies[0]);
+  });
+
   it('keeps existing-ID clients without an App context on the legacy limit without auto-provisioning', async () => {
     const f = fixture(false);
     expect((await f.data.getTransactionLimits()).maxItems).toBe(200);

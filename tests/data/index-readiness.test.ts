@@ -31,7 +31,8 @@ function fixture() {
       if (path.endsWith('/context')) {
         if (denied) return Response.json({ code: 403, msg: 'Denied', requestId: 'r', data: null,
           error: { code: 'FORBIDDEN', execution: 'notStarted', retry: { safe: false }, details: [] } }, { status: 403 });
-        return Response.json({ code: 200, msg: 'ok', requestId: 'r', data: { appId, collections: [
+        return Response.json({ code: 200, msg: 'ok', requestId: 'r', data: { appId,
+          limits: { transaction: { maxItems: 50000, maxBodyBytes: 32 << 20, timeoutMs: 60000 } }, collections: [
           { alias: 'CODES', collectionId, indexStatus: states },
           { alias: 'logs', collectionId: 'c-logs', indexStatus: [ready({ path: 'at', expireAfterSeconds: 60 }, 'building')] },
         ] } });
@@ -155,9 +156,9 @@ describe('data.assertIndexesReady', () => {
     expect(f.calls.at(-2)!.path).toContain('/context');
   });
 
-  it('rechecks rebuilt collection indexes before replaying a transaction after Preview reset', async () => {
+  it.each([1, 201])('rechecks rebuilt collection indexes before replaying %s steps after Preview reset', async count => {
     const f = fixture(); f.resetOnTransaction();
-    await expect(f.data.transact([{ opId: 'create', action: 'record.create', collection: codes, id: 'one', data: { code: 'A' } }],
+    await expect(f.data.transact(Array.from({ length: count }, (_, i) => ({ opId: `create-${i}`, action: 'record.create' as const, collection: codes, id: `row-${i}`, data: { code: `A${i}` } })),
       { requireIndexesReady: true })).rejects.toMatchObject({ code: 'INDEX_NOT_READY', details: { collectionId: 'c-codes-v2' } });
     expect(f.calls.filter(c => c.path.endsWith('/ensure'))).toHaveLength(2);
     expect(f.calls.filter(c => c.path.endsWith('/context'))).toHaveLength(2);

@@ -3,7 +3,6 @@
  * the shared bootstrap. An App builds one client per process from its
  * collection declarations; tests build their own with a mock `fetch`.
  */
-import { randomUUID } from 'node:crypto';
 import type { z } from 'zod';
 import { snapshotClientConfig, type ClientConfig } from '../openapi/client.js';
 import { getEnvVar } from '../runtime-env.js';
@@ -19,6 +18,7 @@ import { DataError, toDataError } from './error.js';
 import { createStepDataValidator, validateUpdate } from './schema.js';
 import { toSortPairs, type Filter, type Sort } from './sort.js';
 import { assertIndexesReady } from './index-readiness.js';
+import type { AppContext } from '../uns-v2/generated.js';
 
 export type TransactAction =
   | 'record.create'
@@ -285,9 +285,13 @@ export function createDataClient(config: DataClientConfig): DataClient {
   }
 
   async function sendTransaction(steps: readonly TransactStep[], options: TransactOptions) {
+    // Capacity and index checks share one snapshot per attempt. Recovery starts
+    // here again and reads fresh context; nothing is cached across transactions.
+    let context: Promise<AppContext> | undefined;
+    const readContext = () => context ??= call<AppContext>('dataAppContext', {}, { signal: currentSignal() });
     let maxBodyBytes: number | undefined;
     if (steps.length > MAX_ATOMIC_ITEMS) {
-      const limits = await readTransactionLimits(call, bootstrap.ensure, currentSignal());
+      const limits = await readTransactionLimits(call, bootstrap.ensure, currentSignal(), readContext);
       assertTransactionCapacity(steps.length, limits.maxItems);
       maxBodyBytes = limits.maxBodyBytes;
     }
@@ -325,13 +329,13 @@ export function createDataClient(config: DataClientConfig): DataClient {
         });
         expectedIds.set(alias, id);
       }
-      await assertIndexesReady(call, bootstrap.ensure, definitions, currentSignal(), expectedIds);
+      await assertIndexesReady(call, bootstrap.ensure, definitions, currentSignal(), expectedIds, readContext);
     }
     const body = {
       items,
       mode: 'sync',
       ...(options.dryRun ? { dryRun: true } : {}),
-      idempotencyKey: options.idempotencyKey || randomUUID(),
+      ...(options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : {}),
     };
     return call<{ status: string; results?: (Omit<TransactResultItem, 'document'> & { document?: UnsRecord })[] }>(
       'recordTransactionExecute', body,

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Report the effective transaction byte limit as the lower of the server limit and the 32 MiB SDK ceiling. All data-layer body-size refusals now expose `REQUEST_TOO_LARGE` with `execution: notStarted`. Large transactions share one fresh App context between capacity and index checks per preparation attempt; recovery fetches it again. Generated idempotency keys are owned solely by the data transport and stay unchanged across its retries.
+
 - Local preview: add `$like` / `$ilike` string predicates backed by PostgreSQL pattern matching, following the familiar LIKE/ILIKE distinction exposed by PostgREST/Supabase. `%`, `_`, backslash escaping, empty patterns and database collation retain PostgreSQL semantics; patterns are bound parameters. These require the matching Backend preview, are limited to 4096 UTF-8 bytes, and are rejected in in-memory `pull` conditions. `$contains` keeps its literal ASCII-folded behavior. Older-server rejection is surfaced without a fallback.
 
 - Raise the per-step result-binding ceiling from 32 to 512 to match the Backend preview. Exceeding 512 fails locally before sending a transaction. This requires the matching unpublished Backend; older servers retain their own lower limit.
