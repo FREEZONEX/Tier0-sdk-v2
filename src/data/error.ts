@@ -128,12 +128,12 @@ const CODE_HINTS: Record<string, string> = {
   OUTCOME_UNKNOWN: 'The write may have committed; read the record back before writing again.',
 };
 
-/** `APP_QUOTA_EXCEEDED` per `data.resource`; each per-App limit is 64. */
+/** The deployed server owns quota values; older servers can retain lower limits. */
 const QUOTA_HINTS: Record<string, string> = {
-  collections: 'This App owns 64 active collections. Archive unused ones through the tier0 MCP.',
-  indexes: "This App's collections hold 64 indexes. Drop unused indexes from the declarations, then apply that with schema:replace through the tier0 MCP.",
+  collections: 'This App reached its active collection quota. Archive unused ones through the tier0 MCP.',
+  indexes: "This App reached its index quota. Drop unused indexes from the declarations, then apply that with schema:replace through the tier0 MCP.",
   archivedCollections:
-    'This App keeps 64 archived collections. Restore one, or ask a workspace admin to clean up archived collections.',
+    'This App reached its archived collection quota. Restore one, or ask a workspace admin to clean up archived collections.',
 };
 
 /** SDK transport failures: no UNS answer to map, so the data layer names them. */
@@ -148,7 +148,9 @@ const TRANSPORT_FAILURES: Record<string, { code: string; status: number; message
 function codeHint(code: string, details: Record<string, unknown>): string | undefined {
   if (code === 'APP_QUOTA_EXCEEDED') {
     const resource = typeof details.resource === 'string' ? details.resource : '';
-    return QUOTA_HINTS[resource] ?? 'This App reached a collection/index quota. Remove unused collections or indexes through the tier0 MCP.';
+    const hint = QUOTA_HINTS[resource] ?? 'This App reached a collection/index quota. Remove unused collections or indexes through the tier0 MCP.';
+    return typeof details.limit === 'number' && Number.isSafeInteger(details.limit) && details.limit > 0
+      ? `${hint} Server limit: ${details.limit}.` : hint;
   }
   return CODE_HINTS[code];
 }

@@ -25,6 +25,8 @@ export async function createOrder(code: string, intentKey: string) {
 
 ## 查询
 
+`find()` / `aggregate()` 游标支持 `.batchSize(10).limit(100)`：每次网络请求最多取 10 条，完整迭代仍返回最多 100 条。batchSize 必须是 1–200 的整数，并在迭代开始前设置；默认仍为 200。偏移分页在整次迭代中保持同一个大小，最后一页也不改变大小，避免漏行或重复。大证据记录可用较小批次避免单响应超限，但这不是提高单记录上限，也不保证多次请求共享快照；业务所需的版本校验仍由调用方保留。`toArray()` 最终仍将全部结果留在内存；需要逐行处理时用 `for await`。此能力只使用既有分页字段，不需要后端新权限或接口。参考 [MongoDB cursor batchSize](https://www.mongodb.com/docs/manual/reference/method/cursor.batchsize/) 的批次大小与结果数量分离约定。
+
 | 方法 | 返回与用途 |
 | --- | --- |
 | find(filter,options) | 游标；toArray 取结果，显式给 limit |
@@ -96,7 +98,7 @@ export async function subscribe(handle: (event: SubscriptionEvent) => void, sign
 
 订阅自动处理心跳、重连和 Last-Event-ID。change 仅含 collection/collectionId/recordId/revision/change 等标识，收到后重读；不保证版本按序，SDK 去掉已见旧的非 delete，delete 始终投递并清除已见版本。reset（CURSOR_EXPIRED/SCOPE_CHANGED）后重读当前视图。明确不可重试错误会抛 DataError。
 
-默认订阅已声明集合（最多 64 个）；recordIds 最多 100 个且只能对应一个集合。已有 ID 引用的 collection 事件字段是该 ID。一个服务端进程共享一条订阅并扇出，避免每个浏览器建立一条平台连接。
+默认订阅已声明集合，每条订阅最多 64 个；声明超过 64 个集合时，显式选择需要监听的集合，不要将声明配额当成订阅配额。recordIds 最多 100 个且只能对应一个集合。已有 ID 引用的 collection 事件字段是该 ID。一个服务端进程共享一条订阅并扇出，避免每个浏览器建立一条平台连接。
 
 ## 把变更推给浏览器
 

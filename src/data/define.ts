@@ -13,8 +13,8 @@ import type { z } from 'zod';
 
 /** Collection alias: unique per App, case-insensitive. */
 export const ALIAS_PATTERN = /^[A-Za-z][A-Za-z0-9_-]{0,62}$/;
-/** UNS: one ensure takes 1–64 declarations, and an App owns at most 64 collections. */
-export const MAX_COLLECTIONS = 64;
+/** UNS: one ensure takes 1–128 declarations, and an App owns at most 128 active collections. */
+export const MAX_COLLECTIONS = 128;
 /** UNS: collection description length in characters. */
 export const MAX_DESCRIPTION_LENGTH = 512;
 /** UNS: business-facing collection name length in Unicode characters. */

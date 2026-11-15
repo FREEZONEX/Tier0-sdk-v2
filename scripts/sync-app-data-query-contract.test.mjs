@@ -34,13 +34,14 @@ test('committed App query sync verifies schemas, ignores dirty files, retains di
     assert.deepEqual(read('contracts/upstream.json'), before);
     put(manifestPath, '{"uncommitted":"ignored"}');
     const result = run(revision); assert.equal(result.status, 0, result.stderr);
-    const metadata = JSON.parse(read('contracts/upstream.json')), tail = metadata.schemaUpdates.at(-1);
+    const metadata = JSON.parse(read('contracts/upstream.json')), tail = metadata.schemaUpdates.find(item => item.scope === 'app-data-query-extensions');
     assert.equal(tail.scope, 'app-data-query-extensions'); assert.equal(tail.sourceKind, 'committed'); assert.equal(tail.revision, revision);
-    assert.ok(metadata.schemaUpdates.every(item => item.sourceKind !== 'working-tree-preview'));
+    assert.deepEqual(metadata.schemaUpdates.filter(item => item.scope !== 'app-data-query-extensions'),
+      JSON.parse(before).schemaUpdates.filter(item => item.scope !== 'app-data-query-extensions'));
     assert.deepEqual(read('contracts/uns-v2/contract.json'), contractBefore);
     assert.deepEqual(metadata.schemaUpdates, JSON.parse(read('contracts/uns-v2/provenance.json')).schemaUpdates);
     const once = read('contracts/upstream.json'); assert.equal(run(revision).status, 0); assert.deepEqual(read('contracts/upstream.json'), once);
-    const broken = JSON.parse(once); broken.schemaUpdates.at(-1).inputs['contracts/uns-v2/manifest.json'].baseSHA256 = '0'.repeat(64);
+    const broken = JSON.parse(once); broken.schemaUpdates.find(item => item.scope === 'app-data-query-extensions').inputs['contracts/uns-v2/manifest.json'].baseSHA256 = '0'.repeat(64);
     writeFileSync(resolve(sdk, 'contracts/upstream.json'), JSON.stringify(broken));
     const provenance = JSON.parse(read('contracts/uns-v2/provenance.json')); provenance.schemaUpdates = broken.schemaUpdates;
     writeFileSync(resolve(sdk, 'contracts/uns-v2/provenance.json'), JSON.stringify(provenance));

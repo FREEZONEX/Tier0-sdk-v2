@@ -114,6 +114,7 @@ export function toDoc<T>(record: UnsRecord): WithMeta<T> {
 export class Cursor<T> implements AsyncIterable<T> {
   private sortSpec?: Sort;
   private limitCount?: number;
+  private batchCount = MAX_PAGE_SIZE;
   private projection?: Projection;
   private started = false;
 
@@ -148,6 +149,16 @@ export class Cursor<T> implements AsyncIterable<T> {
     return this;
   }
 
+  /** Documents per network request, independent of limit(). Set before iteration. */
+  batchSize(count: number): this {
+    this.assertNotStarted();
+    if (!Number.isSafeInteger(count) || count < 1 || count > MAX_PAGE_SIZE) {
+      throw new RangeError(`batchSize must be an integer from 1 to ${MAX_PAGE_SIZE}.`);
+    }
+    this.batchCount = count;
+    return this;
+  }
+
   project(projection: Projection): this {
     this.assertNotStarted();
     this.projection = projection;
@@ -159,7 +170,7 @@ export class Cursor<T> implements AsyncIterable<T> {
     const sort = toSortPairs(this.sortSpec);
     let remaining = this.limitCount ?? Number.POSITIVE_INFINITY;
     // One page size for the whole iteration: offset pages are only stable when it never changes.
-    const size = Math.min(MAX_PAGE_SIZE, remaining);
+    const size = Math.min(this.batchCount, remaining);
     let token: PageToken | null = null;
     while (remaining > 0) {
       const page = await this.fetchPage({ token, size, sort, projection: this.projection });
