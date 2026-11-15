@@ -4194,7 +4194,7 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
       "capability": "x-tier0-opcua-server: static available=false; online availability is workspace/registry authoritative"
     }
   },
-  "sourceDerivedContractSHA256": "1f0f568c4ef36c18a000e3cda2bef3c2af61c66eb98b92c842b1fd1cb7b8904e",
+  "sourceDerivedContractSHA256": "f62f74a0101c196dff7aa4794c764517dacccacccabdb2c8112a0bf2a4775f55",
   "schemaUpdates": [
     {
       "scope": "source-stream-public",
@@ -4545,14 +4545,41 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
         "UnsV2PipelineExpression",
         "UnsV2RecordChange"
       ]
+    },
+    {
+      "scope": "app-collection-capacity",
+      "repository": "FREEZONEX/Tier0-Backend",
+      "revision": "1db8a2471ae05190d0664ed1d2c50f065eebd4b7",
+      "sourceKind": "committed",
+      "schemas": [
+        "CloudAppCollectionsEnsureReq.collections"
+      ],
+      "implementation": {
+        "path": "service/unssvr/internal/domain/unsv2/app_collections.go",
+        "sha256": "09901202a29fe4e0bd1e1cbe509259bc21426e2ee0fe61c008afb9993c9af309"
+      },
+      "inputs": {
+        "contracts/uns-v2/contract.json": {
+          "path": "service/unssvr/internal/domain/unsv2/contract_generated.go",
+          "sourceSHA256": "3f4b016fb35ffa28115a63143673942537b59367d8e3cf0530fec6cffb9625c4",
+          "baseSHA256": "1f0f568c4ef36c18a000e3cda2bef3c2af61c66eb98b92c842b1fd1cb7b8904e",
+          "resultSHA256": "f62f74a0101c196dff7aa4794c764517dacccacccabdb2c8112a0bf2a4775f55"
+        },
+        "contracts/uns-v2/manifest.json": {
+          "path": "share/unscontract/manifest.json",
+          "sourceSHA256": "3a4925675229d5f9fa0ab04301cc1796930f607595e5844f551db2fc5846fa2b",
+          "baseSHA256": "3c5462f67cb01dde598189654f1c30a42726ba485c6fdb2443852762ea9d4901",
+          "resultSHA256": "43f10c6952e293f737ea178dc8f9bbe055f29df6badb472f1b1d61086206591a"
+        }
+      }
     }
   ],
   "note": "Source/Stream public operations and transitive schemas are synchronized separately; unrelated operation contracts retain their pinned base.",
   "hashes": {
-    "contract": "1f0f568c4ef36c18a000e3cda2bef3c2af61c66eb98b92c842b1fd1cb7b8904e",
+    "contract": "f62f74a0101c196dff7aa4794c764517dacccacccabdb2c8112a0bf2a4775f55",
     "cloudSupport": "a1feaba48061fce10ed5ffa5ef444b478631cd5c2c85d221b73e3c62cbe93c94",
-    "manifest": "3c5462f67cb01dde598189654f1c30a42726ba485c6fdb2443852762ea9d4901",
-    "provenance": "96bef87f4423397f9abc58e6b4c224889d6c1dd16569535ea00ddd18ddee0d7e",
+    "manifest": "43f10c6952e293f737ea178dc8f9bbe055f29df6badb472f1b1d61086206591a",
+    "provenance": "d418659b37029f4b028c6966da9a19db75905706bf3db25a6470467f08626445",
     "registry": "1de1afc304728f414932673e51d07b780cff3c37a9e0340cd7ee2a987c574376"
   },
   "publicOperationCount": 92,

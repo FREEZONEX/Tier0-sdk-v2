@@ -90,6 +90,12 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
   expect(declaration.required).not.toContain('directoryPath');
   delete declaration.properties.directoryPath;
   const ensure = baselineOperations.appCollectionsEnsure;
+  const ensureRequest = baselineSchemas.CloudAppCollectionsEnsureReq as {
+    properties: { collections: { maxItems: number } };
+  };
+  // Explicitly allow only the reviewed App declaration capacity increase.
+  expect(ensureRequest.properties.collections.maxItems).toBe(128);
+  ensureRequest.properties.collections.maxItems = 64;
   expect(ensure.description).toContain('New aliases require directoryPath:');
   expect(ensure.description).toContain('Existing aliases keep their current location');
   expect(ensure.description).toContain('never invent a hierarchy');

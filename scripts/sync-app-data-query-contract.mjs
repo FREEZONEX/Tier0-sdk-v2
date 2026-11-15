@@ -26,9 +26,11 @@ const schemas = ['UnsV2ResultBinding', 'UnsV2RecordTransactionReq', 'UnsV2FieldP
 const updates = lock.schemaUpdates;
 const start = updates.findIndex(item => item.scope === scope || previewScopes.includes(item.scope));
 assert.ok(start >= 0, 'No reviewed App data query overlays found');
-const tail = updates.slice(start);
+const next = updates.findIndex((item, index) => index > start && item.scope !== scope && !previewScopes.includes(item.scope));
+const end = next < 0 ? updates.length : next;
+const tail = updates.slice(start, end), following = updates.slice(end);
 if (tail[0].scope === scope) {
-  assert.equal(tail.length, 1, 'Cannot replace a nonterminal overlay');
+  assert.equal(tail.length, 1, 'Expected one committed query overlay');
   assert.equal(tail[0].sourceKind, 'committed');
 } else {
   assert.deepEqual(tail.map(item => item.scope), previewScopes, 'Expected the complete terminal preview chain');
@@ -69,10 +71,16 @@ for (const [path, sourcePath] of Object.entries(paths)) {
     assert.equal(item.inputs[path]?.baseSHA256, expected, `Broken preview chain ${item.scope}`);
     expected = item.inputs[path].resultSHA256;
   }
+  const resultSHA256 = expected;
+  for (const item of following) {
+    if (!item.inputs[path]) continue;
+    assert.equal(item.inputs[path].baseSHA256, expected, `Broken following contract digest ${path}`);
+    expected = item.inputs[path].resultSHA256;
+  }
   assert.equal(expected, hash(before), `Broken final contract digest ${path}`);
-  update.inputs[path] = { path: sourcePath, sourceSHA256: hash(raw), baseSHA256, resultSHA256: hash(before) };
+  update.inputs[path] = { path: sourcePath, sourceSHA256: hash(raw), baseSHA256, resultSHA256 };
 }
-lock.schemaUpdates = [...updates.slice(0, start), update];
+lock.schemaUpdates = [...updates.slice(0, start), update, ...following];
 provenance.schemaUpdates = lock.schemaUpdates;
 provenance.sourceDerivedContractSHA256 = hash(read('contracts/uns-v2/contract.json'));
 for (const [path, value] of [['contracts/upstream.json', lock], ['contracts/uns-v2/provenance.json', provenance]]) {

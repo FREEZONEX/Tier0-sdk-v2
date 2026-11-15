@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.14.0 (2026-11-15)
+
+- Add cursor `batchSize(1..200)` for find/aggregate reads. It controls documents per request independently of the total `limit`, retains a fixed size across offset pages, and leaves default behavior unchanged. Smaller batches can read a logical result larger than the per-response byte budget; they do not increase single-record limits or create a multi-request snapshot.
+- Allow up to 128 declared active collections with the matching Backend capacity update (128 App-owned collections and 128 indexes). Older-server refusals are returned without splitting declarations. Archived collections and subscriptions retain their independent 64-collection limits; workspace quotas still apply. Quota errors display the server-provided limit rather than assuming 64.
+- Synchronize the collection-capacity contract with committed Backend implementation `1db8a2471`; preserve the committed query overlays and their digest chain. The capacity increase requires that Backend version; cursor batch sizing uses the existing protocol.
+
 ## 0.13.0 (2026-11-15)
 
 - Verify and consolidate all ten App query/transaction preview overlays against the committed Backend contract. Publishing rejects preview sources; the SDK does not deploy server changes.

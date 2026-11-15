@@ -235,8 +235,9 @@ describe('transport', () => {
     const archivedQuota = await run(fail(409, 'APP_QUOTA_EXCEEDED', { resource: 'archivedCollections', limit: 64 }), insert);
     expect(archivedQuota.status).toBe(409);
     expect(archivedQuota.details.resource).toBe('archivedCollections');
-    expect(archivedQuota.message).toMatch(/64 archived collections/);
-    expect((await run(fail(409, 'APP_QUOTA_EXCEEDED', { resource: 'indexes' }), insert)).message).toMatch(/64 indexes/);
+    expect(archivedQuota.message).toMatch(/archived collection quota.*Server limit: 64/);
+    expect((await run(fail(409, 'APP_QUOTA_EXCEEDED', { resource: 'indexes' }), insert)).message).toMatch(/index quota/);
+    for (const limit of [64, 128]) expect((await run(fail(409, 'APP_QUOTA_EXCEEDED', { resource: 'collections', limit }), insert)).message).toContain(`Server limit: ${limit}`);
 
     const tooLarge = await run(fail(409, 'COLLECTION_TOO_LARGE', { records: 2500, maxRecords: 2000 }), insert);
     expect(tooLarge.details.maxRecords).toBe(2000);
@@ -694,9 +695,20 @@ describe('bootstrap', () => {
     expect(await failed(client(mock).collection(orders).countDocuments())).toMatchObject({ code: 'APP_GRANT_REVOKED', status: 403 });
   });
 
-  it('rejects more than 64 declarations', () => {
-    const many = Array.from({ length: 65 }, (_, n) => defineCollection({ alias: `c${n}`, name: `测试集合 ${n}`, schema: z.object({ a: z.string() }) }));
-    expect(() => client(mockUns({}), { collections: many })).toThrow(/at most 64 collections/);
+  it('accepts 128 declarations without I/O and rejects 129', () => {
+    const many = Array.from({ length: 129 }, (_, n) => defineCollection({ alias: `c${n}`, name: `测试集合 ${n}`, schema: z.object({ a: z.string() }) }));
+    const mock = mockUns({});
+    expect(() => client(mock, { collections: many.slice(0, 128) })).not.toThrow();
+    expect(() => client(mock, { collections: many })).toThrow(/at most 128 collections/);
+    expect(mock.sent).toHaveLength(0);
+  });
+
+  it('surfaces an older server declaration limit without splitting or replaying ensure', async () => {
+    const many = Array.from({ length: 72 }, (_, n) => defineCollection({ alias: `c${n}`, name: `测试集合 ${n}`, schema: z.object({ a: z.string() }) }));
+    const mock = mockUns({ [ENSURE]: fail(400, 'INVALID_REQUEST') });
+    expect(await failed(client(mock, { collections: many }).ensure())).toMatchObject({ code: 'INVALID_REQUEST', status: 400 });
+    expect(mock.sent).toHaveLength(1);
+    expect(mock.sent[0].body.collections).toHaveLength(72);
   });
 
   it('rejects undeclared collections', () => {
@@ -834,6 +846,44 @@ describe('collection operations', () => {
     });
     expect(await client(mock).collection(orders).findOne({ _id: 'missing' })).toBeNull();
     expect(mock.calls('/uns/collections/c-orders/records:find')[0].body.limit).toBe(1);
+  });
+
+  it('keeps find batchSize independent from the result limit and follows opaque cursors', async () => {
+    const path = '/uns/collections/c-orders/records:find';
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, [path]: [
+      ok({ items: [record('o-1', { code: 'A' }), record('o-2', { code: 'B' })], pageInfo: { hasMore: true, nextCursor: 'after-b' } }),
+      ok({ items: [record('o-3', { code: 'C' }), record('o-4', { code: 'D' })], pageInfo: { hasMore: true, nextCursor: 'after-d' } }),
+    ] });
+    const cursor = client(mock).collection(orders).find({ status: 'OPEN' }).sort({ code: 1 }).project({ code: 1 }).batchSize(2).limit(3);
+    expect((await cursor.toArray()).map(row => row._id)).toEqual(['o-1', 'o-2', 'o-3']);
+    expect(mock.calls(path).map(call => call.body)).toEqual([
+      { collectionId: 'c-orders', filter: { status: 'OPEN' }, sort: [['code', 1]], projection: { code: 1 }, limit: 2 },
+      { collectionId: 'c-orders', filter: { status: 'OPEN' }, sort: [['code', 1]], projection: { code: 1 }, limit: 2, cursor: 'after-b' },
+    ]);
+    expect(() => cursor.batchSize(1)).toThrow('before iteration');
+  });
+
+  it('keeps transformed aggregate batchSize fixed when only one result remains', async () => {
+    const path = '/uns/collections/c-orders/records:aggregate';
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, [path]: [
+      ok({ items: [{ code: 'A' }, { code: 'B' }], pageInfo: { hasMore: true, nextPage: 2 } }),
+      ok({ items: [{ code: 'C' }, { code: 'D' }], pageInfo: { hasMore: true, nextPage: 3 } }),
+    ] });
+    const pipeline = [{ $sort: { code: 1 } }, { $skip: 100 }, { $limit: 20 }];
+    const rows = await client(mock).collection(orders).aggregate(pipeline).limit(3).batchSize(2).toArray();
+    expect(rows).toEqual([{ code: 'A' }, { code: 'B' }, { code: 'C' }]);
+    expect(mock.calls(path).map(call => call.body.page)).toEqual([{ mode: 'offset', page: 1, size: 2 }, { mode: 'offset', page: 2, size: 2 }]);
+    expect(mock.calls(path).every(call => call.body.pipeline[1].$skip === 100)).toBe(true);
+  });
+
+  it('rejects invalid batch sizes locally without initializing collections', () => {
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED });
+    const cursor = client(mock).collection(orders).find();
+    for (const size of [0, -1, 201, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+      expect(() => cursor.batchSize(size)).toThrow(RangeError);
+    }
+    expect(cursor.batchSize(1).batchSize(200)).toBe(cursor);
+    expect(mock.calls(ENSURE)).toHaveLength(0);
   });
 
   it('serves a numbered page and its capped total in one aggregate request', async () => {
