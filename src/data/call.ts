@@ -206,11 +206,11 @@ export function createDataTransport(config: ClientConfig): { call: DataCall; ope
           return response.data as T;
         } catch (error) {
           if (error instanceof Abandoned) throw notSent(attempt - 1);
-          if (error instanceof UnsV2RequestSizeError && options.maxBodyBytes !== undefined && error.requestedBytes > options.maxBodyBytes) {
+          if (error instanceof UnsV2RequestSizeError) {
             throw new DataError({ code: 'REQUEST_TOO_LARGE', status: 413, execution: 'notStarted',
-              message: `data.transact needs ${error.requestedBytes} bytes; this server supports ${options.maxBodyBytes}. No transaction was sent.`,
+              message: `${operation} needs ${error.requestedBytes} bytes; the effective request limit is ${error.maxBodyBytes}. No request was sent.`,
               attempts: attempt - 1,
-              details: { requestedBytes: error.requestedBytes, maxBodyBytes: options.maxBodyBytes } });
+              details: { requestedBytes: error.requestedBytes, maxBodyBytes: error.maxBodyBytes } });
           }
           if (!(error instanceof UnsV2Error)) throw error;
           const delay = options.retryUnknown === false && error.outcomeUnknown ? undefined : retryDelay(error, attempt);

@@ -25,6 +25,7 @@ export async function assertIndexesReady(
   definitions: readonly CollectionDefinition[],
   signal?: AbortSignal,
   expectedIds?: ReadonlyMap<string, string>,
+  readContext = () => call<AppContext>('dataAppContext', {}, { signal }),
 ): Promise<void> {
   const required = definitions.map(compileCollection).filter(item => item.indexes.length > 0);
   if (!required.length) return;
@@ -35,8 +36,8 @@ export async function assertIndexesReady(
     message: `Cannot assert index readiness for conflicting collection "${conflict.alias}".`,
     execution: 'notStarted', details: { alias: conflict.alias },
   });
-  const context = await call<AppContext>('dataAppContext', {}, { signal });
-  if (!state.appId || context.appId !== state.appId || !Array.isArray(context.collections)) throw new DataError({
+  const context = await readContext();
+  if (!state.appId || !context || context.appId !== state.appId || !Array.isArray(context.collections)) throw new DataError({
     code: 'DATA_BAD_RESPONSE', status: 502,
     message: 'The App index-readiness response does not match the ensured App.', execution: 'notStarted',
   });

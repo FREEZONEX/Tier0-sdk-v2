@@ -3,6 +3,7 @@ import type { DataCall } from './call.js';
 import type { EnsureState } from './bootstrap.js';
 import { MAX_ATOMIC_ITEMS } from './collection.js';
 import { DataError } from './error.js';
+import { UNS_V2_TRANSACTION_MAX_REQUEST_BYTES } from '../cloud-transport.js';
 
 /** Tested client ceiling for the explicit synchronous record transaction API. */
 export const MAX_TRANSACTION_ITEMS = 50_000;
@@ -18,18 +19,20 @@ const positiveInteger = (value: unknown): value is number => typeof value === 'n
 
 /** Read capabilities with the same App principal; missing capability means the
  * legacy limit, while authorization errors or malformed responses are errors. */
-export async function readTransactionLimits(call: DataCall, ensure: () => Promise<EnsureState>, signal?: AbortSignal): Promise<TransactionLimits> {
+export async function readTransactionLimits(call: DataCall, ensure: () => Promise<EnsureState>, signal?: AbortSignal,
+  readContext = () => call<AppContext>('dataAppContext', {}, { signal })): Promise<TransactionLimits> {
   const state = await ensure();
   // Existing-ID clients without an App context keep the conservative contract.
   if (!state.appId) return { ...legacyLimits };
-  const context = await call<AppContext>('dataAppContext', {}, { signal });
+  const context = await readContext();
   if (!context || context.appId !== state.appId) throw new DataError({ code: 'DATA_BAD_RESPONSE', status: 502, execution: 'notStarted',
     message: 'Transaction capabilities do not belong to this App.' });
   const limits = context.limits?.transaction;
   if (limits === undefined) return { ...legacyLimits };
   if (!limits || !positiveInteger(limits.maxItems) || !positiveInteger(limits.maxBodyBytes) || !positiveInteger(limits.timeoutMs))
     throw new DataError({ code: 'DATA_BAD_RESPONSE', status: 502, execution: 'notStarted', message: 'Invalid transaction limits in App context.' });
-  return { maxItems: Math.min(MAX_TRANSACTION_ITEMS, limits.maxItems), maxBodyBytes: limits.maxBodyBytes, timeoutMs: limits.timeoutMs };
+  return { maxItems: Math.min(MAX_TRANSACTION_ITEMS, limits.maxItems),
+    maxBodyBytes: Math.min(UNS_V2_TRANSACTION_MAX_REQUEST_BYTES, limits.maxBodyBytes), timeoutMs: limits.timeoutMs };
 }
 
 export function assertTransactionCapacity(count: number, maxItems: number) {

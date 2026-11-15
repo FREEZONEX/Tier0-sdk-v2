@@ -33,6 +33,24 @@ describe('record transaction transport budget', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it.each([
+    { operation: 'recordTransactionExecute' as const, maxBodyBytes: undefined, ceiling: 32 << 20 },
+    { operation: 'recordTransactionExecute' as const, maxBodyBytes: 64 << 20, ceiling: 32 << 20 },
+    { operation: 'recordInsertOne' as const, maxBodyBytes: undefined, ceiling: 16 << 20 },
+  ])('maps the client ceiling to a local DataError for $operation with advertised limit $maxBodyBytes', async ({ operation, maxBodyBytes, ceiling }) => {
+    vi.useFakeTimers();
+    const transport = fixture(), data = { value: 'x'.repeat(ceiling) };
+    const body = operation === 'recordTransactionExecute'
+      ? { items: [{ opId: 'one', action: 'record.create', collectionId: 'records', data }] }
+      : { collectionId: 'records', data };
+    await expect(transport.call(operation, body, { maxBodyBytes })).rejects.toMatchObject({
+      code: 'REQUEST_TOO_LARGE', status: 413, execution: 'notStarted', attempts: 0, outcomeUnknown: false,
+      details: { maxBodyBytes: ceiling },
+    });
+    expect(transport.fetch).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('never lets an advertised limit raise the ordinary wire ceiling', async () => {
     const fetch = vi.fn<typeof globalThis.fetch>();
     const http = new HttpClient({ apiHost: 'https://isolated.invalid', apiKey: 'fixture-only', fetch });
