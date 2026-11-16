@@ -33708,6 +33708,10 @@
       },
       "PlatformAppAccessMemberResp": {
         "properties": {
+          "avatarUrl": {
+            "description": "平台头像的临时访问地址，签发后 24h 内有效，可直接用作图片地址，无需平台登录态；未设置头像时为空串。按需重新查询获取，不要长期存进 session 或业务记录",
+            "type": "string"
+          },
           "email": {
             "type": "string"
           },
@@ -33731,7 +33735,8 @@
         "required": [
           "userId",
           "grantedAt",
-          "roles"
+          "roles",
+          "avatarUrl"
         ],
         "type": "object"
       },
@@ -35804,6 +35809,10 @@
       },
       "PlatformPlatformMemberResp": {
         "properties": {
+          "avatarUrl": {
+            "description": "平台头像的临时访问地址，签发后 24h 内有效，可直接用作图片地址，无需平台登录态；未设置头像时为空串。按需重新查询获取，不要长期存进 session 或业务记录",
+            "type": "string"
+          },
           "email": {
             "type": "string"
           },
@@ -35833,7 +35842,8 @@
           "userId",
           "status",
           "roles",
-          "updatedAt"
+          "updatedAt",
+          "avatarUrl"
         ],
         "type": "object"
       },

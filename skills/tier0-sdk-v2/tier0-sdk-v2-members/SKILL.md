@@ -22,6 +22,7 @@ export async function searchMembers(keyword: string, page = 1) {
     list: result.list.map(member => ({
       userId: member.userId,
       label: member.nickName || member.userName || member.email || '未命名成员',
+      avatarUrl: member.avatarUrl,
       email: member.email,
       status: member.status,
       roles: member.roles,
@@ -32,6 +33,8 @@ export async function searchMembers(keyword: string, page = 1) {
 ```
 
 返回值已解包，不读 result.data。userId 始终作为字符串传给通知或业务表；不要转换成 Number。名称不唯一，用户意图不能唯一定位时返回候选人，不能静默选第一个。
+
+`listWorkspace` 和 `listApp` 的成员都带 `avatarUrl`：签发后 24h 内有效的临时图片地址，可直接作 `<img>` 的 src，不需要平台登录态；没有头像时为 `""`。每次查询都会重新签发，按需重新查询；不要把它写进 session 或业务记录，只存 `userId`。图片加载失败（例如过期）时显示姓名首字母等占位。
 
 ## 筛选与分页
 

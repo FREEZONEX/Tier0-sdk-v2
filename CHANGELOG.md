@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.15.0 (2026-11-16)
+
+- Add `avatarUrl: string` to `members.listWorkspace()` and `members.listApp()` members, synchronized as the scoped `member-avatar` overlay from committed Backend `4cfe83c11` (Tier0-Backend#1541); the pinned platform source is otherwise unchanged. The field is always present: a temporary image URL valid for 24h after issue, usable directly as an `<img>` source without a platform session, or `""` when the member has no avatar. Each query signs a new URL, so query again when needed and store only `userId`, never the URL in a session or business record.
+
 ## 0.14.0 (2026-11-15)
 
 - Add cursor `batchSize(1..200)` for find/aggregate reads. It controls documents per request independently of the total `limit`, retains a fixed size across offset pages, and leaves default behavior unchanged. Smaller batches can read a logical result larger than the per-response byte budget; they do not increase single-record limits or create a multi-request snapshot.

@@ -4572,6 +4572,24 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
           "resultSHA256": "43f10c6952e293f737ea178dc8f9bbe055f29df6badb472f1b1d61086206591a"
         }
       }
+    },
+    {
+      "scope": "member-avatar",
+      "repository": "FREEZONEX/Tier0-Backend",
+      "revision": "4cfe83c1137532fec71a16246f15380f8552eaad",
+      "sourceKind": "committed",
+      "schemas": [
+        "PlatformPlatformMemberResp.avatarUrl",
+        "PlatformAppAccessMemberResp.avatarUrl"
+      ],
+      "inputs": {
+        "contracts/openapi-v2.source.json": {
+          "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
+          "sourceSHA256": "35f9a4b170c3b27028fd8a9c5424cd95373367f0224d938b8aad11b28c219dc7",
+          "baseSHA256": "1a11bf3559c6dc76a6982103eecd16b6186a1cc3ee2166dd150b711e382b22df",
+          "resultSHA256": "41decc99d1bc6a685eaa63fd687a3a8f18772ea4c2f46fa4ff990b704260a1ce"
+        }
+      }
     }
   ],
   "note": "Source/Stream public operations and transitive schemas are synchronized separately; unrelated operation contracts retain their pinned base.",
@@ -4579,7 +4597,7 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
     "contract": "f62f74a0101c196dff7aa4794c764517dacccacccabdb2c8112a0bf2a4775f55",
     "cloudSupport": "a1feaba48061fce10ed5ffa5ef444b478631cd5c2c85d221b73e3c62cbe93c94",
     "manifest": "43f10c6952e293f737ea178dc8f9bbe055f29df6badb472f1b1d61086206591a",
-    "provenance": "d418659b37029f4b028c6966da9a19db75905706bf3db25a6470467f08626445",
+    "provenance": "91577ea7d8fe16320179f5a347069f587ed07954a234542a18d007db7ccd5c74",
     "registry": "1de1afc304728f414932673e51d07b780cff3c37a9e0340cd7ee2a987c574376"
   },
   "publicOperationCount": 92,

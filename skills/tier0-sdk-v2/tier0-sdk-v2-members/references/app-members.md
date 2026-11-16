@@ -29,6 +29,7 @@ export async function appMembers(page = 1, client: Tier0Client = createClient(),
       list: result.list.map(member => ({
         userId: member.userId,
         label: member.userName || member.email || '未命名成员',
+        avatarUrl: member.avatarUrl,
         roles: member.roles.map(role => role.roleName),
       })),
       total: result.total, page: result.page, size: result.size,
@@ -41,6 +42,6 @@ export async function appMembers(page = 1, client: Tier0Client = createClient(),
 }
 ```
 
-返回已解包的 appId、published（1 已发布 / 2 未发布）、allActiveMembers（1 所有有效成员都可使用 / 2 按角色授权）、roles、list、total、page、size。成员的 roles[].sources 区分直接授予（direct）和经成员组授予（group）。userId 保持字符串。
+返回已解包的 appId、published（1 已发布 / 2 未发布）、allActiveMembers（1 所有有效成员都可使用 / 2 按角色授权）、roles、list、total、page、size。成员的 roles[].sources 区分直接授予（direct）和经成员组授予（group）。userId 保持字符串。成员的 `avatarUrl` 是签发后 24h 内有效的临时图片地址，可直接作 `<img>` 的 src，没有头像时为 `""`；按需重新查询，不写进 session 或业务记录，只存 `userId`。
 
 3003016 / 3003017 都是 HTTP 503：访问名单暂时无法给出，不是空名单，也不代表所有人可用。按 `ApiError.code` 分支，不匹配 message 文本。3003016 是线上版本角色事实未落库，重试无效，需要重新部署 App；3003017 是成员有效状态暂时取不到，可稍后重试。无权限（403）时报告配置问题，不改用 Workspace 成员列表代替。

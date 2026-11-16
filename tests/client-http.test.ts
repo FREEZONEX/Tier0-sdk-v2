@@ -71,14 +71,14 @@ describe('new architecture v1 on a real HTTP fixture', () => {
     respond = res => json(res, { code: 200, msg: '', data: {
       appId: 'app-1', published: 1, productionVersionId: 'v-1', allActiveMembers: 2,
       roles: [{ roleId: 'r-1', roleKey: 'operator', roleName: 'Operator', status: 'active', memberCount: 1 }],
-      list: [{ userId: '42', userName: 'alice', grantedAt: 1700000050000, roles: [{ roleId: 'r-1', roleKey: 'operator', roleName: 'Operator', sources: [source] }] }],
+      list: [{ userId: '42', userName: 'alice', avatarUrl: 'https://oss.example.test/a.png?X-Amz-Signature=s', grantedAt: 1700000050000, roles: [{ roleId: 'r-1', roleKey: 'operator', roleName: 'Operator', sources: [source] }] }],
       total: 1, page: 1, size: 20,
     } });
     const request = { appId: 'app-1', roleKeys: ['operator'], grantedAtStart: 1700000000000, page: 1, size: 20 };
     const page = await sdk().members.listApp(request);
     expect(received[0]).toMatchObject({ method: 'POST', url: '/openapi/v2/apps/access-members/list' });
     expect(JSON.parse(received[0].body)).toEqual(request);
-    expect(page.list[0]).toMatchObject({ userId: '42', grantedAt: 1700000050000 });
+    expect(page.list[0]).toMatchObject({ userId: '42', avatarUrl: 'https://oss.example.test/a.png?X-Amz-Signature=s', grantedAt: 1700000050000 });
     expect(page.list[0].roles[0].sources).toEqual([source]);
     expect('apps' in sdk().api).toBe(false);
     for (const code of [3003016, 3003017]) {

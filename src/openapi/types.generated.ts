@@ -1160,6 +1160,8 @@ export interface components {
             total: number | bigint;
         };
         PlatformMemberResp: {
+            /** @description 平台头像的临时访问地址，签发后 24h 内有效，可直接用作图片地址，无需平台登录态；未设置头像时为空串。按需重新查询获取，不要长期存进 session 或业务记录 */
+            avatarUrl: string;
             email?: string;
             nickName?: string;
             roles: components["schemas"]["PlatformMemberRoleResp"][];
@@ -1201,6 +1203,8 @@ export interface components {
             total: number | bigint;
         };
         AppAccessMemberResp: {
+            /** @description 平台头像的临时访问地址，签发后 24h 内有效，可直接用作图片地址，无需平台登录态；未设置头像时为空串。按需重新查询获取，不要长期存进 session 或业务记录 */
+            avatarUrl: string;
             email?: string;
             /** @description 毫秒 */
             grantedAt: number | bigint;

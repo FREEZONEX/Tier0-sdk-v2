@@ -19,10 +19,10 @@ Source 保存连接与认证，Stream 执行采集或业务逻辑，Collection �
 安装正式版：
 
 ```sh
-npm install @tier0/sdk-v2@0.14.0
+npm install @tier0/sdk-v2@0.15.0
 ```
 
-维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `tier0-sdk-v2-0.14.0.tgz`。
+维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `tier0-sdk-v2-0.15.0.tgz`。
 
 个人 Key 可直接读取已有集合，无需创建平台 App；网关配置、运行示例与排错见[本地连接指南](skills/tier0-sdk-v2/references/local-connection.md)。
 
@@ -141,7 +141,7 @@ export function changes(request: Request, visitor: Visitor): Response {
 | `tier0.streams` | App 请求、实时业务消息与独立交互能力发现 |
 | `tier0.uns` | 目录、Topic、Collection、Record、Sample、事务与 App 数据上下文 |
 | `tier0.system` | `whoami()`、`info()` |
-| `tier0.members` | `listWorkspace()` 用于 Workspace 级成员选择；`listApp({ appId })` 查询能使用指定 App 的成员（Builder 预览按草稿角色，部署后按线上版本，`scope` 由 SDK 自动带上）（Tier0 App 里可用：每个 App 固定有 `platform.users.read`；App 的 Key 查到的响应不带邮箱） |
+| `tier0.members` | `listWorkspace()` 用于 Workspace 级成员选择；`listApp({ appId })` 查询能使用指定 App 的成员（Builder 预览按草稿角色，部署后按线上版本，`scope` 由 SDK 自动带上）（Tier0 App 里可用：每个 App 固定有 `platform.users.read`；App 的 Key 查到的响应不带邮箱；成员带 `avatarUrl`：签发后 24h 内有效的临时图片地址，可直接作 `<img>` 的 src，没有头像时为 `""`，每次查询重新签发，按需重新查，不写进 session 或业务记录，只存 `userId`） |
 | `tier0.notifications` | `send()`、`get()` |
 | `tier0.files` | `upload()`、`uploadMultipart()`、`resumeMultipart()`、`url()`、`download()`、`delete()`、`multipart` 原子接口 |
 | `tier0.mqttAuth` | 创建、删除 MQTT 凭证 |

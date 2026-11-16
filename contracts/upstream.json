@@ -4,7 +4,7 @@
   "inputs": {
     "contracts/openapi-v2.source.json": {
       "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
-      "sha256": "1a11bf3559c6dc76a6982103eecd16b6186a1cc3ee2166dd150b711e382b22df"
+      "sha256": "41decc99d1bc6a685eaa63fd687a3a8f18772ea4c2f46fa4ff990b704260a1ce"
     },
     "contracts/uns-v2/contract.json": {
       "path": "service/unssvr/internal/domain/unsv2/contract_generated.go#ContractJSON",
@@ -402,6 +402,24 @@
           "sourceSHA256": "3a4925675229d5f9fa0ab04301cc1796930f607595e5844f551db2fc5846fa2b",
           "baseSHA256": "3c5462f67cb01dde598189654f1c30a42726ba485c6fdb2443852762ea9d4901",
           "resultSHA256": "43f10c6952e293f737ea178dc8f9bbe055f29df6badb472f1b1d61086206591a"
+        }
+      }
+    },
+    {
+      "scope": "member-avatar",
+      "repository": "FREEZONEX/Tier0-Backend",
+      "revision": "4cfe83c1137532fec71a16246f15380f8552eaad",
+      "sourceKind": "committed",
+      "schemas": [
+        "PlatformPlatformMemberResp.avatarUrl",
+        "PlatformAppAccessMemberResp.avatarUrl"
+      ],
+      "inputs": {
+        "contracts/openapi-v2.source.json": {
+          "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
+          "sourceSHA256": "35f9a4b170c3b27028fd8a9c5424cd95373367f0224d938b8aad11b28c219dc7",
+          "baseSHA256": "1a11bf3559c6dc76a6982103eecd16b6186a1cc3ee2166dd150b711e382b22df",
+          "resultSHA256": "41decc99d1bc6a685eaa63fd687a3a8f18772ea4c2f46fa4ff990b704260a1ce"
         }
       }
     }
