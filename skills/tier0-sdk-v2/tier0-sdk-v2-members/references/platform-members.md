@@ -20,6 +20,7 @@ export async function memberOptions(keyword: string, page = 1, client: Tier0Clie
     options: result.list.map(member => ({
       value: member.userId,
       label: member.nickName || member.userName || member.email || '未命名成员',
+      avatarUrl: member.avatarUrl,
       email: member.email, roles: member.roles.map(role => role.roleName || role.roleKey),
     })),
     total: result.total, page: result.page, size: result.size,
@@ -27,7 +28,7 @@ export async function memberOptions(keyword: string, page = 1, client: Tier0Clie
 }
 ```
 
-v2 返回已解包的 list/total/page/size，不读 result.data。userId、roleId 保持字符串；value 留作内部选项值，用户看到姓名/邮箱/角色，不让用户填写 ID。不确定匹配时展示候选人，不默认选第一项。
+v2 返回已解包的 list/total/page/size，不读 result.data。userId、roleId 保持字符串；value 留作内部选项值，用户看到姓名/邮箱/角色，不让用户填写 ID。不确定匹配时展示候选人，不默认选第一项。`avatarUrl` 是 24h 内有效的临时图片地址，没有头像时为 `""`；按需重新查询，不写进 session 或业务记录，同步时只保存 `userId`。
 
 内置公开角色 owner/builder/operator；筛选兼容性以服务端为准，匹配后仍返回成员全部角色。不要根据某个角色名自行推断 App 访问授权。
 

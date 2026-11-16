@@ -27,10 +27,13 @@ sdk.flow.list();
 sdk.members.listApp({ appId: getCurrentAppId(), roleKeys: ['operator'], page: 1, size: 20 }).then(page => {
   const member = page.list[0];
   const userId: string = member.userId;
+  const avatarUrl: string = member.avatarUrl;
   const sourceType: string = member.roles[0].sources[0].type;
   void userId;
+  void avatarUrl;
   void sourceType;
 });
+sdk.members.listWorkspace({ page: 1, size: 20 }).then(page => { const avatarUrl: string = page.list[0].avatarUrl; void avatarUrl; });
 // @ts-expect-error appId is explicit; the SDK never reads APP_ID implicitly
 sdk.members.listApp({});
 // @ts-expect-error desktop is not an independent notification channel
