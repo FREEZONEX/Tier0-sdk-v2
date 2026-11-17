@@ -61,6 +61,24 @@ export async function dashboard(page: number, selectedId: string) {
 
 queryBatch 最多 20 项，同一快照；无需快照一致性时不强制使用。默认单项失败抛 DataError，`{settle:true}` 按项返回 `{ok,value|error}`。单项最多 200 行，整批 2000 行/8 MiB 上限；支持 query.find/findPage/count/countBy/distinct/aggregate/get。
 
+`query.aggregatePage(pipeline, { page, pageSize })` 读取显式偏移页并返回 `{items,pageInfo}`；默认第 1 页、每页 200 条，pageSize 为 1–200。`pageInfo.hasMore/nextPage` 保留后续页信息，`snapshotScope:'thisRequestOnly'` 表示只有本次 queryBatch 共享快照。需要继续时保持授权范围、管线和 pageSize 不变，按 nextPage 发起下一次调用；不会自动取全量或把多次调用变成同一快照。排序应有稳定的唯一兜底字段。原 `query.aggregate/countBy/distinct` 仍只返回首页数组；需要自动完整迭代可用 `collection.aggregate()` 游标。
+
+```ts
+import { createDataClient } from '@tier0/sdk-v2/data';
+
+const data = createDataClient({});
+const orders = data.collection<{ code: string; status: string }>({ collectionId: 'orders-id' });
+const groups = orders.query.aggregatePage<{ _id: string; count: number }>([
+  { $match: { status: 'RELEASED' } },
+  { $group: { _id: '$code', count: { $sum: 1 } } },
+  { $sort: { _id: 1 } },
+], { page: 1, pageSize: 100 });
+const result = await data.queryBatch({ groups });
+// 使用 result.groups.items 展示本页，按 result.groups.pageInfo 决定是否继续。
+```
+
+终结于 `$count` 的管线不接受分页，继续使用 `query.aggregate` 或 `query.count`。新方法复用既有聚合协议和请求预算，不要求后端新增接口。
+
 ## 写入
 
 | 方法 | 语义 |

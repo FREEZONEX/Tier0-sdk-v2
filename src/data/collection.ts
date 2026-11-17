@@ -210,6 +210,17 @@ export interface FindPageOptions {
   maxCount?: number;
 }
 
+/** One explicit offset page; keep pageSize fixed while continuing the same query. */
+export type AggregatePageOptions = Pick<FindPageOptions, 'page' | 'pageSize'>;
+
+export interface AggregatePage<R> {
+  items: R[];
+  pageInfo: Required<PageInfo> & {
+    mode: 'offset';
+    snapshotScope: 'thisRequestOnly';
+  };
+}
+
 /** A match count UNS stopped at its limit: `capped` means "at least `count`". */
 export interface CappedCount {
   count: number;
@@ -258,6 +269,8 @@ export interface CollectionQueries<T> {
   distinct(field: string, filter?: Filter): BatchQuery<unknown[]>;
   /** The first 200 output rows. */
   aggregate<R = Record<string, unknown>>(pipeline: Record<string, unknown>[]): BatchQuery<R[]>;
+  /** One offset page with continuation metadata; never fetches additional pages automatically. */
+  aggregatePage<R = Record<string, unknown>>(pipeline: Record<string, unknown>[], options?: AggregatePageOptions): BatchQuery<AggregatePage<R>>;
   /** 1–100 distinct records by ID, as `collection.get`. */
   get(ids: readonly string[], options?: { projection?: Projection }): BatchQuery<{ items: WithMeta<T>[]; missing: string[] }>;
 }
@@ -547,6 +560,21 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
             ? { pipeline: stages }
             : { pipeline: stages, page: isDirectPipeline(stages) ? { mode: 'cursor', size: MAX_PAGE_SIZE } : { mode: 'offset', page: 1, size: MAX_PAGE_SIZE } };
         }, (data: { items: R[] }) => data.items),
+      aggregatePage: <R = Record<string, unknown>>(pipeline: Record<string, unknown>[], options: AggregatePageOptions = {}) => {
+        const page = options.page ?? 1, pageSize = options.pageSize ?? MAX_PAGE_SIZE;
+        if (!Number.isSafeInteger(page) || page < 1) throw new RangeError('aggregatePage page must be a positive safe integer.');
+        if (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > MAX_PAGE_SIZE) {
+          throw new RangeError(`aggregatePage pageSize must be an integer from 1 to ${MAX_PAGE_SIZE}.`);
+        }
+        const last = pipeline[pipeline.length - 1];
+        if (last !== undefined && '$count' in last) {
+          throw new TypeError('A final $count does not accept pagination; use query.aggregate or query.count.');
+        }
+        return one('aggregate', async () => ({
+          pipeline: await this.prepareStages(pipeline),
+          page: { mode: 'offset', page, size: pageSize },
+        }), (data: AggregatePage<R>) => ({ items: data.items, pageInfo: data.pageInfo }));
+      },
       get: (ids, options = {}) => {
         const unique = [...new Set(ids)];
         if (unique.length < 1 || unique.length > MAX_GET_IDS) {
