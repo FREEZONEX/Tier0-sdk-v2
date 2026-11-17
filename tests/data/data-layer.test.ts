@@ -1342,6 +1342,64 @@ describe('reads by ID and query batches', () => {
     if (!settled.bad.ok) expect(settled.bad.error).toBeInstanceOf(DataError);
   });
 
+  it('returns aggregate continuation metadata and only reads the explicitly requested page', async () => {
+    const rows = Array.from({ length: 201 }, (_, index) => ({ _id: `group-${index}`, count: index + 1 }));
+    const mock = mockUns({
+      [ENSURE]: BOTH_UNCHANGED,
+      [BATCH]: (sent: Sent) => {
+        const [query] = sent.body.queries as { page: { page: number; size: number } }[];
+        const offset = (query.page.page - 1) * query.page.size;
+        return ok({ results: { groups: { ok: true, data: {
+          items: rows.slice(offset, offset + query.page.size),
+          pageInfo: { ...pageInfo, hasMore: offset + query.page.size < rows.length, nextPage: offset === 0 ? 2 : null },
+        } } } });
+      },
+    });
+    const data = client(mock), handle = data.collection(orders);
+    const pipeline = [{ $group: { _id: '$code', count: { $sum: 1 } } }, { $sort: { _id: 1 } }];
+    const first = await data.queryBatch({ groups: handle.query.aggregatePage<{ _id: string; count: number }>(pipeline) });
+    expect(first.groups.items).toEqual(rows.slice(0, 200));
+    expect(first.groups.pageInfo).toEqual({ ...pageInfo, hasMore: true, nextPage: 2 });
+    expect(mock.calls(BATCH)).toHaveLength(1);
+    const second = await data.queryBatch({ groups: handle.query.aggregatePage<{ _id: string; count: number }>(pipeline, { page: first.groups.pageInfo.nextPage!, pageSize: 200 }) });
+    const total: number = second.groups.items[0].count;
+    expect(total).toBe(201);
+    expect(second.groups.pageInfo).toEqual(pageInfo);
+    expect(mock.calls(BATCH).map(call => (call.body.queries as { page: unknown }[])[0].page)).toEqual([
+      { mode: 'offset', page: 1, size: 200 }, { mode: 'offset', page: 2, size: 200 },
+    ]);
+  });
+
+  it('uses the existing lookup compiler for a single aggregate page without changing array results', async () => {
+    const items = [{ n: 1 }];
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, [BATCH]: ok({ results: {
+      paged: { ok: true, data: { items, pageInfo } },
+      original: { ok: true, data: { items, pageInfo } },
+    } }) });
+    const data = client(mock), handle = data.collection(orders);
+    const pipeline = [{ $lookup: { from: lines, localField: '_id', foreignField: 'orderId', as: 'lines' } }, { $sort: { _id: 1 } }];
+    const result = await data.queryBatch({ paged: handle.query.aggregatePage<{ n: number }>(pipeline, { page: 3, pageSize: 10 }), original: handle.query.aggregate<{ n: number }>(pipeline) });
+    expect(result.paged).toEqual({ items, pageInfo });
+    expect(result.original).toEqual(items);
+    const [paged] = mock.calls(BATCH)[0].body.queries as { pipeline: unknown; page: unknown }[];
+    expect(paged).toMatchObject({ pipeline: [
+      { $lookup: { collectionId: 'c-lines', localField: '_id', foreignField: 'orderId', as: 'lines' } }, { $sort: [['_id', 1]] },
+    ], page: { mode: 'offset', page: 3, size: 10 } });
+  });
+
+  it('rejects invalid aggregate page bounds and final count stages without sending requests', () => {
+    const mock = mockUns({});
+    const query = client(mock).collection(orders).query;
+    for (const page of [0, -1, 1.5, Infinity, NaN, Number.MAX_SAFE_INTEGER + 1]) {
+      expect(() => query.aggregatePage([], { page })).toThrow(RangeError);
+    }
+    for (const pageSize of [0, -1, 201, 1.5, Infinity, NaN]) {
+      expect(() => query.aggregatePage([], { pageSize })).toThrow(RangeError);
+    }
+    expect(() => query.aggregatePage([{ $count: 'total' }])).toThrow('final $count');
+    expect(mock.sent).toHaveLength(0);
+  });
+
   it('checks batch size, names and declarations before sending', async () => {
     const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED });
     const data = client(mock);
