@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.16.0 (2026-11-18)
 
 - Sync the committed Backend `a7af6aaa63` aggregation `$in` expression and per-row `$lookup` contract. `$in` accepts a scalar and a scalar-array expression; its literal array may be empty and has no fixed count cap. A missing/null left operand compares as null, without scalar type coercion; a missing/null array is invalid. Generic aggregate calls preserve the expression in one request; no local evaluation or fallback is added. General lookup no longer fixes outer, candidate or matching row counts; its actual per-row byte budget, response budget, deadline and authorization remain. Requires the matching Backend; this does not change field `$nin` semantics.
 
