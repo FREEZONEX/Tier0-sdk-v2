@@ -31,14 +31,14 @@ export async function createOrder(code: string, intentKey: string) {
 | --- | --- |
 | find(filter,options) | 游标；toArray 取结果，显式给 limit |
 | findOne(filter) | 文档或 null |
-| get(ids) | `{items,missing}`，按请求 ID 顺序；超过 100 个自动分批 |
+| get(ids) | `{items,missing}`，按请求 ID 首次出现顺序去重；所有 ID 单请求读取，不自动切块 |
 | findPage(filter,{page,pageSize,...}) | `{items,total:{count,capped},page,pageSize}`，列表与总数同请求 |
 | countDocuments(filter,{maxCount}) | `{count,capped}`，只需角标阈值时设较小 maxCount |
 | countBy(field,filter) | `[{value,count}]`，按字段分组 |
 | distinct(field,filter) | 取完所有页的去重值 |
 | aggregate(pipeline) | 服务端统计游标，支持受限聚合与 lookup |
 
-capped:true 显示 N+，不要当精确总数。get 的 missing 包含不存在或不可读 ID。单次读取最多 200 行，跨请求游标不是固定快照。
+capped:true 显示 N+，不要当精确总数。get 的 missing 包含不存在或不可读 ID。分页查询每页最多 200 行，get 不受分页行数限制；跨请求游标不是固定快照。
 
 过滤支持比较、集合、逻辑和数组操作符；`$contains` 是 1–256 字节的字符串子串匹配，仅 ASCII 字母忽略大小写，无通配符/正则，不能利用索引。`$in` 最多 200 值，sort 最多 4 字段；宽泛查询可能 QUERY_TIMEOUT。
 
@@ -59,7 +59,9 @@ export async function dashboard(page: number, selectedId: string) {
 }
 ```
 
-queryBatch 最多 20 项，同一快照；无需快照一致性时不强制使用。默认单项失败抛 DataError，`{settle:true}` 按项返回 `{ok,value|error}`。单项最多 200 行，整批 2000 行/8 MiB 上限；支持 query.find/findPage/count/countBy/distinct/aggregate/get。
+queryBatch 接受非空的命名查询集合，同一请求共享快照；无需快照一致性时不强制使用。默认单项失败抛 DataError，`{settle:true}` 按项返回 `{ok,value|error}`。分页查询每页仍最多 200 行，每个子查询仍受 8 MiB 响应预算约束；不再限制子查询数量、整批行数或整批 8 MiB 大小。`$in` 值数和 `get` ID 数没有固定上限，仍须满足类型、非空、请求和超时约束。能力 limits 中对应的数值 0 表示无该维度上限，不能作为分组步长。支持 query.find/findPage/count/countBy/distinct/aggregate/get。
+
+语句超时或任一子查询超过其响应字节预算时整批失败，`settle:true` 也不会返回部分结果。独立 `collection.get([])` 保持本地空结果、不发请求；批内 `query.get([])` 仍拒绝空 ID 数组。旧后端仍可能拒绝超过旧数量上限的请求，SDK 不自动切块回退，需要配套后端更新。
 
 `query.aggregatePage(pipeline, { page, pageSize })` 读取显式偏移页并返回 `{items,pageInfo}`；默认第 1 页、每页 200 条，pageSize 为 1–200。`pageInfo.hasMore/nextPage` 保留后续页信息，`snapshotScope:'thisRequestOnly'` 表示只有本次 queryBatch 共享快照。需要继续时保持授权范围、管线和 pageSize 不变，按 nextPage 发起下一次调用；不会自动取全量或把多次调用变成同一快照。排序应有稳定的唯一兜底字段。原 `query.aggregate/countBy/distinct` 仍只返回首页数组；需要自动完整迭代可用 `collection.aggregate()` 游标。
 

@@ -1238,7 +1238,7 @@ describe('reads by ID and query batches', () => {
   const BATCH = '/uns/records:queryBatch';
   const pageInfo = { mode: 'offset', hasMore: false, nextCursor: null, nextPage: null, snapshotScope: 'thisRequestOnly' };
 
-  it('reads records by ID in order, lists missing ones, and chunks more than 100 IDs', async () => {
+  it('reads all requested IDs in one call, preserving order and missing IDs', async () => {
     const mock = mockUns({
       [ENSURE]: BOTH_UNCHANGED,
       [GET]: (sent: Sent) => ok({
@@ -1253,12 +1253,12 @@ describe('reads by ID and query batches', () => {
     expect(found.missing).toEqual(['gone']);
     expect(mock.calls(GET)[0].body).toEqual({ collectionId: 'c-orders', ids: ['o-2', 'gone', 'o-1'], projection: { code: 1 } });
 
-    const many = Array.from({ length: 150 }, (_, index) => `o-${index}`);
+    const many = Array.from({ length: 1200 }, (_, index) => `o-${index}`);
     expect((await handle.get(many)).items.map(item => item._id)).toEqual(many);
-    expect(mock.calls(GET).slice(1).map(call => (call.body.ids as string[]).length)).toEqual([100, 50]);
+    expect(mock.calls(GET).slice(1).map(call => (call.body.ids as string[]).length)).toEqual([1200]);
   });
 
-  it('sends each ID once, at its first position, also across chunks and in query batches', async () => {
+  it('sends each ID once, at its first position, in standalone and batch reads', async () => {
     const mock = mockUns({
       [ENSURE]: BOTH_UNCHANGED,
       [GET]: (sent: Sent) => ok({ items: (sent.body.ids as string[]).map(id => doc(id, { code: id, status: 'OPEN' })), missing: [] }),
@@ -1400,17 +1400,50 @@ describe('reads by ID and query batches', () => {
     expect(mock.sent).toHaveLength(0);
   });
 
-  it('checks batch size, names and declarations before sending', async () => {
+  it('checks nonempty reads, valid IDs, names and declarations before sending', async () => {
     const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED });
     const data = client(mock);
     const count = data.collection(orders).query.count();
-    await expect(data.queryBatch({})).rejects.toThrow(/1–20 queries/);
-    await expect(data.queryBatch(Object.fromEntries(Array.from({ length: 21 }, (_, i) => [`q${i}`, count])))).rejects.toThrow(/1–20 queries/);
+    await expect(data.queryBatch({})).rejects.toThrow(/at least one query/);
     await expect(data.queryBatch({ 'bad name': count })).rejects.toThrow(/must match/);
-    expect(() => data.collection(orders).query.get([])).toThrow(/1–100 distinct IDs/);
+    expect(() => data.collection(orders).query.get([])).toThrow(/nonempty array/);
+    expect(await data.collection(orders).get([])).toEqual({ items: [], missing: [] });
+    for (const ids of [[''], [1], 'not-an-array']) {
+      expect(() => data.collection(orders).query.get(ids as string[])).toThrow(/nonempty array/);
+      await expect(data.collection(orders).get(ids as string[])).rejects.toThrow(/nonempty array/);
+    }
     const other = client(mock, { collections: [orders] });
     await expect(other.queryBatch({ l: data.collection(lines).query.count() })).rejects.toThrow(/missing from the `collections`/);
     expect(mock.calls(BATCH)).toHaveLength(0);
+    expect(mock.calls(GET)).toHaveLength(0);
+  });
+
+  it('sends more than 20 queries and 2000 result rows in one batch without an aggregate byte cap', async () => {
+    const items = Array.from({ length: 200 }, (_, i) => ({ _id: `o-${i}`, note: 'x'.repeat(2200) }));
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, [BATCH]: (sent: Sent) => ok({ results: Object.fromEntries(
+      (sent.body.queries as { id: string }[]).map(query => [query.id, { ok: true, data: { items, pageInfo } }]),
+    ) }) });
+    const data = client(mock), read = data.collection(orders).query.aggregate<{ _id: string; note: string }>([]);
+    const result = await data.queryBatch(Object.fromEntries(Array.from({ length: 21 }, (_, i) => [`q${i}`, read])));
+    expect(Object.values(result).flat()).toHaveLength(4200);
+    expect(JSON.stringify(result).length).toBeGreaterThan(8 * 1024 * 1024);
+    expect(mock.calls(BATCH)).toHaveLength(1);
+    expect((mock.calls(BATCH)[0].body.queries as unknown[]).length).toBe(21);
+  });
+
+  it('does not split large ID lookups or in filters inside a batch', async () => {
+    const ids = Array.from({ length: 1200 }, (_, i) => `o-${i}`);
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, [BATCH]: ok({ results: {
+      ids: { ok: true, data: { items: [], missing: ids } },
+      filtered: { ok: true, data: { items: [], pageInfo } },
+    } }) });
+    const data = client(mock), handle = data.collection(orders);
+    const result = await data.queryBatch({ ids: handle.query.get(ids), filtered: handle.query.find({ _id: { $in: ids } }) });
+    expect(result.ids.missing).toEqual(ids);
+    expect(mock.calls(BATCH)).toHaveLength(1);
+    expect(mock.calls(BATCH)[0].body.queries).toMatchObject([
+      { id: 'ids', ids }, { id: 'filtered', filter: { _id: { $in: ids } } },
+    ]);
   });
 });
 

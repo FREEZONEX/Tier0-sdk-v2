@@ -227,8 +227,15 @@ export interface CappedCount {
   capped: boolean;
 }
 
-/** UNS reads at most 100 records by ID per request. */
-export const MAX_GET_IDS = 100;
+/** Zero means no fixed ID-count limit; response and request budgets still apply. */
+export const MAX_GET_IDS = 0;
+
+function uniqueReadIds(ids: readonly string[]): string[] {
+  if (!Array.isArray(ids) || ids.length === 0 || ids.some(id => typeof id !== 'string' || id.length === 0)) {
+    throw new TypeError('get requires a nonempty array of nonempty string IDs.');
+  }
+  return [...new Set(ids)];
+}
 
 export interface FoundPage<T> {
   items: WithMeta<T>[];
@@ -271,7 +278,7 @@ export interface CollectionQueries<T> {
   aggregate<R = Record<string, unknown>>(pipeline: Record<string, unknown>[]): BatchQuery<R[]>;
   /** One offset page with continuation metadata; never fetches additional pages automatically. */
   aggregatePage<R = Record<string, unknown>>(pipeline: Record<string, unknown>[], options?: AggregatePageOptions): BatchQuery<AggregatePage<R>>;
-  /** 1–100 distinct records by ID, as `collection.get`. */
+  /** Nonempty IDs read in one request, as `collection.get`. */
   get(ids: readonly string[], options?: { projection?: Projection }): BatchQuery<{ items: WithMeta<T>[]; missing: string[] }>;
 }
 
@@ -464,18 +471,16 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
   /**
    * Records by ID, in the order asked for (each ID once, at its first
    * position); IDs that do not exist or are deleted are listed in
-   * `missing`. More than 100 IDs are read in chunks of 100 (not one
-   * snapshot).
+   * `missing`. All IDs are sent in one request and one snapshot; response
+   * size and request time budgets still apply.
    */
   async get(ids: readonly string[], options: { projection?: Projection } = {}): Promise<{ items: WithMeta<T>[]; missing: string[] }> {
-    const unique = [...new Set(ids)];
-    const chunks: string[][] = [];
-    for (let start = 0; start < unique.length; start += MAX_GET_IDS) chunks.push(unique.slice(start, start + MAX_GET_IDS));
-    const results = await Promise.all(chunks.map((chunk) =>
-      this.post<RecordGetResult>('recordGet', { ids: chunk, projection: options.projection })));
+    if (Array.isArray(ids) && ids.length === 0) return { items: [], missing: [] };
+    const unique = uniqueReadIds(ids);
+    const result = await this.post<RecordGetResult>('recordGet', { ids: unique, projection: options.projection });
     return {
-      items: results.flatMap((result) => result.items.map((record) => toDoc<T>(record))),
-      missing: results.flatMap((result) => result.missing),
+      items: result.items.map((record) => toDoc<T>(record)),
+      missing: result.missing,
     };
   }
 
@@ -512,8 +517,8 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
   /**
    * Builders for `data.queryBatch`: each describes one read of this
    * collection, run together with the others in one request and one
-   * snapshot. Each returns one page (at most 200 rows), unlike the cursor
-   * methods; `get` takes at most 100 IDs.
+   * snapshot. Paged reads return at most 200 rows, unlike the cursor
+   * methods; `get` sends all requested IDs in that same batch.
    */
   get query(): CollectionQueries<T> {
     const one = <R>(op: string, build: () => Promise<Record<string, unknown>>, parse: (data: never) => R): BatchQuery<R> => ({
@@ -576,10 +581,7 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
         }), (data: AggregatePage<R>) => ({ items: data.items, pageInfo: data.pageInfo }));
       },
       get: (ids, options = {}) => {
-        const unique = [...new Set(ids)];
-        if (unique.length < 1 || unique.length > MAX_GET_IDS) {
-          throw new TypeError(`query.get takes 1–${MAX_GET_IDS} distinct IDs; use collection.get for more.`);
-        }
+        const unique = uniqueReadIds(ids);
         return one('get', async () => ({ ids: unique, projection: options.projection }),
           (data: RecordGetResult) => ({ items: data.items.map((record) => toDoc<T>(record)), missing: data.missing }));
       },
