@@ -8135,8 +8135,8 @@
                       "maxLength": 128
                     },
                     "minItems": 1,
-                    "maxItems": 20,
-                    "uniqueItems": true
+                    "uniqueItems": true,
+                    "description": "rows 模式最多 20 个，省略表示授权集合。series 模式必填，按请求顺序分页。"
                   },
                   "from": {
                     "type": "integer",
@@ -8164,6 +8164,15 @@
                   },
                   "page": {
                     "$ref": "#/components/schemas/UnsV2PipelinePage"
+                  },
+                  "resultFormat": {
+                    "type": "string",
+                    "enum": [
+                      "rows",
+                      "series"
+                    ],
+                    "default": "rows",
+                    "description": "rows 返回聚合文档列表。series 按指定 Record ID 分页，每个外层项为 {recordId, items}，没有匹配样本时 items 为空。"
                   }
                 },
                 "required": [
@@ -8171,7 +8180,7 @@
                   "to",
                   "pipeline"
                 ],
-                "description": "recordIds 支持多个记录；省略时查询当前授权集合。时间范围和记录范围独立于 filter/pipeline，不能被条件扩大。结果统一分页。",
+                "description": "recordIds 支持多个记录；省略时查询当前授权集合。时间范围和记录范围独立于 filter/pipeline，不能被条件扩大。结果统一分页。 series 只接受一个含 _id.recordId:\"$_meta.recordId\" 的 $group，可选 $match 和 $sort。limit 或 page.size 计点位数，单次响应仍受 8 MiB 预算约束。",
                 "allOf": [
                   {
                     "not": {
@@ -8180,6 +8189,52 @@
                         "limit"
                       ]
                     }
+                  },
+                  {
+                    "oneOf": [
+                      {
+                        "required": [
+                          "resultFormat",
+                          "recordIds"
+                        ],
+                        "properties": {
+                          "resultFormat": {
+                            "enum": [
+                              "series"
+                            ]
+                          },
+                          "page": {
+                            "properties": {
+                              "mode": {
+                                "enum": [
+                                  "offset"
+                                ]
+                              },
+                              "size": {
+                                "maximum": 200
+                              }
+                            },
+                            "not": {
+                              "required": [
+                                "cursor"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "properties": {
+                          "resultFormat": {
+                            "enum": [
+                              "rows"
+                            ]
+                          },
+                          "recordIds": {
+                            "maxItems": 20
+                          }
+                        }
+                      }
+                    ]
                   }
                 ]
               },
@@ -20209,9 +20264,45 @@
             "required": [
               "$first"
             ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "$last": {
+                "$ref": "#/components/schemas/UnsV2PipelineExpression"
+              }
+            },
+            "required": [
+              "$last"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "$stdDevPop": {
+                "$ref": "#/components/schemas/UnsV2PipelineExpression"
+              }
+            },
+            "required": [
+              "$stdDevPop"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "$stdDevSamp": {
+                "$ref": "#/components/schemas/UnsV2PipelineExpression"
+              }
+            },
+            "required": [
+              "$stdDevSamp"
+            ]
           }
         ],
-        "description": "$first 返回按前序管线顺序选定的每组首行表达式值；先用 $sort 定义业务顺序。缺失值返回 null，数组和对象保持完整；空输入不产生组。"
+        "description": "$first/$last 按分组前的管线顺序取每组首行或末行的表达式值。直接分组 Sample 时按采样时间、Record ID、Sample ID 排序；可先用 $sort 指定业务顺序。缺失或 null 返回 null。$stdDevPop/$stdDevSamp 计算数值的总体/样本标准差。"
       },
       "UnsV2PipelineSort": {
         "type": "array",
@@ -20377,7 +20468,7 @@
                 "additionalProperties": {
                   "$ref": "#/components/schemas/UnsV2PipelineAccumulator"
                 },
-                "description": "_id 指定单值、null 或对象分组键；其余字段支持 $sum/$avg/$min/$max/$count/$first。$first 依赖前序排序，缺失值返回 null。"
+                "description": "_id 指定单值、null 或对象分组键。支持 $sum/$avg/$min/$max/$count/$stdDevPop/$stdDevSamp/$first/$last，可在一次分组中组合使用。"
               }
             },
             "required": [

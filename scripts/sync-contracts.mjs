@@ -42,6 +42,21 @@ if (schemaFlag >= 0 || scopeFlag >= 0) {
   for (const [path, input] of Object.entries(lock.inputs)) assert.equal(hash(read(path)), input.sha256, `Unsynced input ${path}`);
   const update = { scope, repository: 'FREEZONEX/Tier0-Backend', revision, sourceKind: preview ? 'working-tree-preview' : 'committed', schemas: names, inputs: {} };
   const outputs = new Map();
+  const operations = JSON.parse(read('contracts/uns-v2/manifest.json')).operations;
+  // Swagger inlines request schemas when path parameters are removed from the JSON body.
+  const inlineRequestSchemas = (name, current, incoming) => {
+    const matches = operations.filter(operation => operation.request === name);
+    return matches.map(operation => {
+      const route = operation.path.split('/').map(part => part.startsWith(':') ? `{${part.slice(1)}}` : part).join('/');
+      const method = operation.method.toLowerCase();
+      const media = document => document.paths?.[route]?.[method]?.requestBody?.content?.['application/json'];
+      const local = media(current), upstream = media(incoming);
+      assert.ok(local?.schema && !local.schema.$ref && upstream?.schema && !upstream.schema.$ref,
+        `Missing inline request schema ${name} for ${method.toUpperCase()} ${route}`);
+      local.schema = structuredClone(upstream.schema);
+      return local.schema;
+    });
+  };
   for (const [path, sourcePath] of Object.entries({
     'contracts/uns-v2/contract.json': 'service/unssvr/internal/domain/unsv2/contract_generated.go',
     'contracts/uns-v2/manifest.json': 'share/unscontract/manifest.json',
@@ -53,10 +68,15 @@ if (schemaFlag >= 0 || scopeFlag >= 0) {
       : JSON.parse(raw);
     const target = current.schemas ?? current.components?.schemas, source = incoming?.schemas ?? incoming?.components?.schemas;
     assert.ok(target && source, `Missing schema map in ${path}`);
-    for (const name of names) {
+    const roots = names.flatMap(name => {
+      if (!current.schemas && !target[name] && !source[name]) {
+        const inline = inlineRequestSchemas(name, current, incoming);
+        if (inline.length) return inline;
+      }
       assert.ok(source[name] && target[name], `Missing existing schema ${name} in ${path}`);
       target[name] = structuredClone(source[name]);
-    }
+      return [target[name]];
+    });
     const visited = new Set();
     const checkRefs = value => {
       if (!value || typeof value !== 'object') return;
@@ -70,7 +90,7 @@ if (schemaFlag >= 0 || scopeFlag >= 0) {
       }
       for (const child of Object.values(value)) checkRefs(child);
     };
-    for (const name of names) checkRefs(target[name]);
+    for (const schema of roots) checkRefs(schema);
     // 每次追加前验证已有增量链，不能用新摘要掩盖中间断链。
     let expected;
     for (const item of updates) {
