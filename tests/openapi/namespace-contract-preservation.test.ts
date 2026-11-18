@@ -148,6 +148,10 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
   // Re-pinned for reviewed SDK 134a265 preview overlays: no operation changed.
   // Eight existing schemas add JSON-string bindings, transaction capacity,
   // string patterns, ordered first, JSON text, lookup variables/budgets and union.
-  // Their entire reachable graph remains pinned; future changes still fail.
-  expect(digest).toBe('ca4e401d7ea4d8b09c8ca968596780dc44f08d6397dd1d35956f25da894474de');
+  // Re-pinned for committed Backend 02e63badee: the nine read-limit overlay schemas
+  // remove fixed IN/get/batch counts and aggregate batch-byte limits, document zero
+  // capability dimensions and expose the already-enforced logical/filter budgets.
+  // Operation identities and schema membership are unchanged. The read-limits test
+  // asserts these deltas; the entire reachable graph stays pinned for future changes.
+  expect(digest).toBe('0bdab0fc4ab7332c0de4256f90c7934eae0ba43f51437d53c4723d13e7c3a7d6');
 });

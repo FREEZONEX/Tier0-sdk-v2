@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Remove fixed `$in`/`$nin` value counts, `records:get` ID counts and `queryBatch` query/total-row/aggregate-byte caps with committed Backend `02e63badee` (Tier0-Backend#1589). `collection.get` sends all distinct IDs in one request; it no longer splits at 100. Empty standalone reads still return locally. Exported `MAX_GET_IDS` and `MAX_BATCH_QUERIES`, and the corresponding capability limits, use `0` for no fixed count cap; never use zero as a batching step. Per-query pagination (200 rows), response budgets (8 MiB), authorization, timeouts and query naming constraints remain. Older Backend rejections are surfaced without a split fallback; deploy the matching Backend before using larger reads.
+
 - Add `collection.query.aggregatePage(pipeline, { page, pageSize })` for an explicit offset page inside `data.queryBatch`. It preserves `items` and `pageInfo`, including `hasMore`, `nextPage` and the per-request snapshot scope, without automatically fetching more pages. Existing array-returning batch builders and aggregate cursors remain unchanged; this uses the existing backend pipeline and budgets. A terminal `$count` remains unpaged.
 
 ## 0.15.0 (2026-11-16)

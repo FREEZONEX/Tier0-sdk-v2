@@ -8951,7 +8951,6 @@
                       "maxLength": 128
                     },
                     "minItems": 1,
-                    "maxItems": 100,
                     "uniqueItems": true
                   },
                   "projection": {
@@ -8976,7 +8975,7 @@
                 "required": [
                   "ids"
                 ],
-                "description": "按主键读取最多 100 条有效记录，items 按请求顺序返回。不存在或已软删除的 ID 统一列入 missing。 投影后的响应最多 8 MiB；超限返回 413 RESPONSE_TOO_LARGE，请减少 ids 或 projection 字段。"
+                "description": "按主键读取有效记录，至少一个 ID，不设 ID 数量上限，支持 projection。items 按请求顺序返回；不存在或已软删除的 ID 统一列入 missing。 投影后的响应最多 8 MiB；超限返回 413 RESPONSE_TOO_LARGE，请减少 ids 或 projection 字段。"
               },
               "example": {
                 "ids": [
@@ -9064,7 +9063,7 @@
             }
           }
         ],
-        "description": "按主键读取最多 100 条有效记录，支持 projection。items 按请求顺序返回；不存在或已软删除的 ID 统一列入 missing。",
+        "description": "按主键读取有效记录，至少一个 ID，不设 ID 数量上限，支持 projection。items 按请求顺序返回；不存在或已软删除的 ID 统一列入 missing。投影后的单项响应仍受 8 MiB 预算约束。",
         "x-tier0-audience": "app",
         "x-tier0-starter": true,
         "x-tier0-readonly": true,
@@ -9220,7 +9219,6 @@
                   "queries": {
                     "type": "array",
                     "minItems": 1,
-                    "maxItems": 20,
                     "items": {
                       "$ref": "#/components/schemas/CloudRecordBatchQuery"
                     }
@@ -9229,7 +9227,7 @@
                 "required": [
                   "queries"
                 ],
-                "description": "最多 20 个查询，在同一个可重复读只读事务中执行，结果来自同一快照。整批最多返回 2000 行、8 MiB，超出返回 413 RESPONSE_TOO_LARGE；任一语句超时返回 504 QUERY_TIMEOUT，整批不返回部分结果。"
+                "description": "至少一个查询，在同一个可重复读只读事务中执行，结果来自同一快照。不设查询数量、整批返回行数或整批响应字节上限；单项分页、单项响应字节预算和查询超时仍生效。单项响应超限返回 413 RESPONSE_TOO_LARGE，任一语句超时返回 504 QUERY_TIMEOUT，均整批失败且不返回部分结果。"
               },
               "example": {
                 "queries": [
@@ -9372,7 +9370,7 @@
         "tags": [
           "业务数据"
         ],
-        "description": "一次请求执行最多 20 个只读查询（find、count、distinct、aggregate、get，可跨集合），共用一次准入、一份授权快照和同一个可重复读快照；需要 uns.read 与各集合的 record:read。results 按查询 id 返回 {ok:true,data} 或 {ok:false,error}，校验、编译、授权与单项 SQL 错误只影响该项。整批最多 2000 行、8 MiB，超出返回 413 RESPONSE_TOO_LARGE；任一语句超时返回 504 QUERY_TIMEOUT，均不返回部分结果。",
+        "description": "一次请求执行至少一个只读查询（find、count、distinct、aggregate、get，可跨集合），共用一次准入、一份授权快照和同一个可重复读快照；需要 uns.read 与各集合的 record:read。results 按查询 id 返回 {ok:true,data} 或 {ok:false,error}，校验、编译、授权与单项 SQL 错误只影响该项。不设查询数量、整批返回行数或整批响应字节上限；单项分页、单项响应字节预算和查询超时仍生效。单项响应超限返回 413 RESPONSE_TOO_LARGE；任一语句超时返回 504 QUERY_TIMEOUT，均整批失败且不返回部分结果。",
         "x-tier0-audience": "app",
         "x-tier0-starter": false,
         "x-tier0-readonly": true,
@@ -19334,7 +19332,7 @@
             }
           ]
         },
-        "description": "统一谓词：业务路径直接使用 field 或 customer.name；系统路径使用 _id、_meta.revision/createdAt/updatedAt/sourceId/sourceTime/locked。Sample 使用 _meta.recordId/time/receivedAt/quality/streamId/bindingId。直接值等同 $eq；支持标量比较、字符串 $contains（ASCII 不区分大小写的子串）、数组 $elemMatch/$all/$size、逻辑组合与受限 $expr。路径以点分段；字面点写 \\.、反斜杠写 \\\\，JSON 中反斜杠需再次转义；最多 512 字节/10 段，数组使用显式下标，不隐式穿透。字段类型按 Schema 校验，不接受 SQL 或脚本。Record 写入默认必须精确匹配一条。 $eq:null 匹配 null 或缺失；$ne:null 匹配存在且非 null；$ne:非空值包含缺失。$exists 区分存在与缺失，显式 null 算存在。",
+        "description": "统一谓词：业务路径直接使用 field 或 customer.name；系统路径使用 _id、_meta.revision/createdAt/updatedAt/sourceId/sourceTime/locked。Sample 使用 _meta.recordId/time/receivedAt/quality/streamId/bindingId。直接值等同 $eq；支持标量比较、字符串 $contains（ASCII 不区分大小写的子串）、数组 $elemMatch/$all/$size、逻辑组合与受限 $expr。路径以点分段；字面点写 \\.、反斜杠写 \\\\，JSON 中反斜杠需再次转义；最多 512 字节/10 段，数组使用显式下标，不隐式穿透。字段类型按 Schema 校验，不接受 SQL 或脚本。Record 写入默认必须精确匹配一条。 $eq:null 匹配 null 或缺失；$ne:null 匹配存在且非 null；$ne:非空值包含缺失。$exists 区分存在与缺失，显式 null 算存在。 编译预算：每个 $and/$or/$nor 为 1–64 个对象；$in/$nin 至少一个标量，不设值数量上限，maxInItems=0 表示无该维度上限。筛选节点累计最多 128，筛选与表达式合计最多 512，递归深度最多 8（根为 0，字段比较和表达式也参与深度计数）。对象和字段比较均消耗编译节点；预算在同一编译作用域内累计，不按逻辑分支重新计算，64 个复合分支仍可能超限。按授权范围组织有界查询，合并时保持全局去重、排序和分页语义，不截断条件。",
         "example": {
           "$and": [
             {
@@ -19353,21 +19351,24 @@
             "items": {
               "$ref": "#/components/schemas/UnsV2DataFilter"
             },
-            "minItems": 1
+            "minItems": 1,
+            "maxItems": 64
           },
           "$or": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/UnsV2DataFilter"
             },
-            "minItems": 1
+            "minItems": 1,
+            "maxItems": 64
           },
           "$nor": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/UnsV2DataFilter"
             },
-            "minItems": 1
+            "minItems": 1,
+            "maxItems": 64
           },
           "$not": {
             "$ref": "#/components/schemas/UnsV2DataFilter"
@@ -19375,6 +19376,13 @@
           "$expr": {
             "$ref": "#/components/schemas/UnsV2PipelineExpression"
           }
+        },
+        "x-tier0-query-limits": {
+          "maxDepth": 8,
+          "maxFilterNodes": 128,
+          "maxNodes": 512,
+          "maxLogicalItems": 64,
+          "maxInItems": 0
         }
       },
       "UnsV2FilterScalar": {
@@ -19424,16 +19432,14 @@
             "items": {
               "$ref": "#/components/schemas/UnsV2FilterScalar"
             },
-            "minItems": 1,
-            "maxItems": 200
+            "minItems": 1
           },
           "$nin": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/UnsV2FilterScalar"
             },
-            "minItems": 1,
-            "maxItems": 200
+            "minItems": 1
           },
           "$exists": {
             "type": "boolean"
@@ -19499,16 +19505,14 @@
             "items": {
               "$ref": "#/components/schemas/UnsV2FilterScalar"
             },
-            "minItems": 1,
-            "maxItems": 200
+            "minItems": 1
           },
           "$nin": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/UnsV2FilterScalar"
             },
-            "minItems": 1,
-            "maxItems": 200
+            "minItems": 1
           },
           "$exists": {
             "type": "boolean"
@@ -23023,7 +23027,6 @@
                   "maxLength": 128
                 },
                 "minItems": 1,
-                "maxItems": 100,
                 "uniqueItems": true
               },
               "projection": {
@@ -23113,7 +23116,7 @@
             ]
           }
         ],
-        "description": "单项结果。校验、编译、授权与单项 SQL 错误只影响该项；语句超时或整批读预算超限时整批失败。"
+        "description": "单项结果。校验、编译、授权与单项 SQL 错误只影响该项；语句超时或单项响应字节预算超限时整批失败。"
       },
       "CloudStreamProgramView": {
         "type": "object",
@@ -23743,6 +23746,32 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
+          "transaction": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "maxItems": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "显式同步 records:transact 的最大步骤数；不改变 bulkWrite 与 auto 的阈值。"
+              },
+              "maxBodyBytes": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "事务请求体最大字节数。"
+              },
+              "timeoutMs": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "同步事务执行预算毫秒；超时不代表提交成功。"
+              }
+            },
+            "required": [
+              "maxItems",
+              "maxBodyBytes",
+              "timeoutMs"
+            ]
+          },
           "count": {
             "type": "object",
             "additionalProperties": false,
@@ -23789,18 +23818,18 @@
             "properties": {
               "maxQueries": {
                 "type": "integer",
-                "minimum": 1,
-                "description": "单次最多查询数。"
+                "minimum": 0,
+                "description": "单次查询数上限；0 表示无该维度上限。"
               },
               "maxRows": {
                 "type": "integer",
-                "minimum": 1,
-                "description": "整批最多返回行数。"
+                "minimum": 0,
+                "description": "整批返回行数上限；0 表示无该维度上限，单项分页仍生效。"
               },
               "maxBytes": {
                 "type": "integer",
-                "minimum": 1,
-                "description": "整批最多返回字节数。"
+                "minimum": 0,
+                "description": "整批返回字节上限；0 表示无该维度上限，单项响应预算仍生效。"
               }
             },
             "required": [
@@ -23815,8 +23844,8 @@
             "properties": {
               "maxIds": {
                 "type": "integer",
-                "minimum": 1,
-                "description": "records:get 单次最多 ID 数。"
+                "minimum": 0,
+                "description": "records:get 单次 ID 数量上限；0 表示无该维度上限，单项响应预算仍生效。"
               }
             },
             "required": [
@@ -23911,32 +23940,6 @@
             "type": "integer",
             "minimum": 1,
             "description": "写入幂等键的保留窗口毫秒；窗口外复用同一键视为新请求。"
-          },
-          "transaction": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "maxItems": {
-                "type": "integer",
-                "minimum": 1,
-                "description": "显式同步 records:transact 的最大步骤数；不改变 bulkWrite 与 auto 的阈值。"
-              },
-              "maxBodyBytes": {
-                "type": "integer",
-                "minimum": 1,
-                "description": "事务请求体最大字节数。"
-              },
-              "timeoutMs": {
-                "type": "integer",
-                "minimum": 1,
-                "description": "同步事务执行预算毫秒；超时不代表提交成功。"
-              }
-            },
-            "required": [
-              "maxItems",
-              "maxBodyBytes",
-              "timeoutMs"
-            ]
           }
         },
         "required": [
@@ -31062,7 +31065,6 @@
             "properties": {
               "results": {
                 "type": "object",
-                "maxProperties": 20,
                 "additionalProperties": {
                   "$ref": "#/components/schemas/CloudRecordBatchQueryResult"
                 },

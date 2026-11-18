@@ -93,15 +93,15 @@ export interface TransactOptions {
   retryUnknown?: boolean;
 }
 
-/** Named reads for `data.queryBatch`: 1–20 entries, names matching `[A-Za-z0-9_.-]{1,64}`. */
+/** Nonempty named reads for `data.queryBatch`, names matching `[A-Za-z0-9_.-]{1,64}`. */
 export type BatchQueries = Record<string, BatchQuery<unknown>>;
 export type BatchResults<Q extends BatchQueries> = { [K in keyof Q]: Q[K] extends BatchQuery<infer R> ? R : never };
 export type SettledBatchResults<Q extends BatchQueries> = {
   [K in keyof Q]: Q[K] extends BatchQuery<infer R> ? { ok: true; value: R } | { ok: false; error: DataError } : never;
 };
 
-/** Contract limit of `records:queryBatch`. */
-export const MAX_BATCH_QUERIES = 20;
+/** Zero means no fixed query-count limit; request and per-query budgets still apply. */
+export const MAX_BATCH_QUERIES = 0;
 const QUERY_NAME = /^[A-Za-z0-9_.-]{1,64}$/;
 
 /** Data client state is bound to one static host and credential for its lifetime. */
@@ -148,8 +148,9 @@ export interface DataClient {
    *
    * A read UNS refuses on its own (invalid filter, no grant) rejects the
    * whole call with its DataError; with `{ settle: true }` every result is
-   * `{ ok, value }` or `{ ok: false, error }` instead. A statement timeout or
-   * a batch over 2000 rows / 8 MiB always fails the whole call.
+   * `{ ok, value }` or `{ ok: false, error }` instead. Statement and request
+   * timeouts and a query exceeding its response budget fail the whole call,
+   * including when settle is true.
    */
   queryBatch<Q extends BatchQueries>(queries: Q): Promise<BatchResults<Q>>;
   queryBatch<Q extends BatchQueries>(queries: Q, options: { settle: true }): Promise<SettledBatchResults<Q>>;
@@ -345,8 +346,8 @@ export function createDataClient(config: DataClientConfig): DataClient {
 
   async function queryBatch<Q extends BatchQueries>(queries: Q, options: { settle?: boolean } = {}) {
     const names = Object.keys(queries);
-    if (names.length < 1 || names.length > MAX_BATCH_QUERIES) {
-      throw new TypeError(`data.queryBatch takes 1–${MAX_BATCH_QUERIES} queries; got ${names.length}.`);
+    if (names.length < 1) {
+      throw new TypeError('data.queryBatch requires at least one query.');
     }
     const bad = names.find((name) => !QUERY_NAME.test(name));
     if (bad !== undefined) throw new TypeError(`data.queryBatch query name "${bad}" must match ${QUERY_NAME}.`);

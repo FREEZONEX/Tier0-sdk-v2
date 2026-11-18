@@ -20,7 +20,7 @@
       "capability": "x-tier0-opcua-server: static available=false; online availability is workspace/registry authoritative"
     }
   },
-  "sourceDerivedContractSHA256": "f62f74a0101c196dff7aa4794c764517dacccacccabdb2c8112a0bf2a4775f55",
+  "sourceDerivedContractSHA256": "8b263226f8a8605846fa173439299bb8b2516035026839b106a09efcbb593c21",
   "schemaUpdates": [
     {
       "scope": "source-stream-public",
@@ -414,6 +414,43 @@
           "sourceSHA256": "35f9a4b170c3b27028fd8a9c5424cd95373367f0224d938b8aad11b28c219dc7",
           "baseSHA256": "1a11bf3559c6dc76a6982103eecd16b6186a1cc3ee2166dd150b711e382b22df",
           "resultSHA256": "41decc99d1bc6a685eaa63fd687a3a8f18772ea4c2f46fa4ff990b704260a1ce"
+        }
+      }
+    },
+    {
+      "scope": "unbounded-read-counts",
+      "repository": "FREEZONEX/Tier0-Backend",
+      "revision": "02e63badee0949c66b1c1f03e23ebd6235f351b8",
+      "sourceKind": "committed",
+      "schemas": [
+        "UnsV2DataFilter",
+        "UnsV2FieldPredicate",
+        "UnsV2FieldComparisons",
+        "UnsV2RecordGetReq",
+        "CloudRecordBatchQuery",
+        "CloudRecordBatchQueryResult",
+        "UnsV2RecordQueryBatchReq",
+        "UnsV2RecordQueryBatchResponse",
+        "CloudAppDataLimits"
+      ],
+      "inputs": {
+        "contracts/uns-v2/contract.json": {
+          "path": "service/unssvr/internal/domain/unsv2/contract_generated.go",
+          "sourceSHA256": "33610017fec17c5793bdc0433594f8b5836b73f2a44c3a92c512ed8bbd657457",
+          "baseSHA256": "f62f74a0101c196dff7aa4794c764517dacccacccabdb2c8112a0bf2a4775f55",
+          "resultSHA256": "8b263226f8a8605846fa173439299bb8b2516035026839b106a09efcbb593c21"
+        },
+        "contracts/uns-v2/manifest.json": {
+          "path": "share/unscontract/manifest.json",
+          "sourceSHA256": "59b7dfff3ed63cbfc144a85ff0237ef8793e8483a7679479a0e8519000ae8b77",
+          "baseSHA256": "43f10c6952e293f737ea178dc8f9bbe055f29df6badb472f1b1d61086206591a",
+          "resultSHA256": "8c336dee79e06df520d6c26b8ae776b940ac1f583edd388068d4445a39b2c915"
+        },
+        "contracts/openapi-v2.source.json": {
+          "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
+          "sourceSHA256": "ef76ff4fdf32475307e500d3976b8ed33bdaf6563e692166b71b181f76ce88c4",
+          "baseSHA256": "41decc99d1bc6a685eaa63fd687a3a8f18772ea4c2f46fa4ff990b704260a1ce",
+          "resultSHA256": "5b89763e2c6890ff7548c38934d2a70d4a235da1568ab1276643c4769fb57b49"
         }
       }
     }
