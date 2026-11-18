@@ -4194,7 +4194,7 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
       "capability": "x-tier0-opcua-server: static available=false; online availability is workspace/registry authoritative"
     }
   },
-  "sourceDerivedContractSHA256": "8b263226f8a8605846fa173439299bb8b2516035026839b106a09efcbb593c21",
+  "sourceDerivedContractSHA256": "77ca6c1824757d6c08408017c250f5deebaa0791873da6f6994d3aa9412b90c1",
   "schemaUpdates": [
     {
       "scope": "source-stream-public",
@@ -4627,14 +4627,43 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
           "resultSHA256": "5b89763e2c6890ff7548c38934d2a70d4a235da1568ab1276643c4769fb57b49"
         }
       }
+    },
+    {
+      "scope": "aggregate-page-size",
+      "repository": "FREEZONEX/Tier0-Backend",
+      "revision": "b5c05955e3917cb5ca703386ff5f2c0317435633",
+      "sourceKind": "committed",
+      "schemas": [
+        "UnsV2PipelinePage.properties.size"
+      ],
+      "inputs": {
+        "contracts/uns-v2/contract.json": {
+          "path": "service/unssvr/internal/domain/unsv2/contract_generated.go",
+          "sourceSHA256": "479ab6382405dcafb14837b051e176d762e826ae5eca26d38856a750cede28f1",
+          "baseSHA256": "8b263226f8a8605846fa173439299bb8b2516035026839b106a09efcbb593c21",
+          "resultSHA256": "77ca6c1824757d6c08408017c250f5deebaa0791873da6f6994d3aa9412b90c1"
+        },
+        "contracts/uns-v2/manifest.json": {
+          "path": "share/unscontract/manifest.json",
+          "sourceSHA256": "f72272fb66ffeb0670f19f13f6d2785be64ef9c0846cf190585c1cf3d48d874d",
+          "baseSHA256": "8c336dee79e06df520d6c26b8ae776b940ac1f583edd388068d4445a39b2c915",
+          "resultSHA256": "f4ad5f822cb3a13a95d1a76f08ca897840a3d0b62847f52e8d6b244a332ff98c"
+        },
+        "contracts/openapi-v2.source.json": {
+          "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
+          "sourceSHA256": "67f084023eb9e5b6b7a75cf3edeae160473dce7a428c80cfe2422f322ff2fa8d",
+          "baseSHA256": "5b89763e2c6890ff7548c38934d2a70d4a235da1568ab1276643c4769fb57b49",
+          "resultSHA256": "f5a4503457416f5325427729ee92a04a37b01553e477f27724de069b5ceb5f7f"
+        }
+      }
     }
   ],
   "note": "Source/Stream public operations and transitive schemas are synchronized separately; unrelated operation contracts retain their pinned base.",
   "hashes": {
-    "contract": "8b263226f8a8605846fa173439299bb8b2516035026839b106a09efcbb593c21",
+    "contract": "77ca6c1824757d6c08408017c250f5deebaa0791873da6f6994d3aa9412b90c1",
     "cloudSupport": "a1feaba48061fce10ed5ffa5ef444b478631cd5c2c85d221b73e3c62cbe93c94",
-    "manifest": "8c336dee79e06df520d6c26b8ae776b940ac1f583edd388068d4445a39b2c915",
-    "provenance": "65e481fbba570069d94f31e7aebd253d12016f4c8e3fd5d90710c932d82982e0",
+    "manifest": "f4ad5f822cb3a13a95d1a76f08ca897840a3d0b62847f52e8d6b244a332ff98c",
+    "provenance": "14e078cc8f2398c507d157e0f24104ca0b69b277c83c8f96217e0a42e6e14c2f",
     "registry": "1de1afc304728f414932673e51d07b780cff3c37a9e0340cd7ee2a987c574376"
   },
   "publicOperationCount": 92,

@@ -14,8 +14,11 @@ import { DataError } from './error.js';
 import { validateDocument, validateUpdate } from './schema.js';
 import { toSortPairs, type Filter, type Sort, type SortPairs } from './sort.js';
 
-/** UNS page limit for find / aggregate / distinct. */
+/** Find/distinct page limit and the default aggregate page size. */
 export const MAX_PAGE_SIZE = 200;
+
+// Keep the backend's one-row continuation probe (size + 1) exactly representable.
+const MAX_AGGREGATE_PAGE_SIZE = Number.MAX_SAFE_INTEGER - 1;
 
 /**
  * Collection bulk operations commit at most 200 items in one atomic batch
@@ -108,8 +111,8 @@ export function toDoc<T>(record: UnsRecord): WithMeta<T> {
 }
 
 /**
- * Async-iterable result set. Pages hold at most 200 items; the page source
- * decides whether the next page is reached by cursor or by offset page number.
+ * Async-iterable result set. Pages default to 200 items; the page source
+ * decides the maximum size and whether continuation uses a cursor or offset.
  */
 export class Cursor<T> implements AsyncIterable<T> {
   private sortSpec?: Sort;
@@ -126,6 +129,7 @@ export class Cursor<T> implements AsyncIterable<T> {
       projection?: Projection;
     }) => Promise<Page<T>>,
     options: { sort?: Sort; limit?: number; projection?: Projection } = {},
+    private readonly maxBatchSize = MAX_PAGE_SIZE,
   ) {
     this.sortSpec = options.sort;
     this.limitCount = options.limit;
@@ -142,7 +146,7 @@ export class Cursor<T> implements AsyncIterable<T> {
     return this;
   }
 
-  /** Total number of documents to return (pages are fetched ≤200 at a time). */
+  /** Total number of documents to return, independent of the per-request batch size. */
   limit(count: number): this {
     this.assertNotStarted();
     this.limitCount = count;
@@ -152,8 +156,8 @@ export class Cursor<T> implements AsyncIterable<T> {
   /** Documents per network request, independent of limit(). Set before iteration. */
   batchSize(count: number): this {
     this.assertNotStarted();
-    if (!Number.isSafeInteger(count) || count < 1 || count > MAX_PAGE_SIZE) {
-      throw new RangeError(`batchSize must be an integer from 1 to ${MAX_PAGE_SIZE}.`);
+    if (!Number.isSafeInteger(count) || count < 1 || count > this.maxBatchSize) {
+      throw new RangeError(`batchSize must be an integer from 1 to ${this.maxBatchSize}.`);
     }
     this.batchCount = count;
     return this;
@@ -193,6 +197,14 @@ function isDirectPipeline(stages: readonly Record<string, unknown>[]): boolean {
   return stages.every((stage) => Object.keys(stage).every((key) => key === '$match' || key === '$sort'));
 }
 
+function assertAggregatePage(page: number, size: number): void {
+  if (!Number.isSafeInteger(page) || page < 1) throw new RangeError('aggregatePage page must be a positive safe integer.');
+  if (!Number.isSafeInteger(size) || size < 1 || size > MAX_AGGREGATE_PAGE_SIZE) {
+    throw new RangeError(`aggregatePage pageSize must be an integer from 1 to ${MAX_AGGREGATE_PAGE_SIZE}.`);
+  }
+  if (!Number.isSafeInteger((page - 1) * size)) throw new RangeError('aggregatePage offset must be a safe integer.');
+}
+
 export interface FindOptions {
   sort?: Sort;
   limit?: number;
@@ -211,7 +223,12 @@ export interface FindPageOptions {
 }
 
 /** One explicit offset page; keep pageSize fixed while continuing the same query. */
-export type AggregatePageOptions = Pick<FindPageOptions, 'page' | 'pageSize'>;
+export interface AggregatePageOptions {
+  /** 1-based positive safe integer; the resulting offset must also be safe. */
+  page?: number;
+  /** Defaults to 200; positive safe integer with an exactly representable size + 1. */
+  pageSize?: number;
+}
 
 export interface AggregatePage<R> {
   items: R[];
@@ -567,10 +584,7 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
         }, (data: { items: R[] }) => data.items),
       aggregatePage: <R = Record<string, unknown>>(pipeline: Record<string, unknown>[], options: AggregatePageOptions = {}) => {
         const page = options.page ?? 1, pageSize = options.pageSize ?? MAX_PAGE_SIZE;
-        if (!Number.isSafeInteger(page) || page < 1) throw new RangeError('aggregatePage page must be a positive safe integer.');
-        if (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > MAX_PAGE_SIZE) {
-          throw new RangeError(`aggregatePage pageSize must be an integer from 1 to ${MAX_PAGE_SIZE}.`);
-        }
+        assertAggregatePage(page, pageSize);
         const last = pipeline[pipeline.length - 1];
         if (last !== undefined && '$count' in last) {
           throw new TypeError('A final $count does not accept pagination; use query.aggregate or query.count.');
@@ -615,10 +629,12 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
    * by offset (UNS rejects cursors for transformed results). The `$exists`,
    * `$distinct` and `$frequencies` stages are listed in the UNS schema but not
    * executed by the record pipeline; use `countDocuments`, `distinct` or `$group`.
+   * Pages default to 200; batchSize may request more with the matching backend.
+   * Response byte budgets, timeouts and backend offset limits still apply.
    */
   aggregate<R = Record<string, unknown>>(pipeline: Record<string, unknown>[]): Cursor<R> {
     // Recovery also re-resolves declared lookup/union targets before a retry.
-    return new Cursor<R>(({ token, size }) => this.runtime.recover(() => this.aggregatePage<R>(pipeline, token, size), { collections: [this.definition], retry: typeof token !== 'string' }));
+    return new Cursor<R>(({ token, size }) => this.runtime.recover(() => this.aggregatePage<R>(pipeline, token, size), { collections: [this.definition], retry: typeof token !== 'string' }), {}, MAX_AGGREGATE_PAGE_SIZE);
   }
 
   private async aggregatePage<R>(
@@ -626,6 +642,7 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
     token: PageToken | null,
     size: number,
   ): Promise<Page<R>> {
+    assertAggregatePage(typeof token === 'number' ? token : 1, size);
     const stages = await this.prepareStages(pipeline);
     const last = stages[stages.length - 1];
     if (last !== undefined && '$count' in last) {
