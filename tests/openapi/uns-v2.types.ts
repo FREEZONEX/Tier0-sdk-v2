@@ -1,13 +1,19 @@
 import {
   createClient,
+  type CloudDataPage,
   type IndexSpec,
   type RuntimeStreamDefinition,
   UnsV2RawNumber,
   type components,
+  type UnsV2Client,
   type UnsV2JSONValue,
   type UnsV2OperationName,
+  type UnsV2PipelineAccumulator,
   type UnsV2Request,
   type UnsV2Response,
+  type UnsV2SampleAggregateResponse,
+  type UnsV2SampleAggregateSeriesRequest,
+  type UnsV2SampleAggregateSeriesResponse,
 } from '../../src/index.js';
 
 const client = createClient({ apiHost: 'https://example.invalid', apiKey: 'workspace-bound' });
@@ -63,6 +69,47 @@ const deployment = client.stream.programs.deploy({
   id: 'stream-1', dryRun: false, expectedRevision: 3, expectedSourceRevision: 7, expectedActiveVersion: '9007199254740997', idempotencyKey: 'deploy-1',
 });
 const scopedSamples = client.uns.sampleFind({ collectionId: 'measurements', recordIds: ['machine-1'], from: 0, to: 1000, page: { mode: 'cursor', size: 20 } });
+const sampleAccumulators = {
+  latest: { $last: '$value' },
+  population: { $stdDevPop: '$value' },
+  sample: { $stdDevSamp: '$value' },
+} satisfies Record<string, UnsV2PipelineAccumulator>;
+const samplePipeline: UnsV2Request<'sampleAggregate'>['pipeline'] = [
+  { $group: {
+    _id: { recordId: '$_meta.recordId', hour: { $dateTrunc: { date: '$_meta.time', unit: 'hour' } } },
+    ...sampleAccumulators,
+  } },
+  { $sort: [['_id.hour', 1]] },
+];
+const sampleAggregateRequest = { collectionId: 'measurements', from: 0, to: 3_600_000, pipeline: samplePipeline };
+const defaultSampleRows = client.uns.sampleAggregate(sampleAggregateRequest);
+const explicitSampleRows = client.uns.sampleAggregate({ ...sampleAggregateRequest, resultFormat: 'rows' });
+const recordIds: string[] = ['machine-1'];
+const sampleSeriesRequest = { ...sampleAggregateRequest, resultFormat: 'series', recordIds } satisfies UnsV2SampleAggregateSeriesRequest;
+const sampleSeries = client.uns.sampleAggregate(sampleSeriesRequest);
+declare const rawUns: UnsV2Client;
+const rawSampleRows = rawUns.call('sampleAggregate', sampleAggregateRequest);
+const rawSampleSeries = rawUns.call('sampleAggregate', sampleSeriesRequest);
+
+type SameAggregateType<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+type AssertAggregateType<T extends true> = T;
+type SampleAggregateTypes = [
+  AssertAggregateType<SameAggregateType<Awaited<typeof defaultSampleRows>, UnsV2SampleAggregateResponse>>,
+  AssertAggregateType<SameAggregateType<Awaited<typeof explicitSampleRows>['data'], CloudDataPage>>,
+  AssertAggregateType<SameAggregateType<Awaited<typeof sampleSeries>, UnsV2SampleAggregateSeriesResponse>>,
+  AssertAggregateType<SameAggregateType<Awaited<typeof rawSampleRows>['data'], CloudDataPage>>,
+  AssertAggregateType<SameAggregateType<Awaited<typeof rawSampleSeries>, UnsV2SampleAggregateSeriesResponse>>,
+];
+sampleSeries.then(response => {
+  const recordId: string = response.data.items[0].recordId;
+  const buckets: CloudDataPage['items'] = response.data.items[0].items;
+  void [recordId, buckets];
+});
+// @ts-expect-error Sample series explicitly scopes the aggregation to Record IDs.
+client.uns.sampleAggregate({ ...sampleAggregateRequest, resultFormat: 'series' });
+// @ts-expect-error Sample series paginates by Record ID and has no continuation cursor.
+client.uns.sampleAggregate({ ...sampleSeriesRequest, page: { mode: 'cursor', cursor: 'opaque' } });
+void (null as SampleAggregateTypes | null);
 const sourceDelete = client.source.documents.delete({ dryRun: true, id: '101', expectedRevision: 2, confirmedImpactRevision: 'reviewed-confirmation' });
 const sourceImpact = client.source.impact({ id: '101', expectedRevision: 2, action: 'delete', size: 20 });
 const sourceHistory = client.source.history({ id: '101', size: 20 });

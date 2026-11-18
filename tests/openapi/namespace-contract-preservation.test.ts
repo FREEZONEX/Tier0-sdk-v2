@@ -159,5 +159,8 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
   // Re-pinned for committed Backend a7af6aaa6: PipelineExpression adds scalar $in,
   // and PipelineStage documents lookup's actual per-input byte budget in place of
   // fixed row counts. No operations or reachable schemas were added or removed.
-  expect(digest).toBe('73fb4077436536e6c963108e8b0da6959d4a516ab435b59522b3695f99101331');
+  // Re-pinned for committed Backend 1b208eeaf3: SampleAggregateReq gains series,
+  // PipelineAccumulator gains $last and standard deviations, and PipelineStage
+  // documents the new accumulators. Operations and schema membership are unchanged.
+  expect(digest).toBe('8020cd816d416ebf7cc3cd09b3d279ae79987270e81599e5f2e54390af61dc66');
 });

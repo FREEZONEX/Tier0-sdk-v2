@@ -19,9 +19,14 @@ import {
   type UnsV2Operations,
   type UnsV2Request,
   type UnsV2Response,
+  type UnsV2SampleAggregateResponse,
+  type UnsV2SampleAggregateRowsRequest,
+  type UnsV2SampleAggregateSeriesRequest,
+  type UnsV2SampleAggregateSeriesResponse,
 } from './generated.js';
 
 type RecordValue = Record<string, unknown>;
+type CallOptions = RequestOptions & { maxRequestBytes?: number };
 
 /**
  * How far a failed request got. `unknown` only for a mutation whose commit
@@ -281,7 +286,10 @@ export class UnsV2ClientCore {
     this.transport = new CloudTransport(resolveClient, config);
   }
 
-  async call<Name extends UnsV2OperationName>(name: Name, request: UnsV2Request<Name>, options: RequestOptions & { maxRequestBytes?: number } = {}): Promise<UnsV2Response<Name>> {
+  call(name: 'sampleAggregate', request: UnsV2SampleAggregateRowsRequest, options?: CallOptions): Promise<UnsV2SampleAggregateResponse>;
+  call(name: 'sampleAggregate', request: UnsV2SampleAggregateSeriesRequest, options?: CallOptions): Promise<UnsV2SampleAggregateSeriesResponse>;
+  call<Name extends UnsV2OperationName>(name: Name, request: UnsV2Request<Name>, options?: CallOptions): Promise<UnsV2Response<Name>>;
+  async call<Name extends UnsV2OperationName>(name: Name, request: UnsV2Request<Name>, options: CallOptions = {}): Promise<UnsV2Response<Name>> {
     options.signal?.throwIfAborted();
     if (options.maxRequestBytes !== undefined && (!Number.isSafeInteger(options.maxRequestBytes) || options.maxRequestBytes <= 0)) {
       throw new TypeError('Tier0 SDK: maxRequestBytes must be a positive safe integer.');

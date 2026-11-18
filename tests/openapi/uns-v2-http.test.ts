@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createUnsV2Client, createClient, UNS_V2_CODEC_SCHEMAS, UNS_V2_CONTRACT_PROVENANCE, UNS_V2_OPERATIONS, UNS_V2_STREAM_OPERATIONS, UnsV2Error, UnsV2OutcomeUnknownError, UnsV2RawNumber } from '../../src/index.js';
 import { CloudTransport } from '../../src/cloud-transport.js';
 import { HttpClient } from '../../src/openapi/client.js';
-import type { UnsV2Response } from '../../src/uns-v2/generated.js';
+import type { UnsV2Request, UnsV2Response } from '../../src/uns-v2/generated.js';
 
 const received: Array<{ method?: string; path?: string; body: string; headers: IncomingMessage['headers'] }> = [];
 let respond: (req: IncomingMessage, res: ServerResponse) => void;
@@ -533,6 +533,71 @@ describe('UNS v2 localhost HTTP fixture', () => {
       body: '{"collectionId":"measurements","recordIds":["machine-1","machine-2"],"from":1000,"to":2000,"page":{"mode":"cursor","size":20}}',
     });
     expect(received.length - start).toBe(1);
+  });
+
+  it('keeps Sample aggregate rows flat when resultFormat is omitted or rows', async () => {
+    const start = received.length;
+    const pipeline: UnsV2Request<'sampleAggregate'>['pipeline'] = [
+      { $group: { _id: '$_meta.recordId', latest: { $last: '$value' } } },
+    ];
+    const request = { collectionId: 'measurements', from: 0, to: 3_600_000, pipeline };
+    const data = {
+      items: [{ _id: 'machine-1', latest: 42 }],
+      pageInfo: { mode: 'offset', hasMore: false, nextPage: null, nextCursor: null, snapshotScope: 'thisRequestOnly' },
+    };
+    respond = (_req, res) => send(res, { code: 200, msg: '', requestId: 'sample-aggregate-rows', data });
+    const omitted = await client().uns.sampleAggregate(request);
+    const explicit = await client().uns.sampleAggregate({ ...request, resultFormat: 'rows' });
+    expect(omitted.data).toEqual(data);
+    expect(explicit.data).toEqual(data);
+    const calls = received.slice(start);
+    expect(calls).toHaveLength(2);
+    for (const call of calls) {
+      expect(call).toMatchObject({ method: 'POST', path: '/openapi/v2/uns/collections/measurements/samples:aggregate' });
+    }
+    expect(JSON.parse(calls[0].body)).toEqual(request);
+    expect(JSON.parse(calls[1].body)).toEqual({ ...request, resultFormat: 'rows' });
+  });
+
+  it('sends all requested Sample series IDs and preserves ordered empty series and exact bucket numbers', async () => {
+    const start = received.length;
+    const recordIds = ['empty-machine', 'machine-1', ...Array.from({ length: 20 }, (_, index) => `machine-${index + 2}`)];
+    const pipeline: UnsV2Request<'sampleAggregate'>['pipeline'] = [
+      { $group: {
+        _id: { recordId: '$_meta.recordId', hour: { $dateTrunc: { date: '$_meta.time', unit: 'hour' } } },
+        latest: { $last: '$value' },
+        population: { $stdDevPop: '$value' },
+        sample: { $stdDevSamp: '$value' },
+      } },
+      { $sort: [['_id.hour', 1]] },
+    ];
+    const request = {
+      collectionId: 'measurements', recordIds, from: 0, to: 3_600_000,
+      resultFormat: 'series' as const, pipeline, page: { mode: 'offset' as const, size: 21 },
+    };
+    const pageInfo = { mode: 'offset', hasMore: true, nextPage: 2, nextCursor: null, snapshotScope: 'thisRequestOnly' };
+    const items = recordIds.slice(0, 21).map(recordId => ({
+      recordId,
+      items: recordId === 'machine-1'
+        ? [{ _id: { recordId, hour: 0 }, latest: '9007199254740993', population: 0, sample: null }]
+        : [],
+    }));
+    respond = (_req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ code: 200, msg: '', requestId: 'sample-aggregate-series', data: { items, pageInfo } })
+        .replace('"9007199254740993"', '9007199254740993'));
+    };
+    const response = await client().uns.sampleAggregate(request);
+    expect(response.data.pageInfo).toEqual(pageInfo);
+    expect(response.data.items.map(series => series.recordId)).toEqual(recordIds.slice(0, 21));
+    expect(response.data.items[0]).toEqual({ recordId: 'empty-machine', items: [] });
+    expect(response.data.items[1]).toEqual({
+      recordId: 'machine-1',
+      items: [{ _id: { recordId: 'machine-1', hour: 0 }, latest: new UnsV2RawNumber('9007199254740993'), population: 0, sample: null }],
+    });
+    expect(received.slice(start)).toHaveLength(1);
+    expect(received[start]).toMatchObject({ method: 'POST', path: '/openapi/v2/uns/collections/measurements/samples:aggregate' });
+    expect(JSON.parse(received[start].body)).toEqual(request);
   });
 
   it('reads Sample resources consistently from find and latest while keeping business numbers exact', async () => {

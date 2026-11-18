@@ -67,7 +67,7 @@ test('sync extracts Unicode contract strings and pins committed inputs instead o
   } finally { rmSync(scratch, { recursive: true, force: true }); }
 });
 
-test('scoped sync preserves other schemas, checks dependencies before writing and keeps committed digest provenance', () => {
+test('scoped sync imports components and inline requests, checks dependencies before writing and keeps committed digest provenance', () => {
   const scratch = mkdtempSync(resolve(tmpdir(), 'tier0-scoped-contract-sync-'));
   try {
     const backend = resolve(scratch, 'backend'), sdk = resolve(scratch, 'sdk');
@@ -82,11 +82,18 @@ test('scoped sync preserves other schemas, checks dependencies before writing an
     const read = path => readFileSync(resolve(sdk, path), 'utf8');
     const put = (path, value) => { const file = resolve(backend, path); mkdirSync(dirname(file), { recursive: true }); writeFileSync(file, value); };
     const schemaMap = document => document.schemas ?? document.components.schemas;
+    const publicPath = 'contracts/openapi-v2.source.json';
+    const aggregatePath = '/uns/collections/{collectionId}/samples:aggregate';
+    const findPath = '/uns/collections/{collectionId}/samples:find';
+    const aggregateRequest = document => document.schemas?.UnsV2SampleAggregateReq
+      ?? document.paths[aggregatePath].post.requestBody.content['application/json'].schema;
     const snapshots = new Map();
     for (const [path, remote] of Object.entries(sources)) {
       const incoming = JSON.parse(read(path)), schemas = schemaMap(incoming);
       schemas.UnsV2PipelineExpression.description += ' scoped fixture';
-      schemas.UnsV2PipelinePage.description = 'unrelated source change';
+      schemas.CloudRecordLockView.description = 'unrelated schema change';
+      aggregateRequest(incoming).properties.resultFormat = { type: 'string', enum: ['rows', 'series'], default: 'rows' };
+      if (path === publicPath) incoming.paths[findPath].post.summary = 'unrelated operation change';
       snapshots.set(path, incoming);
       put(remote, path.endsWith('/contract.json') ? `package unsv2\nconst ContractJSON = ${JSON.stringify(JSON.stringify(incoming))}\n` : JSON.stringify(incoming));
     }
@@ -98,7 +105,7 @@ test('scoped sync preserves other schemas, checks dependencies before writing an
     const snapshot = () => Object.fromEntries(paths.map(path => [path, read(path)]));
     const before = snapshot();
     const run = (ref, ...flags) => spawnSync(process.execPath, [resolve(sdk, 'scripts/sync-contracts.mjs'), backend, ref, ...flags], { encoding: 'utf8' });
-    const flags = ['--schemas', 'UnsV2PipelineExpression', '--scope', 'scoped-fixture'];
+    const flags = ['--schemas', 'UnsV2PipelineExpression,UnsV2SampleAggregateReq', '--scope', 'scoped-fixture'];
     for (const invalid of [
       ['--schemas', 'UnsV2PipelineExpression'], ['--scope', 'scoped-fixture'],
       ['--schemas', 'UnsV2PipelineExpression,UnsV2PipelineExpression', '--scope', 'scoped-fixture'],
@@ -109,9 +116,8 @@ test('scoped sync preserves other schemas, checks dependencies before writing an
       assert.deepEqual(snapshot(), before);
     }
     // Only the last input has a broken dependency: no earlier output may have been written.
-    const publicPath = 'contracts/openapi-v2.source.json';
     const broken = structuredClone(snapshots.get(publicPath));
-    schemaMap(broken).UnsV2PipelineExpression.oneOf.push({ $ref: '#/components/schemas/MissingDependency' });
+    aggregateRequest(broken).properties.resultFormat = { $ref: '#/components/schemas/MissingDependency' };
     put(sources[publicPath], JSON.stringify(broken));
     const rejected = run(commit(), ...flags);
     assert.notEqual(rejected.status, 0); assert.match(rejected.stderr, /Missing dependency/);
@@ -127,15 +133,23 @@ test('scoped sync preserves other schemas, checks dependencies before writing an
     const result = run(revision, ...flags);
     assert.equal(result.status, 0, result.stderr);
     for (const path of Object.keys(sources)) {
-      const actual = schemaMap(JSON.parse(read(path))), original = schemaMap(JSON.parse(before[path]));
-      assert.deepEqual(actual.UnsV2PipelineExpression, schemaMap(snapshots.get(path)).UnsV2PipelineExpression);
-      assert.deepEqual(actual.UnsV2PipelinePage, original.UnsV2PipelinePage);
+      const actual = JSON.parse(read(path)), original = JSON.parse(before[path]), incoming = snapshots.get(path);
+      assert.deepEqual(schemaMap(actual).UnsV2PipelineExpression, schemaMap(incoming).UnsV2PipelineExpression);
+      assert.deepEqual(schemaMap(actual).CloudRecordLockView, schemaMap(original).CloudRecordLockView);
+      assert.deepEqual(aggregateRequest(actual), aggregateRequest(incoming));
+      if (path === publicPath) {
+        assert.equal(schemaMap(actual).UnsV2SampleAggregateReq, undefined);
+        assert.deepEqual(actual.paths[findPath], original.paths[findPath]);
+      }
     }
     const lock = JSON.parse(read('contracts/upstream.json')), previous = JSON.parse(before['contracts/upstream.json']);
     assert.equal(lock.revision, previous.revision);
     assert.deepEqual(lock.schemaUpdates.slice(0, -1), previous.schemaUpdates ?? []);
     assert.equal(lock.schemaUpdates.at(-1).sourceKind, 'committed');
     assert.equal(lock.schemaUpdates.at(-1).revision, revision);
+    const publicUpdate = lock.schemaUpdates.at(-1).inputs[publicPath];
+    assert.equal(publicUpdate.baseSHA256, previous.inputs[publicPath].sha256);
+    assert.equal(publicUpdate.resultSHA256, lock.inputs[publicPath].sha256);
     const once = snapshot();
     assert.equal(run(revision, ...flags).status, 0);
     assert.deepEqual(snapshot(), once);
