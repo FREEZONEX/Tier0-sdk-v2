@@ -62,8 +62,11 @@ if (schemaFlag >= 0 || scopeFlag >= 0) {
       if (!value || typeof value !== 'object') return;
       if (value.$ref?.startsWith('#/components/schemas/')) {
         const name = value.$ref.slice('#/components/schemas/'.length);
-        assert.ok(target[name], `Missing dependency ${name} in ${path}`);
-        if (!visited.has(name)) { visited.add(name); checkRefs(target[name]); }
+        if (!visited.has(name)) {
+          assert.ok(target[name] && source[name], `Missing dependency ${name} in ${path}`);
+          assert.deepEqual(target[name], source[name], `Dependency differs: ${name} in ${path}; include it in --schemas`);
+          visited.add(name); checkRefs(target[name]);
+        }
       }
       for (const child of Object.values(value)) checkRefs(child);
     };

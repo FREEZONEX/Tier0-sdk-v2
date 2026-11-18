@@ -86,7 +86,7 @@ test('scoped sync preserves other schemas, checks dependencies before writing an
     for (const [path, remote] of Object.entries(sources)) {
       const incoming = JSON.parse(read(path)), schemas = schemaMap(incoming);
       schemas.UnsV2PipelineExpression.description += ' scoped fixture';
-      schemas.UnsV2FilterScalar.description = 'unrelated source change';
+      schemas.UnsV2PipelinePage.description = 'unrelated source change';
       snapshots.set(path, incoming);
       put(remote, path.endsWith('/contract.json') ? `package unsv2\nconst ContractJSON = ${JSON.stringify(JSON.stringify(incoming))}\n` : JSON.stringify(incoming));
     }
@@ -116,13 +116,20 @@ test('scoped sync preserves other schemas, checks dependencies before writing an
     const rejected = run(commit(), ...flags);
     assert.notEqual(rejected.status, 0); assert.match(rejected.stderr, /Missing dependency/);
     assert.deepEqual(snapshot(), before);
+    // An existing but different dependency in the last input must also fail before any writes.
+    const mismatch = structuredClone(snapshots.get(publicPath));
+    schemaMap(mismatch).UnsV2FilterScalar.description = 'changed dependency';
+    put(sources[publicPath], JSON.stringify(mismatch));
+    const mismatched = run(commit(), ...flags);
+    assert.notEqual(mismatched.status, 0); assert.match(mismatched.stderr, /Dependency differs: UnsV2FilterScalar.*include it in --schemas/);
+    assert.deepEqual(snapshot(), before);
     put(sources[publicPath], 'uncommitted dirty input must be ignored');
     const result = run(revision, ...flags);
     assert.equal(result.status, 0, result.stderr);
     for (const path of Object.keys(sources)) {
       const actual = schemaMap(JSON.parse(read(path))), original = schemaMap(JSON.parse(before[path]));
       assert.deepEqual(actual.UnsV2PipelineExpression, schemaMap(snapshots.get(path)).UnsV2PipelineExpression);
-      assert.deepEqual(actual.UnsV2FilterScalar, original.UnsV2FilterScalar);
+      assert.deepEqual(actual.UnsV2PipelinePage, original.UnsV2PipelinePage);
     }
     const lock = JSON.parse(read('contracts/upstream.json')), previous = JSON.parse(before['contracts/upstream.json']);
     assert.equal(lock.revision, previous.revision);
