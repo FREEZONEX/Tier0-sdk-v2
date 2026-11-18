@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -20,6 +21,83 @@ const revision = preview ? baseRevision() : git('rev-parse', '--verify', `${requ
 if (!/^[a-f0-9]{40}$/.test(revision)) throw new Error('Expected a committed upstream revision');
 const readSource = path => preview ? readFileSync(resolve(backend, path)) : git('show', `${revision}:${path}`);
 const sourceMetadata = preview ? { sourceKind: 'working-tree-preview', baseRevision: revision } : {};
+// 只同步明确列出的 schema，复用正式来源与摘要链，不为每个新操作新增同步脚本。
+const schemaFlag = process.argv.indexOf('--schemas'), scopeFlag = process.argv.indexOf('--scope');
+if (schemaFlag >= 0 || scopeFlag >= 0) {
+  assert.ok(schemaFlag >= 0 && scopeFlag >= 0 && !process.argv.includes('--platform-only'), '--schemas and --scope must be provided together without --platform-only');
+  assert.ok(process.argv.length === 8 && Math.abs(schemaFlag - scopeFlag) === 2 && Math.min(schemaFlag, scopeFlag) === 4, 'Scoped sync accepts exactly one --schemas list and one --scope name');
+  const names = (process.argv[schemaFlag + 1] ?? '').split(',');
+  const scope = process.argv[scopeFlag + 1] ?? '';
+  assert.ok(names.length && names.every(name => /^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) && new Set(names).size === names.length, '--schemas requires unique comma-separated schema names');
+  assert.match(scope, /^[a-z][a-z0-9-]*$/, '--scope requires a lowercase scope name');
+  const read = path => readFileSync(resolve(root, path));
+  const hash = data => createHash('sha256').update(data).digest('hex');
+  const json = value => Buffer.from(JSON.stringify(value, null, 2) + '\n');
+  const lock = JSON.parse(read('contracts/upstream.json'));
+  const provenance = JSON.parse(read('contracts/uns-v2/provenance.json'));
+  assert.deepEqual(lock.schemaUpdates ?? [], provenance.schemaUpdates ?? [], 'Contract provenance differs');
+  const updates = lock.schemaUpdates ?? [], previous = updates.find(item => item.scope === scope);
+  assert.ok(!previous || updates.at(-1) === previous, 'Cannot replace a nonterminal schema overlay');
+  if (previous) assert.deepEqual(previous.schemas, names, 'Cannot change the schemas of an existing scope');
+  for (const [path, input] of Object.entries(lock.inputs)) assert.equal(hash(read(path)), input.sha256, `Unsynced input ${path}`);
+  const update = { scope, repository: 'FREEZONEX/Tier0-Backend', revision, sourceKind: preview ? 'working-tree-preview' : 'committed', schemas: names, inputs: {} };
+  const outputs = new Map();
+  for (const [path, sourcePath] of Object.entries({
+    'contracts/uns-v2/contract.json': 'service/unssvr/internal/domain/unsv2/contract_generated.go',
+    'contracts/uns-v2/manifest.json': 'share/unscontract/manifest.json',
+    'contracts/openapi-v2.source.json': 'service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json',
+  })) {
+    const before = read(path), current = JSON.parse(before), raw = readSource(sourcePath);
+    const incoming = path.endsWith('/contract.json')
+      ? JSON.parse(JSON.parse(raw.toString().match(/^const ContractJSON = ("(?:\\[\s\S]|[^"\\])*")\r?$/m)?.[1] ?? 'null'))
+      : JSON.parse(raw);
+    const target = current.schemas ?? current.components?.schemas, source = incoming?.schemas ?? incoming?.components?.schemas;
+    assert.ok(target && source, `Missing schema map in ${path}`);
+    for (const name of names) {
+      assert.ok(source[name] && target[name], `Missing existing schema ${name} in ${path}`);
+      target[name] = structuredClone(source[name]);
+    }
+    const visited = new Set();
+    const checkRefs = value => {
+      if (!value || typeof value !== 'object') return;
+      if (value.$ref?.startsWith('#/components/schemas/')) {
+        const name = value.$ref.slice('#/components/schemas/'.length);
+        if (!visited.has(name)) {
+          assert.ok(target[name] && source[name], `Missing dependency ${name} in ${path}`);
+          assert.deepEqual(target[name], source[name], `Dependency differs: ${name} in ${path}; include it in --schemas`);
+          visited.add(name); checkRefs(target[name]);
+        }
+      }
+      for (const child of Object.values(value)) checkRefs(child);
+    };
+    for (const name of names) checkRefs(target[name]);
+    // 每次追加前验证已有增量链，不能用新摘要掩盖中间断链。
+    let expected;
+    for (const item of updates) {
+      const input = item.inputs?.[path];
+      if (!input) continue;
+      if (expected !== undefined) assert.equal(input.baseSHA256, expected, `Broken schema digest chain ${path}`);
+      expected = input.resultSHA256;
+    }
+    if (expected !== undefined) assert.equal(expected, hash(before), `Broken final schema digest ${path}`);
+    const after = path.endsWith('/contract.json') ? Buffer.from(JSON.stringify(current) + '\n') : json(current);
+    assertNoRetiredStreamProbe(after.toString('utf8'), path);
+    assertNoRetiredHTTPPush(after.toString('utf8'), path);
+    assertNoRetiredControls(after.toString('utf8'), path);
+    update.inputs[path] = { path: sourcePath, sourceSHA256: hash(raw), baseSHA256: previous?.inputs[path]?.baseSHA256 ?? hash(before), resultSHA256: hash(after) };
+    lock.inputs[path] = { ...lock.inputs[path], sha256: hash(after) };
+    outputs.set(path, after);
+  }
+  lock.schemaUpdates = [...updates.filter(item => item.scope !== scope), update];
+  provenance.schemaUpdates = lock.schemaUpdates;
+  provenance.sourceDerivedContractSHA256 = hash(outputs.get('contracts/uns-v2/contract.json'));
+  outputs.set('contracts/upstream.json', json(lock));
+  outputs.set('contracts/uns-v2/provenance.json', json(provenance));
+  // 所有输入、依赖和已有摘要通过后才写入；失败校验不留下部分同步。
+  for (const [path, data] of outputs) writeFileSync(resolve(root, path), data);
+  console.log(`Synced ${scope} schemas from ${revision} (${update.sourceKind}).`);
+  process.exit(0);
+}
 // Platform routing/capability changes can be reviewed independently of the UNS
 // data model, whose committed inputs remain pinned until explicitly migrated.
 if (process.argv.includes('--platform-only')) {

@@ -20,7 +20,7 @@
       "capability": "x-tier0-opcua-server: static available=false; online availability is workspace/registry authoritative"
     }
   },
-  "sourceDerivedContractSHA256": "77ca6c1824757d6c08408017c250f5deebaa0791873da6f6994d3aa9412b90c1",
+  "sourceDerivedContractSHA256": "d929df180832437856de6d2782a20bf1af027e4968f0c45492350e8934c3fdc9",
   "schemaUpdates": [
     {
       "scope": "source-stream-public",
@@ -480,6 +480,36 @@
           "sourceSHA256": "67f084023eb9e5b6b7a75cf3edeae160473dce7a428c80cfe2422f322ff2fa8d",
           "baseSHA256": "5b89763e2c6890ff7548c38934d2a70d4a235da1568ab1276643c4769fb57b49",
           "resultSHA256": "f5a4503457416f5325427729ee92a04a37b01553e477f27724de069b5ceb5f7f"
+        }
+      }
+    },
+    {
+      "scope": "pipeline-membership-and-lookup",
+      "repository": "FREEZONEX/Tier0-Backend",
+      "revision": "a7af6aaa631fec37bd910dd3dd539ec142051870",
+      "sourceKind": "committed",
+      "schemas": [
+        "UnsV2PipelineExpression",
+        "UnsV2PipelineStage"
+      ],
+      "inputs": {
+        "contracts/uns-v2/contract.json": {
+          "path": "service/unssvr/internal/domain/unsv2/contract_generated.go",
+          "sourceSHA256": "4f36afdebf18882f993f82c4fdd672a72edc1f4cc6a81a0b0ea69311c661b2c9",
+          "baseSHA256": "77ca6c1824757d6c08408017c250f5deebaa0791873da6f6994d3aa9412b90c1",
+          "resultSHA256": "d929df180832437856de6d2782a20bf1af027e4968f0c45492350e8934c3fdc9"
+        },
+        "contracts/uns-v2/manifest.json": {
+          "path": "share/unscontract/manifest.json",
+          "sourceSHA256": "14cf18dad65c3690a54f8671174be5e0829e3f57d6e3be52720433c9312dcf05",
+          "baseSHA256": "f4ad5f822cb3a13a95d1a76f08ca897840a3d0b62847f52e8d6b244a332ff98c",
+          "resultSHA256": "a5c322b2b010e41fd38427c7491cf823bbce801f34dc8acf72b64fb9b785f16e"
+        },
+        "contracts/openapi-v2.source.json": {
+          "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
+          "sourceSHA256": "c0991d3666fd7b8da8e0cfaf448bc44c21e413666cd1c5c1530b13fe65af1a2c",
+          "baseSHA256": "f5a4503457416f5325427729ee92a04a37b01553e477f27724de069b5ceb5f7f",
+          "resultSHA256": "9aeee3851527f2fbe0f5794cb7365d22f0e717c399d4c66d1e8ccc3e23e9eb9b"
         }
       }
     }

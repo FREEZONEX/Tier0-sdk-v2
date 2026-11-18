@@ -322,6 +322,8 @@ npm run generate
 npm run check
 ```
 
+仅更新已存在的指定 schema 时，可使用 `npm run sync:contracts -- <backend> <commit> --schemas UnsV2PipelineExpression,UnsV2PipelineStage --scope pipeline-membership-and-lookup`，再生成并检查。两个选项必须一起提供；同步会验证已有输入摘要和 schema 依赖，保留其他契约与来源链。已有 scope 只能更新末尾条目且不能更换 schema 列表；`--worktree` 仅用于预览，发布前必须固定已提交版本。
+
 平台操作来自固定版本的 `/openapi/v2/swagger.json` 有效契约，生成器据此处理响应外层；UNS 来自 `contract_generated.go#ContractJSON` 中已经应用 Cloud 扩展的契约，结合 manifest/registry 生成。不能直接使用仍含 Enterprise 基础操作的 `share/unscontract/contract.json` 作为最终云端契约。
 
 `npm run check` 包含契约一致性、Skill 注册及递归引用检查、所有 Skill TypeScript 示例的源码/安装包类型校验、单元和本地 HTTP 测试、ESM/CJS 构建、实际 npm 包安装、浏览器打包及导入验证。完整行为测试还会在独立 consumer 中对已安装的 `.tgz` 再跑一遍，导入目标严格指向包内 `dist`；包内调试映射包含源内容。路由检查覆盖生成契约的全部公开操作，使用本地 HTTP fixture，不等于每个操作的业务验收。
