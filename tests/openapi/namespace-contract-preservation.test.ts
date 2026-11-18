@@ -153,7 +153,7 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
   // capability dimensions and expose the already-enforced logical/filter budgets.
   // Operation identities and schema membership are unchanged. The read-limits test
   // asserts these deltas; the entire reachable graph stays pinned for future changes.
-  // Re-pinned for committed Backend b5c05955e3: only UnsV2PipelinePage.size loses
+  // Re-pinned for committed Backend da46d04904: only UnsV2PipelinePage.size loses
   // maximum: 200 and gains the response/timeout/offset-budget description.
   // The aggregate page test verifies the size contract; no graph membership changed.
   expect(digest).toBe('2ef02293c94463354a10dfde6b715e45191cf4055746a7453a8fa3f5d847b068');

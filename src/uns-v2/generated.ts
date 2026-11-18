@@ -4631,7 +4631,7 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
     {
       "scope": "aggregate-page-size",
       "repository": "FREEZONEX/Tier0-Backend",
-      "revision": "b5c05955e3917cb5ca703386ff5f2c0317435633",
+      "revision": "da46d0490456a23cc0ed4e04a29c62fba61656a0",
       "sourceKind": "committed",
       "schemas": [
         "UnsV2PipelinePage.properties.size"
@@ -4639,13 +4639,13 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
       "inputs": {
         "contracts/uns-v2/contract.json": {
           "path": "service/unssvr/internal/domain/unsv2/contract_generated.go",
-          "sourceSHA256": "479ab6382405dcafb14837b051e176d762e826ae5eca26d38856a750cede28f1",
+          "sourceSHA256": "577c5318882d4da1970861e4e7e4a96ec15885011449f983f5a7740bc9d1f1e1",
           "baseSHA256": "8b263226f8a8605846fa173439299bb8b2516035026839b106a09efcbb593c21",
           "resultSHA256": "77ca6c1824757d6c08408017c250f5deebaa0791873da6f6994d3aa9412b90c1"
         },
         "contracts/uns-v2/manifest.json": {
           "path": "share/unscontract/manifest.json",
-          "sourceSHA256": "f72272fb66ffeb0670f19f13f6d2785be64ef9c0846cf190585c1cf3d48d874d",
+          "sourceSHA256": "0e887b0a9cdad39b1cfdba336028cff32255447ff5c013c3b07f08bd01679ce2",
           "baseSHA256": "8c336dee79e06df520d6c26b8ae776b940ac1f583edd388068d4445a39b2c915",
           "resultSHA256": "f4ad5f822cb3a13a95d1a76f08ca897840a3d0b62847f52e8d6b244a332ff98c"
         },
@@ -4663,7 +4663,7 @@ export const UNS_V2_CONTRACT_PROVENANCE = {
     "contract": "77ca6c1824757d6c08408017c250f5deebaa0791873da6f6994d3aa9412b90c1",
     "cloudSupport": "a1feaba48061fce10ed5ffa5ef444b478631cd5c2c85d221b73e3c62cbe93c94",
     "manifest": "f4ad5f822cb3a13a95d1a76f08ca897840a3d0b62847f52e8d6b244a332ff98c",
-    "provenance": "14e078cc8f2398c507d157e0f24104ca0b69b277c83c8f96217e0a42e6e14c2f",
+    "provenance": "3b08a5cf71d7379f03f3c7a3ed26599f4d0594bade87790ef540161e427e0ead",
     "registry": "1de1afc304728f414932673e51d07b780cff3c37a9e0340cd7ee2a987c574376"
   },
   "publicOperationCount": 92,
