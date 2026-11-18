@@ -25,7 +25,7 @@ export async function createOrder(code: string, intentKey: string) {
 
 ## 查询
 
-`find()` / `aggregate()` 游标支持 `.batchSize(10).limit(100)`：每次网络请求最多取 10 条，完整迭代仍返回最多 100 条。batchSize 必须是 1–200 的整数，并在迭代开始前设置；默认仍为 200。偏移分页在整次迭代中保持同一个大小，最后一页也不改变大小，避免漏行或重复。大证据记录可用较小批次避免单响应超限，但这不是提高单记录上限，也不保证多次请求共享快照；业务所需的版本校验仍由调用方保留。`toArray()` 最终仍将全部结果留在内存；需要逐行处理时用 `for await`。此能力只使用既有分页字段，不需要后端新权限或接口。参考 [MongoDB cursor batchSize](https://www.mongodb.com/docs/manual/reference/method/cursor.batchsize/) 的批次大小与结果数量分离约定。
+`find()` / `aggregate()` 游标支持 `.batchSize(10).limit(100)`：每次网络请求最多取 10 条，完整迭代仍返回最多 100 条。默认批次大小仍为 200，必须在迭代开始前设置。`find()` 的 batchSize 仍为 1–200；`aggregate()` 可显式请求更大批次，要求正安全整数且 `size + 1` 和偏移量可精确表示，并需要配套后端更新。偏移分页在整次迭代中保持同一个大小，最后一页也不改变大小，避免漏行或重复。每个查询仍受 8 MiB 响应预算、超时和后端偏移上限约束；大证据记录可用较小批次避免单响应超限，但这不是提高单记录上限，也不保证多次请求共享快照。业务所需的版本校验仍由调用方保留。`toArray()` 最终仍将全部结果留在内存；需要逐行处理时用 `for await`。参考 [MongoDB cursor batchSize](https://www.mongodb.com/docs/manual/reference/method/cursor.batchsize/) 的批次大小与结果数量分离约定。
 
 | 方法 | 返回与用途 |
 | --- | --- |
@@ -38,9 +38,9 @@ export async function createOrder(code: string, intentKey: string) {
 | distinct(field,filter) | 取完所有页的去重值 |
 | aggregate(pipeline) | 服务端统计游标，支持受限聚合与 lookup |
 
-capped:true 显示 N+，不要当精确总数。get 的 missing 包含不存在或不可读 ID。分页查询每页最多 200 行，get 不受分页行数限制；跨请求游标不是固定快照。
+capped:true 显示 N+，不要当精确总数。get 的 missing 包含不存在或不可读 ID。find / findPage 每页最多 200 行；aggregate 默认每页 200 行，可显式调整。get 不受分页行数限制；跨请求游标不是固定快照。
 
-过滤支持比较、集合、逻辑和数组操作符；`$contains` 是 1–256 字节的字符串子串匹配，仅 ASCII 字母忽略大小写，无通配符/正则，不能利用索引。`$in` 最多 200 值，sort 最多 4 字段；宽泛查询可能 QUERY_TIMEOUT。
+过滤支持比较、集合、逻辑和数组操作符；`$contains` 是 1–256 字节的字符串子串匹配，仅 ASCII 字母忽略大小写，无通配符/正则，不能利用索引。`$in` / `$nin` 值数没有固定上限，仍受请求与超时约束；sort 最多 4 字段，宽泛查询可能 QUERY_TIMEOUT。
 
 ## 同一页面的多项读取
 
@@ -59,11 +59,11 @@ export async function dashboard(page: number, selectedId: string) {
 }
 ```
 
-queryBatch 接受非空的命名查询集合，同一请求共享快照；无需快照一致性时不强制使用。默认单项失败抛 DataError，`{settle:true}` 按项返回 `{ok,value|error}`。分页查询每页仍最多 200 行，每个子查询仍受 8 MiB 响应预算约束；不再限制子查询数量、整批行数或整批 8 MiB 大小。`$in` 值数和 `get` ID 数没有固定上限，仍须满足类型、非空、请求和超时约束。能力 limits 中对应的数值 0 表示无该维度上限，不能作为分组步长。支持 query.find/findPage/count/countBy/distinct/aggregate/get。
+queryBatch 接受非空的命名查询集合，同一请求共享快照；无需快照一致性时不强制使用。默认单项失败抛 DataError，`{settle:true}` 按项返回 `{ok,value|error}`。普通 find / findPage 每页仍最多 200 行，aggregatePage 可显式请求更大页；每个子查询仍受 8 MiB 响应预算约束，不再限制子查询数量、整批行数或整批 8 MiB 大小。`$in` 值数和 `get` ID 数没有固定上限，仍须满足类型、非空、请求和超时约束。能力 limits 中对应的数值 0 表示无该维度上限，不能作为分组步长。支持 query.find/findPage/count/countBy/distinct/aggregate/aggregatePage/get。
 
 语句超时或任一子查询超过其响应字节预算时整批失败，`settle:true` 也不会返回部分结果。独立 `collection.get([])` 保持本地空结果、不发请求；批内 `query.get([])` 仍拒绝空 ID 数组。旧后端仍可能拒绝超过旧数量上限的请求，SDK 不自动切块回退，需要配套后端更新。
 
-`query.aggregatePage(pipeline, { page, pageSize })` 读取显式偏移页并返回 `{items,pageInfo}`；默认第 1 页、每页 200 条，pageSize 为 1–200。`pageInfo.hasMore/nextPage` 保留后续页信息，`snapshotScope:'thisRequestOnly'` 表示只有本次 queryBatch 共享快照。需要继续时保持授权范围、管线和 pageSize 不变，按 nextPage 发起下一次调用；不会自动取全量或把多次调用变成同一快照。排序应有稳定的唯一兜底字段。原 `query.aggregate/countBy/distinct` 仍只返回首页数组；需要自动完整迭代可用 `collection.aggregate()` 游标。
+`query.aggregatePage(pipeline, { page, pageSize })` 读取显式偏移页并返回 `{items,pageInfo}`；默认第 1 页、每页 200 条，pageSize 可大于 200，要求正安全整数且 `pageSize + 1` 和 `(page - 1) * pageSize` 可精确表示。后端偏移上限仍适用。`pageInfo.hasMore/nextPage` 保留后续页信息，`snapshotScope:'thisRequestOnly'` 表示只有本次 queryBatch 共享快照。需要继续时保持授权范围、管线和 pageSize 不变，按 nextPage 发起下一次调用；不会自动取全量或把多次调用变成同一快照。排序应有稳定的唯一兜底字段。原 `query.aggregate/countBy/distinct` 仍只返回首页数组；需要自动完整迭代可用 `collection.aggregate()` 游标。
 
 ```ts
 import { createDataClient } from '@tier0/sdk-v2/data';
@@ -79,7 +79,7 @@ const result = await data.queryBatch({ groups });
 // 使用 result.groups.items 展示本页，按 result.groups.pageInfo 决定是否继续。
 ```
 
-终结于 `$count` 的管线不接受分页，继续使用 `query.aggregate` 或 `query.count`。新方法复用既有聚合协议和请求预算，不要求后端新增接口。
+终结于 `$count` 的管线不接受分页，继续使用 `query.aggregate` 或 `query.count`。新方法复用既有聚合协议和请求预算，不要求后端新增接口；大于 200 的页需要配套后端更新，旧后端拒绝时不自动切块回退。
 
 ## 写入
 

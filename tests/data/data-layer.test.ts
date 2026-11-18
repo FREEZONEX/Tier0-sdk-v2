@@ -886,6 +886,41 @@ describe('collection operations', () => {
     expect(mock.calls(ENSURE)).toHaveLength(0);
   });
 
+  it.each(['cursor', 'offset'] as const)('accepts aggregate batches above 200 and preserves %s continuation size', async (mode) => {
+    const path = '/uns/collections/c-orders/records:aggregate';
+    const items = Array.from({ length: 501 }, (_, index) => ({ code: `code-${index}` }));
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, [path]: [
+      ok({ items: items.slice(0, 500), pageInfo: { hasMore: true, nextCursor: 'after-500', nextPage: 2 } }),
+      ok({ items: items.slice(500), pageInfo: { hasMore: false } }),
+    ] });
+    const pipeline = mode === 'cursor' ? [{ $sort: { code: 1 } }] : [{ $project: { code: 1 } }, { $sort: { code: 1 } }];
+    const cursor = client(mock).collection(orders).aggregate(pipeline).batchSize(500).limit(501);
+    expect(await cursor.toArray()).toEqual(items);
+    expect(mock.calls(path).map(call => call.body.page)).toEqual(mode === 'cursor'
+      ? [{ mode, size: 500 }, { mode, size: 500, cursor: 'after-500' }]
+      : [{ mode, size: 500, page: 1 }, { mode, size: 500, page: 2 }]);
+    expect(() => cursor.batchSize(1000)).toThrow('before iteration');
+  });
+
+  it('rejects invalid aggregate batch sizes before initializing collections', () => {
+    const mock = mockUns({});
+    const cursor = client(mock).collection(orders).aggregate([]);
+    for (const size of [0, -1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER + 1]) {
+      expect(() => cursor.batchSize(size)).toThrow(RangeError);
+    }
+    expect(cursor.batchSize(201).batchSize(Number.MAX_SAFE_INTEGER - 1)).toBe(cursor);
+    expect(mock.sent).toHaveLength(0);
+  });
+
+  it('rejects an unsafe aggregate continuation offset before sending that page', async () => {
+    const path = '/uns/collections/c-orders/records:aggregate';
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, [path]: ok({
+      items: [{ code: 'A' }], pageInfo: { hasMore: true, nextPage: Number.MAX_SAFE_INTEGER },
+    }) });
+    await expect(client(mock).collection(orders).aggregate([{ $project: { code: 1 } }]).batchSize(2).toArray()).rejects.toThrow('offset must be a safe integer');
+    expect(mock.calls(path)).toHaveLength(1);
+  });
+
   it('serves a numbered page and its capped total in one aggregate request', async () => {
     const mock = mockUns({
       [ENSURE]: BOTH_UNCHANGED,
@@ -917,6 +952,14 @@ describe('collection operations', () => {
     const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, '/uns/collections/c-orders/records:count': ok({ count: 100, capped: true }) });
     expect(await client(mock).collection(orders).countDocuments({ status: 'OPEN' }, { maxCount: 100 })).toEqual({ count: 100, capped: true });
     expect(mock.calls('/uns/collections/c-orders/records:count')[0].body).toEqual({ collectionId: 'c-orders', filter: { status: 'OPEN' }, maxCount: 100 });
+  });
+
+  it('keeps ordinary findPage capped at 200', async () => {
+    const path = '/uns/collections/c-orders/records:aggregate';
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, [path]: ok({ items: [], total: { count: 0, capped: false } }) });
+    const result = await client(mock).collection(orders).findPage({}, { pageSize: 1000 });
+    expect(result.pageSize).toBe(200);
+    expect(mock.calls(path)[0].body.page).toEqual({ mode: 'offset', page: 1, size: 200 });
   });
 
   it('counts per field value with one $group pipeline', async () => {
@@ -1387,15 +1430,31 @@ describe('reads by ID and query batches', () => {
     ], page: { mode: 'offset', page: 3, size: 10 } });
   });
 
+  it('reads more than 200 aggregate rows in one explicit batch page', async () => {
+    const items = Array.from({ length: 501 }, (_, index) => ({ _id: `group-${index}`, count: index }));
+    const mock = mockUns({ [ENSURE]: BOTH_UNCHANGED, [BATCH]: ok({ results: {
+      groups: { ok: true, data: { items, pageInfo } },
+    } }) });
+    const data = client(mock), handle = data.collection(orders);
+    const result = await data.queryBatch({ groups: handle.query.aggregatePage<{ _id: string; count: number }>([
+      { $group: { _id: '$code', count: { $sum: 1 } } }, { $sort: { _id: 1 } },
+    ], { page: 2, pageSize: 1000 }) });
+    expect(result.groups).toEqual({ items, pageInfo });
+    expect(mock.calls(BATCH)).toHaveLength(1);
+    expect(mock.calls(BATCH)[0].body.queries[0].page).toEqual({ mode: 'offset', page: 2, size: 1000 });
+  });
+
   it('rejects invalid aggregate page bounds and final count stages without sending requests', () => {
     const mock = mockUns({});
     const query = client(mock).collection(orders).query;
     for (const page of [0, -1, 1.5, Infinity, NaN, Number.MAX_SAFE_INTEGER + 1]) {
       expect(() => query.aggregatePage([], { page })).toThrow(RangeError);
     }
-    for (const pageSize of [0, -1, 201, 1.5, Infinity, NaN]) {
+    for (const pageSize of [0, -1, 1.5, Infinity, NaN, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER + 1]) {
       expect(() => query.aggregatePage([], { pageSize })).toThrow(RangeError);
     }
+    expect(() => query.aggregatePage([], { page: Number.MAX_SAFE_INTEGER, pageSize: 2 })).toThrow('offset must be a safe integer');
+    expect(() => query.aggregatePage([], { page: 1, pageSize: Number.MAX_SAFE_INTEGER - 1 })).not.toThrow();
     expect(() => query.aggregatePage([{ $count: 'total' }])).toThrow('final $count');
     expect(mock.sent).toHaveLength(0);
   });

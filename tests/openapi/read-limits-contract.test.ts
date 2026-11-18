@@ -5,6 +5,21 @@ import { MAX_BATCH_QUERIES, MAX_GET_IDS } from '../../src/data/index.js';
 const read = (path: string) => JSON.parse(readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8'));
 
 describe('read counts without fixed upper bounds', () => {
+  it('removes only the aggregate page size maximum and preserves its wire defaults', () => {
+    for (const file of ['contracts/uns-v2/manifest.json', 'contracts/uns-v2/contract.json', 'contracts/openapi-v2.source.json']) {
+      const contract = read(file);
+      const schemas = contract.schemas ?? contract.components.schemas;
+      expect(schemas.UnsV2PipelinePage.properties.size).toMatchObject({ type: 'integer', minimum: 1, default: 20 });
+      expect(schemas.UnsV2PipelinePage.properties.size).not.toHaveProperty('maximum');
+      const find = schemas.CloudRecordBatchQuery.oneOf.find((query: any) => query.properties.op.enum[0] === 'find');
+      expect(find.properties.limit.maximum).toBe(200);
+    }
+    const overlay = read('contracts/upstream.json').schemaUpdates.find((entry: any) => entry.scope === 'aggregate-page-size');
+    expect(overlay.schemas).toEqual(['UnsV2PipelinePage.properties.size']);
+    expect(overlay.revision).toMatch(/^[a-f0-9]{40}$/);
+    expect(overlay.sourceKind).toBe('committed');
+  });
+
   it('keeps nonempty typed inputs and per-page limits across the generated contracts', () => {
     for (const file of ['contracts/uns-v2/manifest.json', 'contracts/uns-v2/contract.json']) {
       const schemas = read(file).schemas;
