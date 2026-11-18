@@ -156,5 +156,8 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
   // Re-pinned for committed Backend da46d04904: only UnsV2PipelinePage.size loses
   // maximum: 200 and gains the response/timeout/offset-budget description.
   // The aggregate page test verifies the size contract; no graph membership changed.
-  expect(digest).toBe('2ef02293c94463354a10dfde6b715e45191cf4055746a7453a8fa3f5d847b068');
+  // Re-pinned for committed Backend a7af6aaa6: PipelineExpression adds scalar $in,
+  // and PipelineStage documents lookup's actual per-input byte budget in place of
+  // fixed row counts. No operations or reachable schemas were added or removed.
+  expect(digest).toBe('73fb4077436536e6c963108e8b0da6959d4a516ab435b59522b3695f99101331');
 });

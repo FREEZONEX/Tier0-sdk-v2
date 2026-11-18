@@ -9680,6 +9680,43 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "$in": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/UnsV2PipelineExpression"
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "$literal": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/components/schemas/UnsV2FilterScalar"
+                        }
+                      }
+                    },
+                    "required": [
+                      "$literal"
+                    ]
+                  }
+                ]
+              },
+              "description": "聚合表达式 $in：[标量表达式, 数组表达式]，返回布尔值。第二参可用 {$literal:[标量]} 单次绑定任意数量值，允许空数组、重复值及混合标量；只在此位置支持字面数组。动态数组须声明标量 Items，运行时非数组或含对象/嵌套数组明确报错。左值 missing/null 统一按 null 比较，空数组返回 false；JSON 数值按精确值比较，不转换字符串或布尔类型。右值 missing/null 明确报错；权限、表达式复杂度与执行期限保持有效。"
+            }
+          },
+          "required": [
+            "$in"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
             "$jsonExtractText": {
               "type": "object",
               "additionalProperties": false,
@@ -10065,7 +10102,7 @@
                   }
                 }
               ],
-              "description": "kind=samples 必须提供固定 recordId，关联范围限定在该 Record；records 禁止 recordId。foreignField 需要 ready 的首字段 B-tree 索引或适用的内置身份索引。records 通过 _id 关联且 pipeline 为空时使用唯一 ID 关联：每条输入最多匹配一条记录，不设阶段外层行数上限，单条输入、匹配记录及开销合计须小于 8 MiB；查询期限、分页和响应大小限制仍有效。records 的子 pipeline 仅含 $match/$sort/$skip/$limit/$project/$set/$group/$count 且以 $limit:1 结束时，按外层记录逐条关联，不设阶段外层行数上限；每条仍最多 10000 原始匹配，外层文档及开销与原始匹配或最终结果分别共享 8 MiB 预算。其他关联主输入最多 1000 行，每条输入关联原始行最多 10000，阶段中间结果最多 8 MiB，最终每条关联数组最多 200 项。超限明确失败，不静默截断；子 pipeline 可过滤或聚合。"
+              "description": "kind=samples 必须提供固定 recordId，关联范围限定在该 Record；records 禁止 recordId。foreignField 需要 ready 的首字段 B-tree 索引或适用的内置身份索引。关联不设固定外层行数、原始匹配行数或输出条数上限；筛选、排序和聚合在数据库内完成。每条外层文档、最终关联值及开销合计须小于 8 MiB；执行期限、最终响应字节、集合授权与字段策略保持有效，超限明确失败，不静默截断。"
             }
           },
           "required": [
