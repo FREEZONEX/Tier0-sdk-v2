@@ -19,10 +19,10 @@ Source 保存连接与认证，Stream 执行采集或业务逻辑，Collection �
 安装正式版：
 
 ```sh
-npm install @tier0/sdk-v2@0.17.0
+npm install @tier0/sdk-v2@0.18.0
 ```
 
-维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `tier0-sdk-v2-0.17.0.tgz`。
+维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `tier0-sdk-v2-0.18.0.tgz`。
 
 个人 Key 可直接读取已有集合，无需创建平台 App；网关配置、运行示例与排错见[本地连接指南](skills/tier0-sdk-v2/references/local-connection.md)。
 
@@ -108,6 +108,14 @@ App 的 Key（平台注入的这把）只能调 `/openapi/v2/uns/**`、`assets/f
   | `appRoles` | `app_roles` | 访问者在 App 里的角色（不限项数，每项 1–128 字节，整个 JSON 不超过 8192 字节；重复的去掉）；预览里是「以某角色查看」选中的角色 |
   | `activeRole` | `active_role` | 可省略，只在预览的「以某角色查看」里出现 |
 - `@tier0/sdk-v2/page-runtime`：页面运行时 v1 和平台错误（`x-sbx-error`）。
+  - 平台语言（运行时 2.2.0 起）：`getPlatformLanguage()` 返回宿主平台页发来的原始语言标识（如 `zh-cn`、`en`、`ja`），`onPlatformLanguage(listener)` 在它变化时通知并返回取消函数。还没收到、顶层打开、没有运行时或运行时早于 2.2.0 时为 `undefined`；订阅不补发当前值，先读一次再订阅。映射成 App 自己的语言、不支持时回退默认语言由 App 负责。
+
+    ```ts
+    import { getPlatformLanguage, onPlatformLanguage } from '@tier0/sdk-v2/page-runtime';
+
+    applyLocale(getPlatformLanguage());
+    const off = onPlatformLanguage(applyLocale);
+    ```
 - `@tier0/sdk-v2/event-stream`：基于 fetch 的 SSE。App 休眠时停止，`resumed` 后重建，节点 agent 重启时透明重连。页面隐藏时关掉连接（后台标签页不占着到 App 的长连接），可见时带最后的事件 id（`Last-Event-ID`）立即续传，服务端补发或回 `reset`；`pauseWhenHidden: false` 关闭这一行为。`EventSource` 遇到 503 不重试，手写时要订阅 `resumed` 后重建。
 
 **MQTT**：只在 App 服务端连接。平台里 `new Tier0MQClient()` 什么都不传：broker 取自 `TIER0_MQTT_HOST` / `TIER0_MQTT_PORT`，password 用 `TIER0_API_KEY`，username 为 `<ws>&open`（ws 从 Key 解析）。App 运行时（有 `TIER0_APP_ID`，Key 来自注入的 `TIER0_API_KEY`，没显式传 `clientId` / `username` / `password`）的 clientId 是托管格式 `<ws>&h.<app>.<16 位随机>`（app 即 `TIER0_APP_ID`），Backend 只接受这种 clientId 的托管 App Key；其他情况保持 `<ws>&<8 位随机>`，显式传的 `clientId` / `username` 优先。页面不直连 broker：浏览器要的实时消息由 App 服务端订阅，按访问者角色过滤后经 App 自己的接口（例如一个 SSE 路由）推给浏览器。`clean` 默认 `false`；服务端按指数退避一直重连，上限 5 分钟。持久会话、QoS 1 下重连不丢消息，但断开期间的积压超过 EMQX 离线队列（默认 `max_mqueue_len=1000`）仍会丢。

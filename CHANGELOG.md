@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.18.0 (2026-11-19)
+
+- Add `getPlatformLanguage()` and `onPlatformLanguage(listener)` to `@tier0/sdk-v2/page-runtime`, and the `'language'` runtime event (Tier0-Frontend#3292). The value is the platform's raw language tag (such as `zh-cn`) that the embedding platform page sends to the front-door page runtime 2.2.0 and later. It is `undefined` until it arrives, on a top-level page, without the runtime, or on an older runtime, which never emits the event. Subscribing does not replay the current value. Mapping the tag to an App locale stays with the App.
+
 ## 0.17.0 (2026-11-18)
 
 - Add TypeScript support for the Cloud `$last`, `$stdDevPop` and `$stdDevSamp` group accumulators. Sample aggregation with `resultFormat: "series"` requires `recordIds` and returns one `{ recordId, items }` per Record in offset pages. Omitting the format or passing `"rows"` keeps the flat response. The new options require a Cloud environment that supports them.
