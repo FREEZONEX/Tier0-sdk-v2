@@ -10,7 +10,7 @@
  */
 
 export type Tier0AppState = 'unknown' | 'running' | 'starting' | 'sleeping' | 'failed' | 'auth_required';
-export type Tier0Event = 'state' | 'sleeping' | 'starting' | 'resumed' | 'auth-required';
+export type Tier0Event = 'state' | 'sleeping' | 'starting' | 'resumed' | 'auth-required' | 'language';
 export type Tier0AuthErrorCode = 'grant_expired' | 'signed_out' | 'need_role' | 'unavailable';
 
 export interface Tier0PageRuntimeV1 {
@@ -22,6 +22,8 @@ export interface Tier0PageRuntimeV1 {
   on(event: Tier0Event, listener: (detail: any) => void): () => void;
   reportAuthError(code: Tier0AuthErrorCode): void;
   keepAwake(): void;
+  /** Runtime 2.2.0 and later. */
+  getPlatformLanguage?(): string | undefined;
 }
 
 const RUNTIME_KEY = Symbol.for('tier0.page-runtime.v1');
@@ -33,6 +35,27 @@ export function getPageRuntime(): Tier0PageRuntimeV1 | undefined {
 /** Subscribes to a runtime event; a no-op without the runtime. Returns the unsubscribe function. */
 export function onPageRuntime(event: Tier0Event, listener: (detail: any) => void): () => void {
   return getPageRuntime()?.on(event, listener) ?? (() => undefined);
+}
+
+/**
+ * The platform's raw language tag (such as `'zh-cn'`) last sent by the host
+ * page. Undefined until it arrives, and always undefined when the App is opened
+ * as a top-level page, without the runtime, or on a runtime older than 2.2.0
+ * (which has no `getPlatformLanguage`). Mapping it to an App locale is the
+ * App's job.
+ */
+export function getPlatformLanguage(): string | undefined {
+  return getPageRuntime()?.getPlatformLanguage?.();
+}
+
+/**
+ * Subscribes to platform language changes; the listener gets the raw tag each
+ * time it changes. Subscribing does not replay the current value, so read
+ * `getPlatformLanguage()` first. A no-op without the runtime; a runtime older
+ * than 2.2.0 never emits it. Returns the unsubscribe function.
+ */
+export function onPlatformLanguage(listener: (language: string) => void): () => void {
+  return onPageRuntime('language', listener);
 }
 
 /** No instance is serving the App, so background work should wait for `resumed`. */

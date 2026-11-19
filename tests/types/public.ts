@@ -139,3 +139,8 @@ sdk.capabilities.discover().then(response => {
   void response.interpreterContractVersions;
 });
 void retiredConfigSelector;
+import { getPlatformLanguage, onPlatformLanguage, type Tier0Event } from '../../src/page-runtime.js';
+const platformLanguage: string | undefined = getPlatformLanguage();
+const offPlatformLanguage: () => void = onPlatformLanguage((language: string) => void language);
+const languageEvent: Tier0Event = 'language';
+void platformLanguage; void offPlatformLanguage; void languageEvent;
