@@ -200,6 +200,8 @@ const page = await tier0.uns.recordFind({ collectionId: 'orders', limit: 20 });
 const records = page.data.items;
 ```
 
+普通查询在服务端完成授权与范围过滤后直接返回结果，省略读后的 `records:transact` 版本复核。需要同一请求快照的列表、总数和统计使用 `queryBatch`。涉及编辑、审批或发布的版本校验继续放在写操作中。
+
 Collection 存储仍受 Schema、索引和引用校验，JSONB 不等于自动转换。新数值字段使用 integer/int32 或 number/float|double；格式仅注解。ensure 只放宽，App 显式 schema:replace 先验证现存记录才允许收窄。回收集合保留数据与索引、既有授权可读历史；Record 删除会物理删除关联 Sample。
 
 UNS 保留 `{code,msg,requestId,data}` 响应；单条写入按需用 returnDocument 取得原子快照。`int64` 超出安全范围返回 bigint，精确 JSON 数字用 UnsV2RawNumber；保留其类型，不经 Number/普通 JSON.stringify 做无损往返。

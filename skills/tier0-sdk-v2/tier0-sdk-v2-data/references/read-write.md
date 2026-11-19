@@ -25,7 +25,9 @@ export async function createOrder(code: string, intentKey: string) {
 
 ## 查询
 
-`find()` / `aggregate()` 游标支持 `.batchSize(10).limit(100)`：每次网络请求最多取 10 条，完整迭代仍返回最多 100 条。默认批次大小仍为 200，必须在迭代开始前设置。`find()` 的 batchSize 仍为 1–200；`aggregate()` 可显式请求更大批次，要求正安全整数且 `size + 1` 和偏移量可精确表示，并需要配套后端更新。偏移分页在整次迭代中保持同一个大小，最后一页也不改变大小，避免漏行或重复。每个查询仍受 8 MiB 响应预算、超时和后端偏移上限约束；大证据记录可用较小批次避免单响应超限，但这不是提高单记录上限，也不保证多次请求共享快照。业务所需的版本校验仍由调用方保留。`toArray()` 最终仍将全部结果留在内存；需要逐行处理时用 `for await`。参考 [MongoDB cursor batchSize](https://www.mongodb.com/docs/manual/reference/method/cursor.batchsize/) 的批次大小与结果数量分离约定。
+列表、搜索、报表和普通详情由 App 服务端按当前访问者权限与授权范围查询，读到结果后直接返回。普通查询省略读后 `data.transact` 或 `record.check` 复核。需要同一请求快照的多项统计和明细使用 `queryBatch`。只有业务明确要求检测跨请求变化时，才设计额外的版本校验。写入时的状态与版本前置条件见 [一致性](consistency.md)。
+
+`find()` / `aggregate()` 游标支持 `.batchSize(10).limit(100)`：每次网络请求最多取 10 条，完整迭代仍返回最多 100 条。默认批次大小仍为 200，必须在迭代开始前设置。`find()` 的 batchSize 仍为 1–200；`aggregate()` 可显式请求更大批次，要求正安全整数且 `size + 1` 和偏移量可精确表示，并需要配套后端更新。偏移分页在整次迭代中保持同一个大小，最后一页也不改变大小，避免漏行或重复。每个查询仍受 8 MiB 响应预算、超时和后端偏移上限约束；大证据记录可用较小批次避免单响应超限，但这不是提高单记录上限，也不保证多次请求共享快照。`toArray()` 最终仍将全部结果留在内存；需要逐行处理时用 `for await`。参考 [MongoDB cursor batchSize](https://www.mongodb.com/docs/manual/reference/method/cursor.batchsize/) 的批次大小与结果数量分离约定。
 
 | 方法 | 返回与用途 |
 | --- | --- |

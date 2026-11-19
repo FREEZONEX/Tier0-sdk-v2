@@ -2,6 +2,8 @@
 
 已知 collectionId 时直接读记录，无需 metadata/context/ensure 预检。需要发现集合时，App 用 dataAppContext，工作区管理身份用 metadataFind。名称或 alias 不能当作集合 ID。
 
+普通列表、搜索、报表和详情按当前授权范围读取并直接返回，省略读后的 `recordTransactionExecute` 或 `record.check` 复核。App 服务端负责落实访问者的业务权限与记录范围。需要同一请求快照的多项读取用 `recordQueryBatch`。分页的快照范围和写入事务见 [数据工作流](data-workflows.md)。
+
 ```ts
 import { createClient, type Tier0Client } from '@tier0/sdk-v2';
 
