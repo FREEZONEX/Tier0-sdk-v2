@@ -2,6 +2,7 @@
 
 一个文档的写入原子。必须一起变化的有界数据放同一文档；状态流转把旧状态放进 filter，编辑表单带回 `_meta.revision` 作为 expectedRevision。
 
+- 编辑、审批、发布等写入按需用 `expectedRevision` 校验目标版本，用 `record.check` 在同一个写事务内校验关联记录的状态或版本。普通查询鉴权和范围过滤后直接返回，省略读后事务复核。
 - 条件未匹配与 VERSION_CONFLICT 不同于成功更新；重读后重新决定。
 - upsert 要求 _id 等值或 ready 唯一索引的全部字段等值；新唯一索引异步构建。
 - 跨文档不变量用一次 data.transact，不拆成独立 HTTP 请求。超过 200 步时 SDK 读取当前 App 的 limits.transaction 并校验容量，客户端最高 10,000 步；旧服务端没有该能力字段时仍为 200。data.getTransactionLimits() 可用于业务预检，实际发送前仍重新核对大事务容量；SDK 更新本身不会部署后端能力。

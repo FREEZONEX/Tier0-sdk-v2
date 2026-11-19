@@ -23,6 +23,8 @@ Collection 持久化业务记录。App 服务端使用 `@tier0/sdk-v2/data`；�
 
 SDK 返回扁平文档 `{_id,...业务字段,_meta}`，原始 UNS 返回 `{id,data,revision,...}`。两者查询路径都直接使用业务字段，不加 data.。
 
+列表、搜索、报表和普通详情在服务端完成鉴权与范围过滤后直接返回。多项读取需要同一请求快照时用 `queryBatch`。普通查询省略读后的 `data.transact` 版本复核。
+
 | 任务 | 参考 |
 | --- | --- |
 | 声明/引用集合、Schema、业务目录、索引、TTL、种子 | [建模](references/modeling.md) |
