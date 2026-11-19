@@ -1,6 +1,6 @@
 ---
 name: tier0-sdk-v2-data
-description: 使用 @tier0/sdk-v2/data 在 App 服务端声明或引用 Collection，读写业务记录，处理分页、索引、事务、订阅、Schema 演进和失败恢复。
+description: 使用 @tier0/sdk-v2/data 在 App 服务端声明或引用 Collection，读写业务记录，开发统计报表和数据大屏，处理分页、索引、事务、订阅、Schema 演进和失败恢复。
 ---
 
 # App Collection 数据层
@@ -29,6 +29,7 @@ SDK 返回扁平文档 `{_id,...业务字段,_meta}`，原始 UNS 返回 `{id,da
 | --- | --- |
 | 声明/引用集合、Schema、业务目录、索引、TTL、种子 | [建模](references/modeling.md) |
 | 查询与写入、批量、分页、订阅和浏览器转发 | [读写](references/read-write.md) |
+| 统计报表、大屏、首屏查询和分页字节预算 | [统计报表与大屏](references/read-write.md#统计报表与大屏) |
 | 状态流转、revision、跨集合事务、取消与初始化 | [一致性](references/consistency.md) |
 | 加字段、改类型、收窄结构 | [Schema 演进](references/schema-evolution.md) |
 | 错误与未知写入结果 | [错误处理](references/errors.md) |

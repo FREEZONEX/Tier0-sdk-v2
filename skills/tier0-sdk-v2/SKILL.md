@@ -16,6 +16,7 @@ description: 使用 @tier0/sdk-v2 开发或迁移 Tier0 云端 TypeScript/JavaSc
 | 调用业务请求、发布或订阅业务消息、查询 App 交互能力 | `client.streams` | [App Stream 交互](tier0-sdk-v2-streams/SKILL.md) |
 | 集合、目录、Topic、业务记录、历史采样与事务 | `client.uns` | [UNS](tier0-sdk-v2-uns/SKILL.md) |
 | App 自有业务数据：声明集合、Mongo 风格读写与事务 | `@tier0/sdk-v2/data` | [App 数据](tier0-sdk-v2-data/SKILL.md) |
+| App 统计报表、KPI、趋势图和大屏 | `@tier0/sdk-v2/data`、时序聚合用 `client.uns` | [统计报表与大屏](tier0-sdk-v2-data/references/read-write.md#统计报表与大屏) |
 | 站内信、Web/Desktop 提醒、手机推送 | `client.notifications` | [通知](tier0-sdk-v2-notifications/SKILL.md) |
 | 当前凭证、平台信息、功能是否就绪 | `client.system`、`client.capabilities` | [系统](tier0-sdk-v2-system/SKILL.md) |
 | 附件、头像、导入导出、生成报告 | `client.files` | [文件](tier0-sdk-v2-files/SKILL.md) |

@@ -48,19 +48,31 @@ capped:true 显示 N+，不要当精确总数。get 的 missing 包含不存在�
 
 `$lookup` 的普通关联由数据库按输入记录执行，不再固定限制外层记录数、候选行数或单记录匹配行数。每条输入及其关联结果仍受实际 8 MiB 字节预算约束，查询响应、授权、执行期限与索引要求仍适用；使用子管线先筛选、投影或汇总，减少最终数组大小。
 
-## 同一页面的多项读取
+## 统计报表与大屏
+
+- 服务端先根据访问者生成授权站点范围和半开时间窗口。用 `$match → $group → $project` 得到 KPI 或图表桶，共用同一份过滤和聚合结果。前端拿图表所需的分组、计数、趋势和当前页 DTO。明细详情、导出和其他页签按需读取。跨站点去重必须按原业务键计算。
+- 明细优先用 `find` 的稳定排序、窄投影及有界读取。只有 UI 需要总数或页码跳转时才发 `findPage` 或 `count`。时序大屏读取点位当前值用 `client.uns` 的 `samples:latest`，历史趋势用 `samples:aggregate` 限定点位、时间和时间桶，按[时序查询契约](../../tier0-sdk-v2-uns/references/read.md)选择返回形状。
+- 对同一份大数据反复算的统计，在导入后按受影响的站点、月或时间桶刷新派生汇总。把刷新任务放在后端，页面取符合授权范围的已发布汇总及更新时间。明细继续单独分页，刷新中避免每个页面请求触发全量重算。
+
+生产首页的三个固定工单状态与 25 条预览可在同一快照读取。示例中的站点 ID 来自服务端鉴权，空授权范围直接返回空结果。
 
 ```ts
 import { createDataClient } from '@tier0/sdk-v2/data';
 
 const data = createDataClient({});
-const orders = data.collection<{ code: string; status: string }>({ collectionId: 'orders-id' });
+type Order = { siteId: string; orderTime: number; code: string; status: 'DRAFT' | 'RELEASED' | 'DONE' };
+const orders = data.collection<Order>({ collectionId: 'orders-id' });
 
-export async function dashboard(page: number, selectedId: string) {
+export async function dashboard(authorizedSiteIds: string[], from: number, to: number) {
+  if (!authorizedSiteIds.length) return { byStatus: [], preview: [] };
+  const filter = { siteId: { $in: authorizedSiteIds }, orderTime: { $gte: from, $lt: to } };
   return data.queryBatch({
-    list: orders.query.findPage({}, { sort: { code: 1 }, page, pageSize: 20 }),
-    byStatus: orders.query.countBy('status'),
-    selected: orders.query.get([selectedId]),
+    byStatus: orders.query.countBy('status', filter),
+    preview: orders.query.find(filter, {
+      sort: { orderTime: -1, _id: 1 },
+      projection: { code: 1, status: 1, orderTime: 1 },
+      limit: 25,
+    }),
   });
 }
 ```
@@ -68,6 +80,10 @@ export async function dashboard(page: number, selectedId: string) {
 queryBatch 接受非空的命名查询集合，同一请求共享快照；无需快照一致性时不强制使用。默认单项失败抛 DataError，`{settle:true}` 按项返回 `{ok,value|error}`。普通 find / findPage 每页仍最多 200 行，aggregatePage 可显式请求更大页；每个子查询仍受 8 MiB 响应预算约束，不再限制子查询数量、整批行数或整批 8 MiB 大小。`$in` 值数和 `get` ID 数没有固定上限，仍须满足类型、非空、请求和超时约束。能力 limits 中对应的数值 0 表示无该维度上限，不能作为分组步长。支持 query.find/findPage/count/countBy/distinct/aggregate/aggregatePage/get。
 
 语句超时或任一子查询超过其响应字节预算时整批失败，`settle:true` 也不会返回部分结果。独立 `collection.get([])` 保持本地空结果、不发请求；批内 `query.get([])` 仍拒绝空 ID 数组。旧后端仍可能拒绝超过旧数量上限的请求，SDK 不自动切块回退，需要配套后端更新。
+
+## 查询批次与响应字节预算
+
+每次 API 请求取几条和页面显示几条可以分别配置。若服务端返回 `RESPONSE_TOO_LARGE`，先用投影移除原始 JSON 和无用字段，裁剪关联数组。仍超限时，可把读取批次调小。例如每次传 500 条太大，可从同一起点用 250 条开始，再按成功请求的分页规则继续。SDK 不自动重跑完整查询。对 `aggregatePage`，先选定能满足字节预算的大小，再继续其他页。若更改 `pageSize`，从第一页重开遍历。单条文档已经超限时，需要减字段或拆分明细。429、排队超时和慢 SQL 应分别诊断。
 
 `query.aggregatePage(pipeline, { page, pageSize })` 读取显式偏移页并返回 `{items,pageInfo}`；默认第 1 页、每页 200 条，pageSize 可大于 200，要求正安全整数且 `pageSize + 1` 和 `(page - 1) * pageSize` 可精确表示。后端偏移上限仍适用。`pageInfo.hasMore/nextPage` 保留后续页信息，`snapshotScope:'thisRequestOnly'` 表示只有本次 queryBatch 共享快照。需要继续时保持授权范围、管线和 pageSize 不变，按 nextPage 发起下一次调用；不会自动取全量或把多次调用变成同一快照。排序应有稳定的唯一兜底字段。原 `query.aggregate/countBy/distinct` 仍只返回首页数组；需要自动完整迭代可用 `collection.aggregate()` 游标。
 
