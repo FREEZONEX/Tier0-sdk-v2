@@ -7,7 +7,7 @@ import type { z } from 'zod';
 import { snapshotClientConfig, type ClientConfig } from '../openapi/client.js';
 import { getEnvVar } from '../runtime-env.js';
 import { createBootstrap, type DataEnvironment, type EnsureState, type Logger } from './bootstrap.js';
-import { createDataTransport } from './call.js';
+import { createDataTransport, type DataRequestObserver } from './call.js';
 import { MAX_ATOMIC_ITEMS, Collection, toDoc, type BatchQuery, type UnsRecord, type WithMeta } from './collection.js';
 import { MAX_TRANSACTION_ITEMS, MAX_RESULT_BINDINGS, assertTransactionCapacity, readTransactionLimits, type TransactionLimits } from './transaction-limits.js';
 import { currentSignal } from './context.js';
@@ -113,6 +113,8 @@ export interface DataClientConfig extends Omit<ClientConfig, 'getApiKey' | 'apiK
   /** Defaults to "deployed" when NODE_ENV is production, otherwise "preview". */
   environment?: DataEnvironment;
   logger?: Logger;
+  /** Optional metadata for completed data calls (including bootstrap), excluding subscription streams. */
+  onRequest?: DataRequestObserver;
 }
 
 export interface DataClient {
@@ -141,7 +143,7 @@ export interface DataClient {
    */
   subscribe(options?: SubscribeOptions): AsyncIterable<SubscriptionEvent>;
   /**
-   * Up to 20 reads of declared collections in one request, answered from one
+   * Nonempty named reads of collections in one request, answered from one
    * snapshot: what a page shows (a list page with its total, counters, a
    * lookup by ID) in one round trip. Build each read with
    * `collection.query.*`; results come back under the same names.
@@ -166,7 +168,7 @@ export interface DataClient {
 }
 
 export function createDataClient(config: DataClientConfig): DataClient {
-  const snapshot = snapshotClientConfig(config, ['environment', 'collections', 'logger']);
+  const snapshot = snapshotClientConfig(config, ['environment', 'collections', 'logger', 'onRequest']);
   if (Object.hasOwn(snapshot, 'apiKeyProvider')) {
     throw new TypeError('Tier0 SDK: apiKeyProvider is not supported by createDataClient.');
   }

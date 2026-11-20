@@ -20,7 +20,7 @@
       "capability": "x-tier0-opcua-server: static available=false; online availability is workspace/registry authoritative"
     }
   },
-  "sourceDerivedContractSHA256": "76f8fcb36d19b9a00705a26c0e06eea86119f3e163f83a28713cbe20b4188ce5",
+  "sourceDerivedContractSHA256": "f54ad1e422807afc8040c94458258bfb66479031e4d4aa3196a8e62ceeaeee34",
   "schemaUpdates": [
     {
       "scope": "source-stream-public",
@@ -541,6 +541,36 @@
           "sourceSHA256": "c68827a2878aba8a211ed2e739a07a5c7e672d7dfbf84a94d902e873064dcff1",
           "baseSHA256": "9aeee3851527f2fbe0f5794cb7365d22f0e717c399d4c66d1e8ccc3e23e9eb9b",
           "resultSHA256": "1fc673da63a4d5a9da1df827bf278687893b71583d979722a8bd662093fd1c0f"
+        }
+      }
+    },
+    {
+      "scope": "aggregate-explain",
+      "repository": "FREEZONEX/Tier0-Backend",
+      "revision": "b9553f824f3626cca1a208bc86afbf97bce8d949",
+      "sourceKind": "committed",
+      "schemas": [
+        "UnsV2RecordExplainReq",
+        "UnsV2RecordExplainResponse"
+      ],
+      "inputs": {
+        "contracts/uns-v2/contract.json": {
+          "path": "service/unssvr/internal/domain/unsv2/contract_generated.go",
+          "sourceSHA256": "66d7fd810ca83c0b52fe86f7e6bcb300d146b33c119bdd316663f4d830da7570",
+          "baseSHA256": "76f8fcb36d19b9a00705a26c0e06eea86119f3e163f83a28713cbe20b4188ce5",
+          "resultSHA256": "f54ad1e422807afc8040c94458258bfb66479031e4d4aa3196a8e62ceeaeee34"
+        },
+        "contracts/uns-v2/manifest.json": {
+          "path": "share/unscontract/manifest.json",
+          "sourceSHA256": "548240c05ce45455f45ee98e90739d6e100fcaec96188ed6e441323cdcdac104",
+          "baseSHA256": "da21eb64966cde8f60d5fc0b68c3fcf58fb6a19225e0432eae4f618ebeb8574d",
+          "resultSHA256": "2f6810ec28d526e68fe7b07de31a5e215a25529d11c6cbb6c576924dea82d5c5"
+        },
+        "contracts/openapi-v2.source.json": {
+          "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
+          "sourceSHA256": "73bca565cfcf7a7ba16a2b73eaad724d61ad8a0e3c6f60a9211c861ae0f86fbc",
+          "baseSHA256": "1fc673da63a4d5a9da1df827bf278687893b71583d979722a8bd662093fd1c0f",
+          "resultSHA256": "8a560a53c6da9b2bb613056faeb6ee6376789fd7c0c106f250dcbb8e62f10f37"
         }
       }
     }

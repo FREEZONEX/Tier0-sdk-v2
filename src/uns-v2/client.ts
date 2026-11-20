@@ -19,6 +19,10 @@ import {
   type UnsV2Operations,
   type UnsV2Request,
   type UnsV2Response,
+  type UnsV2RecordExplainFilterRequest,
+  type UnsV2RecordExplainFilterResponse,
+  type UnsV2RecordExplainAggregateRequest,
+  type UnsV2RecordExplainAggregateResponse,
   type UnsV2SampleAggregateResponse,
   type UnsV2SampleAggregateRowsRequest,
   type UnsV2SampleAggregateSeriesRequest,
@@ -288,6 +292,8 @@ export class UnsV2ClientCore {
 
   call(name: 'sampleAggregate', request: UnsV2SampleAggregateRowsRequest, options?: CallOptions): Promise<UnsV2SampleAggregateResponse>;
   call(name: 'sampleAggregate', request: UnsV2SampleAggregateSeriesRequest, options?: CallOptions): Promise<UnsV2SampleAggregateSeriesResponse>;
+  call(name: 'recordExplain', request: UnsV2RecordExplainFilterRequest, options?: CallOptions): Promise<UnsV2RecordExplainFilterResponse>;
+  call(name: 'recordExplain', request: UnsV2RecordExplainAggregateRequest, options?: CallOptions): Promise<UnsV2RecordExplainAggregateResponse>;
   call<Name extends UnsV2OperationName>(name: Name, request: UnsV2Request<Name>, options?: CallOptions): Promise<UnsV2Response<Name>>;
   async call<Name extends UnsV2OperationName>(name: Name, request: UnsV2Request<Name>, options: CallOptions = {}): Promise<UnsV2Response<Name>> {
     options.signal?.throwIfAborted();
