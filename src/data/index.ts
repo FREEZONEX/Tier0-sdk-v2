@@ -14,6 +14,7 @@ export { MAX_BATCH_QUERIES } from './client.js';
 export { MAX_TRANSACTION_ITEMS } from './transaction-limits.js';
 export type { TransactionLimits } from './transaction-limits.js';
 export type { BatchQueries, BatchResults, DataClient, DataClientConfig, SettledBatchResults, TransactAction, TransactOptions, TransactResult, TransactResultItem, TransactStep } from './client.js';
+export type { DataRequestObservation, DataRequestObserver } from './call.js';
 export type { DataEnvironment, EnsureConflict, EnsureNote, EnsureResult, EnsureState, EnsureWarning, Logger } from './bootstrap.js';
 export { MAX_ATOMIC_ITEMS, MAX_GET_IDS } from './collection.js';
 export type { AggregatePage, AggregatePageOptions, BatchQuery, BulkOperation, CappedCount, Collection, CollectionQueries, Cursor, DeepPartial, FoundPage, ValueCount, FindOneAndOptions, FindOptions, FindPageOptions, InsertOneOptions, Projection, Update, UpdateOptions, UpdateManyAtomicOptions, UpdateManyAtomicResult, WithMeta } from './collection.js';

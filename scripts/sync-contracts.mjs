@@ -57,6 +57,21 @@ if (schemaFlag >= 0 || scopeFlag >= 0) {
       return local.schema;
     });
   };
+  // Swagger 响应可能使用文档 schema 别名；从操作引用定位，不硬编码别名前缀。
+  const responseSchemas = (name, current, incoming) => operations
+    .filter(operation => operation.response === name)
+    .map(operation => {
+      const route = operation.path.split('/').map(part => part.startsWith(':') ? `{${part.slice(1)}}` : part).join('/');
+      const method = operation.method.toLowerCase();
+      const reference = document => document.paths?.[route]?.[method]?.responses?.['200']?.content?.['application/json']?.schema?.$ref;
+      const local = reference(current), upstream = reference(incoming);
+      assert.ok(local?.startsWith('#/components/schemas/') && local === upstream,
+        `Missing or changed response schema reference ${name} for ${method.toUpperCase()} ${route}`);
+      const alias = local.slice('#/components/schemas/'.length);
+      assert.ok(current.components.schemas[alias] && incoming.components.schemas[alias], `Missing response schema ${alias}`);
+      current.components.schemas[alias] = structuredClone(incoming.components.schemas[alias]);
+      return current.components.schemas[alias];
+    });
   for (const [path, sourcePath] of Object.entries({
     'contracts/uns-v2/contract.json': 'service/unssvr/internal/domain/unsv2/contract_generated.go',
     'contracts/uns-v2/manifest.json': 'share/unscontract/manifest.json',
@@ -72,6 +87,8 @@ if (schemaFlag >= 0 || scopeFlag >= 0) {
       if (!current.schemas && !target[name] && !source[name]) {
         const inline = inlineRequestSchemas(name, current, incoming);
         if (inline.length) return inline;
+        const responses = responseSchemas(name, current, incoming);
+        if (responses.length) return responses;
       }
       assert.ok(source[name] && target[name], `Missing existing schema ${name} in ${path}`);
       target[name] = structuredClone(source[name]);

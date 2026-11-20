@@ -33,5 +33,6 @@ SDK 返回扁平文档 `{_id,...业务字段,_meta}`，原始 UNS 返回 `{id,da
 | 状态流转、revision、跨集合事务、取消与初始化 | [一致性](references/consistency.md) |
 | 加字段、改类型、收窄结构 | [Schema 演进](references/schema-evolution.md) |
 | 错误与未知写入结果 | [错误处理](references/errors.md) |
+| 请求 ID、排队/尝试耗时与重试观察 | [请求诊断](references/diagnostics.md) |
 
 普通写入由数据层生成幂等键并执行有依据的安全重试；同一业务意图需跨调用恢复时显式传稳定 idempotencyKey。不再外套无条件重试循环。

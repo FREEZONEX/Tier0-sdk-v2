@@ -7377,45 +7377,88 @@
           "type": "string"
         },
         "data": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "op": {
-              "type": "string"
-            },
-            "writesCommitted": {
-              "type": "boolean"
-            },
-            "executionGuaranteed": {
-              "type": "boolean"
-            },
-            "matchedCount": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "capped": {
-              "type": "boolean",
-              "description": "true 表示真实匹配数大于 limit，此时 matchedCount 等于 limit。"
-            },
-            "sampleIds": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 128
-              },
-              "maxItems": 100
-            },
-            "plan": {
+          "oneOf": [
+            {
               "type": "object",
-              "additionalProperties": true
+              "additionalProperties": false,
+              "properties": {
+                "op": {
+                  "type": "string",
+                  "enum": [
+                    "find",
+                    "updateMany",
+                    "deleteMany"
+                  ]
+                },
+                "writesCommitted": {
+                  "type": "boolean"
+                },
+                "executionGuaranteed": {
+                  "type": "boolean"
+                },
+                "matchedCount": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "capped": {
+                  "type": "boolean",
+                  "description": "true 表示真实匹配数大于 limit，此时 matchedCount 等于 limit。"
+                },
+                "sampleIds": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "maxItems": 100
+                },
+                "plan": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              },
+              "required": [
+                "matchedCount",
+                "capped",
+                "sampleIds",
+                "plan"
+              ]
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "op": {
+                  "type": "string",
+                  "enum": [
+                    "aggregate"
+                  ]
+                },
+                "writesCommitted": {
+                  "type": "boolean",
+                  "enum": [
+                    false
+                  ]
+                },
+                "executionGuaranteed": {
+                  "type": "boolean",
+                  "enum": [
+                    false
+                  ]
+                },
+                "plan": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              },
+              "required": [
+                "op",
+                "writesCommitted",
+                "executionGuaranteed",
+                "plan"
+              ]
             }
-          },
-          "required": [
-            "matchedCount",
-            "capped",
-            "sampleIds",
-            "plan"
           ]
         }
       },
@@ -11796,7 +11839,8 @@
           "enum": [
             "find",
             "updateMany",
-            "deleteMany"
+            "deleteMany",
+            "aggregate"
           ],
           "default": "find"
         },
@@ -11804,11 +11848,87 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 10000,
-          "default": 1000
+          "description": "范围评估默认 1000、最多 10000；aggregate 与实际读取相同，默认 20、最多 200。"
+        },
+        "pipeline": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/UnsV2PipelineStage"
+          },
+          "minItems": 0,
+          "maxItems": 32
+        },
+        "page": {
+          "$ref": "#/components/schemas/UnsV2PipelinePage"
         }
       },
       "required": [
         "collectionId"
+      ],
+      "oneOf": [
+        {
+          "required": [
+            "op",
+            "pipeline"
+          ],
+          "properties": {
+            "op": {
+              "enum": [
+                "aggregate"
+              ]
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "filter"
+                ]
+              },
+              {
+                "required": [
+                  "sort"
+                ]
+              },
+              {
+                "required": [
+                  "page",
+                  "limit"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "properties": {
+            "op": {
+              "enum": [
+                "find",
+                "updateMany",
+                "deleteMany"
+              ]
+            }
+          },
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "pipeline"
+                ]
+              },
+              {
+                "required": [
+                  "page"
+                ]
+              }
+            ]
+          }
+        }
       ]
     },
     "UnsV2RecordInsertOneReq": {

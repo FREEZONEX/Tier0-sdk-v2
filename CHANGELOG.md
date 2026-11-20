@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Add optional `createDataClient({ onRequest })` diagnostics for completed data calls: requestId, local queue time, request duration and retry counts. Events exclude request bodies and credentials; observer failures do not affect requests. These timings are not database execution time.
+- Extend the existing `client.uns.recordExplain` contract with `op: "aggregate"`, the original pipeline and pagination, synchronized from committed Backend `b9553f824f`. A supporting Backend returns a PostgreSQL plan without running the aggregate; estimated costs are not measured durations. Existing range explanations retain their samples and counts. The target environment must deploy the matching Backend separately.
+- Remove outdated fixed batch-count guidance from the data API comments and document current query limits and diagnostics.
+
 ## 0.18.0 (2026-11-19)
 
 - Add `getPlatformLanguage()` and `onPlatformLanguage(listener)` to `@tier0/sdk-v2/page-runtime`, and the `'language'` runtime event (Tier0-Frontend#3292). The value is the platform's raw language tag (such as `zh-cn`) that the embedding platform page sends to the front-door page runtime 2.2.0 and later. It is `undefined` until it arrives, on a top-level page, without the runtime, or on an older runtime, which never emits the event. Subscribing does not replay the current value. Mapping the tag to an App locale stays with the App.

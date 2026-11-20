@@ -5,7 +5,7 @@
 - 编辑、审批、发布等写入按需用 `expectedRevision` 校验目标版本，用 `record.check` 在同一个写事务内校验关联记录的状态或版本。普通查询鉴权和范围过滤后直接返回，省略读后事务复核。
 - 条件未匹配与 VERSION_CONFLICT 不同于成功更新；重读后重新决定。
 - upsert 要求 _id 等值或 ready 唯一索引的全部字段等值；新唯一索引异步构建。
-- 跨文档不变量用一次 data.transact，不拆成独立 HTTP 请求。超过 200 步时 SDK 读取当前 App 的 limits.transaction 并校验容量，客户端最高 10,000 步；旧服务端没有该能力字段时仍为 200。data.getTransactionLimits() 可用于业务预检，实际发送前仍重新核对大事务容量；SDK 更新本身不会部署后端能力。
+- 跨文档不变量用一次 data.transact，不拆成独立 HTTP 请求。大事务由 SDK 读取当前 App 的 limits.transaction 并校验有效容量；旧服务端没有该能力字段时使用兼容容量。用 data.getTransactionLimits() 做业务预检，不把历史数字写成 App 的固定上限；实际发送前仍重新核对大事务容量。SDK 更新本身不会部署后端能力。
 - 对同一集合的完整匹配范围应用同一个更新，用 `collection.updateManyAtomic(filter, update, options)`。这是独立后端能力：一次请求、同一数据库事务，失败整批回滚，SDK 不枚举或分批。`$currentDate` 使用该数据库事务时间；返回 matchedCount、modifiedCount、transactionTime、replayed、dryRun。可选 arrayFilters、idempotencyKey、dryRun、requireIndexesReady；最后一项要求声明集合并检查当前索引。仍受服务端超时和资源预算约束；结果未知时直接抛错，不自动重发。旧 updateMany 的部分提交语义不变，目标后端须先部署该能力。
 
 ```ts

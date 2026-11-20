@@ -38,6 +38,29 @@ export async function listCollections(page = 1, client: Tier0Client = createClie
 
 按 pageInfo.hasMore/nextPage 翻元数据页，按 nextCursor 翻记录页，单页不是全量。原始 sort 是元组数组；SDK data 层才使用 sort 对象。Record 返回 `{id,data,revision,...}`，filter/update 却直接写业务字段，不加 data.。
 
+## 聚合查询计划
+
+后端支持聚合 explain 时，沿用 `recordExplain`，传 `op: 'aggregate'` 与实际查询相同的 `pipeline`、`page` 或 `limit`。`page` 与 `limit` 互斥，游标放在 `page.cursor`；不要为了诊断换成另一组筛选或分页。它复用实际聚合编译与来源授权，只运行 EXPLAIN，不执行聚合，不返回实际行数/耗时或样本。`count` 和 ANALYZE 不在这个入口中。
+
+```ts
+import { createClient, type Tier0Client, type UnsV2Request } from '@tier0/sdk-v2';
+
+export async function explainSiteTotals(collectionId: string, siteId: string, client: Tier0Client = createClient()) {
+  const query = {
+    collectionId,
+    pipeline: [
+      { $match: { siteId } },
+      { $group: { _id: '$status', total: { $sum: 1 } } },
+      { $sort: [['_id', 1]] },
+    ],
+    page: { mode: 'offset', page: 1, size: 25 },
+  } satisfies UnsV2Request<'recordAggregatePipeline'>;
+  return client.uns.recordExplain({ ...query, op: 'aggregate' });
+}
+```
+
+保留返回信封的 `requestId`，检查 `data.plan` 的扫描、连接和排序计划。估计行数不是实际匹配数；不支持的新后端能力应明确报错，不回退为执行聚合。原 `find/updateMany/deleteMany` explain 仍是有界范围评估，可能读取样本，不能把它们称为纯规划。
+
 ## 回收集合的历史读取
 
 回收集合保留 Record、Sample 与索引，按既有未撤销授权只读；无需先恢复。活跃 App 的 context 保留仍可读的回收集合，仅给读取权限。App 被回收后自身不能运行。

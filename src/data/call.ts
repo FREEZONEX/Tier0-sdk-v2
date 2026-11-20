@@ -58,6 +58,30 @@ export interface CallOptions {
 /** Sends one operation and resolves with the envelope's `data`. */
 export type DataCall = <T>(operation: UnsV2OperationName, request: Record<string, unknown>, options?: CallOptions) => Promise<T>;
 
+/** Metadata for one completed data-layer call, never its request/response body or credentials. */
+export interface DataRequestObservation {
+  operation: UnsV2OperationName;
+  /** Present only for operations targeting a single collection. */
+  collectionId?: string;
+  /** Latest UNS response ID, absent when no UNS response was received. */
+  requestId?: string;
+  outcome: 'success' | 'error';
+  errorCode?: string;
+  /** UNS client attempts, including retries; excludes local queue/body-size refusals. */
+  attempts: number;
+  retries: number;
+  /** Total time waiting for this process's data-call slots. */
+  queueMs: number;
+  /** Total UNS attempt time, including encoding, transport, parsing and any proxy retry. Not SQL time. */
+  requestMs: number;
+  /** Whole call time, including queueing, attempts and retry backoff. */
+  durationMs: number;
+}
+
+/** Optional diagnostics; not awaited, and observer failures never change the data call. */
+export type DataRequestObserver = (event: Readonly<DataRequestObservation>) => void | Promise<void>;
+type CallMeasurement = Pick<DataRequestObservation, 'attempts' | 'queueMs' | 'requestMs' | 'requestId'>;
+
 /**
  * Opens one `records:subscribe` stream (outside the concurrency gate: it is
  * long-lived and holds no UNS connection while it waits). Failures are DataErrors.
@@ -140,8 +164,9 @@ function pause(ms: number, signal: AbortSignal): Promise<boolean> {
   });
 }
 
-export function createDataTransport(config: ClientConfig): { call: DataCall; openStream: DataOpenStream } {
-  const snapshot = snapshotClientConfig(config, ['transportTimeoutMs']);
+export function createDataTransport(config: ClientConfig & { onRequest?: DataRequestObserver }): { call: DataCall; openStream: DataOpenStream } {
+  const snapshot = snapshotClientConfig(config, ['transportTimeoutMs', 'onRequest']);
+  const observer = snapshot.onRequest;
   const http = new HttpClient(snapshot);
   const resolve = () => http;
   const timeoutMs = snapshot.transportTimeoutMs ?? DEFAULT_DATA_TIMEOUT_MS;
@@ -165,7 +190,7 @@ export function createDataTransport(config: ClientConfig): { call: DataCall; ope
     }
   }
 
-  async function call<T>(operation: UnsV2OperationName, request: Record<string, unknown>, options: CallOptions = {}): Promise<T> {
+  async function call<T>(operation: UnsV2OperationName, request: Record<string, unknown>, options: CallOptions = {}, measurement?: CallMeasurement): Promise<T> {
     assertConfigured();
     const timeoutMs = snapshot.transportTimeoutMs ?? (operation === 'recordTransactionExecute'
       ? DEFAULT_TRANSACTION_TIMEOUT_MS : DEFAULT_DATA_TIMEOUT_MS);
@@ -195,16 +220,35 @@ export function createDataTransport(config: ClientConfig): { call: DataCall; ope
     });
     try {
       for (let attempt = 1; ; attempt += 1) {
+        const queuedAt = measurement ? performance.now() : 0;
+        let entered = false;
         try {
-          const response = await gate.run(() => {
+          const response = await gate.run(async () => {
+            entered = true;
+            const startedAt = measurement ? performance.now() : 0;
+            if (measurement) {
+              measurement.queueMs += startedAt - queuedAt;
+              measurement.attempts += 1;
+            }
             // Each attempt gets the time left of the call as its transport deadline.
             const remaining = Math.max(1, deadline - Date.now());
             const core = new UnsV2ClientCore(resolve, { transportTimeoutMs: remaining });
             // In flight, only the business request's abort cancels; the transport deadline covers the time.
-            return core.call(operation, body as UnsV2Request<typeof operation>, { signal: options.signal, maxRequestBytes: options.maxBodyBytes });
+            try {
+              const response = await core.call(operation, body as UnsV2Request<typeof operation>, { signal: options.signal, maxRequestBytes: options.maxBodyBytes });
+              if (measurement && response.requestId) measurement.requestId = response.requestId;
+              return response;
+            } catch (error) {
+              if (measurement && error instanceof UnsV2Error && error.requestId) measurement.requestId = error.requestId;
+              if (measurement && error instanceof UnsV2RequestSizeError) measurement.attempts -= 1;
+              throw error;
+            } finally {
+              if (measurement) measurement.requestMs += performance.now() - startedAt;
+            }
           }, stop.signal);
           return response.data as T;
         } catch (error) {
+          if (measurement && !entered) measurement.queueMs += performance.now() - queuedAt;
           if (error instanceof Abandoned) throw notSent(attempt - 1);
           if (error instanceof UnsV2RequestSizeError) {
             throw new DataError({ code: 'REQUEST_TOO_LARGE', status: 413, execution: 'notStarted',
@@ -225,6 +269,36 @@ export function createDataTransport(config: ClientConfig): { call: DataCall; ope
     }
   }
 
+  async function observedCall<T>(operation: UnsV2OperationName, request: Record<string, unknown>, options?: CallOptions): Promise<T> {
+    const startedAt = performance.now();
+    const measurement: CallMeasurement = { attempts: 0, queueMs: 0, requestMs: 0 };
+    let outcome: DataRequestObservation['outcome'] = 'success';
+    let errorCode: string | undefined;
+    try {
+      return await call<T>(operation, request, options, measurement);
+    } catch (error) {
+      outcome = 'error';
+      if (error instanceof DataError) errorCode = error.code;
+      throw error;
+    } finally {
+      const event: Readonly<DataRequestObservation> = Object.freeze({
+        operation,
+        ...(typeof request.collectionId === 'string' ? { collectionId: request.collectionId } : {}),
+        ...measurement,
+        outcome,
+        ...(errorCode ? { errorCode } : {}),
+        retries: Math.max(0, measurement.attempts - 1),
+        durationMs: performance.now() - startedAt,
+      });
+      try {
+        // Reporting is outside the gate and never delays the result on an async observer.
+        void Promise.resolve(observer!(event)).catch(() => {});
+      } catch {
+        // Diagnostics must not turn a successful write into a reported failure.
+      }
+    }
+  }
+
   async function* openStream(
     request: UnsV2RecordSubscribeRequest,
     options: { lastEventId?: string; signal: AbortSignal },
@@ -237,5 +311,5 @@ export function createDataTransport(config: ClientConfig): { call: DataCall; ope
     }
   }
 
-  return { call, openStream };
+  return { call: observer ? observedCall : call, openStream };
 }
