@@ -17,4 +17,4 @@ http.headers 只放公开业务头，http.parameters 放公开厂商参数。TLS
 
 `stateManagementSupported` 决定有无独立启停操作。Cloud Stream 消费远端 Source 时区分运行端的 `remoteStreamTarget` 与 Source 所在端的资源能力；绑定 target 使用真实节点、Source ID、configRevision。不要把 MCP 的 fleetNodeId 参数直接添加到 SDK 方法。
 
-HTTP Server 的执行与响应见 [HTTP Server Stream](../../tier0-sdk-v2-stream/references/http-server.md)。
+HTTP Server 的执行与响应见 [HTTP Server Stream](../../tier0-sdk-v2-stream-management/references/http-server.md)。

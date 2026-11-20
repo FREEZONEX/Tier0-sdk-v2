@@ -1,11 +1,11 @@
 ---
-name: tier0-sdk-v2-streams
-description: 在 Tier0 App 服务端使用 client.streams 调用已发布的 Stream 请求，发布或订阅实时业务消息。Stream 草稿与发布管理使用 tier0-sdk-v2-stream；历史业务数据使用 Collection。
+name: tier0-sdk-v2-stream-interactions
+description: 在 Tier0 App 服务端使用 client.streams 调用已发布的 Stream 请求，发布或订阅实时业务消息。Stream 草稿与发布管理使用 tier0-sdk-v2-stream-management；历史业务数据使用 Collection。
 ---
 
-# App 调用 Stream
+# App Stream 交互
 
-`client.streams` 用于已发布请求和实时业务消息；单数 `client.stream` 用于[管理程序与发布](../tier0-sdk-v2-stream/SKILL.md)。两者都来自 `@tier0/sdk-v2`。
+`client.streams` 用于已发布请求和实时业务消息；`client.stream` 用于[管理程序与发布](../tier0-sdk-v2-stream-management/SKILL.md)。两者都来自 `@tier0/sdk-v2`。
 
 在 App 服务端使用持有 Key 的客户端，浏览器调用 App 自己的服务端路由，不把平台 Key 放进前端。创建客户端与环境配置见 [根 Skill](../SKILL.md)。
 
@@ -78,4 +78,4 @@ module.exports = api => {
 
 业务输入校验、普通调用错误的 catch、重试和补偿写在 handler；权限、凭据、资源与执行限额拒绝仍由平台终止。onTimer 另需 intervalMs，Source onMessage 另需 source/resourceRefs 及采集参数，HTTP 入站 onRequest 另需 source/method/path。业务消息订阅为 `api.stream.messages.subscribe({id,topic,inputSchema},handler)`；发布先声明 `api.stream.messages.use({topic,access:'publish'})`，再调用 `api.stream.messages.publish({topic,payload})`。`api.stream.onMessage` 接收 Source 事件，不是业务消息订阅。
 
-Stream 返回结果不会自动写 Collection。发布与执行能力以目标当前合同为准，HTTP 请求和厂商认证边界见 [Stream 管理](../tier0-sdk-v2-stream/SKILL.md#按需请求与-http)。
+Stream 返回结果不会自动写 Collection。发布与执行能力以目标当前合同为准，HTTP 请求和厂商认证边界见 [Stream 管理](../tier0-sdk-v2-stream-management/SKILL.md#按需请求与-http)。

@@ -254,8 +254,8 @@
         "path": "./skills/tier0-sdk-v2/tier0-sdk-v2-source"
       },
       {
-        "name": "tier0-sdk-v2-stream",
-        "path": "./skills/tier0-sdk-v2/tier0-sdk-v2-stream"
+        "name": "tier0-sdk-v2-stream-management",
+        "path": "./skills/tier0-sdk-v2/tier0-sdk-v2-stream-management"
       },
       {
         "name": "tier0-sdk-v2",
@@ -294,8 +294,8 @@
         "path": "./skills/tier0-sdk-v2/tier0-sdk-v2-data"
       },
       {
-        "name": "tier0-sdk-v2-streams",
-        "path": "./skills/tier0-sdk-v2/tier0-sdk-v2-streams"
+        "name": "tier0-sdk-v2-stream-interactions",
+        "path": "./skills/tier0-sdk-v2/tier0-sdk-v2-stream-interactions"
       }
     ]
   }

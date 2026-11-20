@@ -12,8 +12,8 @@ description: 使用 @tier0/sdk-v2 开发或迁移 Tier0 云端 TypeScript/JavaSc
 | 用户要做什么 | SDK 入口 | 深入说明 |
 | --- | --- | --- |
 | 连接外部系统、维护采集源、检查连接和影响范围 | `client.source` | [Source](tier0-sdk-v2-source/SKILL.md) |
-| 编写处理程序、配置源绑定、校验和发布、查运行记录 | `client.stream` | [Stream](tier0-sdk-v2-stream/SKILL.md) |
-| 调用业务请求、发布或订阅业务消息、查询 App 交互能力 | `client.streams` | [App Stream 交互](tier0-sdk-v2-streams/SKILL.md) |
+| 编写处理程序、配置源绑定、校验和发布、查运行记录 | `client.stream` | [Stream 管理](tier0-sdk-v2-stream-management/SKILL.md) |
+| 调用业务请求、发布或订阅业务消息、查询 App 交互能力 | `client.streams` | [App Stream 交互](tier0-sdk-v2-stream-interactions/SKILL.md) |
 | 集合、目录、Topic、业务记录、历史采样与事务 | `client.uns` | [UNS](tier0-sdk-v2-uns/SKILL.md) |
 | App 自有业务数据：声明集合、Mongo 风格读写与事务 | `@tier0/sdk-v2/data` | [App 数据](tier0-sdk-v2-data/SKILL.md) |
 | App 统计报表、KPI、趋势图和大屏 | `@tier0/sdk-v2/data`、时序聚合用 `client.uns` | [统计报表与大屏](tier0-sdk-v2-data/references/read-write.md#统计报表与大屏) |

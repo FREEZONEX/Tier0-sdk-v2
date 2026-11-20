@@ -7,8 +7,8 @@ Source 保存连接与认证，Stream 执行采集或业务逻辑，Collection �
 | 任务 | 入口 | 文档 |
 | --- | --- | --- |
 | 接入外部系统、配置认证与检查连接 | `client.source` | [Source](skills/tier0-sdk-v2/tier0-sdk-v2-source/SKILL.md) |
-| 保存、发布和诊断处理程序 | `client.stream` | [Stream](skills/tier0-sdk-v2/tier0-sdk-v2-stream/SKILL.md) |
-| 调用请求、订阅或发布业务消息 | `client.streams` | [Stream 交互](skills/tier0-sdk-v2/tier0-sdk-v2-streams/SKILL.md) |
+| 保存、发布和诊断处理程序 | `client.stream` | [Stream 管理](skills/tier0-sdk-v2/tier0-sdk-v2-stream-management/SKILL.md) |
+| 调用请求、订阅或发布业务消息 | `client.streams` | [Stream 交互](skills/tier0-sdk-v2/tier0-sdk-v2-stream-interactions/SKILL.md) |
 | 集合结构、记录、历史采样与授权 | `client.uns` | [Collection / UNS](skills/tier0-sdk-v2/tier0-sdk-v2-uns/SKILL.md) |
 | App 集合声明与 Mongo 风格数据访问 | `@tier0/sdk-v2/data` | [App 数据](skills/tier0-sdk-v2/tier0-sdk-v2-data/SKILL.md) |
 
@@ -193,7 +193,7 @@ HTTP 调用统一使用 `/openapi/v2`。21 个重复 UNS 公共入口及生成�
 
 Source 认证配置与安全注入见 [Source 创建](skills/tier0-sdk-v2/tier0-sdk-v2-source/references/create.md)。通用 HTTP custom 的字段名是实际请求头名；Plex 模板的 `apiKey` 是厂商语义字段，两者不能直接互换。凭据通过专用凭据入口提交，不放入普通 headers 或脚本。
 
-Stream 草稿保存、发布与运行是三个结果，分别核对。修订守卫、发布编号与未知结果恢复见 [Stream 发布](skills/tier0-sdk-v2/tier0-sdk-v2-stream/references/deploy.md)。运行时交互使用 `client.streams`。
+Stream 草稿保存、发布与运行是三个结果，分别核对。修订守卫、发布编号与未知结果恢复见 [Stream 发布](skills/tier0-sdk-v2/tier0-sdk-v2-stream-management/references/deploy.md)。运行时交互使用 `client.streams`。
 
 随包的领域 Skills 可以独立使用，详细参数和示例放在各自 references 中。Tier0 Console 上传 Skill 时，将整个 `skills/tier0-sdk-v2/` 目录打包，保留相对链接。
 
@@ -368,7 +368,7 @@ Source 创建/更新与 Stream 创建/更新/部署的 dryRun 默认 false。凭
 
 ## App Stream 交互与旧包迁移
 
-`client.streams` 只在服务端用带 Key 的客户端（`createClient()`，读 `TIER0_API_HOST` / `TIER0_API_KEY`，或显式传 `apiHost` / `apiKey`）：`client.streams.requests.use({code}).invoke(input)`、`client.streams.messages.use({topic}).subscribe(handler)`。支持简化请求合同的后端可用 `api.stream.onRequest({id}, handler)` 注册普通请求，无需声明业务 sideEffect、idempotency、schema 或版本。平台默认一次执行，不自动重跑；可选 `{idempotencyKey}` 只用于同次请求的传输去重，业务幂等、重试与补偿由代码处理，历史发布保留原合同。浏览器不直接调平台，经 App 自己的服务端接口。Tier0 App 的 Key 可以用：Stream 请求和消息是 App 的固定能力，仍受工作区套餐约束；请求还要 Stream 请求授权给这个 App 授过对应的 request code；消息主题以已发布 Stream 的 manifest 为准（App 能订阅 Stream 声明发布的主题，能发布到有 Stream 订阅的主题），没有按 App 的主题配置（见 [Stream 交互](skills/tier0-sdk-v2/tier0-sdk-v2-streams/SKILL.md)）。订阅不再使用时 dispose，客户端退出时 `await client.dispose()`；请求与消息不会自动重放业务写入。
+`client.streams` 只在服务端用带 Key 的客户端（`createClient()`，读 `TIER0_API_HOST` / `TIER0_API_KEY`，或显式传 `apiHost` / `apiKey`）：`client.streams.requests.use({code}).invoke(input)`、`client.streams.messages.use({topic}).subscribe(handler)`。支持简化请求合同的后端可用 `api.stream.onRequest({id}, handler)` 注册普通请求，无需声明业务 sideEffect、idempotency、schema 或版本。平台默认一次执行，不自动重跑；可选 `{idempotencyKey}` 只用于同次请求的传输去重，业务幂等、重试与补偿由代码处理，历史发布保留原合同。浏览器不直接调平台，经 App 自己的服务端接口。Tier0 App 的 Key 可以用：Stream 请求和消息是 App 的固定能力，仍受工作区套餐约束；请求还要 Stream 请求授权给这个 App 授过对应的 request code；消息主题以已发布 Stream 的 manifest 为准（App 能订阅 Stream 声明发布的主题，能发布到有 Stream 订阅的主题），没有按 App 的主题配置（见 [Stream 交互](skills/tier0-sdk-v2/tier0-sdk-v2-stream-interactions/SKILL.md)）。订阅不再使用时 dispose，客户端退出时 `await client.dispose()`；请求与消息不会自动重放业务写入。
 
 旧 `/cloud` 改用根入口，`/cloud/server` 改用 `/server`，`/openapi/react` 和 `/openapi/vue` 改用 `/react` 和 `/vue`。`/streams` 的现役能力已原生迁入本包；浏览器受信宿主（`/runtime`、`installAppRuntime`、`Symbol.for('tier0.sdk.app-runtime.v1')`）已删除，没有替代。Source/Stream 管理、文件、MQTT、通知、成员和集合继续使用本包现有入口；旧文件单例函数改为 `client.files` 对应方法。旧 `getCurrentProjectId`、Flow、Control 及项目接口已退役，不迁回。
 
@@ -388,6 +388,6 @@ Source 创建/更新与 Stream 创建/更新/部署的 dryRun 默认 false。凭
 
 真实消息本地验收用 `npm run test:streams:artifact`（Go、Node.js 22+、`nats-server`，通过 `TIER0_STREAM_MESSAGES_BACKEND_DIR` 指向 Backend checkout）。脚本用带 Key 的服务端客户端验证生产 Go issuer、TLS NATS、已安装 tarball 的 ESM/CJS，以及根入口的浏览器打包依赖闭包；固定夹具身份不代表线上 SYS/Gateway/App 权限链路。
 
-代码存在不代表已发布。先构建并安装这次统一实现的不可变制品，更新 App 模板、依赖锁与存量 App，再移除旧包；不能用旧 npm 0.7.2 替代本分支构建。完整交互说明见 [Stream 交互](skills/tier0-sdk-v2/tier0-sdk-v2-streams/SKILL.md)。
+代码存在不代表已发布。先构建并安装这次统一实现的不可变制品，更新 App 模板、依赖锁与存量 App，再移除旧包；不能用旧 npm 0.7.2 替代本分支构建。完整交互说明见 [Stream 交互](skills/tier0-sdk-v2/tier0-sdk-v2-stream-interactions/SKILL.md)。
 
 Source/Stream 定向契约同步使用 `node scripts/sync-source-stream-contract.mjs <backend> <commit>`，然后 `npm run generate && npm run check`。该生成流程同步相关公开操作、路由、协议目录及依赖 schema，保留其余数据模型与平台输入的固定版本；来源和摘要记录在 contracts/uns-v2/provenance.json 的 source-stream-public 条目。`--worktree` 仅供预览，发布前必须重新固定已提交 SHA。
