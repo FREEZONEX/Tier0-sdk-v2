@@ -1,11 +1,11 @@
 ---
-name: tier0-sdk-v2-stream
-description: 使用 @tier0/sdk-v2 的 client.stream 创建和编辑 Stream、绑定 Source、发布或停用版本、检查运行与数据提交。App 调用已发布请求和实时消息使用 tier0-sdk-v2-streams。
+name: tier0-sdk-v2-stream-management
+description: 使用 @tier0/sdk-v2 的 client.stream 创建和编辑 Stream、绑定 Source、发布或停用版本、检查运行与数据提交。App 调用已发布请求和实时消息使用 tier0-sdk-v2-stream-interactions。
 ---
 
 # Stream 管理
 
-`client.stream` 管理草稿、发布版本和运行；脚本中的 `api.sources/api.uns/api.stream` 属于平台执行器。连接和认证由 [Source](../tier0-sdk-v2-source/SKILL.md) 管理，业务存储由 [Collection](../tier0-sdk-v2-uns/SKILL.md) 管理，App 按需请求与消息见 [streams](../tier0-sdk-v2-streams/SKILL.md)。
+`client.stream` 管理草稿、发布版本和运行；脚本中的 `api.sources/api.uns/api.stream` 属于平台执行器。连接和认证由 [Source](../tier0-sdk-v2-source/SKILL.md) 管理，业务存储由 [Collection](../tier0-sdk-v2-uns/SKILL.md) 管理，App 按需请求与消息见 [Stream 交互](../tier0-sdk-v2-stream-interactions/SKILL.md)。
 
 使用持有当前管理权限的服务端客户端。Builder 的管理身份与 App 运行 Key 不同；App 能调用已授予的请求，不因此取得 Stream 管理权。按实际错误定位权限或配置，不因 403 自动换 Key。
 
@@ -31,7 +31,7 @@ description: 使用 @tier0/sdk-v2 的 client.stream 创建和编辑 Stream、绑
 
 ## 按需请求与 HTTP
 
-支持简化请求合同的后端用 `api.stream.onRequest({id}, handler)` 注册普通请求，超时沿用 script.timeoutMs，无需声明业务 sideEffect、idempotency、schema 或版本。平台默认执行一次，不自动重跑 handler；业务校验、普通调用异常的 catch、重试、幂等与补偿由代码处理。可选调用键只用于同次请求的传输去重，历史发布保留原合同。最小示例见 [Stream 交互](../tier0-sdk-v2-streams/SKILL.md#stream-端对应入口)。
+支持简化请求合同的后端用 `api.stream.onRequest({id}, handler)` 注册普通请求，超时沿用 script.timeoutMs，无需声明业务 sideEffect、idempotency、schema 或版本。平台默认执行一次，不自动重跑 handler；业务校验、普通调用异常的 catch、重试、幂等与补偿由代码处理。可选调用键只用于同次请求的传输去重，历史发布保留原合同。最小示例见 [Stream 交互](../tier0-sdk-v2-stream-interactions/SKILL.md#stream-端对应入口)。
 
 HTTP 读写权限按实际操作检查，GET/HEAD 不因使用 onRequest 而要求写声明；权限、凭据、资源边界和执行限额仍生效。支持复用厂商认证的 Cloud 后端允许在同一 Source 上使用 source.request 请求根下业务路径，认证仍由宿主处理；命名原生操作继续按目录调用。自定义路径不需要登记为 vendor 资源；旧后端不支持时按 reason/path/repair 核对版本，不通过删除 sourceType 绕过认证。
 

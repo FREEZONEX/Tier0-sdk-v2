@@ -62,6 +62,6 @@ Plex 模板使用 `sourceType:'plex-mes'`，其 `credentials:{kind:'custom',valu
 
 普通 HTTP Bearer 使用 `http.authentication:'bearer'` 和 `{kind:'bearer',secret}`；SQL 使用 edge-sql 与 `{kind:'basic',username,secret}`。参数与 TLS 见[协议配置](protocols.md)。
 
-HTTP Server 的 endpoint 按目标目录使用托管地址（Cloud 为 `http://managed`），不套用 Client 凭据。路由和响应时机在 [Stream](../../tier0-sdk-v2-stream/references/http-server.md) 中声明。
+HTTP Server 的 endpoint 按目标目录使用托管地址（Cloud 为 `http://managed`），不套用 Client 凭据。路由和响应时机在 [Stream](../../tier0-sdk-v2-stream-management/references/http-server.md) 中声明。
 
 Source 状态按回执与目标能力处理，不能固定追加启用调用。最后按任务验证实际业务读取与 Stream/Collection 结果，连接健康不能替代业务验收。
