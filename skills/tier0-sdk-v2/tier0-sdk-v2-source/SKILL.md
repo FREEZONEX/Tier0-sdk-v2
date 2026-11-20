@@ -5,7 +5,7 @@ description: 使用 @tier0/sdk-v2 的 client.source 管理 Source 连接和凭�
 
 # Source 连接管理
 
-Source 保存连接、认证与资源声明；脚本执行见 [Stream](../tier0-sdk-v2-stream/SKILL.md)，业务存储见 [UNS](../tier0-sdk-v2-uns/SKILL.md)。使用服务端 `createClient()` 或显式配置 apiHost/apiKey，凭据不进入浏览器。
+Source 保存连接、认证与资源声明；脚本执行见 [Stream](../tier0-sdk-v2-stream-management/SKILL.md)，业务存储见 [UNS](../tier0-sdk-v2-uns/SKILL.md)。使用服务端 `createClient()` 或显式配置 apiHost/apiKey，凭据不进入浏览器。
 
 | 任务 | 参考 |
 |---|---|
