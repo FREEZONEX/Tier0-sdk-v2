@@ -10,9 +10,11 @@ description: 使用 @tier0/sdk-v2 的 client.uns 管理 Collection、目录、To
 ## 先选身份与目标
 
 - 已知 collectionId：直接调用 recordFind 等记录接口，无需先查询元数据或 ensure。
-- App 运行时发现可用集合：dataAppContext，返回集合、有效权限、Schema、revision、indexStatus、ttl 和 limits。App 不能调用通用 metadata/namespace、异步写入或 jobs，也不能自行管理集合授权。
+- App 运行时发现可用集合：dataAppContext，返回集合、有效权限、Schema、revision、indexStatus、ttl 和 limits。indexStatus 的 managedBy 为 app 的是 App 声明的唯一键和 TTL，按 state 判断能否依赖；为 platform 的是平台自动管理的查询索引（含老代码的普通声明），不必等待或处理。App 不能调用通用 metadata/namespace、异步写入或 jobs，也不能自行管理集合授权。
 - Builder 和工作区管理身份：按当前有效权限使用 metadata、目录及授权接口。Builder 以系统身份为同一工作区的目标 App 配置已有集合授权，不依赖对话用户角色；当前绑定 App 是构建上下文。
 - App 自有集合声明：appCollectionsEnsure；显式生命周期使用 appCollectionsSchemaReplace/Archive/Restore。通用元数据创建不能替代这些 App 专用语义。
+
+集合 indexes 只声明唯一键和 TTL；过滤、排序和 `$lookup` 用的查询索引由平台自动建删，`$lookup` 不需要先建索引，大集合在索引准备期间可能返回可重试的 INDEX_PREPARING。
 
 名称与 alias 不是 collectionId。原始 Record 是 `{id,data,revision,...}`，查询/更新的业务路径是 name、customer.name，系统路径是 _id、_meta.revision。SDK 数据层才返回扁平 `_id` 文档。
 

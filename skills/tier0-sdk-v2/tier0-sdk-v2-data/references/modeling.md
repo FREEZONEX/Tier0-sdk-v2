@@ -16,7 +16,8 @@ export const orders = defineCollection({
     lines: z.array(z.object({ sku: z.string(), qty: z.number().int().min(1).meta({ format: 'int32' }) })),
     notes: z.string().optional(),
   }),
-  indexes: [{ path: 'code', unique: true }, { path: 'status' }, { path: 'lines', kind: 'gin' }],
+  // 只声明业务约束（唯一键、TTL）；按 status、lines 查询用的索引由平台自动建。
+  indexes: [{ path: 'code', unique: true }],
 });
 export type Order = Doc<typeof orders>;
 ```
@@ -57,13 +58,17 @@ ensure 同事务复用或创建目录、集合和授权，不需要先 metadataI
 
 ## 索引
 
-使用 `{path}` 或最多 3 字段的 `{paths}`；业务唯一键加 unique:true；数组/对象可用单字段 kind:'gin'，不能 unique。路径沿对象属性，不直接索引数组元素里的属性；每集合最多 16 个索引，实际配额以服务端为准。过滤和排序常用字段应考虑索引。
+`indexes` 只声明两类业务约束：唯一键（`{path}` 或最多 3 字段的 `{paths}`，加 unique:true）和 TTL（见下文）。路径沿对象属性，不能落在数组元素里的属性上。
+
+过滤、排序和 `$lookup` 用的查询索引由平台根据线上实际查询自动新建、删除和重建，不需要也不应该为它们写声明。`$lookup` 不需要先建索引：被关联集合较小时照常执行；较大且平台还在准备索引时返回可重试的 `INDEX_PREPARING`，按 retry 提示稍后重试即可，不要为此补声明。慢查询先缩小条件或结果规模。
+
+老代码里的普通（非唯一、非 TTL）声明，包括 kind:'gin'，类型仍接受、服务端也不报错，但只作提示：平台不保证按它建物理索引，`assertIndexesReady` 不检查它，`defineCollection` 的类型提示会标为已弃用。新代码删掉这类声明。物理索引配额按工作区计（唯一 + TTL + 平台自动索引），以服务端为准。
 
 索引声明仅支持 path/paths、unique（布尔值）、kind、expireAfterSeconds。未支持的选项必须报错，不能忽略后继续创建索引；例如 where/partialFilterExpression 不表示已支持部分唯一索引。迁移依赖此类约束时，先确认 SDK 与平台的等价能力，不能删除条件来通过编译。
 
 唯一索引异步创建，ready 后才可依赖唯一约束或 upsert。upsert 要求 _id 等值或一个 ready 唯一索引全部字段等值。软删除记录释放唯一键，恢复可能与活动记录冲突。
 
-`await data.assertIndexesReady([orders])` 先 ensure，再用 App Key 的当前 context 核对所选声明的全部索引（不传参数则检查全部声明）。检查字段顺序、unique、kind、target、TTL 和集合 ID；未就绪抛 `INDEX_NOT_READY`，失败抛 `INDEX_BUILD_FAILED`，不得继续依赖约束写入。每次读取新状态，不缓存 ready、不轮询、不修复、不改用个人 Key。它只证明检查时的状态，不锁定索引、不改变 seed 时机，也不自动保护后续写入或 SDK 自愈后重建的集合；业务切换还必须验证这些生命周期路径。
+`await data.assertIndexesReady([orders])` 先 ensure，再用 App Key 的当前 context 核对所选声明的唯一索引和 TTL（不传参数则检查全部声明；普通声明跳过，不论服务端报什么状态）。检查字段顺序、unique、kind、target、TTL 和集合 ID；未就绪抛 `INDEX_NOT_READY`，失败抛 `INDEX_BUILD_FAILED`，不得继续依赖约束写入。每次读取新状态，不缓存 ready、不轮询、不修复、不改用个人 Key。它只证明检查时的状态，不锁定索引、不改变 seed 时机，也不自动保护后续写入或 SDK 自愈后重建的集合；业务切换还必须验证这些生命周期路径。
 
 事务可用 `data.transact(steps, { requireIndexesReady: true })`：发送前检查步骤涉及的声明及实际集合 ID，Preview 重置导致集合自愈后重新检查再提交；索引未就绪时不会向重建集合重发业务事务。只接受本客户端声明，不接受已有 ID 引用。它仍是发送前检查，不锁元数据、不更改 bootstrap/seed，也不重新检查底层 HTTP 安全重试之间的状态；索引存续和约束执行由服务端保证。
 

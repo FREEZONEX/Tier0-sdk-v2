@@ -25,7 +25,7 @@ export async function createCollection(parentId: string | null, intentKey: strin
 }
 ```
 
-保存 insertedId；需要服务器补全的结构/revision 时再读取。Schema 数值使用 integer/int32、number/float|double，嵌套同样处理；format 不转换或舍入。索引创建异步，ready 后才依赖唯一约束。
+保存 insertedId；需要服务器补全的结构/revision 时再读取。Schema 数值使用 integer/int32、number/float|double，嵌套同样处理；format 不转换或舍入。索引创建异步，ready 后才依赖唯一约束。indexes 只声明唯一键和 TTL，查询索引由平台自动建。
 
 ## 新增记录与创建快照
 
