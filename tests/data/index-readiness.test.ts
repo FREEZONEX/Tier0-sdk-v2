@@ -5,16 +5,23 @@ import { createDataClient, defineCollection, runWithAbortSignal } from '../../sr
 const codes = defineCollection({ alias: 'codes', name: 'Codes', schema: z.object({ code: z.string() }), indexes: [{ path: 'code', unique: true }] });
 const logs = defineCollection({ alias: 'logs', name: 'Logs', schema: z.object({ at: z.number().int() }), indexes: [{ path: 'at', expireAfterSeconds: 60 }] });
 const plain = defineCollection({ alias: 'plain', name: 'Plain', schema: z.object({ label: z.string() }) });
+// 老 App：唯一键之外还声明了普通 btree / GIN 索引（已弃用，只作提示）。
+const legacy = defineCollection({ alias: 'legacy', name: 'Legacy', schema: z.object({ code: z.string(), status: z.string(), tags: z.array(z.string()) }),
+  indexes: [{ path: 'code', unique: true }, { path: 'status' }, { paths: ['status', 'code'] }, { path: 'tags', kind: 'gin' }] });
+const hintsOnly = defineCollection({ alias: 'hints', name: 'Hints', schema: z.object({ status: z.string() }), indexes: [{ path: 'status' }] });
+const legacyUnique = (state = 'ready', managedBy = 'app') => ({ ...ready({ paths: ['code'], unique: true, kind: 'btree', target: 'records' }, state), managedBy });
+const platform = (spec: object, state = 'ready') => ({ ...ready(spec, state), managedBy: 'platform' });
 const ready = (spec: object = { paths: ['code'], unique: true, kind: 'btree', target: 'records' }, state = 'ready') => ({ spec, state, name: 'opaque', error: 'PRIVATE-DUPLICATE-VALUE' });
 function fixture() {
   const calls: { path: string; body: any }[] = [];
   let appId = 'test-app', collectionId = 'c-codes';
   let states: unknown[] = [ready()];
+  let legacyStates: unknown[] = [legacyUnique()];
   let denied = false;
   let conflict = false;
   let recoverBuilding = false;
   let ensuredCodeId = 'c-codes';
-  const data = createDataClient({ collections: [codes, logs, plain], apiHost: 'https://isolated.invalid', apiKey: 'test-only',
+  const data = createDataClient({ collections: [codes, logs, plain, legacy, hintsOnly], apiHost: 'https://isolated.invalid', apiKey: 'test-only',
     environment: 'deployed',
     logger: { info() {}, warn() {}, error() {} }, fetch: async (url, init) => {
       const path = new URL(String(url)).pathname, body = JSON.parse(String(init?.body));
@@ -35,6 +42,7 @@ function fixture() {
           limits: { transaction: { maxItems: 50000, maxBodyBytes: 32 << 20, timeoutMs: 60000 } }, collections: [
           { alias: 'CODES', collectionId, indexStatus: states },
           { alias: 'logs', collectionId: 'c-logs', indexStatus: [ready({ path: 'at', expireAfterSeconds: 60 }, 'building')] },
+          { alias: 'legacy', collectionId: 'c-legacy', indexStatus: legacyStates },
         ] } });
       }
       if (path.endsWith('/records:transact')) {
@@ -49,7 +57,7 @@ function fixture() {
       }
       throw new Error('Unexpected request: ' + path);
     } });
-  return { data, calls, states(value: unknown[]) { states = value; },
+  return { data, calls, states(value: unknown[]) { states = value; }, legacy(value: unknown[]) { legacyStates = value; },
     app(value: string) { appId = value; }, collection(value: string) { collectionId = value; }, deny() { denied = true; }, conflict() { conflict = true; },
     resetOnTransaction() { recoverBuilding = true; } };
 }
@@ -95,6 +103,34 @@ describe('data.assertIndexesReady', () => {
   ])('rejects missing/ambiguous/different constraint states', async states => {
     const f = fixture(); f.states(states);
     await expect(f.data.assertIndexesReady([codes])).rejects.toMatchObject({ code: 'INDEX_NOT_READY' });
+  });
+
+  it.each([
+    ['platform-managed ready entries', [legacyUnique(), platform({ path: 'status' }), platform({ paths: ['status', 'code'] }), platform({ path: 'tags', kind: 'gin' })]],
+    ['no entries for plain declarations', [legacyUnique()]],
+    ['plain entries still building or failed', [legacyUnique(), platform({ path: 'status' }, 'building'), platform({ path: 'tags', kind: 'gin' }, 'failed')]],
+    ['managedBy inside the spec', [ready({ paths: ['code'], unique: true, kind: 'btree', target: 'records', managedBy: 'app' })]],
+  ])('passes an old App with plain declarations: %s', async (_name, states) => {
+    const f = fixture(); f.legacy(states);
+    await f.data.assertIndexesReady([legacy]);
+  });
+
+  it('still rejects a declared unique index of an old App that is not ready', async () => {
+    const f = fixture();
+    f.legacy([legacyUnique('building'), platform({ path: 'status' })]);
+    await expect(f.data.assertIndexesReady([legacy])).rejects.toMatchObject({
+      code: 'INDEX_NOT_READY', details: { alias: 'legacy', index: { path: 'code', unique: true }, state: 'building' },
+    });
+    f.legacy([platform({ path: 'status' })]);
+    await expect(f.data.assertIndexesReady([legacy])).rejects.toMatchObject({ code: 'INDEX_NOT_READY', details: { state: 'missing' } });
+    f.legacy([legacyUnique('failed')]);
+    await expect(f.data.assertIndexesReady([legacy])).rejects.toMatchObject({ code: 'INDEX_BUILD_FAILED' });
+  });
+
+  it('skips I/O for collections that declare only plain indexes', async () => {
+    const f = fixture();
+    await f.data.assertIndexesReady([hintsOnly, plain]);
+    expect(f.calls).toHaveLength(0);
   });
 
   it('refuses another App and a replacement collection under the same alias', async () => {

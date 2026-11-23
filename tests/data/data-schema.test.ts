@@ -301,6 +301,13 @@ describe('compileCollection', () => {
     expect(() => compileCollection(defineCollection({ alias: 'orders', name: '生产工单', schema: workOrderSchema, indexes: [{ path: 'lines.0.sku' }] }))).toThrow(CollectionSchemaError);
   });
 
+  it('accepts more than 16 declarations per collection (the server counts physical indexes per workspace)', () => {
+    const fields = Object.fromEntries(Array.from({ length: 20 }, (_, n) => [`f${n}`, z.string()]));
+    const indexes = Object.keys(fields).map(path => ({ path, unique: true as const }));
+    const compiled = compileCollection(defineCollection({ alias: 'wide', name: '宽表', schema: z.object(fields), indexes }));
+    expect(compiled.indexes).toHaveLength(20);
+  });
+
   it('requires a business name separately from the stable alias and counts Unicode characters', () => {
     const declaration = defineCollection({ alias: 'production_orders', name: '生产工单', schema: workOrderSchema });
     expect(compileCollection(declaration)).toMatchObject({ alias: 'production_orders', name: '生产工单' });

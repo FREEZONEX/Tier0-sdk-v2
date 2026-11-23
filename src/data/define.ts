@@ -24,14 +24,28 @@ export const MAX_DIRECTORY_DEPTH = 16;
 /** Seeds are inserted in atomic chunks of 200 during the first request; keep them a baseline, not a data import. */
 export const MAX_SEED_DOCUMENTS = 1000;
 
-/** Same shape as collection metadata indexes, limited to record indexes. */
+/**
+ * Same shape as collection metadata indexes, limited to record indexes.
+ *
+ * 只声明业务约束：唯一键（`unique: true`）和 TTL（`expireAfterSeconds`）。
+ * 过滤、排序、`$lookup` 用的查询索引由平台按线上查询自动建删，不需要声明。
+ *
+ * 普通（非唯一、非 TTL）声明已弃用：类型仍然接受，老代码不用改，但这类声明只作
+ * 提示，不保证建出对应的物理索引，`assertIndexesReady` 也不检查它。传入这类声明
+ * 时 `defineCollection` 会落到标了 `@deprecated` 的重载上，编辑器会给出提示。
+ */
 export interface IndexSpec {
   /** Business field path without `data.`, e.g. `code` or `customer.id`. */
   path?: string;
   /** Compound index, at most 3 paths. Mutually exclusive with `path`. */
   paths?: string[];
+  /** 业务唯一键。唯一索引由 App 声明并负责，ready 后才可依赖唯一约束或 upsert。 */
   unique?: boolean;
-  /** `btree` (default) or `gin` for one object/array path; GIN cannot be unique. */
+  /**
+   * `btree` (default) or `gin` for one object/array path; GIN cannot be unique.
+   *
+   * @deprecated GIN 只能是普通索引，已由平台自动管理；声明只作提示。
+   */
   kind?: 'btree' | 'gin';
   /**
    * TTL index: UNS physically deletes a record this many seconds
@@ -42,6 +56,9 @@ export interface IndexSpec {
    */
   expireAfterSeconds?: number;
 }
+
+/** App 负责的约束声明：唯一键或 TTL。 */
+export type ConstraintIndexSpec = IndexSpec & ({ unique: true } | { expireAfterSeconds: number });
 
 /** System metadata of a stored record. Times are Unix milliseconds. */
 export interface RecordMeta {
@@ -95,15 +112,25 @@ export type NewDoc<C extends CollectionDefinition> = z.input<C['schema']> & {
   _id?: string;
 };
 
-export function defineCollection<S extends CollectionSchema>(definition: {
+/** `defineCollection` 的参数；`indexes` 只需声明唯一键和 TTL。 */
+export interface CollectionDeclaration<S extends CollectionSchema, I extends IndexSpec = IndexSpec> {
   alias: string;
   name: string;
   directoryPath?: readonly string[];
   schema: S;
-  indexes?: IndexSpec[];
+  /** 只写唯一键和 TTL；查询索引由平台自动建删。 */
+  indexes?: I[];
   description?: string;
   seed?: SeedDoc<S>[];
-}): CollectionDefinition<S> {
+}
+
+export function defineCollection<S extends CollectionSchema>(definition: CollectionDeclaration<S, ConstraintIndexSpec>): CollectionDefinition<S>;
+/**
+ * @deprecated `indexes` 里有普通（非唯一、非 TTL）索引声明。查询索引已由平台按
+ * 线上查询自动建删，这类声明只作提示；删掉它们，只保留唯一键和 TTL。
+ */
+export function defineCollection<S extends CollectionSchema>(definition: CollectionDeclaration<S>): CollectionDefinition<S>;
+export function defineCollection<S extends CollectionSchema>(definition: CollectionDeclaration<S>): CollectionDefinition<S> {
   if (!ALIAS_PATTERN.test(definition.alias)) {
     throw new Error(
       `Collection alias "${definition.alias}" must match ${ALIAS_PATTERN} (letters, digits, "_" or "-", starting with a letter).`,

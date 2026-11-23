@@ -77,7 +77,6 @@ export const SCHEMA_LIMITS = {
   enumValues: 100,
   title: 512,
   description: 2048,
-  indexes: 16,
   indexPaths: 3,
   ttlIndexes: 1,
   minExpireAfterSeconds: 60,
@@ -401,14 +400,14 @@ function indexPathProblem(alias: string, schema: RecordSchema, path: string, kin
   for (const [position, segment] of segments.entries()) {
     if (current?.type === 'array') {
       const arrayPath = segments.slice(0, position).join('.');
-      return `"${path}" reaches into the items of array "${arrayPath}"; index the array itself with kind: "gin", or copy the value to a top-level field.`;
+      return `"${path}" reaches into the items of array "${arrayPath}"; a unique key or TTL needs the value copied to a field outside the array. Query indexes are built by the platform and need no declaration.`;
     }
     current = current?.type === 'object' ? current.properties?.[segment] : undefined;
     if (!current) return `"${path}" is not a declared field of "${alias}".`;
   }
   const target = current as RecordSchema;
   if (kind === 'btree' && (target.type === 'object' || target.type === 'array')) {
-    return `"${path}" is an ${target.type}; index a scalar field or use kind: "gin".`;
+    return `"${path}" is an ${target.type}; a unique key or TTL covers a scalar field. Query indexes are built by the platform and need no declaration.`;
   }
   if (kind === 'gin' && target.type !== 'object' && target.type !== 'array') {
     return `"${path}" is a ${target.type}; a GIN index covers an object or array field.`;
@@ -434,9 +433,7 @@ function normalizeIndexes(alias: string, indexes: readonly IndexSpec[], schema: 
   const out: NormalizedIndex[] = [];
   const seen = new Set<string>();
   let ttl = 0;
-  if (indexes.length > SCHEMA_LIMITS.indexes) {
-    issues.push({ path: 'indexes', message: `At most ${SCHEMA_LIMITS.indexes} indexes per collection.` });
-  }
+  // 不再限制每集合声明数：服务端按租户物理索引总数（唯一 + TTL + 自动）计配额。
   indexes.forEach((index, position) => {
     const at = `indexes[${position}]`;
     if (index === null || typeof index !== 'object' || Array.isArray(index)) {
