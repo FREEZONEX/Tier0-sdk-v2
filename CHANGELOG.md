@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Query indexes are now platform-managed: declare only unique keys and TTL (`expireAfterSeconds`). `assertIndexesReady` and `requireIndexesReady` check only those, skip plain (non-unique, non-TTL) declarations whatever state the server reports or omits, and tolerate the new `managedBy` field. Plain declarations still type-check and are sent as hints; `defineCollection` resolves them to a `@deprecated` overload. The SDK no longer caps declarations at 16 per collection (the server counts physical indexes per workspace). Adds `INDEX_PREPARING` (retryable, e.g. a large `$lookup` target while its index is built) to the platform-state codes and hints. Requires the matching Backend release.
 - Rename bundled Stream Skills to `tier0-sdk-v2-stream-management` and `tier0-sdk-v2-stream-interactions`, updating registration and documentation links. Runtime `client.stream`, `client.streams` and package exports remain unchanged.
 
 - Add optional `createDataClient({ onRequest })` diagnostics for completed data calls: requestId, local queue time, request duration and retry counts. Events exclude request bodies and credentials; observer failures do not affect requests. These timings are not database execution time.

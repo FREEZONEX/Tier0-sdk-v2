@@ -5,7 +5,8 @@ import { createDataClient, defineCollection, type UpdateManyAtomicResult } from 
 const jobs = defineCollection({ alias: 'jobs', name: 'Queue jobs', schema: z.object({
   state: z.string(), attempts: z.number().int(), availableAt: z.number().int(),
   leaseToken: z.string().optional(), parts: z.array(z.object({ state: z.string() })).optional(),
-}), indexes: [{ path: 'state' }] });
+  // 普通声明只作提示；就绪检查只看 TTL。
+}), indexes: [{ path: 'state' }, { path: 'availableAt', expireAfterSeconds: 86_400 }] });
 const existing = { collectionId: 'existing-jobs', schema: jobs.schema };
 const now = 1794618000123;
 const outcome = (extra: Partial<UpdateManyAtomicResult> = {}) => ({
@@ -30,7 +31,7 @@ function fixture() {
         { alias: 'jobs', collectionId, status: 'unchanged', revision: 1 },
       ] });
       if (path.endsWith('/app/context')) return ok({ appId: 'range-app', collections: [{ alias: 'jobs', collectionId,
-        indexStatus: [{ name: 'state-index', state: indexState, spec: { paths: ['state'], kind: 'btree', target: 'records' } }] }] });
+        indexStatus: [{ name: 'ttl-index', state: indexState, managedBy: 'app', spec: { path: 'availableAt', expireAfterSeconds: 86_400, kind: 'btree', target: 'records' } }] }] });
       if (path.endsWith('/records:updateManyAtomic')) return range(body);
       if (path.endsWith('/records:updateMany')) return partial(body);
       throw new Error('Unexpected request: ' + path);
