@@ -1019,7 +1019,8 @@ export interface components {
             postUrl: string;
         };
         SendNotificationReq: {
-            channels?: ("web" | "mobile")[];
+            /** @description Explicit channels: web, mobile, feishu, dingtalk, wecom. Omitted or empty means inbox only. Office delivery requires configured channels, an available installation and an enabled recipient binding; store applications are restricted to the China site. */
+            channels?: ("web" | "mobile" | "feishu" | "dingtalk" | "wecom")[];
             /** @description 纯文本，含 HTML 标签会被拒绝（400） */
             content: string;
             idempotencyKey: string;
@@ -1085,7 +1086,7 @@ export interface components {
             errorCode?: string;
             message?: string;
             platform: string;
-            /** @description sent / failed / no_device / not_configured / accepted / pending；accepted 仅 inbox（站内信已受理，仍在处理）；pending 表示请求了该渠道但推送还在处理中，尚无最终结果 */
+            /** @description sent / failed / no_device / not_configured / accepted / pending / skipped / cancelled / expired / unknown; office accepted means provider accepted, not delivered */
             status: string;
             successCount: number | bigint;
             targetCount: number | bigint;
@@ -1112,7 +1113,7 @@ export interface components {
             total: number | bigint;
         };
         NotificationListItem: {
-            /** @description Requested terminal reminder channels, elements are web / mobile; an empty array for a silent message */
+            /** @description Explicit channels: web / mobile / feishu / dingtalk / wecom; empty means a silent message */
             channels: string[];
             /** @description Completion time, RFC 3339 UTC; empty while the request is not completed */
             completedAt?: string;

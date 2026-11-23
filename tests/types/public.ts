@@ -36,6 +36,7 @@ sdk.members.listApp({ appId: getCurrentAppId(), roleKeys: ['operator'], page: 1,
 sdk.members.listWorkspace({ page: 1, size: 20 }).then(page => { const avatarUrl: string = page.list[0].avatarUrl; void avatarUrl; });
 // @ts-expect-error appId is explicit; the SDK never reads APP_ID implicitly
 sdk.members.listApp({});
+sdk.notifications.send({ recipientUserId: '1', title: 'Task', content: 'Done', type: 'inbox', idempotencyKey: 'task-1', channels: ['feishu', 'dingtalk', 'wecom'] });
 // @ts-expect-error desktop is not an independent notification channel
 const invalid: components['schemas']['SendNotificationReq'] = { recipientUserId: '1', title: 'x', content: 'x', type: 'x', idempotencyKey: 'x', channels: ['desktop'] };
 useTier0Query(sdk, ['orders'], (c, signal) => c.uns.recordFind({ collectionId: 'orders' }, { signal }));

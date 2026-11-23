@@ -2,6 +2,10 @@ import { platformProxyMode, PROXY_HEADER, PROXY_NOT_FORWARDED, SDK_HEADER } from
 import { getEnvVar } from '../runtime-env.js';
 import { invalidResponseHint } from '../connection-diagnostics.js';
 import { decodeUnsV2JSON, encodeUnsV2JSON } from '../uns-v2/codec.js';
+import type { components } from './types.generated.js';
+
+type NotificationChannel = NonNullable<components['schemas']['SendNotificationReq']['channels']>[number];
+const notificationChannels = { web: true, mobile: true, feishu: true, dingtalk: true, wecom: true } satisfies Record<NotificationChannel, true>;
 
 export interface ClientConfig {
   apiHost?: string;
@@ -288,7 +292,9 @@ export class HttpClient {
     if (path === '/openapi/v2/notifications/send') {
       if (!record(body)) throw new TypeError('Notification body must be an object');
       const channels = body.channels ?? ['web', 'mobile'];
-      if (!Array.isArray(channels) || channels.some(c => c !== 'web' && c !== 'mobile')) throw new TypeError('Notification channels must be web or mobile');
+      if (!Array.isArray(channels) || channels.some(c => typeof c !== 'string' || !Object.hasOwn(notificationChannels, c))) {
+        throw new TypeError(`Notification channels must be one of: ${Object.keys(notificationChannels).join(', ')}`);
+      }
       body = { ...body, channels: [...new Set(channels)] };
     }
     if (path === '/openapi/v2/apps/access-members/list' && record(body) && body.scope === undefined) {

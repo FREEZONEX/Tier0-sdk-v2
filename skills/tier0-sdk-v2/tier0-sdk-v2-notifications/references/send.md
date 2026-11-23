@@ -10,7 +10,7 @@
 | content | string | 是 | 1–800 字符 |
 | idempotencyKey | string | 是 | 最多 128 字符；同一次业务事件固定 |
 | mode | test/live | 否 | 已废弃，不传；平台按来源判定 |
-| channels | array | 否 | SDK 省略补 web+mobile；[] 仅站内信 |
+| channels | array | 否 | SDK 默认 web + mobile；[] 仅站内信 |
 | sender | object | 否 | app/other；system 仅平台内部服务 Key |
 | link | string | 否 | https:// 或单斜杠开头，最多 500 字符 |
 
@@ -42,13 +42,16 @@ other 发送者应给人读名称，如 `{type:'other',name:'库存同步服务'
 
 | channels | 提醒范围 |
 | --- | --- |
-| 省略 | SDK 显式发送 web+mobile |
+| 省略 | SDK 显式发送 web + mobile；办公渠道需另外指定 |
 | ['web'] | Web/Desktop |
 | ['mobile'] | 手机 |
+| ['feishu']、['dingtalk']、['wecom'] | 飞书、钉钉、企业微信个人通知，仅国内站；按用户意图显式选择，可组合 |
 | [] | 只建站内信 |
 | 重复项 | SDK 去重 |
 
-没有 desktop 渠道。不要将 SDK 默认值与裸后端省略渠道的静默语义混淆。mode 由平台判定：预览和沙箱发出的是 test，只进该 App 的预览铃铛；线上 App 发出的是 live。test 也是真实消息，不是 dryRun。
+没有 desktop 渠道。直接调 OpenAPI 时，省略和 `[]` 都只建站内信；通过 SDK 要求静默时请传 `[]`。mode 由平台判定：预览和沙箱发出的是 test，只进该 App 的预览铃铛；线上 App 发出的是 live。test 也是真实消息，不是 dryRun。
+
+例如只发飞书和企微时传 `channels: ['feishu', 'wecom']`，不会补发 Web、手机或钉钉。来源空间订阅、企业应用安装必须有效，收件人必须仍是该空间成员并已在 SaaS 中绑定对应账号；SDK 不代为安装或绑定。海外站只要请求含办公渠道就整单拒绝，不自动降级。
 
 同键同内容用于重放原意图；同键改内容产生冲突。新事件/不同收件人使用不同键。SDK 不自动重试，结果未知先对账；已有 messageId 用 get，没有按意图键查询的 SDK 方法。
 

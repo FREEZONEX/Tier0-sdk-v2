@@ -35893,7 +35893,7 @@
             "type": "string"
           },
           "status": {
-            "description": "sent / failed / no_device / not_configured / accepted / pending；accepted 仅 inbox（站内信已受理，仍在处理）；pending 表示请求了该渠道但推送还在处理中，尚无最终结果",
+            "description": "sent / failed / no_device / not_configured / accepted / pending / skipped / cancelled / expired / unknown; office accepted means provider accepted, not delivered",
             "type": "string"
           },
           "successCount": {
@@ -35915,7 +35915,7 @@
       "PlatformNotificationListItem": {
         "properties": {
           "channels": {
-            "description": "Requested terminal reminder channels, elements are web / mobile; an empty array for a silent message",
+            "description": "Explicit channels: web / mobile / feishu / dingtalk / wecom; empty means a silent message",
             "items": {
               "type": "string"
             },
@@ -36228,11 +36228,15 @@
       "PlatformSendNotificationReq": {
         "properties": {
           "channels": {
+            "description": "Explicit channels: web, mobile, feishu, dingtalk, wecom. Omitted or empty means inbox only. Office delivery requires configured channels, an available installation and an enabled recipient binding; store applications are restricted to the China site.",
             "items": {
               "type": "string",
               "enum": [
                 "web",
-                "mobile"
+                "mobile",
+                "feishu",
+                "dingtalk",
+                "wecom"
               ]
             },
             "type": "array"
