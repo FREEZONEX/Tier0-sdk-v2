@@ -4,7 +4,7 @@
   "inputs": {
     "contracts/openapi-v2.source.json": {
       "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
-      "sha256": "8a560a53c6da9b2bb613056faeb6ee6376789fd7c0c106f250dcbb8e62f10f37"
+      "sha256": "79b83f41a6e2d806514b5beef83164b51cc63d5f41d5d6941ca3b730a0de3d94"
     },
     "contracts/uns-v2/contract.json": {
       "path": "service/unssvr/internal/domain/unsv2/contract_generated.go#ContractJSON",
@@ -577,6 +577,25 @@
           "sourceSHA256": "73bca565cfcf7a7ba16a2b73eaad724d61ad8a0e3c6f60a9211c861ae0f86fbc",
           "baseSHA256": "1fc673da63a4d5a9da1df827bf278687893b71583d979722a8bd662093fd1c0f",
           "resultSHA256": "8a560a53c6da9b2bb613056faeb6ee6376789fd7c0c106f250dcbb8e62f10f37"
+        }
+      }
+    },
+    {
+      "scope": "office-notification-channels",
+      "repository": "FREEZONEX/Tier0-Backend",
+      "revision": "046579278e070e0e019d044b546ba935494d93e5",
+      "sourceKind": "committed",
+      "schemas": [
+        "PlatformSendNotificationReq",
+        "PlatformNotificationChannelResult",
+        "PlatformNotificationListItem"
+      ],
+      "inputs": {
+        "contracts/openapi-v2.source.json": {
+          "path": "service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json",
+          "sourceSHA256": "5adbc028ff96693be77032ba987723e9cfd8f06d5f6bf8ed984820038421d445",
+          "baseSHA256": "8a560a53c6da9b2bb613056faeb6ee6376789fd7c0c106f250dcbb8e62f10f37",
+          "resultSHA256": "79b83f41a6e2d806514b5beef83164b51cc63d5f41d5d6941ca3b730a0de3d94"
         }
       }
     }

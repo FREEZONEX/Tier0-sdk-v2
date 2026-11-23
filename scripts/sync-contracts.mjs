@@ -77,6 +77,8 @@ if (schemaFlag >= 0 || scopeFlag >= 0) {
     'contracts/uns-v2/manifest.json': 'share/unscontract/manifest.json',
     'contracts/openapi-v2.source.json': 'service/gwsvr/internal/handler/openapi/v2/unsv2/swagger_generated.json',
   })) {
+    // Platform-prefixed schemas live only in the public Swagger, not in the UNS data model.
+    if (names.every(name => name.startsWith('Platform')) && path !== 'contracts/openapi-v2.source.json') continue;
     const before = read(path), current = JSON.parse(before), raw = readSource(sourcePath);
     const incoming = path.endsWith('/contract.json')
       ? JSON.parse(JSON.parse(raw.toString().match(/^const ContractJSON = ("(?:\\[\s\S]|[^"\\])*")\r?$/m)?.[1] ?? 'null'))
@@ -127,7 +129,7 @@ if (schemaFlag >= 0 || scopeFlag >= 0) {
   }
   lock.schemaUpdates = [...updates.filter(item => item.scope !== scope), update];
   provenance.schemaUpdates = lock.schemaUpdates;
-  provenance.sourceDerivedContractSHA256 = hash(outputs.get('contracts/uns-v2/contract.json'));
+  if (outputs.has('contracts/uns-v2/contract.json')) provenance.sourceDerivedContractSHA256 = hash(outputs.get('contracts/uns-v2/contract.json'));
   outputs.set('contracts/upstream.json', json(lock));
   outputs.set('contracts/uns-v2/provenance.json', json(provenance));
   // 所有输入、依赖和已有摘要通过后才写入；失败校验不留下部分同步。

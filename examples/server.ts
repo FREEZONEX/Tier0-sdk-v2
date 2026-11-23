@@ -13,7 +13,7 @@ export async function notifyCompletion(recipientUserId: string, orderId: string)
     recipientUserId,
     title: 'Order completed',
     content: `Order ${orderId} is complete.`,
-    type: 'business',
+    type: 'inbox',
     idempotencyKey: `order-${orderId}-completed`,
     sender: { type: 'app', id: getCurrentAppId() },
   });

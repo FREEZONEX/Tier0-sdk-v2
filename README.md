@@ -223,7 +223,7 @@ import { getCurrentAppId } from '@tier0/sdk-v2';
 
 await tier0.notifications.send({
   recipientUserId: '目标用户ID',
-  type: 'business',
+  type: 'inbox',
   title: '工单已完成',
   content: '请查看处理结果。',
   idempotencyKey: 'work-order-123-completed',
@@ -231,7 +231,11 @@ await tier0.notifications.send({
 });
 ```
 
-不传 `channels` 时发送 `['web', 'mobile']`；`web` 包含 Web 与 Desktop；`[]` 只创建站内信。重复值去重，显式单渠道不补齐，不接受 `desktop`。App 身份读取平台注入的真实 `APP_ID`，不依赖 Folder 或 project。
+SDK 省略 `channels` 时仍发送 `['web', 'mobile']`，不会自动追加办公渠道。`web` 包含 Desktop；`[]` 只建站内信。直接调用 OpenAPI 时，省略和 `[]` 都只建站内信。
+
+国内站可显式选择 `feishu`（飞书）、`dingtalk`（钉钉）、`wecom`（企业微信），也可组合，例如 `channels: ['feishu', 'wecom']`。只请求所选渠道，重复项去重。办公投递要求来源空间订阅有效、企业应用可用且收件人在当前空间已绑定；海外站请求办公渠道会整单拒绝。
+
+拿到 `messageId` 后调用 `tier0.notifications.get({ messageId })`，按 `channels` 中每个渠道的 `status` 判断：顶层 `sent` 时办公渠道仍可能是 `pending`；办公渠道 `accepted` 只表示平台受理，不代表客户端实收。
 
 ## 文件
 
