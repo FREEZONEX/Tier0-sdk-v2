@@ -5,9 +5,20 @@ import type { CollectionDefinition, IndexSpec } from './define.js';
 import { DataError } from './error.js';
 import { compileCollection } from './schema.js';
 
+/**
+ * App 自己负责、可以依赖的约束：唯一索引和 TTL。普通（非唯一、非 TTL）查询索引
+ * 由平台按线上查询自动建删，声明只作提示，不参与就绪检查。
+ */
+export function isAppManagedIndex(index: IndexSpec): boolean {
+  return index.unique === true || index.expireAfterSeconds !== undefined;
+}
+
+// 服务端可能在规格里附带 managedBy（app / platform），它不改变约束本身。
+const STORED_INDEX_KEYS = ['path', 'paths', 'unique', 'kind', 'target', 'expireAfterSeconds', 'managedBy'];
+
 /** Match the constraint, not the server's opaque physical-index name. */
 function sameIndex(expected: IndexSpec, actual: StoredIndex): boolean {
-  if (Object.keys(actual).some(key => !['path', 'paths', 'unique', 'kind', 'target', 'expireAfterSeconds'].includes(key)) ||
+  if (Object.keys(actual).some(key => !STORED_INDEX_KEYS.includes(key)) ||
     (actual.unique !== undefined && typeof actual.unique !== 'boolean') ||
     (actual.path !== undefined && actual.paths !== undefined)) return false;
   const paths = (index: { path?: string; paths?: string[] }) => index.paths ?? (index.path === undefined ? [] : [index.path]);
@@ -18,7 +29,11 @@ function sameIndex(expected: IndexSpec, actual: StoredIndex): boolean {
     (!actual.target || actual.target === 'records');
 }
 
-/** A fresh, read-only readiness snapshot. No polling, index repair or credential fallback. */
+/**
+ * A fresh, read-only readiness snapshot of declared unique and TTL indexes.
+ * No polling, index repair or credential fallback. 普通查询索引声明一律跳过：
+ * 不看服务端报的状态，也不要求 indexStatus 里有对应条目。
+ */
 export async function assertIndexesReady(
   call: DataCall,
   ensure: () => Promise<EnsureState>,
@@ -27,7 +42,9 @@ export async function assertIndexesReady(
   expectedIds?: ReadonlyMap<string, string>,
   readContext = () => call<AppContext>('dataAppContext', {}, { signal }),
 ): Promise<void> {
-  const required = definitions.map(compileCollection).filter(item => item.indexes.length > 0);
+  const required = definitions.map(compileCollection)
+    .map(item => ({ alias: item.alias, indexes: item.indexes.filter(isAppManagedIndex) }))
+    .filter(item => item.indexes.length > 0);
   if (!required.length) return;
   const state = await ensure();
   const conflict = state.conflicts.find(item => required.some(definition => definition.alias.toLowerCase() === item.alias.toLowerCase()));
