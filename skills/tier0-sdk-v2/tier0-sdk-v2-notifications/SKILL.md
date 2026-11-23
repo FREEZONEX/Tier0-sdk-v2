@@ -1,6 +1,6 @@
 ---
 name: tier0-sdk-v2-notifications
-description: 使用 @tier0/sdk-v2 发送和查询 Tier0 站内通知、Web/Desktop 提醒及 Mobile 推送，解析收件人，处理发送者、渠道、业务幂等与投递状态。
+description: 使用 @tier0/sdk-v2 发送和查询 Tier0 站内通知、Web/Desktop 和 Mobile 提醒，以及国内站飞书、钉钉、企业微信个人通知，按渠道核对回执。
 ---
 
 # 通知
@@ -26,16 +26,17 @@ description: 使用 @tier0/sdk-v2 发送和查询 Tier0 站内通知、Web/Deskt
 
 | channels | 提醒范围 |
 | --- | --- |
-| 省略 | SDK 默认 web + mobile |
+| 省略 | SDK 默认 web + mobile，不追加办公渠道 |
 | ['web'] | Web/Desktop |
 | ['mobile'] | 手机 |
+| ['feishu']、['dingtalk']、['wecom'] 或其组合 | 国内站，向收件人在当前空间绑定的办公账号发送提醒 |
 | [] | 只建站内信 |
 
-Desktop 属于 web，不存在 desktop 渠道。显式单渠道不补齐，重复项会去重。SDK 默认和裸后端省略参数的行为不同，不混用。
+Desktop 属于 web，不存在 desktop 渠道。显式单渠道不补齐，重复项会去重。用户只授权特定渠道时必须显式传入；不要用省略渠道表示静默。
 
 ## 返回与失败
 
-send 返回直接对象 {messageId,status,createdAt}，get 返回直接状态对象，没有 data 外层。accepted 表示受理，sent 表示已发送，不是用户已读；failed 检查 errorCode/message。
+send 返回含 messageId 的直接对象，get 返回直接状态对象，没有 data 外层。顶层 sent 不代表办公渠道处理完成；按 channels 逐项检查。办公渠道 pending 可稍后查询，accepted 是平台受理，不是实收或已读；失败查看该项 errorCode/message。
 
 ApiError 提供 status/errorCode/msg。未知结果先对账；已有 messageId 按 ID 查，没有按 idempotencyKey 查询的 SDK 入口。HTTP SDK 不自动重试。
 

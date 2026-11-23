@@ -3,6 +3,7 @@ import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, TransportError, createClient } from '../src/index.js';
 import { OPENAPI_OPERATIONS } from '../src/openapi/api.generated.js';
+import type { components } from '../src/openapi/types.generated.js';
 
 const received: { url: string; method: string; body: string; headers: IncomingMessage['headers'] }[] = [];
 let respond: (res: ServerResponse, req: IncomingMessage) => void;
@@ -47,10 +48,22 @@ describe('new architecture v1 on a real HTTP fixture', () => {
     respond = res => json(res, { errorCode: 'NOTIFICATION_NOT_ALLOWED', message: 'not allowed' }, 403);
     await expect(sdk().notifications.get({ messageId: '1' })).rejects.toMatchObject({ status: 403, errorCode: 'NOTIFICATION_NOT_ALLOWED' });
   });
-  it.each([[undefined, ['web', 'mobile']], [[], []], [['web'], ['web']], [['mobile', 'mobile'], ['mobile']]])('normalizes notification channels %j', async (channels, expected) => {
-    respond = res => json(res, { messageId: '1', status: 'queued', createdAt: 'now' });
-    const body = { recipientUserId: '1', title: 'Task', content: 'Hello', type: 'business', idempotencyKey: 'intent-1', channels };
-    const response = await sdk().notifications.send(body as Parameters<ReturnType<typeof sdk>['notifications']['send']>[0]);
+  it('does not fall back to web when the site rejects a mixed office notification', async () => {
+    respond = res => json(res, { errorCode: 'INVALID_REQUEST', message: 'office notifications unavailable at this site' }, 400);
+    await expect(sdk().notifications.send({
+      recipientUserId: '1', type: 'inbox', title: 'Task', content: 'Done',
+      idempotencyKey: 'event-1', channels: ['web', 'feishu'],
+    })).rejects.toMatchObject({ status: 400, errorCode: 'INVALID_REQUEST' });
+    expect(received.map(request => JSON.parse(request.body).channels)).toEqual([['web', 'feishu']]);
+  });
+  it.each<[components['schemas']['SendNotificationReq']['channels'], string[]]>([
+    [undefined, ['web', 'mobile']], [[], []], [['web'], ['web']], [['mobile', 'mobile'], ['mobile']],
+    [['feishu'], ['feishu']], [['dingtalk'], ['dingtalk']], [['wecom'], ['wecom']],
+    [['wecom', 'web', 'dingtalk', 'wecom', 'feishu'], ['wecom', 'web', 'dingtalk', 'feishu']],
+  ])('normalizes notification channels %j', async (channels, expected) => {
+    respond = res => json(res, { messageId: '1', status: 'accepted', createdAt: 'now' });
+    const body = { recipientUserId: '1', title: 'Task', content: 'Hello', type: 'inbox', idempotencyKey: 'intent-1', channels };
+    const response = await sdk().notifications.send(body);
     expect(response.messageId).toBe('1');
     expect(JSON.parse(received[0].body).channels).toEqual(expected);
     expect(body.channels).toEqual(channels);

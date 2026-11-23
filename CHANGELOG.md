@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Support explicit Feishu (`feishu`), DingTalk (`dingtalk`) and WeCom (`wecom`) channels on China sites. SDK defaults are unchanged: omitting `channels` selects Web and Mobile; `[]` is inbox only. The notification Skill now distinguishes per-channel acceptance from delivery.
 - Rename bundled Stream Skills to `tier0-sdk-v2-stream-management` and `tier0-sdk-v2-stream-interactions`, updating registration and documentation links. Runtime `client.stream`, `client.streams` and package exports remain unchanged.
 
 - Add optional `createDataClient({ onRequest })` diagnostics for completed data calls: requestId, local queue time, request duration and retry counts. Events exclude request bodies and credentials; observer failures do not affect requests. These timings are not database execution time.
