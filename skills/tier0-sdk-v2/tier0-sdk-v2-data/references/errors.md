@@ -53,15 +53,16 @@ updateMany/deleteMany 部分失败的 details 是累计结果（matchedCount、m
 | ANNOTATION_NOT_APPLIED | ensure 保留描述；显式结构替换才应用 |
 | REQUIRED_NOT_ENFORCED | 存储仍可选，回填后才能收紧 |
 | INDEX_BUILD_FAILED | 检查违反唯一约束的现存记录 |
-| INDEX_NOT_READY | 声明的索引状态缺失或尚未 ready；停止依赖约束的写入，待平台完成后重新检查 |
+| INDEX_NOT_READY | 声明的唯一索引或 TTL 状态缺失或尚未 ready；停止依赖约束的写入，待平台完成后重新检查 |
+| INDEX_PREPARING | 平台正在为该查询（如大集合 `$lookup`）准备索引；可重试，按 retry 提示稍后重试，不需要补索引声明 |
 | APP_DATA_POLICY_DISABLED / APP_GRANT_REVOKED | 明确停用/撤权，不能自动恢复 |
 | COLLECTION_NOT_GRANTED | 授权不覆盖该集合或操作（见 collectionId/permission）；按任务所需补授权，不必找管理员：Builder 用 appDataPolicyGet/appDataPolicyUpdate [添加](../../tier0-sdk-v2-uns/references/update.md#已有集合授权给-app)，或由有 App 数据管理权限的人在 App 设置 → 数据中添加 |
 | APP_PERMISSION_MISSING | 核对 App 的具体操作权限（data.missingPermission） |
 | OWNER_APP_TRASHED / DIRECTORY_IN_TRASH | 从原 App/目录恢复回收批次 |
 | APP_NOT_READY / DEPENDENCY_UNAVAILABLE / CREDENTIAL_CHANGED | 当前依赖暂不可用，遵循 execution/retry |
-| QUERY_TIMEOUT | 缩小查询范围或增加适用索引，不能盲重试 |
+| QUERY_TIMEOUT | 缩小查询范围或结果规模，不能盲重试；查询索引由平台按慢查询自动建，不要补普通索引声明 |
 | OVERLOADED / TEMPORARILY_UNAVAILABLE | 遵循 afterMs，SDK 已处理安全重试 |
-| APP_QUOTA_EXCEEDED / INDEX_QUOTA_EXCEEDED | 查看 resource/限额；归档保留索引，不释放物理配额 |
+| APP_QUOTA_EXCEEDED / INDEX_QUOTA_EXCEEDED | 查看 resource/限额；只保留必要的唯一键和 TTL 声明，平台自动索引会先让位；归档保留索引，不释放物理配额 |
 | COLLECTION_TOO_LARGE | 检查返回限额；旧墓碑恢复仍可能受限，当前归档不逐条重写记录 |
 
 权限问题与参数/Schema/连接问题分别处理，保留 code/reason/path，不把所有失败都归为权限不足。历史集合按既有未撤销授权可只读，不必为读取自动恢复或补建。
