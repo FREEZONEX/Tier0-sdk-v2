@@ -162,5 +162,7 @@ it('preserves the reviewed business-name Namespace contract with explicit App co
   // Re-pinned for committed Backend 1b208eeaf3: SampleAggregateReq gains series,
   // PipelineAccumulator gains $last and standard deviations, and PipelineStage
   // documents the new accumulators. Operations and schema membership are unchanged.
-  expect(digest).toBe('8020cd816d416ebf7cc3cd09b3d279ae79987270e81599e5f2e54390af61dc66');
+  // SDK #108 synced the aggregate explain request and response from Backend b9553f824f.
+  // No other reachable schema or operation changed; record-explain.test.ts covers both result shapes.
+  expect(digest).toBe('7b487ecb9a3a48cc1cd7cd7c5cb03a5cc6e7082aa1c44c1ba602e1f25a22e2bc');
 });

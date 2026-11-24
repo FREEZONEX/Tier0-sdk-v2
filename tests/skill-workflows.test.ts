@@ -178,7 +178,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
 
   it('documents only HTTP paths present in the pinned SDK contract', () => {
     const paths = new Set<string>(Object.values(sdk.UNS_V2_OPERATIONS).map(operation => operation.path));
-    for (const domain of ['source', 'stream', 'uns']) {
+    for (const domain of ['source', 'stream-management', 'uns']) {
       const dir = new URL('../skills/tier0-sdk-v2/tier0-sdk-v2-' + domain + '/references/', import.meta.url);
       for (const name of readdirSync(dir).filter(name => name.endsWith('.md'))) {
         const content = readFileSync(new URL(name, dir), 'utf8');
@@ -231,7 +231,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
       { name: 'inventory', protocol: 'http-api', role: 'client', endpoint, http: { authentication: 'bearer' } },
       { kind: 'bearer', secret: 'fixture-only' }, 'create-authenticated', client);
     expect(created.data).toEqual(current);
-    await example('stream', 'create').createHttpStream(created.data, 'inventory', 'inventory-stream', 'create-stream', client);
+    await example('stream-management', 'create').createHttpStream(created.data, 'inventory', 'inventory-stream', 'create-stream', client);
     const module = { exports: undefined as unknown as (api: unknown) => void };
     runInNewContext(script, { module });
     const request = vi.fn().mockResolvedValue({ status: 200, data: [{ sku: 'fixture-sku', quantity: 12 }] });
@@ -364,7 +364,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
         expect(body.program.script.code).toContain('upstream.request');
       }, data: stream() },
     ];
-    await example('stream', 'create').createHttpStream({ ...current, document }, 'inventory', 'orders-stream', 'create-stream', client);
+    await example('stream-management', 'create').createHttpStream({ ...current, document }, 'inventory', 'orders-stream', 'create-stream', client);
     expect(calls).toHaveLength(1);
     finished();
   });
@@ -374,7 +374,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
     steps = [{ path: 'streams/documents/create', check: body => {
       expect(body.program.sourceBindings).toEqual([{ sourceId: current.id, configRevision: 7, acquisition: {} }]);
     }, data: stream() }];
-    await example('stream', 'create').createHttpStream(current, 'inventory', 'orders-stream', 'create-stream', client);
+    await example('stream-management', 'create').createHttpStream(current, 'inventory', 'orders-stream', 'create-stream', client);
     expect(calls).toHaveLength(1);
     finished();
   });
@@ -382,7 +382,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
   it.each([200, 401, 403, 429, 502])('HTTP collection example checks upstream status %s before accepting data', async status => {
     let script = '';
     steps = [{ path: 'streams/documents/create', check: body => { script = body.program.script.code; }, data: stream() }];
-    await example('stream', 'create').createHttpStream(source(), 'inventory', 'inventory-stream', 'create-stream', client);
+    await example('stream-management', 'create').createHttpStream(source(), 'inventory', 'inventory-stream', 'create-stream', client);
     const module = { exports: (_api: unknown) => {} };
     runInNewContext(script, { module });
     let handler: () => Promise<unknown> = async () => { throw new Error('Missing handler'); };
@@ -433,7 +433,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
         });
       }, data: stream() },
     ];
-    const created = await example('stream', 'http-server').createHttpServerStream(current.id, 7, 'incoming-orders', 'save-route', client);
+    const created = await example('stream-management', 'http-server').createHttpServerStream(current.id, 7, 'incoming-orders', 'save-route', client);
     expect(created.data).toEqual(stream());
     expect(calls).toHaveLength(1);
     finished();
@@ -508,7 +508,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
   ])('rejects %s/%s before creating an active-request Stream', async (protocol, role) => {
     const current = source();
     steps = [];
-    await expect(example('stream', 'create').createHttpStream(
+    await expect(example('stream-management', 'create').createHttpStream(
       { ...current, document: { ...current.document, protocol, role } },
       'inventory', 'orders-stream', 'create-stream', client,
     )).rejects.toThrow('Generic HTTP client Source required');
@@ -533,15 +533,15 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
       { path: 'streams/program/delete', check: b => expect(b.expectedRevision).toBe(3),
         data: { id: stream().id, revision: 3, deleted: true } },
     ];
-    const created = await example('stream', 'create').createHttpStream(source(), 'inventory', 'orders-stream', 'create-stream', client);
+    const created = await example('stream-management', 'create').createHttpStream(source(), 'inventory', 'orders-stream', 'create-stream', client);
     const id = created.data.id;
-    const updated = await example('stream', 'update').updateStreamDescription(created.data, 'updated', 'update-stream', client);
-    const deployed = await example('stream', 'deploy').deployStream(updated.data, 'deploy-stream', client);
+    const updated = await example('stream-management', 'update').updateStreamDescription(created.data, 'updated', 'update-stream', client);
+    const deployed = await example('stream-management', 'deploy').deployStream(updated.data, 'deploy-stream', client);
     expect(deployed.data.activeRelease).toBe(1);
     const disabled = await client.stream.documents.disable({ id, expectedRevision: deployed.data.revision,
       expectedActiveVersion: deployed.data.activeVersion, dryRun: false, idempotencyKey: 'disable-stream' });
     if (!('revision' in disabled.data)) throw new Error('Missing disabled revision');
-    const deleted = await example('stream', 'delete').deleteStream(id, disabled.data.revision, 'delete-stream', client);
+    const deleted = await example('stream-management', 'delete').deleteStream(id, disabled.data.revision, 'delete-stream', client);
     expect(deleted.data.id).toBe(id);
     expect(calls).toHaveLength(5);
     finished();
@@ -553,7 +553,7 @@ describe('Skill examples over localhost HTTP (not a live Tier0 deployment)', () 
       expect(body.document).toEqual({ ...stream().document, description: 'change' });
     }, status: 409, raw: JSON.stringify({ code: 409, msg: 'changed', requestId: 'conflict-fixture', data: null,
       error: { code: 'VERSION_CONFLICT', details: [], execution: 'notStarted', retry: { safe: false } } }) }];
-    await expect(example('stream', 'update').updateStreamDescription(
+    await expect(example('stream-management', 'update').updateStreamDescription(
       stream(), 'change', 'stale-update', client,
     )).rejects.toMatchObject({ code: 'VERSION_CONFLICT', requestId: 'conflict-fixture' });
     expect(calls).toHaveLength(1);
