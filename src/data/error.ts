@@ -89,7 +89,7 @@ export class DataError extends Error {
 }
 
 /** Platform states the App's caller cannot fix: they answer 503 whatever UNS answered. */
-const PLATFORM_CODES = new Set(['APP_NOT_READY', 'DEPENDENCY_UNAVAILABLE', 'CREDENTIAL_CHANGED', 'OUTCOME_UNKNOWN', 'TEMPORARILY_UNAVAILABLE']);
+const PLATFORM_CODES = new Set(['APP_NOT_READY', 'DEPENDENCY_UNAVAILABLE', 'CREDENTIAL_CHANGED', 'OUTCOME_UNKNOWN', 'TEMPORARILY_UNAVAILABLE', 'INDEX_PREPARING']);
 
 /**
  * Maps an upstream UNS status and code to the status the App answers its own
@@ -118,20 +118,22 @@ const CODE_HINTS: Record<string, string> = {
   APP_GRANT_REVOKED:
     "A workspace admin revoked this App's access to the collection; it is not re-granted automatically. Ask the admin to restore the grant.",
   INDEX_QUOTA_EXCEEDED:
-    'The workspace index quota (200, counting every index that physically exists) is exhausted. Remove unused indexes through the tier0 MCP.',
+    'Declared unique and TTL indexes exceed the workspace index quota; platform-managed query indexes give way to them first. Drop unique or TTL declarations that are no longer needed, then apply that with schema:replace through the tier0 MCP.',
+  INDEX_PREPARING:
+    'The platform is building an index this query needs (e.g. a large `$lookup` target); retry after the advertised delay. Declaring an index is not required.',
   COLLECTION_TOO_LARGE:
     'Legacy recordsArchivedAt restoration handles at most 2000 records; current collection archive / restore retains records without that limit.',
   OVERLOADED:
     "This workspace's data requests are over their concurrency share; the data layer already waited and retried. Batch page reads with data.queryBatch and avoid per-record loops.",
   APP_NOT_READY: 'The platform is still preparing this App (e.g. right after an import); retry shortly.',
-  QUERY_TIMEOUT: 'Narrow the query: add an indexed condition, a smaller limit or maxCount.',
+  QUERY_TIMEOUT: 'Narrow the query: add a more selective condition, a smaller limit or maxCount. The platform builds query indexes for recurring slow queries; do not declare them.',
   OUTCOME_UNKNOWN: 'The write may have committed; read the record back before writing again.',
 };
 
 /** The deployed server owns quota values; older servers can retain lower limits. */
 const QUOTA_HINTS: Record<string, string> = {
   collections: 'This App reached its active collection quota. Archive unused ones through the tier0 MCP.',
-  indexes: "This App reached its index quota. Drop unused indexes from the declarations, then apply that with schema:replace through the tier0 MCP.",
+  indexes: "This App reached its index quota. Keep only unique and TTL declarations (query indexes are platform-managed), then apply that with schema:replace through the tier0 MCP.",
   archivedCollections:
     'This App reached its archived collection quota. Restore one, or ask a workspace admin to clean up archived collections.',
 };

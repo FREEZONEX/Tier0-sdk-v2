@@ -27,7 +27,7 @@ SDK 返回扁平文档 `{_id,...业务字段,_meta}`，原始 UNS 返回 `{id,da
 
 | 任务 | 参考 |
 | --- | --- |
-| 声明/引用集合、Schema、业务目录、索引、TTL、种子 | [建模](references/modeling.md) |
+| 声明/引用集合、Schema、业务目录、唯一键、TTL、种子（查询索引由平台自动建） | [建模](references/modeling.md) |
 | 查询与写入、批量、分页、订阅和浏览器转发 | [读写](references/read-write.md) |
 | 统计报表、大屏、首屏查询和分页字节预算 | [统计报表与大屏](references/read-write.md#统计报表与大屏) |
 | 状态流转、revision、跨集合事务、取消与初始化 | [一致性](references/consistency.md) |
