@@ -4,6 +4,10 @@
 
 - Support explicit Feishu (`feishu`), DingTalk (`dingtalk`) and WeCom (`wecom`) channels on China sites. SDK defaults are unchanged: omitting `channels` selects Web and Mobile; `[]` is inbox only. The notification Skill now distinguishes per-channel acceptance from delivery.
 
+## 0.20.0 (2026-11-25)
+
+- Add getPlatformTextSize() and onPlatformTextSize(listener) to @tier0/sdk-v2/page-runtime (Tier0-Frontend#3364). An embedded App can read and subscribe to the viewing account's S/M/L preference from Frontdoor page runtime 2.3.0 and later. Direct opens and older runtimes retain the App default.
+
 ## 0.19.0 (2026-11-24)
 
 - Query indexes are now platform-managed: declare only unique keys and TTL (`expireAfterSeconds`). `assertIndexesReady` and `requireIndexesReady` check only those, skip plain (non-unique, non-TTL) declarations whatever state the server reports or omits, and tolerate the new `managedBy` field. Plain declarations still type-check and are sent as hints; `defineCollection` resolves them to a `@deprecated` overload. The SDK no longer caps declarations at 16 per collection (the server counts physical indexes per workspace). Adds `INDEX_PREPARING` (retryable, e.g. a large `$lookup` target while its index is built) to the platform-state codes and hints. Requires the matching Backend release. The UNS contract is not synchronized in this change: `client.uns` has no `autoIndexPin` / `autoIndexDisable` yet, and response types do not include `autoIndexes`, `slowShapes` or `indexStatus[].managedBy` (the data layer tolerates the extra fields at runtime). The bundled `contracts/uns-v2/contract.json` still lists `maxItems: 16` for declared indexes; the SDK does not enforce it. A full contract sync follows once the Backend auto-index work lands on the branch this SDK tracks.

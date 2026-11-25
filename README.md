@@ -19,10 +19,10 @@ Source 保存连接与认证，Stream 执行采集或业务逻辑，Collection �
 安装正式版：
 
 ```sh
-npm install @tier0/sdk-v2@0.19.0
+npm install @tier0/sdk-v2@0.20.0
 ```
 
-维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `tier0-sdk-v2-0.19.0.tgz`。
+维护者发布前在本仓库运行 `npm ci`、`npm run check`，并验证生成的 `tier0-sdk-v2-0.20.0.tgz`。
 
 个人 Key 可直接读取已有集合，无需创建平台 App；网关配置、运行示例与排错见[本地连接指南](skills/tier0-sdk-v2/references/local-connection.md)。
 
@@ -115,6 +115,14 @@ App 的 Key（平台注入的这把）只能调 `/openapi/v2/uns/**`、`assets/f
 
     applyLocale(getPlatformLanguage());
     const off = onPlatformLanguage(applyLocale);
+    ```
+  - 平台字号（前门运行时 2.3.0 起）：`getPlatformTextSize()` 返回 `s`、`m` 或 `l`。`onPlatformTextSize(listener)` 通知变化并返回取消订阅函数。默认档 `m` 和缺少设置的 `undefined` 都可映射到 App 默认样式。直开 App、无运行时或旧运行时会得到 `undefined`。该入口可在浏览器和 SSR 中导入。
+
+    ```ts
+    import { useSyncExternalStore } from 'react';
+    import { getPlatformTextSize, onPlatformTextSize } from '@tier0/sdk-v2/page-runtime';
+
+    const textSize = useSyncExternalStore(onPlatformTextSize, getPlatformTextSize, () => undefined);
     ```
 - `@tier0/sdk-v2/event-stream`：基于 fetch 的 SSE。App 休眠时停止，`resumed` 后重建，节点 agent 重启时透明重连。页面隐藏时关掉连接（后台标签页不占着到 App 的长连接），可见时带最后的事件 id（`Last-Event-ID`）立即续传，服务端补发或回 `reset`；`pauseWhenHidden: false` 关闭这一行为。`EventSource` 遇到 503 不重试，手写时要订阅 `resumed` 后重建。
 
