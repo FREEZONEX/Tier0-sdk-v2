@@ -10,8 +10,9 @@
  */
 
 export type Tier0AppState = 'unknown' | 'running' | 'starting' | 'sleeping' | 'failed' | 'auth_required';
-export type Tier0Event = 'state' | 'sleeping' | 'starting' | 'resumed' | 'auth-required' | 'language';
+export type Tier0Event = 'state' | 'sleeping' | 'starting' | 'resumed' | 'auth-required' | 'language' | 'text-size';
 export type Tier0AuthErrorCode = 'grant_expired' | 'signed_out' | 'need_role' | 'unavailable';
+export type PlatformTextSize = 's' | 'm' | 'l';
 
 export interface Tier0PageRuntimeV1 {
   readonly version: string;
@@ -24,6 +25,8 @@ export interface Tier0PageRuntimeV1 {
   keepAwake(): void;
   /** Runtime 2.2.0 and later. */
   getPlatformLanguage?(): string | undefined;
+  /** Runtime 2.3.0 and later. */
+  getPlatformTextSize?(): PlatformTextSize | undefined;
 }
 
 const RUNTIME_KEY = Symbol.for('tier0.page-runtime.v1');
@@ -56,6 +59,17 @@ export function getPlatformLanguage(): string | undefined {
  */
 export function onPlatformLanguage(listener: (language: string) => void): () => void {
   return onPageRuntime('language', listener);
+}
+
+/** The current host's text size, or undefined before it arrives, on direct open, or without a capable runtime. */
+export function getPlatformTextSize(): PlatformTextSize | undefined {
+  return getPageRuntime()?.getPlatformTextSize?.();
+}
+
+/** Subscribes to text size changes without replaying the current value. Returns the unsubscribe function. */
+export function onPlatformTextSize(listener: (textSize: PlatformTextSize) => void): () => void {
+  const runtime = getPageRuntime();
+  return runtime?.getPlatformTextSize ? runtime.on('text-size', listener) : () => undefined;
 }
 
 /** No instance is serving the App, so background work should wait for `resumed`. */
