@@ -1,12 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getPlatformLanguage, onPlatformLanguage, type Tier0PageRuntimeV1 } from '../src/page-runtime.js';
+import {
+  getPlatformLanguage, getPlatformTextSize, onPlatformLanguage, onPlatformTextSize,
+  type PlatformTextSize, type Tier0PageRuntimeV1,
+} from '../src/page-runtime.js';
 
 const RUNTIME_KEY = Symbol.for('tier0.page-runtime.v1');
 
 /** A runtime built like the front door's: listeners on an EventTarget, so unknown event names are accepted and never fire. */
-function installRuntime(version: string, withLanguage: boolean) {
+function installRuntime(version: string, withLanguage: boolean, withTextSize = false) {
   const events = new EventTarget();
   let language: string | undefined;
+  let textSize: PlatformTextSize | undefined;
   const runtime: Tier0PageRuntimeV1 = Object.freeze({
     version, appId: 'a', policy: 'visible' as const,
     getState: () => 'running' as const,
@@ -19,6 +23,7 @@ function installRuntime(version: string, withLanguage: boolean) {
     reportAuthError: vi.fn(),
     keepAwake: vi.fn(),
     ...(withLanguage ? { getPlatformLanguage: () => language } : {}),
+    ...(withTextSize ? { getPlatformTextSize: () => textSize } : {}),
   });
   (globalThis as Record<symbol, unknown>)[RUNTIME_KEY] = runtime;
   return {
@@ -26,12 +31,16 @@ function installRuntime(version: string, withLanguage: boolean) {
       language = value;
       events.dispatchEvent(new CustomEvent('language', { detail: value }));
     },
+    receiveTextSize(value: PlatformTextSize) {
+      textSize = value;
+      events.dispatchEvent(new CustomEvent('text-size', { detail: value }));
+    },
   };
 }
 
-describe('platform language', () => {
-  afterEach(() => { delete (globalThis as Record<symbol, unknown>)[RUNTIME_KEY]; });
+afterEach(() => { delete (globalThis as Record<symbol, unknown>)[RUNTIME_KEY]; });
 
+describe('platform language', () => {
   it('is undefined without the runtime, and subscribing is a no-op', () => {
     expect(getPlatformLanguage()).toBeUndefined();
     const off = onPlatformLanguage(() => { throw new Error('never called'); });
@@ -70,5 +79,41 @@ describe('platform language', () => {
     host.receive('en');
     expect(listener).toHaveBeenCalledTimes(1);
     expect(getPlatformLanguage()).toBe('en');
+  });
+});
+
+describe('platform text size', () => {
+  it('reads undefined and safely unsubscribes without a capable runtime', () => {
+    const listener = vi.fn();
+    expect(getPlatformTextSize()).toBeUndefined();
+    expect(() => onPlatformTextSize(listener)()).not.toThrow();
+    const oldRuntime = installRuntime('2.2.0', true);
+    const off = onPlatformTextSize(listener);
+    oldRuntime.receiveTextSize('l');
+    expect(getPlatformTextSize()).toBeUndefined();
+    expect(listener).not.toHaveBeenCalled();
+    off();
+  });
+
+  it('reads before or after subscribing and removes listeners when an App unmounts', () => {
+    const host = installRuntime('2.3.0', true, true);
+    expect(getPlatformTextSize()).toBeUndefined();
+    host.receiveTextSize('m');
+    const listener = vi.fn();
+    const firstOff = onPlatformTextSize(listener);
+    expect(getPlatformTextSize()).toBe('m');
+    expect(listener).not.toHaveBeenCalled();
+    firstOff();
+
+    const secondOff = onPlatformTextSize(listener);
+    host.receive('ja');
+    host.receiveTextSize('l');
+    expect(listener).toHaveBeenCalledExactlyOnceWith('l');
+    expect(getPlatformTextSize()).toBe('l');
+    expect(getPlatformLanguage()).toBe('ja');
+    secondOff();
+    host.receiveTextSize('s');
+    expect(getPlatformTextSize()).toBe('s');
+    expect(listener).toHaveBeenCalledTimes(1);
   });
 });
