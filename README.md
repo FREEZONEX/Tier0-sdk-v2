@@ -116,6 +116,14 @@ App 的 Key（平台注入的这把）只能调 `/openapi/v2/uns/**`、`assets/f
     applyLocale(getPlatformLanguage());
     const off = onPlatformLanguage(applyLocale);
     ```
+  - 平台字号（前门运行时 2.3.0 起）：`getPlatformTextSize()` 返回 `s`、`m` 或 `l`。`onPlatformTextSize(listener)` 通知变化并返回取消订阅函数。默认档 `m` 和缺少设置的 `undefined` 都可映射到 App 默认样式。直开 App、无运行时或旧运行时会得到 `undefined`。该入口可在浏览器和 SSR 中导入。
+
+    ```ts
+    import { useSyncExternalStore } from 'react';
+    import { getPlatformTextSize, onPlatformTextSize } from '@tier0/sdk-v2/page-runtime';
+
+    const textSize = useSyncExternalStore(onPlatformTextSize, getPlatformTextSize, () => undefined);
+    ```
 - `@tier0/sdk-v2/event-stream`：基于 fetch 的 SSE。App 休眠时停止，`resumed` 后重建，节点 agent 重启时透明重连。页面隐藏时关掉连接（后台标签页不占着到 App 的长连接），可见时带最后的事件 id（`Last-Event-ID`）立即续传，服务端补发或回 `reset`；`pauseWhenHidden: false` 关闭这一行为。`EventSource` 遇到 503 不重试，手写时要订阅 `resumed` 后重建。
 
 **MQTT**：只在 App 服务端连接。平台里 `new Tier0MQClient()` 什么都不传：broker 取自 `TIER0_MQTT_HOST` / `TIER0_MQTT_PORT`，password 用 `TIER0_API_KEY`，username 为 `<ws>&open`（ws 从 Key 解析）。App 运行时（有 `TIER0_APP_ID`，Key 来自注入的 `TIER0_API_KEY`，没显式传 `clientId` / `username` / `password`）的 clientId 是托管格式 `<ws>&h.<app>.<16 位随机>`（app 即 `TIER0_APP_ID`），Backend 只接受这种 clientId 的托管 App Key；其他情况保持 `<ws>&<8 位随机>`，显式传的 `clientId` / `username` 优先。页面不直连 broker：浏览器要的实时消息由 App 服务端订阅，按访问者角色过滤后经 App 自己的接口（例如一个 SSE 路由）推给浏览器。`clean` 默认 `false`；服务端按指数退避一直重连，上限 5 分钟。持久会话、QoS 1 下重连不丢消息，但断开期间的积压超过 EMQX 离线队列（默认 `max_mqueue_len=1000`）仍会丢。
