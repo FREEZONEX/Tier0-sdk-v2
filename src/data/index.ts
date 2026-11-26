@@ -24,6 +24,8 @@ export type { RecordChange, SubscribeOptions, SubscriptionEvent } from './subscr
 export { createChangeRelay } from './relay.js';
 export type { ChangeRelay, ChangeRelayOptions, ChangeRelaySource, ChangeRelayStatus, ChangeRelayStreamOptions, RelayedChange } from './relay.js';
 export { ACCESS_REASONS, DataError } from './error.js';
+export { ALIAS_PATTERN, isCollectionDefinition, isCollectionIdReference, isExternalAliasReference } from './define.js';
+export { EXTERNAL_REFRESH_INTERVAL_MS } from './external-context.js';
 export * from './declarations.js';
 export { toSortPairs } from './sort.js';
 export type { Filter, Sort, SortDirection, SortPairs } from './sort.js';

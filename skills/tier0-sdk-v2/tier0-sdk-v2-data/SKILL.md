@@ -10,7 +10,7 @@ Collection 持久化业务记录。App 服务端使用 `@tier0/sdk-v2/data`；�
 ## 选择集合入口
 
 - 新建 App 自有集合：`defineCollection({alias,name,directoryPath,schema,...})`，把声明放入 `createDataClient({collections})`。首次访问自动 ensure 全部声明，创建缺失集合、合并兼容扩展；无需手工初始化标记。
-- 使用已有集合：`createDataClient({}).collection({collectionId})`，可带本地 schema。它不 ensure、不写种子、不改变所属关系，也不授予权限。Builder 关联目标 App 的授权，见 [已有集合授权](../tier0-sdk-v2-uns/references/update.md#已有集合授权给-app)。
+- 引用外部授权集合（推荐）：在 `appDataPolicy` 授权中设置唯一 `alias`，代码通过 `data.collection({alias:'equipment_master',schema})` 按别名动态解析物理 ID（可带本地写入校验 schema），严禁硬编码 `collectionId`；它永不 ensure、不写种子、不改变归属，管理员换绑后免重启生效，未绑定或撤权时抛出 `EXTERNAL_COLLECTION_UNBOUND`（503）。时序采样接口使用 `await data.resolveCollectionId({alias:'telemetry'})` 获取物理 ID。旧式 `{collectionId}` 仅用于兼容存量代码。Builder 关联目标 App 的授权，见 [已有集合授权](../tier0-sdk-v2-uns/references/update.md#已有集合授权给-app)。
 - 管理工作区目录、Schema 或一次性数据修复：使用 [原始 UNS 接口](../tier0-sdk-v2-uns/SKILL.md)。
 
 已知 ID 时直接读写；需要发现集合和有效权限时调用 `client.uns.dataAppContext({})`。`dataState:"uninitialized"` 是新 App 正常空态，不必等到 ready 才开发。明确停用策略或撤权不能当初始化失败自动恢复。

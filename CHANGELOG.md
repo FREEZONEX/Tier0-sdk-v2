@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.21.0 (2026-11-26)
+
+- Extend `@tier0/sdk-v2/data` `CollectionReference<S>` to support external `{ alias, schema? }` references resolved dynamically from `/uns/app/context` (`appDataPolicy` as single source of truth), alongside legacy `{ collectionId, schema? }`. Never calls `appCollectionsEnsure` or writes seed data; rejects case-insensitive collisions with declared owned collections; refreshes with single-flight deduplication and 30 s throttling on `COLLECTION_NOT_GRANTED`/`COLLECTION_NOT_FOUND` for live admin rebinding without restart; deterministically throws `DataError` (`code: "EXTERNAL_COLLECTION_UNBOUND"`, status 503, `details: { alias }`) when unbound, revoked, deleted, or source App trashed.
+- Cover all data client entry points for `{ alias }` references: `collection()`, `aggregate` (`$lookup.from` / `$unionWith.from` recovery), `queryBatch`, `transact`, and `subscribe` / `createChangeRelay` (`includeExternal`, skipping unbound/sample-only external collections by default and refreshing on `SCOPE_CHANGED` or stale errors).
+- Add `data.resolveCollectionId(target, { refresh? })` for time-series (`client.uns.sample*`) callers to resolve external collection aliases without hard-coding physical IDs.
+
 ## 0.20.0 (2026-11-25)
 
 - Add getPlatformTextSize() and onPlatformTextSize(listener) to @tier0/sdk-v2/page-runtime (Tier0-Frontend#3364). An embedded App can read and subscribe to the viewing account's S/M/L preference from Frontdoor page runtime 2.3.0 and later. Direct opens and older runtimes retain the App default.
