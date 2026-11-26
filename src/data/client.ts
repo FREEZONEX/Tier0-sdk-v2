@@ -6,15 +6,28 @@
 import type { z } from 'zod';
 import { snapshotClientConfig, type ClientConfig } from '../openapi/client.js';
 import { getEnvVar } from '../runtime-env.js';
-import { createBootstrap, type DataEnvironment, type EnsureState, type Logger } from './bootstrap.js';
+import { createBootstrap, isStaleCollectionError, type DataEnvironment, type EnsureState, type Logger } from './bootstrap.js';
 import { createDataTransport, type DataRequestObserver } from './call.js';
 import { MAX_ATOMIC_ITEMS, Collection, toDoc, type BatchQuery, type UnsRecord, type WithMeta } from './collection.js';
 import { MAX_TRANSACTION_ITEMS, MAX_RESULT_BINDINGS, assertTransactionCapacity, readTransactionLimits, type TransactionLimits } from './transaction-limits.js';
 import { currentSignal } from './context.js';
-import { MAX_COLLECTIONS, type CollectionDefinition, type CollectionReference, type CollectionSchema, type CollectionTarget } from './define.js';
-import { createSubscribe, type SubscribeOptions, type SubscriptionEvent } from './subscribe.js';
-import { parseUnsV2Fault, UnsV2Error } from '../uns-v2/client.js';
-import { DataError, toDataError } from './error.js';
+import {
+  ALIAS_PATTERN,
+  collectionLabel,
+  isCollectionDefinition,
+  isCollectionIdReference,
+  isExternalAliasReference,
+  MAX_COLLECTIONS,
+  type CollectionAliasReference,
+  type CollectionDefinition,
+  type CollectionReference,
+  type CollectionSchema,
+  type CollectionTarget,
+} from './define.js';
+import { createExternalContext, type ExternalContextSnapshot } from './external-context.js';
+import { createSubscribe, type ResolvedSubscription, type SubscribeOptions, type SubscriptionEvent } from './subscribe.js';
+import { parseUnsV2Fault, UNS_V2_SUBSCRIBE_MAX_COLLECTIONS, UnsV2Error } from '../uns-v2/client.js';
+import { DataError, externalCollectionUnboundError, toDataError } from './error.js';
 import { createStepDataValidator, validateUpdate } from './schema.js';
 import { toSortPairs, type Filter, type Sort } from './sort.js';
 import { assertIndexesReady } from './index-readiness.js';
@@ -159,6 +172,13 @@ export interface DataClient {
   /** Ensures every declaration now (normally lazy on first access). */
   ensure(): Promise<EnsureState>;
   /**
+   * Resolves a declared collection, declared alias, external `{ alias }` reference,
+   * or existing `{ collectionId }` reference to its current physical UNS collection ID.
+   * Use for time-series (`client.uns.sample*`) calls instead of hard-coding IDs.
+   * `{ refresh: true }` performs a rate-limited (30 s) `/uns/app/context` refresh for external aliases.
+   */
+  resolveCollectionId(target: CollectionTarget | string, options?: { refresh?: boolean }): Promise<string>;
+  /**
    * Checks fresh App-context states for every declared index (or selected
    * declarations), rejecting missing/building/failed constraints. ensure alone
    * does not imply readiness. This is a point-in-time check, not a transaction
@@ -195,19 +215,57 @@ export function createDataClient(config: DataClientConfig): DataClient {
   }
 
   // Ensure and seed writes pass no signal: they are shared by every request, and the one that triggers them must not cancel them.
-  const bootstrap = createBootstrap({ call, collections: declared, environment, logger: snapshot.logger ?? console });
+  const logger = snapshot.logger ?? console;
+  const bootstrap = createBootstrap({ call, collections: declared, environment, logger });
+  const externalContext = createExternalContext({ call, ownedAliases: seen, logger });
+  const referencedExternalAliases = new Set<string>();
+
+  async function resolveTarget(target: CollectionTarget | string, options?: { refresh?: boolean }): Promise<string> {
+    const definition = lookup(target);
+    if (isCollectionIdReference(definition)) return definition.collectionId;
+    if (isCollectionDefinition(definition)) return bootstrap.resolve(definition);
+    return externalContext.resolve(definition.alias, options);
+  }
+
+  async function recover<R>(
+    fn: () => Promise<R>,
+    options: { collections: readonly CollectionTarget[]; retry?: boolean },
+  ): Promise<R> {
+    const ownedTargets = options.collections.filter(isCollectionDefinition);
+    const externalTargets = options.collections.filter(isExternalAliasReference);
+    if (ownedTargets.length === 0 && externalTargets.length === 0) return fn();
+    const beforeEnsure = ownedTargets.length > 0 ? await bootstrap.ensure() : undefined;
+    const beforeExternal = externalTargets.length > 0 ? await externalContext.load() : undefined;
+    try {
+      return await fn();
+    } catch (error) {
+      if (!isStaleCollectionError(error)) throw error;
+      const cause = error as DataError;
+      let changed = false;
+      if (beforeEnsure) {
+        if (await bootstrap.rebuild(beforeEnsure, cause)) changed = true;
+      }
+      if (beforeExternal) {
+        const outcome = await externalContext.recoverTargets(beforeExternal, externalTargets, cause);
+        if (outcome.unboundAlias !== undefined) {
+          throw externalCollectionUnboundError(outcome.unboundAlias, cause);
+        }
+        if (outcome.changed) changed = true;
+      }
+      if (!changed || options.retry === false) throw error;
+      return fn();
+    }
+  }
+
   const runtime = {
     call,
-    resolve: async (target: CollectionTarget | string) => {
-      const definition = lookup(target);
-      return 'collectionId' in definition ? definition.collectionId : bootstrap.resolve(definition);
-    },
-    recover: <R>(fn: () => Promise<R>, options: { collections: readonly CollectionTarget[]; retry?: boolean }) =>
-      options.collections.every(target => 'collectionId' in target) ? fn() : bootstrap.recover(fn, options),
+    resolve: (target: CollectionTarget | string) => resolveTarget(target),
+    lookup,
+    recover,
     signal: currentSignal,
     assertIndexesReady: (target: CollectionTarget, collectionId: string) => {
       const definition = lookup(target);
-      if ('collectionId' in definition) throw new TypeError('Index readiness requires a declared collection.');
+      if (!isCollectionDefinition(definition)) throw new TypeError('Index readiness requires a declared collection.');
       return assertIndexesReady(call, bootstrap.ensure, [definition], currentSignal(), new Map([[definition.alias.toLowerCase(), collectionId]]));
     },
   };
@@ -219,15 +277,33 @@ export function createDataClient(config: DataClientConfig): DataClient {
       if (!found) throw new Error(`Collection "${target}" is not declared in this data client's collections.`);
       return found;
     }
-    if ('collectionId' in target) {
+    if (isCollectionIdReference(target)) {
+      if ('alias' in target && (target as { alias?: unknown }).alias !== undefined) {
+        throw new TypeError('A collection reference must set either collectionId or alias, not both.');
+      }
       if (typeof target.collectionId !== 'string' || !target.collectionId || target.collectionId.trim() !== target.collectionId) {
         throw new TypeError('An existing collection reference needs a nonempty collectionId without surrounding whitespace.');
       }
       return target;
     }
-    if (!declared.includes(target)) {
-      throw new Error(`Collection "${target.alias}" is declared but missing from the \`collections\` passed to createDataClient.`);
+    if (isCollectionDefinition(target)) {
+      if (!declared.includes(target)) {
+        throw new Error(`Collection "${target.alias}" is declared but missing from the \`collections\` passed to createDataClient.`);
+      }
+      return target;
     }
+    if (typeof target.alias !== 'string' || !ALIAS_PATTERN.test(target.alias)) {
+      throw new TypeError(
+        `External collection alias "${String(target.alias)}" must match ${ALIAS_PATTERN} (letters, digits, "_" or "-", starting with a letter).`,
+      );
+    }
+    const key = target.alias.toLowerCase();
+    if (seen.has(key)) {
+      throw new TypeError(
+        `External collection alias "${target.alias}" conflicts with a declared collection of this data client (aliases are case-insensitive); pass the declared CollectionDefinition instead.`,
+      );
+    }
+    referencedExternalAliases.add(key);
     return target;
   }
 
@@ -261,8 +337,8 @@ export function createDataClient(config: DataClientConfig): DataClient {
         }
       }
     }
-    if (options.requireIndexesReady && steps.some(step => 'collectionId' in lookup(step.collection))) {
-      throw new TypeError('Transaction index readiness requires declared collections, not existing-ID references.');
+    if (options.requireIndexesReady && steps.some(step => !isCollectionDefinition(lookup(step.collection)))) {
+      throw new TypeError('Transaction index readiness requires declared collections, not external or existing-ID references.');
     }
     // Steps resolve their collection IDs inside the recovered call, so a retry uses fresh IDs.
     const result = await runtime.recover(() => sendTransaction(steps, options), { collections: steps.map(step => lookup(step.collection)) });
@@ -353,7 +429,10 @@ export function createDataClient(config: DataClientConfig): DataClient {
     }
     const bad = names.find((name) => !QUERY_NAME.test(name));
     if (bad !== undefined) throw new TypeError(`data.queryBatch query name "${bad}" must match ${QUERY_NAME}.`);
-    const collections = names.map(name => lookup(queries[name].collection));
+    const collections = [...new Set(names.flatMap((name) => [
+      lookup(queries[name].collection),
+      ...(queries[name].references ?? []).map(lookup),
+    ]))];
     // Items resolve their collection IDs inside the recovered call, so a retry uses fresh IDs.
     const { results } = await runtime.recover(async () => {
       const items = await Promise.all(names.map(async (name) => ({
@@ -375,17 +454,112 @@ export function createDataClient(config: DataClientConfig): DataClient {
     return Object.fromEntries(names.map((name) => [name, (settled[name] as { value: unknown }).value]));
   }
 
+  const emptyEnsureState: EnsureState = { results: [], collectionIds: new Map<string, string>(), conflicts: [] };
+
   const subscribe = createSubscribe({
     openStream,
-    ensure: (targets) => targets.some(target => !('collectionId' in target))
-      ? bootstrap.ensure()
-      : Promise.resolve({ results: [], collectionIds: new Map<string, string>(), conflicts: [] }),
-    rebuild: (state, error, targets) => targets.every(target => 'collectionId' in target)
-      ? Promise.resolve(false)
-      : bootstrap.rebuild(state, error),
-    resolve: runtime.resolve,
-    lookup,
-    declared,
+    validate(options) {
+      const explicit = options.collections !== undefined;
+      if (explicit) {
+        const definitions = [...new Set(options.collections!.map(lookup))];
+        if (definitions.length < 1 || definitions.length > UNS_V2_SUBSCRIBE_MAX_COLLECTIONS) {
+          throw new TypeError(`data.subscribe watches 1–${UNS_V2_SUBSCRIBE_MAX_COLLECTIONS} collections; got ${definitions.length}.`);
+        }
+        if (options.recordIds !== undefined && definitions.length !== 1) {
+          throw new TypeError('data.subscribe takes 1–100 recordIds, of exactly one collection.');
+        }
+        return { explicit: true };
+      }
+      const externalEnabled = options.includeExternal === true || referencedExternalAliases.size > 0;
+      if (!externalEnabled && (declared.length < 1 || declared.length > UNS_V2_SUBSCRIBE_MAX_COLLECTIONS)) {
+        throw new TypeError(`data.subscribe watches 1–${UNS_V2_SUBSCRIBE_MAX_COLLECTIONS} collections; got ${declared.length}.`);
+      }
+      if (externalEnabled && declared.length > UNS_V2_SUBSCRIBE_MAX_COLLECTIONS) {
+        throw new TypeError(`data.subscribe watches 1–${UNS_V2_SUBSCRIBE_MAX_COLLECTIONS} collections; got ${declared.length}.`);
+      }
+      if (!externalEnabled && options.recordIds !== undefined && declared.length !== 1) {
+        throw new TypeError('data.subscribe takes 1–100 recordIds, of exactly one collection.');
+      }
+      return { explicit: false };
+    },
+    async prepare({ collections: explicitList, includeExternal }) {
+      const aliases = new Map<string, string>();
+      if (explicitList !== undefined) {
+        const targets = [...new Set(explicitList.map(lookup))];
+        const ownedTargets = targets.filter(isCollectionDefinition);
+        const externalTargets = targets.filter(isExternalAliasReference);
+        const state = ownedTargets.length > 0 ? await bootstrap.ensure() : emptyEnsureState;
+        const externalSnapshot = externalTargets.length > 0 ? await externalContext.load() : undefined;
+        for (const target of targets) {
+          const id = await resolveTarget(target);
+          aliases.set(id, collectionLabel(target));
+        }
+        return { state, externalSnapshot, aliases, targets, hasExternal: externalTargets.length > 0 };
+      }
+      const state = declared.length > 0 ? await bootstrap.ensure() : emptyEnsureState;
+      const targets: CollectionTarget[] = [...declared];
+      for (const definition of declared) {
+        const id = await bootstrap.resolve(definition);
+        aliases.set(id, collectionLabel(definition));
+      }
+      const externalEnabled = includeExternal === true || referencedExternalAliases.size > 0;
+      let externalSnapshot: ExternalContextSnapshot | undefined;
+      if (externalEnabled) {
+        externalSnapshot = await externalContext.load();
+        const readable = externalContext.listReadable(
+          externalSnapshot,
+          includeExternal === true ? undefined : referencedExternalAliases,
+        );
+        for (const binding of readable) {
+          if (aliases.size >= UNS_V2_SUBSCRIBE_MAX_COLLECTIONS) break;
+          if (!aliases.has(binding.collectionId)) {
+            aliases.set(binding.collectionId, binding.alias);
+            targets.push({ alias: binding.alias });
+          }
+        }
+      }
+      return { state, externalSnapshot, aliases, targets, hasExternal: externalEnabled };
+    },
+    async recover(resolved: ResolvedSubscription, cause: DataError, { explicit }) {
+      const ownedTargets = resolved.targets.filter(isCollectionDefinition);
+      const externalTargets = resolved.targets.filter(isExternalAliasReference);
+      let ownedChanged = false;
+      let externalChanged = false;
+      if (ownedTargets.length > 0) {
+        ownedChanged = await bootstrap.rebuild(resolved.state, cause);
+      }
+      if (resolved.hasExternal && resolved.externalSnapshot) {
+        if (explicit && externalTargets.length > 0) {
+          const outcome = await externalContext.recoverTargets(resolved.externalSnapshot, externalTargets, cause);
+          if (outcome.unboundAlias !== undefined) {
+            throw externalCollectionUnboundError(outcome.unboundAlias, cause);
+          }
+          externalChanged = outcome.changed;
+        } else {
+          const failedId = typeof cause.details.collectionId === 'string' ? cause.details.collectionId : undefined;
+          const ownedIds = new Set(resolved.state.collectionIds.values());
+          if (!failedId || !ownedIds.has(failedId)) {
+            const after = await externalContext.refresh(resolved.externalSnapshot, `${cause.code}: ${cause.reason ?? cause.message}`);
+            const beforeExternalIds = [...resolved.aliases.keys()].filter((id) => !ownedIds.has(id));
+            const nextBindings = externalContext.listReadable(after, undefined);
+            const nextExternalIds = new Set(nextBindings.map((item) => item.collectionId));
+            const revokedOrRebound =
+              beforeExternalIds.some((id) => !nextExternalIds.has(id)) ||
+              externalTargets.some((target: CollectionAliasReference) => {
+                const key = target.alias.toLowerCase();
+                return resolved.externalSnapshot!.byAlias.get(key)?.collectionId !== after.byAlias.get(key)?.collectionId;
+              });
+            if (revokedOrRebound) externalChanged = true;
+          }
+        }
+      }
+      if (ownedChanged) return { changed: true, reason: 'COLLECTION_RECREATED' };
+      if (externalChanged) return { changed: true, reason: 'SCOPE_CHANGED' };
+      return { changed: false, reason: 'COLLECTION_RECREATED' };
+    },
+    onScopeChanged(resolved) {
+      if (resolved.hasExternal) externalContext.invalidate();
+    },
   });
 
   return {
@@ -394,6 +568,7 @@ export function createDataClient(config: DataClientConfig): DataClient {
     queryBatch: queryBatch as DataClient['queryBatch'],
     subscribe,
     ensure: bootstrap.ensure,
+    resolveCollectionId: (target, options) => resolveTarget(target, options),
     getTransactionLimits: () => readTransactionLimits(call, bootstrap.ensure, currentSignal()),
     assertIndexesReady: (definitions = declared) => {
       for (const definition of definitions) {

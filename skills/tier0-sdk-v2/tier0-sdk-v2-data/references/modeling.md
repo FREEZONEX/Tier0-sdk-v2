@@ -28,12 +28,18 @@ name 是展示的业务名称（1–63 字符，无首尾空白、斜杠或 NUL�
 import { createDataClient } from '@tier0/sdk-v2/data';
 
 const data = createDataClient({});
+// 推荐：按 appDataPolicy 中的 alias 引用外部授权集合，避免跨环境硬编码 collectionId
 export const inventory = data.collection<{ sku: string; available: number }>({
-  collectionId: 'existing-inventory-id',
+  alias: 'inventory_master',
 });
+
+// 时序采样接口可通过 resolveCollectionId 解析当前绑定的物理 ID
+export async function resolveTelemetryId() {
+  return data.resolveCollectionId({ alias: 'telemetry_readings' });
+}
 ```
 
-已有 ID 引用不加入声明数组，不需要 alias；可选 schema 用于本地写入校验，省略则由服务端校验。该引用也可用于 queryBatch/transact/subscribe，不建集合、种子或授权。
+外部 `{alias}` 引用不加入自有声明数组（且禁止与自有 `collections` 声明的 `alias` 大小写不敏感重名），运行时通过 `/uns/app/context` 按 `alias` 动态解析并缓存物理 ID，永不调用 `ensure`、不写种子、不改变所属关系。可选 `schema` 用于本地写入校验，省略则由服务端校验。管理员在数据访问中换绑同 `alias` 后，遇 `COLLECTION_NOT_GRANTED`/`COLLECTION_NOT_FOUND` 时 SDK 受限频（30 s/次）刷新上下文并透明重试 1 次；未绑定、撤权或源集合不可用时确定性抛出 `EXTERNAL_COLLECTION_UNBOUND`（503）。该引用同样可用于 `queryBatch`、`transact`、`$lookup`/`$unionWith` 和 `subscribe`。旧式 `{collectionId}` 仅用于兼容存量代码。
 
 ## 按实际业务范围声明目录
 

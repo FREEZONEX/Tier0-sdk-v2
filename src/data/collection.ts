@@ -9,7 +9,7 @@
  */
 import type { UnsV2OperationName } from '../uns-v2/generated.js';
 import type { CallOptions, DataCall } from './call.js';
-import { collectionLabel, type CollectionTarget, type RecordMeta } from './define.js';
+import { collectionLabel, isCollectionDefinition, type CollectionTarget, type RecordMeta } from './define.js';
 import { DataError } from './error.js';
 import { validateDocument, validateUpdate } from './schema.js';
 import { toSortPairs, type Filter, type Sort, type SortPairs } from './sort.js';
@@ -78,14 +78,31 @@ interface ManyPage extends WriteResult {
 /** Runtime services a collection handle needs from its client. */
 export interface CollectionRuntime {
   call: DataCall;
-  /** Resolve an existing ID directly, or ensure a declared collection. */
+  /** Resolve an existing ID directly, an external alias via appContext, or ensure a declared collection. */
   resolve(target: CollectionTarget | string): Promise<string>;
-  /** Runs a call, re-ensuring and retrying once when its collection ID went stale (see bootstrap). */
+  /** Normalize and validate a collection target or declared alias. */
+  lookup(target: CollectionTarget | string): CollectionTarget;
+  /** Runs a call, re-ensuring or refreshing external bindings and retrying once when a collection ID went stale. */
   recover<R>(fn: () => Promise<R>, options: { collections: readonly CollectionTarget[]; retry?: boolean }): Promise<R>;
   /** Abort signal of the request being served. */
   signal(): AbortSignal | undefined;
   /** Fresh declared-index state for the exact collection ID about to be written. */
   assertIndexesReady(target: CollectionTarget, collectionId: string): Promise<void>;
+}
+
+/** Recursively extracts `$lookup.from` and `$unionWith.from` targets from an aggregation pipeline. */
+export function extractPipelineTargets(pipeline: readonly Record<string, unknown>[]): (CollectionTarget | string)[] {
+  const targets: (CollectionTarget | string)[] = [];
+  for (const stage of pipeline) {
+    for (const operator of ['$lookup', '$unionWith']) {
+      const config = stage[operator];
+      if (!config || typeof config !== 'object') continue;
+      const { from, pipeline: inner } = config as Record<string, unknown>;
+      if (from !== undefined) targets.push(from as CollectionTarget | string);
+      if (Array.isArray(inner)) targets.push(...extractPipelineTargets(inner as Record<string, unknown>[]));
+    }
+  }
+  return targets;
 }
 
 /** Rejects batches UNS would refuse, before anything is sent. */
@@ -274,6 +291,8 @@ interface RecordGetResult {
 /** One read of `data.queryBatch`, built by `collection.query.*`. */
 export interface BatchQuery<R> {
   readonly collection: CollectionTarget;
+  /** Additional collection targets referenced inside an aggregate pipeline (`$lookup.from`, `$unionWith.from`). */
+  readonly references?: readonly (CollectionTarget | string)[];
   /** The batch item without `id` and `collectionId`; resolves `$lookup` targets. */
   prepare(): Promise<Record<string, unknown>>;
   /** The item's result as the builder's caller sees it. */
@@ -538,8 +557,14 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
    * methods; `get` sends all requested IDs in that same batch.
    */
   get query(): CollectionQueries<T> {
-    const one = <R>(op: string, build: () => Promise<Record<string, unknown>>, parse: (data: never) => R): BatchQuery<R> => ({
+    const one = <R>(
+      op: string,
+      build: () => Promise<Record<string, unknown>>,
+      parse: (data: never) => R,
+      references?: readonly (CollectionTarget | string)[],
+    ): BatchQuery<R> => ({
       collection: this.definition,
+      ...(references && references.length > 0 ? { references } : {}),
       prepare: async () => ({ op, ...compact(await build()) }),
       parse: parse as (data: unknown) => R,
     });
@@ -581,7 +606,7 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
           return last !== undefined && '$count' in last
             ? { pipeline: stages }
             : { pipeline: stages, page: isDirectPipeline(stages) ? { mode: 'cursor', size: MAX_PAGE_SIZE } : { mode: 'offset', page: 1, size: MAX_PAGE_SIZE } };
-        }, (data: { items: R[] }) => data.items),
+        }, (data: { items: R[] }) => data.items, extractPipelineTargets(pipeline)),
       aggregatePage: <R = Record<string, unknown>>(pipeline: Record<string, unknown>[], options: AggregatePageOptions = {}) => {
         const page = options.page ?? 1, pageSize = options.pageSize ?? MAX_PAGE_SIZE;
         assertAggregatePage(page, pageSize);
@@ -592,7 +617,7 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
         return one('aggregate', async () => ({
           pipeline: await this.prepareStages(pipeline),
           page: { mode: 'offset', page, size: pageSize },
-        }), (data: AggregatePage<R>) => ({ items: data.items, pageInfo: data.pageInfo }));
+        }), (data: AggregatePage<R>) => ({ items: data.items, pageInfo: data.pageInfo }), extractPipelineTargets(pipeline));
       },
       get: (ids, options = {}) => {
         const unique = uniqueReadIds(ids);
@@ -633,8 +658,11 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
    * Response byte budgets, timeouts and backend offset limits still apply.
    */
   aggregate<R = Record<string, unknown>>(pipeline: Record<string, unknown>[]): Cursor<R> {
-    // Recovery also re-resolves declared lookup/union targets before a retry.
-    return new Cursor<R>(({ token, size }) => this.runtime.recover(() => this.aggregatePage<R>(pipeline, token, size), { collections: [this.definition], retry: typeof token !== 'string' }), {}, MAX_AGGREGATE_PAGE_SIZE);
+    // Recovery also re-resolves declared and external lookup/union targets before a retry.
+    return new Cursor<R>(({ token, size }) => {
+      const collections = [...new Set([this.definition, ...extractPipelineTargets(pipeline).map(this.runtime.lookup)])];
+      return this.runtime.recover(() => this.aggregatePage<R>(pipeline, token, size), { collections, retry: typeof token !== 'string' });
+    }, {}, MAX_AGGREGATE_PAGE_SIZE);
   }
 
   private async aggregatePage<R>(
@@ -773,8 +801,8 @@ export class Collection<T extends object = Record<string, unknown>, TInput exten
    */
   async updateManyAtomic(filter: Filter, update: Update, options: UpdateManyAtomicOptions = {}): Promise<UpdateManyAtomicResult> {
     const validated = validateUpdate(this.definition, update);
-    if (options.requireIndexesReady && 'collectionId' in this.definition) {
-      throw new TypeError('Atomic range index readiness requires a declared collection, not an existing-ID reference.');
+    if (options.requireIndexesReady && !isCollectionDefinition(this.definition)) {
+      throw new TypeError('Atomic range index readiness requires a declared collection, not an external or existing-ID reference.');
     }
     return this.runtime.recover(async () => {
       const collectionId = await this.runtime.resolve(this.definition);

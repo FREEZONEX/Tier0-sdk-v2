@@ -89,7 +89,7 @@ export class DataError extends Error {
 }
 
 /** Platform states the App's caller cannot fix: they answer 503 whatever UNS answered. */
-const PLATFORM_CODES = new Set(['APP_NOT_READY', 'DEPENDENCY_UNAVAILABLE', 'CREDENTIAL_CHANGED', 'OUTCOME_UNKNOWN', 'TEMPORARILY_UNAVAILABLE', 'INDEX_PREPARING']);
+const PLATFORM_CODES = new Set(['APP_NOT_READY', 'DEPENDENCY_UNAVAILABLE', 'CREDENTIAL_CHANGED', 'OUTCOME_UNKNOWN', 'TEMPORARILY_UNAVAILABLE', 'INDEX_PREPARING', 'EXTERNAL_COLLECTION_UNBOUND']);
 
 /**
  * Maps an upstream UNS status and code to the status the App answers its own
@@ -126,9 +126,25 @@ const CODE_HINTS: Record<string, string> = {
   OVERLOADED:
     "This workspace's data requests are over their concurrency share; the data layer already waited and retried. Batch page reads with data.queryBatch and avoid per-record loops.",
   APP_NOT_READY: 'The platform is still preparing this App (e.g. right after an import); retry shortly.',
+  EXTERNAL_COLLECTION_UNBOUND:
+    'No external collection is bound to this alias in the App data policy. Bind an existing collection or clone one in App settings → Data.',
   QUERY_TIMEOUT: 'Narrow the query: add a more selective condition, a smaller limit or maxCount. The platform builds query indexes for recurring slow queries; do not declare them.',
   OUTCOME_UNKNOWN: 'The write may have committed; read the record back before writing again.',
 };
+
+/** Deterministic 503 raised when an external `{ alias }` reference is missing, revoked, or unavailable in `/uns/app/context`. */
+export function externalCollectionUnboundError(alias: string, cause?: unknown): DataError {
+  return new DataError({
+    message:
+      `External collection "${alias}" is not bound in this App's data policy. ` +
+      `Bind an existing collection or clone one with alias "${alias}" in App settings → Data.`,
+    status: 503,
+    code: 'EXTERNAL_COLLECTION_UNBOUND',
+    execution: 'notStarted',
+    details: { alias },
+    cause,
+  });
+}
 
 /** The deployed server owns quota values; older servers can retain lower limits. */
 const QUOTA_HINTS: Record<string, string> = {
