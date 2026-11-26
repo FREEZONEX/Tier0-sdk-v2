@@ -34,8 +34,9 @@
 import { isStaleCollectionError, type EnsureState } from './bootstrap.js';
 import type { DataOpenStream } from './call.js';
 import { assertEventId, UNS_V2_SUBSCRIBE_MAX_COLLECTIONS, UNS_V2_SUBSCRIBE_MAX_RECORD_IDS } from '../uns-v2/client.js';
-import { collectionLabel, type CollectionTarget } from './define.js';
+import type { CollectionTarget } from './define.js';
 import { DataError } from './error.js';
+import type { ExternalContextSnapshot } from './external-context.js';
 
 /** Three missed 15 s heartbeats. */
 export const SUBSCRIBE_IDLE_TIMEOUT_MS = 45_000;
@@ -49,8 +50,13 @@ const HEALTHY_CONNECTION_MS = 30_000;
 const SUBSCRIBE_SEEN_RECORDS_MAX = 10_000;
 
 export interface SubscribeOptions {
-  /** Declarations, aliases, or existing-ID references (at most 64); defaults to every declared collection. */
+  /** Declarations, aliases, external `{ alias }` references, or existing-ID references (at most 64); defaults to declared collections (plus bound readable external collections when referenced or `includeExternal` is set). */
   collections?: readonly (CollectionTarget | string)[];
+  /**
+   * When `collections` is omitted, also subscribe to bound `record:read` external collections from `/uns/app/context`.
+   * Unbound or non-`record:read` external collections are skipped without blocking owned collections.
+   */
+  includeExternal?: boolean;
   /** Only changes of these record IDs (1–100, duplicates ignored), when exactly one collection is watched. */
   recordIds?: readonly string[];
   /** Resume after this event (e.g. a browser's `Last-Event-ID`). */
@@ -93,13 +99,25 @@ export interface SubscribeObserver {
   retrying?(error: DataError): void;
 }
 
+export interface ResolvedSubscription {
+  readonly state: EnsureState;
+  readonly externalSnapshot?: ExternalContextSnapshot;
+  /** Physical collectionId -> event collection label (alias or existing ID). */
+  readonly aliases: Map<string, string>;
+  readonly targets: readonly CollectionTarget[];
+  readonly hasExternal: boolean;
+}
+
 export interface SubscribeRuntime {
   openStream: DataOpenStream;
-  ensure(targets: readonly CollectionTarget[]): Promise<EnsureState>;
-  rebuild(before: EnsureState, cause: DataError, targets: readonly CollectionTarget[]): Promise<boolean>;
-  resolve(target: CollectionTarget): Promise<string>;
-  lookup(target: CollectionTarget | string): CollectionTarget;
-  declared: readonly CollectionTarget[];
+  validate(options: SubscribeOptions): { explicit: boolean };
+  prepare(options: { collections?: readonly (CollectionTarget | string)[]; includeExternal?: boolean }): Promise<ResolvedSubscription>;
+  recover(
+    resolved: ResolvedSubscription,
+    cause: DataError,
+    options: { explicit: boolean },
+  ): Promise<{ changed: boolean; reason: string }>;
+  onScopeChanged(resolved: ResolvedSubscription): void;
 }
 
 function reconnectDelay(failures: number, afterMs: number | undefined): number {
@@ -151,14 +169,13 @@ function pause(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
+const EXTERNAL_EMPTY_WAIT_MS = 5_000;
+
 export function createSubscribe(runtime: SubscribeRuntime) {
   return async function* subscribe(options: SubscribeOptions = {}, observer: SubscribeObserver = {}): AsyncGenerator<SubscriptionEvent, void, undefined> {
-    const definitions = [...new Set((options.collections ?? runtime.declared).map(runtime.lookup))];
-    if (definitions.length < 1 || definitions.length > UNS_V2_SUBSCRIBE_MAX_COLLECTIONS) {
-      throw new TypeError(`data.subscribe watches 1–${UNS_V2_SUBSCRIBE_MAX_COLLECTIONS} collections; got ${definitions.length}.`);
-    }
+    const { explicit } = runtime.validate(options);
     const recordIds = options.recordIds === undefined ? undefined : [...new Set(options.recordIds)];
-    if (recordIds && (recordIds.length < 1 || recordIds.length > UNS_V2_SUBSCRIBE_MAX_RECORD_IDS || definitions.length !== 1)) {
+    if (recordIds && (recordIds.length < 1 || recordIds.length > UNS_V2_SUBSCRIBE_MAX_RECORD_IDS)) {
       throw new TypeError(`data.subscribe takes 1–${UNS_V2_SUBSCRIBE_MAX_RECORD_IDS} recordIds, of exactly one collection.`);
     }
     if (options.lastEventId !== undefined) assertEventId(options.lastEventId);
@@ -179,19 +196,31 @@ export function createSubscribe(runtime: SubscribeRuntime) {
     };
     try {
       while (!stop.signal.aborted) {
-        let state: EnsureState;
+        let resolved: ResolvedSubscription;
         try {
-          state = await runtime.ensure(definitions);
+          resolved = await runtime.prepare({ collections: options.collections, includeExternal: options.includeExternal });
         } catch (error) {
           // A freshly imported App answers APP_NOT_READY for a while: keep waiting for it.
           if (!(error instanceof DataError) || !error.retry.safe || stop.signal.aborted) throw error;
           await backOff(error);
           continue;
         }
-        const aliases = new Map<string, string>();
-        for (const definition of definitions) {
-          const id = await runtime.resolve(definition);
-          aliases.set(id, collectionLabel(definition));
+        const { aliases } = resolved;
+        if (aliases.size === 0) {
+          // Default subscription with only currently-unbound external collections: pause gracefully until bound.
+          const empty = new DataError({
+            code: 'EXTERNAL_COLLECTION_UNBOUND',
+            status: 503,
+            execution: 'notStarted',
+            message: 'No bound readable collections are available to subscribe.',
+            retry: { safe: true, afterMs: EXTERNAL_EMPTY_WAIT_MS },
+          });
+          await backOff(empty);
+          runtime.onScopeChanged(resolved);
+          continue;
+        }
+        if (recordIds && aliases.size !== 1) {
+          throw new TypeError(`data.subscribe takes 1–${UNS_V2_SUBSCRIBE_MAX_RECORD_IDS} recordIds, of exactly one collection.`);
         }
 
         const connection = new AbortController();
@@ -232,7 +261,10 @@ export function createSubscribe(runtime: SubscribeRuntime) {
               reset = true;
               // The consumer rereads everything; revisions seen before mean nothing for what follows.
               seen.clear();
+              const scopeChangedExternal = event.reason === 'SCOPE_CHANGED' && resolved.hasExternal;
+              if (scopeChangedExternal) runtime.onScopeChanged(resolved);
               yield event.message === undefined ? { type: 'reset', reason: event.reason } : { type: 'reset', reason: event.reason, message: event.message };
+              if (scopeChangedExternal) break;
               continue;
             }
             healthy = true;
@@ -255,19 +287,19 @@ export function createSubscribe(runtime: SubscribeRuntime) {
           if (stop.signal.aborted) return;
           if (!(error instanceof DataError)) throw error;
           if (isStaleCollectionError(error)) {
-            let changed: boolean;
+            let outcome: { changed: boolean; reason: string };
             try {
-              changed = await runtime.rebuild(state, error, definitions);
+              outcome = await runtime.recover(resolved, error, { explicit });
             } catch (cause) {
               if (!(cause instanceof DataError) || !cause.retry.safe) throw cause;
               await backOff(cause);
               continue;
             }
-            if (!changed) throw error;
-            // Recreated collections have new IDs; their old cursor means nothing.
+            if (!outcome.changed) throw error;
+            // Recreated or rebound collections have new IDs; their old cursor means nothing.
             lastEventId = undefined;
             seen.clear();
-            yield { type: 'reset', reason: 'COLLECTION_RECREATED' };
+            yield { type: 'reset', reason: outcome.reason };
             continue;
           }
           if (!error.retry.safe) throw error;

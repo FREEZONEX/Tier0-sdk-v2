@@ -1,6 +1,6 @@
 # 记录读写
 
-`data.collection(declaration)` 或 `data.collection({collectionId})` 返回集合句柄。SDK 文档为 `{_id,...业务字段,_meta}`；过滤、排序、投影直接写 status/customer.id/_meta.revision，不加 data.。
+`data.collection(declaration)` 或 `data.collection({alias})` 返回集合句柄（兼容存量 `{collectionId}`）。SDK 文档为 `{_id,...业务字段,_meta}`；过滤、排序、投影直接写 status/customer.id/_meta.revision，不加 data.。
 
 完整匹配范围必须一起修改时，使用 `updateManyAtomic(filter, update, { arrayFilters?, idempotencyKey?, dryRun?, requireIndexesReady? })`，返回计数、数据库 transactionTime 和 replayed/dryRun。此预览方法要求相应后端能力；它只发一次范围更新，不续页或降级为 updateMany，结果未知时不自动重发。旧 updateMany 继续允许部分提交。详见[一致性](consistency.md)。
 
