@@ -56,6 +56,7 @@ updateMany/deleteMany 部分失败的 details 是累计结果（matchedCount、m
 | INDEX_NOT_READY | 声明的唯一索引或 TTL 状态缺失或尚未 ready；停止依赖约束的写入，待平台完成后重新检查 |
 | INDEX_PREPARING | 平台正在为该查询（如大集合 `$lookup`）准备索引；可重试，按 retry 提示稍后重试，不需要补索引声明 |
 | APP_DATA_POLICY_DISABLED / APP_GRANT_REVOKED | 明确停用/撤权，不能自动恢复 |
+| EXTERNAL_COLLECTION_UNBOUND | 外部 `{alias}` 未绑定、已撤权或源集合不可用（503，`details.alias`），永不自动 ensure；引导管理员在数据访问或导入流程绑定/克隆对应别名集合 |
 | COLLECTION_NOT_GRANTED | 授权不覆盖该集合或操作（见 collectionId/permission）；按任务所需补授权，不必找管理员：Builder 用 appDataPolicyGet/appDataPolicyUpdate [添加](../../tier0-sdk-v2-uns/references/update.md#已有集合授权给-app)，或由有 App 数据管理权限的人在 App 设置 → 数据中添加 |
 | APP_PERMISSION_MISSING | 核对 App 的具体操作权限（data.missingPermission） |
 | OWNER_APP_TRASHED / DIRECTORY_IN_TRASH | 从原 App/目录恢复回收批次 |

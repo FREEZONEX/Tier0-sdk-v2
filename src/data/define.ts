@@ -89,13 +89,40 @@ export interface CollectionDefinition<S extends CollectionSchema = CollectionSch
   readonly seed?: readonly SeedDoc<S>[];
 }
 
-/** An existing collection. The optional schema validates writes locally; it never changes storage. */
-export interface CollectionReference<S extends CollectionSchema = CollectionSchema> {
+const COLLECTION_DEFINITION = Symbol.for('@tier0/sdk-v2/data/CollectionDefinition');
+
+/** An existing collection referenced by its physical ID. Optional schema validates writes locally; never changes storage. */
+export interface CollectionIdReference<S extends CollectionSchema = CollectionSchema> {
   readonly collectionId: string;
   readonly schema?: S;
 }
 
+/** An external authorized collection referenced by its `appDataPolicy` alias. Resolved via `/uns/app/context`; never ensured or seeded. */
+export interface CollectionAliasReference<S extends CollectionSchema = CollectionSchema> {
+  readonly alias: string;
+  readonly schema?: S;
+}
+
+/** An existing or external collection reference. Optional schema validates writes locally; it never changes storage. */
+export type CollectionReference<S extends CollectionSchema = CollectionSchema> =
+  | CollectionIdReference<S>
+  | CollectionAliasReference<S>;
+
 export type CollectionTarget = CollectionDefinition | CollectionReference;
+
+export function isCollectionIdReference(target: CollectionTarget): target is CollectionIdReference {
+  return 'collectionId' in target;
+}
+
+export function isCollectionDefinition(target: CollectionTarget): target is CollectionDefinition {
+  if ('collectionId' in target) return false;
+  if ((target as unknown as Record<symbol, unknown>)[COLLECTION_DEFINITION] === true) return true;
+  return 'name' in target && 'indexes' in target && Array.isArray((target as CollectionDefinition).indexes) && target.schema !== undefined;
+}
+
+export function isExternalAliasReference(target: CollectionTarget): target is CollectionAliasReference {
+  return !isCollectionIdReference(target) && !isCollectionDefinition(target);
+}
 
 export function collectionLabel(target: CollectionTarget): string {
   return 'collectionId' in target ? target.collectionId : target.alias;
@@ -146,7 +173,7 @@ export function defineCollection<S extends CollectionSchema>(definition: Collect
       `Collection "${definition.alias}": at most ${MAX_SEED_DOCUMENTS} seed documents (got ${definition.seed.length}). Seeds are a baseline written on creation, not a bulk import.`,
     );
   }
-  return Object.freeze({
+  const result: CollectionDefinition<S> = {
     alias: definition.alias,
     name: definition.name,
     ...(definition.directoryPath !== undefined ? { directoryPath: Object.freeze([...definition.directoryPath]) } : {}),
@@ -154,7 +181,9 @@ export function defineCollection<S extends CollectionSchema>(definition: Collect
     indexes: Object.freeze([...(definition.indexes ?? [])]),
     ...(definition.description ? { description: definition.description } : {}),
     ...(definition.seed ? { seed: Object.freeze([...definition.seed]) } : {}),
-  });
+  };
+  Object.defineProperty(result, COLLECTION_DEFINITION, { value: true, enumerable: false });
+  return Object.freeze(result);
 }
 
 export function assertCollectionName(name: unknown): asserts name is string {

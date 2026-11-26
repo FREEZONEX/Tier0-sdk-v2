@@ -10,7 +10,7 @@
  * time) instead of on the first request.
  */
 import { z } from 'zod';
-import { ALIAS_PATTERN, assertCollectionName, assertDirectoryPath, collectionLabel, type CollectionDefinition, type CollectionReference, type CollectionTarget, type IndexSpec } from './define.js';
+import { ALIAS_PATTERN, assertCollectionName, assertDirectoryPath, collectionLabel, isCollectionDefinition, type CollectionDefinition, type CollectionReference, type CollectionTarget, type IndexSpec } from './define.js';
 
 export type RecordSchemaType = 'object' | 'array' | 'string' | 'number' | 'integer' | 'boolean';
 export type EnumValue = string | number | boolean;
@@ -555,11 +555,11 @@ type IssuePath = (string | number)[];
 const referenceSchemas = new WeakMap<CollectionReference, RecordSchema>();
 
 function validationSchema(target: CollectionTarget): RecordSchema | undefined {
-  if (!('collectionId' in target)) return compileCollection(target).recordSchema;
+  if (isCollectionDefinition(target)) return compileCollection(target).recordSchema;
   if (!target.schema) return undefined;
   let schema = referenceSchemas.get(target);
   if (!schema) {
-    schema = toRecordSchema(target.collectionId, target.schema);
+    schema = toRecordSchema(collectionLabel(target), target.schema);
     referenceSchemas.set(target, schema);
   }
   return schema;

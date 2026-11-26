@@ -74,6 +74,8 @@ export type ChangeRelayStatus = 'idle' | 'connecting' | 'ready' | 'unavailable';
 export interface ChangeRelayOptions {
   /** Collections of the upstream; every declared collection by default. */
   collections?: SubscribeOptions['collections'];
+  /** When `collections` is omitted, also subscribe to bound `record:read` external collections from `/uns/app/context`. */
+  includeExternal?: boolean;
   /** Changes kept for replay to reconnecting browsers. Default 1000. */
   bufferSize?: number;
   /** Close the upstream this long after the last browser left. Default 30 s. */
@@ -173,7 +175,7 @@ function newSession(): Session {
 }
 
 export function createChangeRelay(data: ChangeRelaySource, options: ChangeRelayOptions = {}): ChangeRelay {
-  const { collections, onStatus, logger = console } = options;
+  const { collections, includeExternal, onStatus, logger = console } = options;
   const { bufferSize, idleCloseMs, restartIntervalMs, maxRestartIntervalMs, heartbeatMs, maxStreamMs } = { ...DEFAULTS, ...options };
   const subscribers = new Set<Subscriber>();
   let session = newSession();
@@ -259,6 +261,7 @@ export function createChangeRelay(data: ChangeRelaySource, options: ChangeRelayO
     try {
       const subscription = data.subscribe({
         ...(collections ? { collections } : {}),
+        ...(includeExternal !== undefined ? { includeExternal } : {}),
         ...(cursor === undefined ? {} : { lastEventId: cursor }),
         signal: controller.signal,
       }, observer);
